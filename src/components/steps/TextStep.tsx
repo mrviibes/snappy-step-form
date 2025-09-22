@@ -196,7 +196,7 @@ export default function TextStep({
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
           
           <div className="text-center">
-            <button className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               I don't want any specific words
             </button>
           </div>
