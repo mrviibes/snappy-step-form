@@ -1,6 +1,7 @@
+import { useState, KeyboardEvent } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import autoImage from "@/assets/visual-style-auto.jpg";
 import generalImage from "@/assets/visual-style-general.jpg";
@@ -57,6 +58,7 @@ export default function VisualsStep({
   data,
   updateData
 }: VisualsStepProps) {
+  const [tagInput, setTagInput] = useState('');
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -75,11 +77,27 @@ export default function VisualsStep({
     });
   };
 
-  const handleCustomVisualsChange = (customVisuals: string) => {
+  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      const currentVisuals = data.visuals?.customVisuals || [];
+      if (!currentVisuals.includes(tagInput.trim())) {
+        updateData({
+          visuals: {
+            ...data.visuals,
+            customVisuals: [...currentVisuals, tagInput.trim()]
+          }
+        });
+      }
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (visualToRemove: string) => {
+    const currentVisuals = data.visuals?.customVisuals || [];
     updateData({
       visuals: {
         ...data.visuals,
-        customVisuals: customVisuals
+        customVisuals: currentVisuals.filter((visual: string) => visual !== visualToRemove)
       }
     });
   };
@@ -141,35 +159,48 @@ export default function VisualsStep({
 
           {/* Custom Visuals Input for AI Assist */}
           {data.visuals?.option === "ai-assist" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Visuals? (optional)
-                </label>
-                <Textarea
-                  placeholder="enter visuals here and hit comma"
-                  value={data.visuals?.customVisuals || ""}
-                  onChange={(e) => handleCustomVisualsChange(e.target.value)}
-                  className="w-full min-h-[80px] resize-none"
-                />
+            <Card className="border-2 border-border bg-card p-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Any Specific Visuals? (optional)
+                  </label>
+                  <Input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleAddTag}
+                    placeholder="enter visuals here and hit return"
+                    className="w-full"
+                  />
+                </div>
+                
+                {/* Display visual tags */}
+                {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {data.visuals.customVisuals.map((visual: string, index: number) => (
+                      <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                        <span>{visual}</span>
+                        <button 
+                          onClick={() => handleRemoveTag(visual)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="text-center">
+                  <button className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
+                      "I'm ready to generate my visuals" : 
+                      "I don't want any specific visuals"
+                    }
+                  </button>
+                </div>
               </div>
-              {data.visuals?.customVisuals?.trim() ? (
-                <Button 
-                  variant="ghost" 
-                  className="text-sm text-cyan-400 font-medium p-0 h-auto hover:text-cyan-500"
-                  onClick={() => {
-                    // Handle ready to generate action
-                    console.log("Ready to generate visuals");
-                  }}
-                >
-                  I'm ready to generate my visuals
-                </Button>
-              ) : (
-                <p className="text-sm text-cyan-400 font-medium">
-                  I don't want any specific visuals
-                </p>
-              )}
-            </div>
+            </Card>
           )}
         </div>
       ) : (
@@ -248,46 +279,48 @@ export default function VisualsStep({
 
               {/* Custom Visuals Input for AI Assist */}
               {data.visuals?.option === "ai-assist" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Any Specific Visuals? (optional)
-                    </label>
-                    <Textarea
-                      placeholder="enter visuals here and hit comma"
-                      value={data.visuals?.customVisuals || ""}
-                      onChange={(e) => handleCustomVisualsChange(e.target.value)}
-                      className="w-full min-h-[80px] resize-none"
-                    />
-                  </div>
-                  {!data.visuals?.customVisuals?.trim() && (
-                    <p className="text-sm text-cyan-400 font-medium">
-                      I don't want any specific visuals
-                    </p>
-                  )}
-                </div>
-              )}
+                <Card className="border-2 border-border bg-card p-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Any Specific Visuals? (optional)
+                      </label>
+                      <Input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleAddTag}
+                        placeholder="enter visuals here and hit return"
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    {/* Display visual tags */}
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {data.visuals.customVisuals.map((visual: string, index: number) => (
+                          <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                            <span>{visual}</span>
+                            <button 
+                              onClick={() => handleRemoveTag(visual)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-              {/* Custom Visuals Input for AI Assist */}
-              {data.visuals?.option === "ai-assist" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Any Specific Visuals? (optional)
-                    </label>
-                    <Textarea
-                      placeholder="enter visuals here and hit comma"
-                      value={data.visuals?.customVisuals || ""}
-                      onChange={(e) => handleCustomVisualsChange(e.target.value)}
-                      className="w-full min-h-[80px] resize-none"
-                    />
+                    <div className="text-center">
+                      <button className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
+                          "I'm ready to generate my visuals" : 
+                          "I don't want any specific visuals"
+                        }
+                      </button>
+                    </div>
                   </div>
-                  {!data.visuals?.customVisuals?.trim() && (
-                    <p className="text-sm text-cyan-400 font-medium">
-                      I don't want any specific visuals
-                    </p>
-                  )}
-                </div>
+                </Card>
               )}
             </div>
           )}
