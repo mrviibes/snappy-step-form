@@ -413,8 +413,8 @@ export default function VisualsStep({
             </div>
           )}
 
-          {/* Style Selection and Generate Button - show after ready to generate but before style is selected */}
-          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && !data.visuals?.visualTaste && (
+          {/* Style Selection and Generate Button - show after ready to generate */}
+          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && (
             <div className="space-y-4">
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-foreground">
