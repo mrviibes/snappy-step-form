@@ -22,8 +22,18 @@ const STRUCTURE_TEMPLATES = {
   SURPRISE_OBJECT: "Inanimate object has agency"
 };
 
-// Topic seeds to avoid clichés
-const TOPIC_SEEDS = [
+// Category-relevant topic seeds for creative twists
+const TOPIC_SEEDS_BY_CATEGORY = {
+  birthday: ["birthday cake", "candles", "party hats", "gift wrapping", "age", "wishes", "celebration", "friends", "family", "getting older"],
+  wedding: ["marriage", "commitment", "romance", "partnership", "love", "ceremony", "reception", "couple", "vows", "future together"],
+  anniversary: ["memories", "years together", "milestones", "relationship", "time", "growth", "partnership", "shared experiences", "commitment", "celebration"],
+  graduation: ["achievement", "education", "future", "accomplishment", "learning", "school", "career", "success", "knowledge", "new chapter"],
+  retirement: ["career", "work life", "freedom", "time", "experience", "wisdom", "leisure", "accomplishments", "new phase", "relaxation"],
+  promotion: ["success", "recognition", "advancement", "hard work", "achievement", "career growth", "responsibility", "leadership", "opportunity", "progress"]
+};
+
+// Fallback general seeds for unlisted categories
+const GENERAL_TOPIC_SEEDS = [
   "neighbors", "Wi-Fi", "thermostat", "raccoons", "parking meter",
   "elevator", "leaf blower", "night shift", "robot vacuum", "playlist",
   "leftovers", "inbox", "lawn flamingo", "group chat", "souvenir mug",
@@ -53,8 +63,10 @@ function generateNonce(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
-function pickRandomSeeds(count: number): string[] {
-  const shuffled = [...TOPIC_SEEDS].sort(() => 0.5 - Math.random());
+function pickCategoryRelevantSeeds(category: string, count: number): string[] {
+  const categoryKey = category.toLowerCase().split(' > ')[0];
+  const categorySeeds = TOPIC_SEEDS_BY_CATEGORY[categoryKey] || GENERAL_TOPIC_SEEDS;
+  const shuffled = [...categorySeeds].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 }
 
@@ -330,7 +342,7 @@ serve(async (req) => {
     console.log('Generation request:', payload);
     
     const nonce = generateNonce();
-    const seeds = pickRandomSeeds(2);
+    const seeds = pickCategoryRelevantSeeds(payload.category, 4);
     const structures = pickStructureTemplates(4);
     const comedians = pickComedians(4);
     
@@ -342,8 +354,8 @@ Constraints:
 - Do not always start lines with Insert Words - mix up the positioning.
 - No em dash (—). Use commas, periods, ellipses, or short sentences.
 - Keep punctuation light; avoid stuffing marks.
-- Do not use literal category words (e.g., "birthday", "wedding") unless they appear in Insert Words.
-- Use category context for vibe/imagery, not literal repetition.
+- Stay relevant to the category context while avoiding overused cliché phrases.
+- Use creative twists on category-relevant topics rather than completely unrelated subjects.
 - Do not invent personal details like age, job, or milestones unless provided in Insert Words.
 - Vary rhythm and structure; do not repeat the same shape in one set.
 - Each line should focus on different topics/objects to avoid repetition.
@@ -381,14 +393,14 @@ Rating: ${payload.rating}
 Insert Words: ${(payload.insertWords || []).join(', ')}
 Comedian Style: ${comedian.name} – ${comedian.flavor}
 Structure: ${structure} — follow this structure exactly.
-Topic seed: ${topicSeed} (use this concept creatively, avoid category clichés)
+Topic focus: ${topicSeed} (put a creative spin on this ${payload.category.split(' > ')[0]}-related concept)
 ${placementHint}
 
 Important rules:
-- DO NOT use literal category words unless they appear in Insert Words
-- DO NOT invent personal details like ages, jobs, or milestones
-- Focus on ${topicSeed} rather than obvious ${payload.category.split(' > ')[0]} references
-- Make this structurally different from typical category humor
+- Stay relevant to ${payload.category.split(' > ')[0]} but avoid overused cliché phrases
+- DO NOT invent personal details like ages, jobs, or milestones unless provided
+- Put a fresh, creative twist on ${topicSeed} while keeping it ${payload.category.split(' > ')[0]}-relevant
+- Make this structurally interesting and unexpected
 - Vary insert word placement - not always at the start`;
 
         try {
@@ -442,8 +454,8 @@ Style: ${payload.style}
 Rating: ${payload.rating}
 Insert Words: ${(payload.insertWords || []).join(', ')}
 Comedian Style: ${comedian.name} – ${comedian.flavor}
-Structure: ${structure} — be very different from typical ${payload.category.split(' > ')[0]} jokes.
-Topic: Focus on ${topicSeed}, avoid clichés.`;
+Structure: ${structure} — put a fresh spin on ${payload.category.split(' > ')[0]} humor.
+Topic: Create a clever twist on ${topicSeed} that relates to ${payload.category.split(' > ')[0]}.`;
 
           try {
             const response = await callOpenAI(systemPrompt, userPrompt);
