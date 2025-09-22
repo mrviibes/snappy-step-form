@@ -107,6 +107,81 @@ function validateLine(line: string, payload: any): boolean {
   return true;
 }
 
+// Helper: classify insert word position
+function getInsertPos(line: string, insertWord: string): string {
+  const words = line.toLowerCase().split(/\W+/);
+  const idx = words.indexOf(insertWord.toLowerCase());
+  if (idx === -1) return "none";
+  const ratio = (idx + 1) / words.length;
+  if (ratio <= 0.33) return "front";
+  if (ratio >= 0.67) return "end";
+  return "middle";
+}
+
+// Helper: classify joke structure
+function classifyStructure(line: string): string {
+  if (line.trim().endsWith("?")) return "question";
+  if (line.toLowerCase().startsWith("knock knock")) return "knock";
+  if (line.toLowerCase().includes("like a") || line.toLowerCase().includes("as if"))
+    return "metaphor";
+  if (line.length < 75) return "quip";
+  return "narrative";
+}
+
+// Helper: detect dominant topic words
+function extractTopicWord(line: string, insertWords: string[]): string | null {
+  const tokens = line.toLowerCase().split(/\W+/).filter(t => t.length > 3);
+  const skip = new Set((insertWords || []).map(w => w.toLowerCase()));
+  // Skip common words and return first substantial topic word
+  const commonWords = new Set(['that', 'with', 'they', 'were', 'been', 'have', 'this', 'will', 'your', 'from', 'just', 'like', 'more', 'some', 'time', 'very', 'when', 'come', 'here', 'how', 'also', 'its', 'our', 'out', 'many', 'then', 'them', 'these', 'now', 'look', 'only', 'come', 'think', 'also', 'back', 'after', 'use', 'her', 'can', 'out', 'than', 'way', 'she', 'may', 'what', 'say', 'each', 'which', 'their', 'said', 'make', 'can', 'over', 'think', 'where', 'much', 'take', 'how', 'little', 'good', 'want', 'too', 'old', 'any', 'my', 'other', 'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use']);
+  
+  return tokens.find(t => !skip.has(t) && !commonWords.has(t)) || null;
+}
+
+// Main validator for the entire 4-pack
+function validateFourPack(lines: string[], insertWords: string[] = []): boolean {
+  const seenPositions = new Set<string>();
+  const seenStructures = new Set<string>();
+  const seenTopics = new Set<string>();
+
+  for (const line of lines) {
+    // 1. Basic validation (length, em dash, punctuation)
+    if (line.length < 50 || line.length > 120) return false;
+    if (line.includes('—')) return false;
+    
+    const punctCount = (line.match(/[,.!?]/g) || []).length;
+    if (punctCount > 3) return false;
+
+    // 2. Insert words present if required
+    for (const word of insertWords) {
+      if (!line.toLowerCase().includes(word.toLowerCase())) return false;
+    }
+
+    // 3. Track insert word placement
+    if (insertWords.length > 0) {
+      const pos = getInsertPos(line, insertWords[0]); // check first insert word
+      seenPositions.add(pos);
+    }
+
+    // 4. Track joke structure
+    const struct = classifyStructure(line);
+    seenStructures.add(struct);
+
+    // 5. Track topic words to prevent repetition
+    const topic = extractTopicWord(line, insertWords);
+    if (topic) {
+      if (seenTopics.has(topic)) return false; // reject duplicate topics
+      seenTopics.add(topic);
+    }
+  }
+
+  // Ensure variety across the pack
+  if (insertWords.length > 0 && seenPositions.size < 2) return false; // need at least 2 different positions
+  if (seenStructures.size < 2) return false; // need at least 2 different structures
+
+  return true;
+}
+
 function normalizeFirstLine(text: string): string {
   return text.split('\n')[0].trim().replace(/^["']|["']$/g, '');
 }
@@ -243,55 +318,130 @@ Nonce: ${nonce}`;
 
     const candidates = [];
     
-    // Generate 12 candidates with variety
-    for (let i = 0; i < 12; i++) {
-      const comedian = comedians[i % comedians.length];
-      const structure = structures[i % structures.length];
-      const seed1 = seeds[0];
-      const seed2 = seeds[1];
+    // Generate 12 candidates with enforced variety
+    const candidateBatches = [];
+    
+    // Force different structure templates and topics for variety
+    for (let batch = 0; batch < 3; batch++) {
+      const batchCandidates = [];
+      const usedStructures = [];
+      const usedTopics = [];
       
-      const userPrompt = `Category: ${payload.category}
+      for (let i = 0; i < 4; i++) {
+        const comedian = comedians[i % comedians.length];
+        const structure = structures[i];
+        const seedIndex = (batch * 4 + i) % seeds.length;
+        const topicSeed = seeds[seedIndex];
+        
+        // Ensure different placement for insert words
+        let placementHint = '';
+        if (payload.insertWords && payload.insertWords.length > 0) {
+          const placements = ['at the start', 'in the middle', 'at the end', 'naturally placed'];
+          placementHint = `Place "${payload.insertWords[0]}" ${placements[i % 4]}.`;
+        }
+        
+        const userPrompt = `Category: ${payload.category}
 Tone: ${payload.tone}
 Style: ${payload.style}
 Rating: ${payload.rating}
 Insert Words: ${(payload.insertWords || []).join(', ')}
 Comedian Style: ${comedian.name} – ${comedian.flavor}
-Structure: ${structure} — follow its vibe.
-Topic seeds: ${seed1}, ${seed2} (optional; do not overuse)`;
+Structure: ${structure} — follow this structure exactly.
+Topic seed: ${topicSeed} (use this concept creatively, avoid overused birthday clichés)
+${placementHint}
 
-      try {
-        const response = await callOpenAI(systemPrompt, userPrompt);
-        const normalized = normalizeFirstLine(response);
-        if (normalized) candidates.push(normalized);
-      } catch (error) {
-        console.error(`Failed to generate candidate ${i}:`, error);
+Make this joke structurally different from typical birthday humor. Focus on ${topicSeed} rather than cake/candles/party clichés.`;
+
+        try {
+          const response = await callOpenAI(systemPrompt, userPrompt);
+          const normalized = normalizeFirstLine(response);
+          if (normalized) batchCandidates.push(normalized);
+        } catch (error) {
+          console.error(`Failed to generate candidate ${batch}-${i}:`, error);
+        }
+      }
+      
+      candidateBatches.push(batchCandidates);
+    }
+    
+    // Flatten all candidates
+    const allCandidates = candidateBatches.flat();
+    console.log(`Generated ${allCandidates.length} raw candidates`);
+    
+    // Try to find valid 4-packs using the comprehensive validator
+    let bestFourPack = [];
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (bestFourPack.length < 4 && attempts < maxAttempts) {
+      // Try different combinations of candidates
+      const shuffled = [...allCandidates].sort(() => 0.5 - Math.random());
+      
+      // Test groups of 4 candidates
+      for (let i = 0; i <= shuffled.length - 4; i++) {
+        const testGroup = shuffled.slice(i, i + 4);
+        
+        if (validateFourPack(testGroup, payload.insertWords || [])) {
+          bestFourPack = testGroup;
+          break;
+        }
+      }
+      
+      attempts++;
+      if (bestFourPack.length === 0 && attempts < maxAttempts) {
+        // Generate more candidates if needed
+        console.log(`Attempt ${attempts}: No valid 4-pack found, generating more candidates`);
+        
+        for (let i = 0; i < 4; i++) {
+          const comedian = comedians[i % comedians.length];
+          const structure = structures[i % structures.length];
+          const topicSeed = seeds[i % seeds.length];
+          
+          const userPrompt = `Category: ${payload.category}
+Tone: ${payload.tone}
+Style: ${payload.style}
+Rating: ${payload.rating}
+Insert Words: ${(payload.insertWords || []).join(', ')}
+Comedian Style: ${comedian.name} – ${comedian.flavor}
+Structure: ${structure} — be very different from typical ${payload.category.split(' > ')[0]} jokes.
+Topic: Focus on ${topicSeed}, avoid clichés.`;
+
+          try {
+            const response = await callOpenAI(systemPrompt, userPrompt);
+            const normalized = normalizeFirstLine(response);
+            if (normalized) allCandidates.push(normalized);
+          } catch (error) {
+            console.error(`Failed to generate additional candidate:`, error);
+          }
+        }
       }
     }
     
-    console.log(`Generated ${candidates.length} raw candidates`);
+    console.log(`Found 4-pack after ${attempts} attempts: ${bestFourPack.length} candidates`);
     
-    // Validate candidates
-    const validated = candidates.filter(line => validateLine(line, payload));
-    console.log(`${validated.length} candidates passed validation`);
+    // Check uniqueness for the best 4-pack
+    let final = bestFourPack;
+    if (final.length === 4) {
+      final = await checkUniqueness(final, payload.userId);
+      console.log(`${final.length} candidates after uniqueness check`);
+    }
     
-    // Remove duplicates within this batch
-    const uniqueLocal = [...new Set(validated)];
-    console.log(`${uniqueLocal.length} candidates after local dedup`);
-    
-    // Check against history
-    const uniqueGlobal = await checkUniqueness(uniqueLocal, payload.userId);
-    console.log(`${uniqueGlobal.length} candidates after uniqueness check`);
-    
-    // Ensure placement spread and pick 4
-    let final = ensurePlacementSpread(uniqueGlobal, payload.insertWords || []);
-    
-    // If we don't have enough, fill with fallbacks
+    // If we don't have enough after uniqueness check, fill with simple fallbacks
     while (final.length < 4) {
-      const fallback = `${payload.insertWords?.[0] || 'Life'} happened, and here we are.`;
+      const fallbackIndex = 4 - final.length;
+      const insertWord = payload.insertWords?.[0] || 'Life';
+      const fallbacks = [
+        `${insertWord} happened, and here we are.`,
+        `Another day, another ${payload.category.split(' > ')[0].toLowerCase()}.`,
+        `${insertWord} keeps it interesting, always.`,
+        `Well, ${insertWord} certainly made an impression.`
+      ];
+      
+      const fallback = fallbacks[fallbackIndex - 1];
       if (!final.includes(fallback)) {
         final.push(fallback);
       } else {
-        final.push(`Another day, another ${payload.category.split(' > ')[0].toLowerCase()}.`);
+        final.push(`${insertWord} strikes again.`);
         break;
       }
     }
