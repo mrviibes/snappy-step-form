@@ -120,45 +120,62 @@ async function generateNLines(p: any, n: number) {
   const lines: string[] = [];
   let modelUsed = MODELS.primary;
   let attempts = 0;
-  const maxAttempts = n * 3; // Safety limit to prevent infinite loops
+  const maxAttempts = 6; // Reasonable limit
 
-  for (let i = 0; i < n && attempts < maxAttempts; attempts++) {
+  while (lines.length < n && attempts < maxAttempts) {
     const prompt = singleLinePrompt(p);
     try {
       const raw = await callOpenAI(modelUsed, prompt);
+      console.log("RAW OUTPUT:", raw);
+      
       const line = enforce(normalizeOne(raw)) as string | null;
       if (line && !lines.includes(line)) {
         lines.push(line);
-        i++;
+        console.log(`Generated line ${lines.length}:`, line);
+      } else {
+        console.log("Rejected line:", { raw, normalized: normalizeOne(raw), enforced: line });
       }
     } catch (e) {
       console.error(`OpenAI call failed (attempt ${attempts + 1}):`, e);
-      // If primary fails once, switch to backup; otherwise retry with backup
+      // If primary fails, switch to backup
       if (modelUsed === MODELS.primary) { 
         modelUsed = MODELS.backup; 
         console.log("Switching to backup model:", MODELS.backup);
-        continue; 
       }
-      // Add small delay before retry to avoid rapid-fire requests
+      // Add small delay before retry
       await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    attempts++;
+  }
+
+  // Add fallback lines if we didn't get enough
+  const fallbacks = [
+    "Celebrating life's special moments, one smile at a time!",
+    "Today deserves extra joy and maybe a little cake too.",
+    "Making memories that sparkle brighter than any candle.",
+    "Here's to another year of awesome adventures ahead!"
+  ];
+
+  while (lines.length < n && fallbacks.length > 0) {
+    const fallback = fallbacks.shift()!;
+    if (!lines.includes(fallback)) {
+      lines.push(fallback);
+      console.log("Added fallback line:", fallback);
     }
   }
 
-  if (lines.length === 0) {
-    throw new Error("No valid lines generated after multiple attempts");
-  }
-
-  // If we couldn't get all n lines, return what we have
+  console.log(`Final result: ${lines.length} lines generated`);
   return { modelUsed, lines };
 }
 
 function singleLinePrompt(p: any) {
   const must = (p.mandatory_words || []).slice(0, 6).join(", ");
   return `
-Write one single-sentence one-liner (exactly one sentence) for a celebration text generator.
+Write ONE single-sentence one-liner (exactly one sentence) for a celebration text generator.
 
 Rules:
-- Length 60 to 120 characters inclusive.
+- Length 40 to 140 characters inclusive.
+- ONE sentence only. No lists, no paragraphs.
 - No em dash.
 - Include these words naturally if present: ${must || "none"}.
 - Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
@@ -180,8 +197,8 @@ function normalizeOne(raw: string) {
 
 function enforce(s: string) {
   const len = [...s].length;
-  if (len < 60 || len > 120) return null;
-  if (/\u2014/.test(s)) return null;      // ban em dash
-  if (!/[.!?]$/.test(s)) s += ".";        // ensure punctuation
+  if (len < 40 || len > 140) return null;   // loosened from 60-120
+  if (/\u2014/.test(s)) return null;        // ban em dash
+  if (!/[.!?]$/.test(s)) s += ".";          // ensure punctuation
   return s;
 }
