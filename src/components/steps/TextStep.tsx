@@ -241,13 +241,22 @@ export default function TextStep({
         </div>
 
         {/* Selected Writing Preference */}
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="font-semibold text-foreground text-lg">
             PROCESS - "{selectedWritingPreference?.label}"
           </div>
           <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
           </button>
+        </div>
+        
+        {/* Exact Text Section */}
+        <div className="p-4">
+          <div className="font-semibold text-foreground text-lg">
+            EXACT TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 
+              ? data.text.specificWords.map(word => `"${word}"`).join(', ')
+              : 'none chosen'}
+          </div>
         </div>
       </div>
 
