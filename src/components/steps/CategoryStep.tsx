@@ -1140,7 +1140,7 @@ export default function CategoryStep({
         {/* Subcategory Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
-          <Input type="text" placeholder="Search subcategories..." value={subcategorySearchQuery} onChange={e => setSubcategorySearchQuery(e.target.value)} className="pl-10" />
+          <Input type="text" placeholder="Search subcategories..." value={subcategorySearchQuery} onChange={e => setSubcategorySearchQuery(e.target.value)} className="pl-10 py-3" />
         </div>
 
         {/* Subcategories */}
@@ -1168,7 +1168,7 @@ export default function CategoryStep({
       {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
-        <Input type="text" placeholder="Search categories..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
+        <Input type="text" placeholder="Search categories..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 py-3" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
