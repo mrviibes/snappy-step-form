@@ -117,37 +117,6 @@ export default function VibeStep({
         </Card>
       </div>
 
-      {/* Personality Selection */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-foreground">Personality Type</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {personalities.map(personality => <Card key={personality.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
-          "border-primary shadow-primary bg-accent": data.vibe?.personality === personality.id,
-          "border-border": data.vibe?.personality !== personality.id
-        })} onClick={() => handlePersonalityChange(personality.id)}>
-              <div className="mb-2 text-2xl">{personality.icon}</div>
-              <h4 className="mb-1 text-sm font-medium text-foreground">
-                {personality.title}
-              </h4>
-              <p className="text-xs text-muted-foreground">{personality.description}</p>
-            </Card>)}
-        </div>
-      </div>
-
-      {/* Intensity Slider */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium text-foreground">Training Intensity</h3>
-        <div className="space-y-4">
-          <Slider value={[getCurrentIntensity()]} onValueChange={handleIntensityChange} max={4} min={1} step={1} className="w-full" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            {intensityLabels.map((label, index) => <span key={label} className={cn("transition-colors duration-300", {
-            "font-medium text-primary": getCurrentIntensity() === index + 1
-          })}>
-                {label}
-              </span>)}
-          </div>
-        </div>
-      </div>
 
       {/* Preview */}
       <div className="rounded-lg bg-accent/50 p-4">
