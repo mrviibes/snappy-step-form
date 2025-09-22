@@ -233,6 +233,32 @@ export default function VisualsStep({
                   </div>
                 </>
               )}
+
+              {/* Visual Summary Row - only show after visual selection */}
+              {selectedVisualOption !== null && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Visual Summary - </span>
+                      <span className="text-sm text-foreground">
+                        {visualOptionsSamples[selectedVisualOption].substring(0, 15)}...
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setSelectedVisualOption(null);
+                        setShowVisualOptions(false);
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
