@@ -485,41 +485,6 @@ export default function TextStep({
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {/* Comedian Style Selection (Optional) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">Comedian Style (Optional)</label>
-                    <button 
-                      onClick={() => setShowComedianStyle(!showComedianStyle)}
-                      className="text-primary hover:text-primary/80 text-sm transition-colors"
-                    >
-                      {showComedianStyle ? 'Hide' : 'Show Options'}
-                    </button>
-                  </div>
-                  
-                  {showComedianStyle && (
-                    <Select value={data.text?.comedianStyle || ''} onValueChange={handleComedianStyleSelect}>
-                      <SelectTrigger className="w-full min-h-[44px]">
-                        <SelectValue placeholder="Choose comedian style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Let AI Choose</SelectItem>
-                        {comedianOptions.map(comedian => (
-                          <SelectItem key={comedian.id} value={comedian.id}>
-                            {comedian.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  
-                  {data.text?.comedianStyle && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {comedianOptions.find(c => c.id === data.text?.comedianStyle)?.description}
-                    </p>
-                  )}
-                </div>
               </div>
               
               {/* API Key Manager */}
