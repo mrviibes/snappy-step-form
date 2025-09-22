@@ -300,6 +300,13 @@ export default function VisualsStep({
                         setShowVisualGeneration(true);
                         setShowVisualOptions(false);
                         setShowDimensions(false);
+                        // Clear the visual taste so user can select again
+                        updateData({
+                          visuals: {
+                            ...data.visuals,
+                            visualTaste: ""
+                          }
+                        });
                       }}
                       className="text-xs text-cyan-500"
                     >
