@@ -269,32 +269,6 @@ export default function VisualsStep({
                 </>
               )}
 
-              {/* Visual Summary Row - only show after visual selection */}
-              {selectedVisualOption !== null && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Visual Summary - </span>
-                      <span className="text-sm text-foreground">
-                        {visualOptionsSamples[selectedVisualOption].substring(0, 15)}...
-                      </span>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setSelectedVisualOption(null);
-                        setShowVisualOptions(false);
-                      }}
-                      className="text-xs text-cyan-500"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </>
-              )}
-
               {/* Style Row - only show after visual generation */}
               {showVisualGeneration && data.visuals?.visualTaste && (
                 <>
@@ -312,6 +286,33 @@ export default function VisualsStep({
                       onClick={() => {
                         setShowVisualGeneration(false);
                         setShowVisualOptions(false);
+                        setShowDimensions(false);
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Visual Summary Row - only show after visual selection */}
+              {selectedVisualOption !== null && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Visual Summary - </span>
+                      <span className="text-sm text-foreground">
+                        {visualOptionsSamples[selectedVisualOption].substring(0, 15)}...
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setSelectedVisualOption(null);
+                        setShowVisualOptions(true);
                         setShowDimensions(false);
                       }}
                       className="text-xs text-cyan-500"
@@ -371,36 +372,6 @@ export default function VisualsStep({
             </div>
           )}
 
-          {/* Visual Generation Section - show below visuals input after ready to generate */}
-          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-foreground">
-                  Style
-                </label>
-                <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visualTasteOptions.map(option => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Button 
-                onClick={handleGenerateVisuals}
-                className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
-                disabled={!data.visuals?.visualTaste}
-              >
-                Generate Visuals
-              </Button>
-            </div>
-          )}
 
           {/* Visual Options - show after generate is clicked */}
           {showVisualOptions && (
