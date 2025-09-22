@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Key, Eye, EyeOff } from 'lucide-react'
 
 interface ApiKeyManagerProps {
-  onApiKeyChange?: (hasKey: boolean) => void
+  onApiKeyChange?: () => void
 }
 
 export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
@@ -18,16 +18,13 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
     const savedKey = localStorage.getItem('openai_api_key')
     if (savedKey) {
       setApiKey(savedKey)
-      onApiKeyChange?.(true)
-    } else {
-      onApiKeyChange?.(false)
     }
-  }, [onApiKeyChange])
+  }, [])
 
   const handleSaveKey = () => {
     if (apiKey.trim()) {
       localStorage.setItem('openai_api_key', apiKey.trim())
-      onApiKeyChange?.(true)
+      onApiKeyChange?.()
       setIsOpen(false)
     }
   }
@@ -35,7 +32,7 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
   const handleRemoveKey = () => {
     localStorage.removeItem('openai_api_key')
     setApiKey('')
-    onApiKeyChange?.(false)
+    onApiKeyChange?.()
     setIsOpen(false)
   }
 

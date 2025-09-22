@@ -1,10 +1,10 @@
-import { useState, KeyboardEvent, useEffect } from 'react';
+import { useState, KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { ApiKeyManager, getStoredApiKey } from '@/components/ApiKeyManager';
 import { generateTextOptions } from '@/lib/openai';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -61,20 +61,18 @@ export default function TextStep({
   const [textOptions, setTextOptions] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(false);
+  const [forceRerender, setForceRerender] = useState(0);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
 
-  // Check localStorage directly on mount as backup
-  useEffect(() => {
-    const savedKey = localStorage.getItem('openai_api_key');
-    setHasApiKey(!!savedKey);
-  }, []);
+  // Derive hasApiKey directly from localStorage
+  const hasApiKey = !!getStoredApiKey();
 
-  const handleApiKeyChange = (hasKey: boolean) => {
-    setHasApiKey(hasKey);
+  const handleApiKeyChange = () => {
+    // Force re-render to update the derived hasApiKey value
+    setForceRerender(prev => prev + 1);
   };
   const handleToneSelect = (toneId: string) => {
     updateData({
