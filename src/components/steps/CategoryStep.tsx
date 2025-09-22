@@ -2385,18 +2385,18 @@ export default function CategoryStep({
               placeholder="Search subcategories..." 
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
-              className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
+              className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
             />
           </div>
 
-          {/* Subcategories List */}
+          {/* Individual Subcategory Items */}
           <div className="max-h-80 overflow-y-auto scrollbar-hide">
-            <div className="space-y-2">
+            <div className="space-y-3">
               {filteredSubcategories.map(subcategory => (
                 <Card 
                   key={subcategory.id} 
                   className={cn(
-                    "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border-2 rounded-lg w-full",
+                    "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg w-full",
                     {
                       "border-primary bg-accent shadow-sm": data.subcategory === subcategory.id,
                       "border-border hover:border-border": data.subcategory !== subcategory.id
