@@ -2,6 +2,7 @@ import { useState, KeyboardEvent } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import autoImage from "@/assets/visual-style-auto.jpg";
 import generalImage from "@/assets/visual-style-general.jpg";
@@ -54,11 +55,20 @@ const visualOptions = [
   { id: "no-visuals", title: "Don't Want Visuals", fullTitle: "Option 3 - Don't Want Visuals" }
 ];
 
+const visualTasteOptions = [
+  { id: "balanced", label: "Balanced (default)" },
+  { id: "cinematic", label: "Cinematic (dramatic)" },
+  { id: "dreamlike", label: "Dreamlike (artsy)" },
+  { id: "action", label: "Action (energy)" },
+  { id: "exaggerated", label: "Exaggerated (extreme)" }
+];
+
 export default function VisualsStep({
   data,
   updateData
 }: VisualsStepProps) {
   const [tagInput, setTagInput] = useState('');
+  const [showVisualGeneration, setShowVisualGeneration] = useState(false);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -99,6 +109,28 @@ export default function VisualsStep({
         ...data.visuals,
         customVisuals: currentVisuals.filter((visual: string) => visual !== visualToRemove)
       }
+    });
+  };
+
+  const handleReadyToGenerate = () => {
+    setShowVisualGeneration(true);
+  };
+
+  const handleVisualTasteChange = (tasteId: string) => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        visualTaste: tasteId
+      }
+    });
+  };
+
+  const handleGenerateVisuals = () => {
+    console.log("Generate visuals with:", {
+      style: data.visuals?.style,
+      option: data.visuals?.option,
+      customVisuals: data.visuals?.customVisuals,
+      visualTaste: data.visuals?.visualTaste
     });
   };
 
@@ -154,6 +186,37 @@ export default function VisualsStep({
                   Edit
                 </Button>
               </div>
+
+              {/* Visual Taste Row - only show after ready to generate */}
+              {showVisualGeneration && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <span className="text-sm font-medium text-foreground min-w-[60px]">Style - </span>
+                      <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Choose style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {visualTasteOptions.map(option => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        onClick={handleGenerateVisuals}
+                        className="bg-cyan-400 hover:bg-cyan-500 text-white ml-auto"
+                        disabled={!data.visuals?.visualTaste}
+                      >
+                        Generate Visuals
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
@@ -191,7 +254,10 @@ export default function VisualsStep({
                 )}
 
                 <div className="text-center">
-                  <button className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                  <button 
+                    onClick={handleReadyToGenerate}
+                    className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+                  >
                     {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
                       "I'm ready to generate my visuals" : 
                       "I don't want any specific visuals"
@@ -309,7 +375,10 @@ export default function VisualsStep({
                     )}
 
                     <div className="text-center">
-                      <button className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                      <button 
+                        onClick={handleReadyToGenerate}
+                        className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+                      >
                         {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
                           "I'm ready to generate my visuals" : 
                           "I don't want any specific visuals"
