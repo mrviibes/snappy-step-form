@@ -16,29 +16,35 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
-  if (req.method !== "POST") {
-    return json({ error: "POST only" }, 405);
-  }
-
-  let body: any = {};
   try {
-    body = await req.json();
-  } catch {
-    return json({ error: "invalid_json" }, 400);
-  }
+    console.log("Request received:", req.method);
+    
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
 
-  const n = clamp(body.num_variations ?? 4, 1, 8);
+    if (req.method !== "POST") {
+      return json({ error: "POST only" }, 405);
+    }
 
-  try {
+    let body: any = {};
+    try {
+      body = await req.json();
+      console.log("Request body:", body);
+    } catch {
+      return json({ error: "invalid_json" }, 400);
+    }
+
+    const n = clamp(body.num_variations ?? 4, 1, 8);
+    console.log("Generating", n, "lines");
+
     const result = await generateNLines(body, n);
+    console.log("Generated result:", { model: result.modelUsed, count: result.lines.length });
+    
     return json({ model: result.modelUsed, options: result.lines });
   } catch (e) {
-    console.error("Generation failed:", e);
+    console.error("Top-level error:", e);
     return json({ error: String(e?.message || e || "generation_failed") }, 500);
   }
 });
@@ -73,27 +79,41 @@ No numbering, no bullets, no extra commentary, no blank lines.
 }
 
 async function callOpenAI(model: string, input: string) {
-  const resp = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "authorization": `Bearer ${OPENAI_API_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input,
-      max_output_tokens: 600,
-    }),
-  });
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(), 15000); // 15s max
 
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`openai_${resp.status}_${txt.slice(0, 200)}`);
+  try {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${OPENAI_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input,
+        max_output_tokens: 160,
+      }),
+      signal: ctl.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`openai_${resp.status}_${txt.slice(0, 200)}`);
+    }
+
+    const data = await resp.json();
+    const text = data?.output_text?.trim() || "";
+    return text;
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') {
+      throw new Error("timeout_or_network_error");
+    }
+    throw e;
   }
-
-  const data = await resp.json();
-  const text = data?.output_text?.trim() || "";
-  return text;
 }
 
 async function generateNLines(p: any, n: number) {
