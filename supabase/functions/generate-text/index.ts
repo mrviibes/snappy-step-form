@@ -12,11 +12,13 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
@@ -31,20 +33,20 @@ Deno.serve(async (req) => {
   }
 
   const n = clamp(body.num_variations ?? 4, 1, 8);
-  const prompt = buildPrompt(body, n);
 
   try {
     const result = await generateNLines(body, n);
     return json({ model: result.modelUsed, options: result.lines });
   } catch (e) {
-    return json({ error: String(e?.message || e || "generation_failed") }, 502);
+    console.error("Generation failed:", e);
+    return json({ error: String(e?.message || e || "generation_failed") }, 500);
   }
 });
 
 function json(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
+    headers: corsHeaders,
   });
 }
 
@@ -97,8 +99,10 @@ async function callOpenAI(model: string, input: string) {
 async function generateNLines(p: any, n: number) {
   const lines: string[] = [];
   let modelUsed = MODELS.primary;
+  let attempts = 0;
+  const maxAttempts = n * 3; // Safety limit to prevent infinite loops
 
-  for (let i = 0; i < n; ) {
+  for (let i = 0; i < n && attempts < maxAttempts; attempts++) {
     const prompt = singleLinePrompt(p);
     try {
       const raw = await callOpenAI(modelUsed, prompt);
@@ -107,12 +111,24 @@ async function generateNLines(p: any, n: number) {
         lines.push(line);
         i++;
       }
-    } catch (_e) {
+    } catch (e) {
+      console.error(`OpenAI call failed (attempt ${attempts + 1}):`, e);
       // If primary fails once, switch to backup; otherwise retry with backup
-      if (modelUsed === MODELS.primary) { modelUsed = MODELS.backup; continue; }
+      if (modelUsed === MODELS.primary) { 
+        modelUsed = MODELS.backup; 
+        console.log("Switching to backup model:", MODELS.backup);
+        continue; 
+      }
+      // Add small delay before retry to avoid rapid-fire requests
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 
+  if (lines.length === 0) {
+    throw new Error("No valid lines generated after multiple attempts");
+  }
+
+  // If we couldn't get all n lines, return what we have
   return { modelUsed, lines };
 }
 
