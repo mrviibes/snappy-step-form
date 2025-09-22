@@ -2332,7 +2332,7 @@ export default function CategoryStep({
         {/* Selected Category */}
         <div className="flex items-center justify-between p-4">
           <div className="space-y-1">
-            <div className="text-base font-semibold text-foreground">Category - {categoryData?.title}</div>
+            <div className="text-sm text-foreground"><span className="font-semibold">Category</span> - {categoryData?.title}</div>
           </div>
           <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
@@ -2342,7 +2342,7 @@ export default function CategoryStep({
         {/* Selected Subcategory */}
         <div className="flex items-center justify-between p-4 border-t border-border">
           <div className="space-y-1">
-            <div className="text-base font-semibold text-foreground">Subcategory - {subcategoryData?.title}</div>
+            <div className="text-sm text-foreground"><span className="font-semibold">Subcategory</span> - {subcategoryData?.title}</div>
           </div>
           <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
@@ -2360,7 +2360,7 @@ export default function CategoryStep({
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           <div className="flex items-center justify-between p-4">
             <div className="space-y-1">
-              <div className="text-base font-semibold text-foreground">Category - {selectedCategoryData.title}</div>
+              <div className="text-sm text-foreground"><span className="font-semibold">Category</span> - {selectedCategoryData.title}</div>
             </div>
             <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
