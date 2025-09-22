@@ -105,6 +105,7 @@ export default function CategoryStep({
   onNext
 }: CategoryStepProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [subcategorySearchQuery, setSubcategorySearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
 
@@ -115,10 +116,17 @@ export default function CategoryStep({
 
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
 
+  const filteredSubcategories = selectedCategoryData 
+    ? selectedCategoryData.subcategories.filter(subcategory =>
+        subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())
+      )
+    : [];
+
   const handleCategorySelection = (goalId: string) => {
     setSelectedCategory(goalId);
     setShowingSubcategories(true);
     setSearchQuery("");
+    setSubcategorySearchQuery("");
   };
 
   const handleSubcategorySelection = (subcategoryId: string) => {
@@ -136,6 +144,7 @@ export default function CategoryStep({
     setShowingSubcategories(false);
     setSelectedCategory(null);
     setSearchQuery("");
+    setSubcategorySearchQuery("");
   };
 
   if (showingSubcategories && selectedCategoryData) {
@@ -167,9 +176,21 @@ export default function CategoryStep({
           </div>
         </div>
 
+        {/* Subcategory Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+          <Input 
+            type="text" 
+            placeholder="Search subcategories..." 
+            value={subcategorySearchQuery} 
+            onChange={e => setSubcategorySearchQuery(e.target.value)} 
+            className="pl-10" 
+          />
+        </div>
+
         {/* Subcategories */}
         <div className="space-y-2">
-          {selectedCategoryData.subcategories.map(subcategory => (
+          {filteredSubcategories.map(subcategory => (
             <Card 
               key={subcategory.id}
               className={cn(
