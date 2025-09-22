@@ -95,7 +95,7 @@ export default function MultiStepForm() {
       <div className="mx-auto max-w-md">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Choose Your Category</h1>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">Choose Your TEXT</h1>
           
         </div>
 
