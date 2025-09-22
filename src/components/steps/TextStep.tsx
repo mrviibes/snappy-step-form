@@ -12,6 +12,7 @@ import lowerBannerImage from "@/assets/lower-banner-snailed-it-peace.jpg";
 import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
+import textLayoutExample from "@/assets/text-layout-example.jpg";
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -476,6 +477,15 @@ export default function TextStep({
           <h2 className="text-xl font-semibold text-foreground">Inserted Words (optional)</h2>
           <div className="mt-3">
             <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
+          </div>
+          
+          {/* Text Layout Example */}
+          <div className="mt-4 mb-4">
+            <img 
+              src={textLayoutExample} 
+              alt="Text layout example showing 'YOU GOT IT DUDE!' with cartoon character"
+              className="mx-auto rounded-lg shadow-md max-w-sm w-full h-auto"
+            />
           </div>
         </div>
 
