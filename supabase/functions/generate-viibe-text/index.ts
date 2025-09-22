@@ -138,11 +138,15 @@ function extractTopicWord(line: string, insertWords: string[]): string | null {
   return tokens.find(t => !skip.has(t) && !commonWords.has(t)) || null;
 }
 
-// Main validator for the entire 4-pack
-function validateFourPack(lines: string[], insertWords: string[] = []): boolean {
+// Enhanced validator to catch specific issues
+function validateFourPack(lines: string[], insertWords: string[] = [], category: string = ""): boolean {
   const seenPositions = new Set<string>();
   const seenStructures = new Set<string>();
   const seenTopics = new Set<string>();
+
+  // Extract category base word to avoid literal usage
+  const categoryWords = category.toLowerCase().split(/[>\s]+/).map(w => w.trim()).filter(Boolean);
+  const insertWordsLower = insertWords.map(w => w.toLowerCase());
 
   for (const line of lines) {
     // 1. Basic validation (length, em dash, punctuation)
@@ -157,17 +161,36 @@ function validateFourPack(lines: string[], insertWords: string[] = []): boolean 
       if (!line.toLowerCase().includes(word.toLowerCase())) return false;
     }
 
-    // 3. Track insert word placement
+    // 3. Check for fabricated personal details (ages, milestones)
+    if (/turned?\s+\d+|just\s+turned|\d+\s+years?\s+old|\d+th\s+birthday/i.test(line)) {
+      // Only allow if the number/age is in insert words
+      const ageMatches = line.match(/\d+/g) || [];
+      const hasValidAge = ageMatches.some(age => 
+        insertWords.some(word => word.includes(age))
+      );
+      if (!hasValidAge) return false;
+    }
+
+    // 4. Check for literal category usage (unless in insert words)
+    for (const categoryWord of categoryWords) {
+      if (categoryWord.length > 3 && line.toLowerCase().includes(categoryWord)) {
+        if (!insertWordsLower.some(iw => iw.includes(categoryWord))) {
+          return false; // Using literal category word without it being in insert words
+        }
+      }
+    }
+
+    // 5. Track insert word placement
     if (insertWords.length > 0) {
       const pos = getInsertPos(line, insertWords[0]); // check first insert word
       seenPositions.add(pos);
     }
 
-    // 4. Track joke structure
+    // 6. Track joke structure
     const struct = classifyStructure(line);
     seenStructures.add(struct);
 
-    // 5. Track topic words to prevent repetition
+    // 7. Track topic words to prevent repetition
     const topic = extractTopicWord(line, insertWords);
     if (topic) {
       if (seenTopics.has(topic)) return false; // reject duplicate topics
@@ -308,11 +331,15 @@ serve(async (req) => {
 
 Constraints:
 - Exactly ONE sentence, 50–120 characters.
-- Include Insert Words naturally if provided; they need not be adjacent.
+- Include Insert Words naturally if provided; vary their placement (front, middle, end).
+- Do not always start lines with Insert Words - mix up the positioning.
 - No em dash (—). Use commas, periods, ellipses, or short sentences.
 - Keep punctuation light; avoid stuffing marks.
-- Avoid category clichés unless Insert Words require them.
+- Do not use literal category words (e.g., "birthday", "wedding") unless they appear in Insert Words.
+- Use category context for vibe/imagery, not literal repetition.
+- Do not invent personal details like age, job, or milestones unless provided in Insert Words.
 - Vary rhythm and structure; do not repeat the same shape in one set.
+- Each line should focus on different topics/objects to avoid repetition.
 - Output only the sentence. No explanations.
 Nonce: ${nonce}`;
 
@@ -336,7 +363,7 @@ Nonce: ${nonce}`;
         // Ensure different placement for insert words
         let placementHint = '';
         if (payload.insertWords && payload.insertWords.length > 0) {
-          const placements = ['at the start', 'in the middle', 'at the end', 'naturally placed'];
+          const placements = ['at the beginning', 'in the middle', 'at the end', 'naturally woven in'];
           placementHint = `Place "${payload.insertWords[0]}" ${placements[i % 4]}.`;
         }
         
@@ -347,10 +374,15 @@ Rating: ${payload.rating}
 Insert Words: ${(payload.insertWords || []).join(', ')}
 Comedian Style: ${comedian.name} – ${comedian.flavor}
 Structure: ${structure} — follow this structure exactly.
-Topic seed: ${topicSeed} (use this concept creatively, avoid overused birthday clichés)
+Topic seed: ${topicSeed} (use this concept creatively, avoid category clichés)
 ${placementHint}
 
-Make this joke structurally different from typical birthday humor. Focus on ${topicSeed} rather than cake/candles/party clichés.`;
+Important rules:
+- DO NOT use literal category words unless they appear in Insert Words
+- DO NOT invent personal details like ages, jobs, or milestones
+- Focus on ${topicSeed} rather than obvious ${payload.category.split(' > ')[0]} references
+- Make this structurally different from typical category humor
+- Vary insert word placement - not always at the start`;
 
         try {
           const response = await callOpenAI(systemPrompt, userPrompt);
@@ -381,7 +413,7 @@ Make this joke structurally different from typical birthday humor. Focus on ${to
       for (let i = 0; i <= shuffled.length - 4; i++) {
         const testGroup = shuffled.slice(i, i + 4);
         
-        if (validateFourPack(testGroup, payload.insertWords || [])) {
+        if (validateFourPack(testGroup, payload.insertWords || [], payload.category)) {
           bestFourPack = testGroup;
           break;
         }
