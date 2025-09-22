@@ -196,7 +196,7 @@ export default function TextStep({
       <div className="rounded-lg border-2 border-primary bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="font-semibold text-foreground text-lg">
-            WRITING PREFERENCE - "{selectedWritingPreference?.label}"
+            PROCESS - "{selectedWritingPreference?.label}"
           </div>
           <button 
             onClick={handleEditWritingPreference}
