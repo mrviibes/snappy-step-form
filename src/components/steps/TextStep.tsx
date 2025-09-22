@@ -402,7 +402,7 @@ export default function TextStep({
       {/* Add Specific Words Section - only show before generation and NOT for write-myself */}
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">Any Mandatory Text (optional)</h2>
+          <h2 className="text-xl font-semibold text-foreground">Mandatory Text (optional)</h2>
         </div>
 
         <div className="space-y-3">
