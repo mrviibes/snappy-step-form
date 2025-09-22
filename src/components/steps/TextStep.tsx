@@ -177,9 +177,10 @@ export default function TextStep({
 
   // Show selected preferences and specific words input
   return <div className="space-y-6">
-      {/* Selected Tone Display with Edit Option */}
-      <div className="rounded-lg border-2 border-primary bg-card p-4">
-        <div className="flex items-center justify-between">
+      {/* Selected Tone and Process in stacked format */}
+      <div className="bg-white rounded-lg border border-primary overflow-hidden">
+        {/* Selected Tone */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="font-semibold text-foreground text-lg">
             TONE - "{selectedTone?.label}"
           </div>
@@ -190,11 +191,9 @@ export default function TextStep({
             Edit
           </button>
         </div>
-      </div>
 
-      {/* Selected Writing Preference Display with Edit Option */}
-      <div className="rounded-lg border-2 border-primary bg-card p-4">
-        <div className="flex items-center justify-between">
+        {/* Selected Writing Preference */}
+        <div className="flex items-center justify-between p-4">
           <div className="font-semibold text-foreground text-lg">
             PROCESS - "{selectedWritingPreference?.label}"
           </div>
