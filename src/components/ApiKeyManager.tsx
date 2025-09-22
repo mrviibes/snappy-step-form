@@ -82,8 +82,12 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
                 <div className="flex gap-2">
                   <Button
                     onClick={() => {
+                      console.log('Update Key clicked - clearing apiKey')
                       setApiKey('')
                       setShowKey(false)
+                      // Also clear from localStorage to force a fresh state
+                      localStorage.removeItem('openai_api_key')
+                      onApiKeyChange?.()
                     }}
                     variant="outline"
                     size="sm"
