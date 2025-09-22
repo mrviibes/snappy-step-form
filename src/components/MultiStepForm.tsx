@@ -14,6 +14,7 @@ interface FormData {
     tone: string;
     writingPreference: string;
     layout?: string;
+    customText?: string;
   };
   visuals: {
     style: string;
@@ -80,6 +81,9 @@ export default function MultiStepForm() {
       case 1:
         return !!formData.category && !!formData.subcategory;
       case 2:
+        if (formData.text.writingPreference === 'write-myself') {
+          return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.customText && !!formData.text.layout;
+        }
         return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.layout;
       case 3:
         return !!formData.visuals.style && formData.visuals.colors.length > 0;

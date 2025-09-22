@@ -93,6 +93,7 @@ export default function TextStep({
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
+  const [customText, setCustomText] = useState('');
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -116,6 +117,12 @@ export default function TextStep({
         writingPreference: preferenceId
       }
     });
+    
+    // If "write-myself" is selected, skip to custom text input
+    if (preferenceId === 'write-myself') {
+      setShowGeneration(false);
+      setShowTextOptions(false);
+    }
   };
   const handleEditWritingPreference = () => {
     updateData({
@@ -189,6 +196,19 @@ export default function TextStep({
         generatedText: textOptions[optionIndex]
       }
     });
+  };
+
+  const handleCustomTextChange = (value: string) => {
+    if (value.length <= 100) {
+      setCustomText(value);
+      updateData({
+        text: {
+          ...data.text,
+          customText: value,
+          generatedText: value
+        }
+      });
+    }
   };
 
   const handleLayoutSelect = (layoutId: string) => {
@@ -341,13 +361,23 @@ export default function TextStep({
           </div>
         )}
 
-        {/* Selected Text Summary - only show after text selection */}
-        {selectedTextOption !== null && (
+        {/* Selected Text Summary - only show after text selection or custom text */}
+        {(selectedTextOption !== null || (data.text?.writingPreference === 'write-myself' && customText)) && (
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
-              <span className="font-semibold">Text</span> - {textOptions[selectedTextOption].substring(0, 20)}...
+              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? 
+                customText.substring(0, 20) + (customText.length > 20 ? '...' : '') :
+                textOptions[selectedTextOption].substring(0, 20) + '...'}
             </div>
-            <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={() => {
+              if (data.text?.writingPreference === 'write-myself') {
+                setCustomText('');
+                updateData({ text: { ...data.text, customText: '', generatedText: '' } });
+              } else {
+                setSelectedTextOption(null);
+                setShowLayoutOptions(false);
+              }
+            }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -375,23 +405,45 @@ export default function TextStep({
         <div className="space-y-3">
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
           
-          {/* Display tags right under input box */}
-          {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
-              {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                  <span>{word}</span>
-                  <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
-                    ×
-                  </button>
-                </div>)}
-            </div>}
+        {/* Display tags right under input box */}
+        {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
+            {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                <span>{word}</span>
+                <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
+                  ×
+                </button>
+              </div>)}
+          </div>}
 
+        <div className="text-center">
+          <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't want any specific words"}
+          </button>
+        </div>
+      </div>
+    </div>}
+      
+      {/* Custom Text Input for Write Myself option */}
+      {data.text?.writingPreference === 'write-myself' && (
+        <div className="space-y-4">
           <div className="text-center">
-            <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't want any specific words"}
-            </button>
+            <h2 className="text-xl font-semibold text-foreground">Write Your Own Text</h2>
+          </div>
+          
+          <div className="space-y-2">
+            <Input 
+              value={customText}
+              onChange={(e) => handleCustomTextChange(e.target.value)}
+              placeholder="Enter your text here (up to 100 characters)"
+              maxLength={100}
+              className="w-full"
+            />
+            <div className="text-right text-sm text-muted-foreground">
+              {customText.length}/100 characters
+            </div>
           </div>
         </div>
-      </div>}
+      )}
         
         {/* Generation Section */}
         {showGeneration && !showTextOptions && <div className="space-y-4">
@@ -463,8 +515,8 @@ export default function TextStep({
                  </div>
                )}
 
-               {/* Layout Options - Show after text selection but before layout selection */}
-               {selectedTextOption !== null && !data.text?.layout && (
+               {/* Layout Options - Show after text selection or custom text entry */}
+               {((selectedTextOption !== null && !data.text?.layout) || (data.text?.writingPreference === 'write-myself' && customText && !data.text?.layout)) && (
                  <div className="space-y-3 p-4">
                    <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
