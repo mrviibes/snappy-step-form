@@ -234,7 +234,7 @@ export default function TextStep({
         </div>
 
         {/* Selected Writing Preference */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 {showGeneration ? 'border-b border-border' : ''}">
           <div className="font-semibold text-foreground text-lg">
             PROCESS - "{selectedWritingPreference?.label}"
           </div>
@@ -243,12 +243,12 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Exact Text Section */}
-        <div className="p-4">
+        {/* Exact Text Section - only show after generation step */}
+        {showGeneration && <div className="p-4">
           <div className="font-semibold text-foreground text-lg">
             EXACT TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Add Specific Words Section */}
@@ -271,7 +271,7 @@ export default function TextStep({
             </div>}
 
           <div className="text-center">
-            <button onClick={() => data.text?.specificWords && data.text.specificWords.length > 0 ? handleReadyToGenerate() : undefined} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't want any specific words"}
             </button>
           </div>
