@@ -18,6 +18,7 @@ interface FormData {
   };
   visuals: {
     style: string;
+    option: string;
   };
   vibe: {
     intensity: string;
@@ -51,7 +52,8 @@ export default function MultiStepForm() {
       writingPreference: ""
     },
     visuals: {
-      style: ""
+      style: "",
+      option: ""
     },
     vibe: {
       intensity: "",
@@ -84,7 +86,7 @@ export default function MultiStepForm() {
         }
         return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.layout;
       case 3:
-        return !!formData.visuals.style;
+        return !!formData.visuals.style && !!formData.visuals.option;
       case 4:
         return !!formData.vibe.intensity && !!formData.vibe.personality;
       default:
