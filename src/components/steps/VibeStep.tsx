@@ -72,7 +72,7 @@ export default function VibeStep({
         <Card className="overflow-hidden bg-card">
           {/* Header with icons */}
           <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
-            <h3 className="text-sm font-medium text-foreground">Output Gallery</h3>
+            <h3 className="text-sm font-medium text-foreground">Viibe Details</h3>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <RefreshCw className="h-4 w-4" />
