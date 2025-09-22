@@ -58,24 +58,190 @@ function json(obj: any, status = 200) {
 
 function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
 
-function buildPrompt(p: any, n: number) {
-  const must = (p.mandatory_words || []).slice(0, 6).join(", ");
+function parseMandatoryWords(input: string) {
+  if (!input?.trim()) return { simple: [], structured: null };
+  
+  const trimmed = input.trim();
+  
+  // Check if it looks like structured mini-JSON (contains brackets or braces)
+  if (/[\[\]{}:]/.test(trimmed)) {
+    try {
+      // Try to parse as mini-JSON structure
+      const structured = parseStructuredInput(trimmed);
+      return { simple: [], structured };
+    } catch (e) {
+      console.log("Failed to parse as structured, falling back to simple:", e);
+      // Fall back to simple parsing
+      return { simple: trimmed.split(',').map(w => w.trim()).filter(Boolean), structured: null };
+    }
+  }
+  
+  // Simple comma-separated words
+  return { simple: trimmed.split(',').map(w => w.trim()).filter(Boolean), structured: null };
+}
+
+function parseStructuredInput(input: string) {
+  const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+  const result: any = {};
+  
+  for (const line of lines) {
+    if (line.includes(':')) {
+      const [key, valueStr] = line.split(':', 2).map(s => s.trim());
+      
+      // Handle arrays like [item1, item2, item3]
+      if (valueStr.startsWith('[') && valueStr.endsWith(']')) {
+        const items = valueStr.slice(1, -1).split(',').map(s => s.trim().replace(/['"]/g, ''));
+        result[key] = items;
+      }
+      // Handle objects like { word: [syn1, syn2] }
+      else if (valueStr.startsWith('{') && valueStr.endsWith('}')) {
+        // Simple parsing for synonym format
+        const match = valueStr.match(/{\s*(\w+):\s*\[([^\]]+)\]\s*}/);
+        if (match) {
+          result[key] = { [match[1]]: match[2].split(',').map(s => s.trim()) };
+        }
+      }
+      // Handle quoted strings
+      else if ((valueStr.startsWith('"') && valueStr.endsWith('"')) || 
+               (valueStr.startsWith("'") && valueStr.endsWith("'"))) {
+        result[key] = valueStr.slice(1, -1);
+      }
+      // Handle plain values
+      else {
+        result[key] = valueStr;
+      }
+    }
+  }
+  
+  return result;
+}
+
+function buildEnhancedPrompt(p: any, n: number) {
+  const parsed = parseMandatoryWords(p.mandatory_words || '');
+  let constraints = '';
+  
+  if (parsed.structured) {
+    const s = parsed.structured;
+    constraints = `
+Enhanced constraints:
+${s.name ? `- MUST include name: ${s.name}` : ''}
+${s.names ? `- MUST include names: ${s.names.join(', ')}` : ''}
+${s.team ? `- MUST include team: ${s.team}` : ''}
+${s.all ? `- MUST include ALL: ${s.all.join(', ')}` : ''}
+${s.any ? `- MUST use at least ONE from: ${s.any.join(', ')}` : ''}
+${s.ban ? `- NEVER use these words: ${s.ban.join(', ')}` : ''}
+${s.context ? `- Setting context: ${s.context}` : ''}
+${s.inside ? `- Include inside reference: ${s.inside}` : ''}
+${s.emphasize ? `- Emphasize this once: ${s.emphasize}` : ''}
+${s.syn ? `- Use synonyms for: ${Object.keys(s.syn).map(k => `${k} (options: ${s.syn[k].join(', ')})`).join('; ')}` : ''}`;
+  } else if (parsed.simple.length > 0) {
+    constraints = `- MUST include these words naturally: ${parsed.simple.join(', ')}`;
+  }
+
   return `
 Write ${n} distinct one-liners for a celebration text generator.
 
 Rules:
-- Each line 60 to 120 characters inclusive.
+- Each line 40 to 140 characters inclusive.
 - Exactly one sentence per line.
 - No em dash.
-- Include these words naturally if present: ${must || "none"}.
 - Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
 - Tone: ${p.tone}. Style: ${p.style}. Rating: ${p.rating}.
-${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ""}
+${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ''}
+${constraints}
 
 Output format:
 Return exactly ${n} items separated by the delimiter "|||".
 No numbering, no bullets, no extra commentary, no blank lines.
 `;
+}
+
+function singleLinePromptEnhanced(p: any) {
+  const parsed = parseMandatoryWords(p.mandatory_words || '');
+  let constraints = '';
+  
+  if (parsed.structured) {
+    const s = parsed.structured;
+    constraints = `
+Enhanced constraints:
+${s.name ? `- MUST include name: ${s.name}` : ''}
+${s.names ? `- MUST include names: ${s.names.join(', ')}` : ''}
+${s.team ? `- MUST include team: ${s.team}` : ''}
+${s.all ? `- MUST include ALL: ${s.all.join(', ')}` : ''}
+${s.any ? `- MUST use at least ONE from: ${s.any.join(', ')}` : ''}
+${s.ban ? `- NEVER use these words: ${s.ban.join(', ')}` : ''}
+${s.context ? `- Setting context: ${s.context}` : ''}
+${s.inside ? `- Include inside reference: ${s.inside}` : ''}
+${s.emphasize ? `- Emphasize this once: ${s.emphasize}` : ''}
+${s.syn ? `- Use synonyms for: ${Object.keys(s.syn).map(k => `${k} (options: ${s.syn[k].join(', ')})`).join('; ')}` : ''}`;
+  } else if (parsed.simple.length > 0) {
+    constraints = `- MUST include these words naturally: ${parsed.simple.join(', ')}`;
+  }
+
+  return `
+Write ONE single-sentence one-liner (exactly one sentence) for a celebration text generator.
+
+Rules:
+- Length 40 to 140 characters inclusive.
+- ONE sentence only. No lists, no paragraphs.
+- No em dash.
+- Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
+- Tone: ${p.tone}. Style: ${p.style}. Rating: ${p.rating}.
+${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ''}
+${constraints}
+
+Output exactly the sentence only. No numbering. No quotes. No extra words.
+`;
+}
+
+function validateConstraints(text: string, mandatoryWords: string): boolean {
+  if (!mandatoryWords?.trim()) return true;
+  
+  const parsed = parseMandatoryWords(mandatoryWords);
+  const lowerText = text.toLowerCase();
+  
+  if (parsed.structured) {
+    const s = parsed.structured;
+    
+    // Check BAN words first
+    if (s.ban) {
+      for (const banned of s.ban) {
+        if (lowerText.includes(banned.toLowerCase())) {
+          console.log(`Rejected: contains banned word "${banned}"`);
+          return false;
+        }
+      }
+    }
+    
+    // Check MUST include (names, all)
+    const mustInclude = [
+      ...(s.name ? [s.name] : []),
+      ...(s.names || []),
+      ...(s.team ? [s.team] : []),
+      ...(s.all || [])
+    ];
+    
+    for (const required of mustInclude) {
+      if (!lowerText.includes(required.toLowerCase())) {
+        console.log(`Rejected: missing required word/phrase "${required}"`);
+        return false;
+      }
+    }
+    
+    // Check ANY-of groups
+    if (s.any && s.any.length > 0) {
+      const hasAny = s.any.some(word => lowerText.includes(word.toLowerCase()));
+      if (!hasAny) {
+        console.log(`Rejected: missing at least one from ANY group: ${s.any.join(', ')}`);
+        return false;
+      }
+    }
+    
+    return true;
+  } else {
+    // Simple validation - all words must be present
+    return parsed.simple.every(word => lowerText.includes(word.toLowerCase()));
+  }
 }
 
 async function callOpenAI(model: string, input: string) {
@@ -123,17 +289,26 @@ async function generateNLines(p: any, n: number) {
   const maxAttempts = 6; // Reasonable limit
 
   while (lines.length < n && attempts < maxAttempts) {
-    const prompt = singleLinePrompt(p);
+    const prompt = singleLinePromptEnhanced(p);
     try {
       const raw = await callOpenAI(modelUsed, prompt);
       console.log("RAW OUTPUT:", raw);
       
-      const line = enforce(normalizeOne(raw)) as string | null;
-      if (line && !lines.includes(line)) {
-        lines.push(line);
-        console.log(`Generated line ${lines.length}:`, line);
+      const normalized = normalizeOne(raw);
+      const enforced = enforce(normalized);
+      const passesConstraints = enforced && validateConstraints(enforced, p.mandatory_words);
+      
+      if (enforced && passesConstraints && !lines.includes(enforced)) {
+        lines.push(enforced);
+        console.log(`Generated line ${lines.length}:`, enforced);
       } else {
-        console.log("Rejected line:", { raw, normalized: normalizeOne(raw), enforced: line });
+        console.log("Rejected line:", { 
+          raw, 
+          normalized, 
+          enforced, 
+          passesConstraints,
+          reason: !enforced ? 'failed enforce' : !passesConstraints ? 'failed constraints' : 'duplicate'
+        });
       }
     } catch (e) {
       console.error(`OpenAI call failed (attempt ${attempts + 1}):`, e);

@@ -74,7 +74,9 @@ export default function TextStep({
           tone: data.text?.tone,
           category: data.category,
           subcategory: data.subcategory,
-          mandatory_words: data.text?.specificWords,
+          mandatory_words: Array.isArray(data.text?.specificWords) 
+            ? data.text.specificWords.join('\n') 
+            : data.text?.specificWords || '',
           style: data.text?.style || 'Generic',
           rating: data.text?.rating || 'G',
           comedian_style: data.text?.comedianStyle,
@@ -140,15 +142,33 @@ export default function TextStep({
   };
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
-      const currentWords = data.text?.specificWords || [];
-      if (!currentWords.includes(tagInput.trim())) {
+      const input = tagInput.trim();
+      
+      // Check if it's advanced format (contains colons, brackets, or braces)
+      if (/[\[\]{}:]/.test(input)) {
+        // Store as a single structured string for the backend to parse
         updateData({
           text: {
             ...data.text,
-            specificWords: [...currentWords, tagInput.trim()]
+            specificWords: [input] // Store as single item to preserve structure
           }
         });
+      } else {
+        // Handle simple comma-separated words
+        const currentWords = data.text?.specificWords || [];
+        const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
+        
+        const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
+        if (newWords.length > 0) {
+          updateData({
+            text: {
+              ...data.text,
+              specificWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
+            }
+          });
+        }
       }
+      
       setTagInput('');
     }
   };
@@ -408,7 +428,7 @@ export default function TextStep({
         </div>
 
         <div className="space-y-3">
-          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter text and hit return" className="w-full py-6 min-h-[72px]" />
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter text and hit return, or use advanced format" className="w-full py-6 min-h-[72px]" />
           
           {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
@@ -419,6 +439,21 @@ export default function TextStep({
                   </button>
                 </div>)}
             </div>}
+
+          {/* Advanced format hint */}
+          <div className="mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700 mb-2 font-medium">Simple: jesse, cake, candles</p>
+            <details className="text-xs text-blue-600">
+              <summary className="cursor-pointer font-medium">Advanced format (tap to expand)</summary>
+              <div className="mt-2 space-y-1 font-mono text-xs">
+                <div>name: Jesse</div>
+                <div>all: [cake, candles]</div>
+                <div>any: [party, celebration]</div>
+                <div>ban: [wholesome]</div>
+                <div>context: office party</div>
+              </div>
+            </details>
+          </div>
 
           <div className="text-center">
             <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
