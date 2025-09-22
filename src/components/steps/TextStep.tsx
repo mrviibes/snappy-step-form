@@ -1,28 +1,25 @@
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
 
-export default function TextStep({ data, updateData }: TextStepProps) {
-  const handleNameChange = (name: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        name,
-      },
-    });
-  };
+const tones = [
+  { id: 'humorous', label: 'Humorous', description: 'Funny, witty, light' },
+  { id: 'savage', label: 'Savage', description: 'Harsh, blunt, cutting' },
+  { id: 'sentimental', label: 'Sentimental', description: 'Warm, heartfelt, tender' },
+  { id: 'nostalgic', label: 'Nostalgic', description: 'Reflective, old-times, wistful' },
+  { id: 'romantic', label: 'Romantic', description: 'Loving, passionate, sweet' },
+  { id: 'inspirational', label: 'Inspirational', description: 'Motivating, uplifting, bold' },
+  { id: 'playful', label: 'Playful', description: 'Silly, cheeky, fun' },
+  { id: 'serious', label: 'Serious', description: 'Formal, direct, weighty' },
+];
 
-  const handleGoalChange = (goal: string) => {
+export default function TextStep({ data, updateData }: TextStepProps) {
+  const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
-        ...data.text,
-        goal,
+        tone: toneId,
       },
     });
   };
@@ -31,46 +28,32 @@ export default function TextStep({ data, updateData }: TextStepProps) {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="mb-2 text-xl font-semibold text-foreground">
-          Tell us about yourself
+          Choose Your Tone
         </h2>
         <p className="text-sm text-muted-foreground">
-          Help us personalize your experience
+          Select the vibe that best fits your style
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-medium text-foreground">
-            What's your name?
-          </Label>
-          <Input
-            id="name"
-            type="text"
-            placeholder="Enter your name"
-            value={data.text?.name || ""}
-            onChange={(e) => handleNameChange(e.target.value)}
-            className="transition-all duration-300 ease-smooth focus:shadow-primary focus:ring-primary"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="goal" className="text-sm font-medium text-foreground">
-            Describe your specific goal
-          </Label>
-          <Textarea
-            id="goal"
-            placeholder="e.g., I want to lose 10 pounds in 3 months..."
-            value={data.text?.goal || ""}
-            onChange={(e) => handleGoalChange(e.target.value)}
-            className="min-h-[100px] resize-none transition-all duration-300 ease-smooth focus:shadow-primary focus:ring-primary"
-          />
-        </div>
-
-        <div className="rounded-lg bg-accent/50 p-4">
-          <p className="text-xs text-muted-foreground">
-            💡 <strong>Tip:</strong> Be specific about your timeline and what success looks like to you.
-          </p>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        {tones.map((tone) => (
+          <button
+            key={tone.id}
+            onClick={() => handleToneSelect(tone.id)}
+            className={`
+              aspect-square rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth
+              ${data.text?.tone === tone.id
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'
+              }
+            `}
+          >
+            <div className="flex h-full flex-col items-center justify-center space-y-1">
+              <div className="font-semibold text-sm">{tone.label}</div>
+              <div className="text-xs text-muted-foreground">{tone.description}</div>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );

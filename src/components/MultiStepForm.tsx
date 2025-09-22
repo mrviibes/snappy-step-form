@@ -11,8 +11,7 @@ interface FormData {
   category: string;
   subcategory: string;
   text: {
-    name: string;
-    goal: string;
+    tone: string;
   };
   visuals: {
     style: string;
@@ -46,8 +45,7 @@ export default function MultiStepForm() {
     category: "",
     subcategory: "",
     text: {
-      name: "",
-      goal: ""
+      tone: ""
     },
     visuals: {
       style: "",
@@ -79,7 +77,7 @@ export default function MultiStepForm() {
       case 1:
         return !!formData.category && !!formData.subcategory;
       case 2:
-        return !!formData.text.name && !!formData.text.goal;
+        return !!formData.text.tone;
       case 3:
         return !!formData.visuals.style && formData.visuals.colors.length > 0;
       case 4:
