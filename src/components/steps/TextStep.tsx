@@ -4,8 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { checkServerHealth, generateTextOptions } from '@/lib/api';
+import { generateTextOptions } from '@/lib/openai';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
+import { ApiKeyManager, getStoredApiKey } from '@/components/ApiKeyManager';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
 import memeTextImage from "@/assets/meme-text-layout.jpg";
@@ -64,16 +65,14 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
-  const [hasServerKey, setHasServerKey] = useState(false);
-
-  // Check server health on component mount
-  useEffect(() => {
-    checkServerHealth().then(setHasServerKey);
-  }, []);
+  const [apiKeyPromptSignal, setApiKeyPromptSignal] = useState(0);
+  const [pendingGenerate, setPendingGenerate] = useState(false);
 
   const handleGenerate = async () => {
-    if (!hasServerKey) {
-      setGenerationError('Server not configured properly. Please contact administrator.');
+    const apiKey = getStoredApiKey();
+    if (!apiKey) {
+      setPendingGenerate(true);
+      setApiKeyPromptSignal(prev => prev + 1);
       return;
     }
 
@@ -95,7 +94,19 @@ export default function TextStep({
       setTextOptions(options);
       setShowTextOptions(true);
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : 'Failed to generate text');
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('Invalid API key')) {
+          setGenerationError('Invalid API key. Please update your key.');
+        } else if (error.message.includes('429') || error.message.includes('Rate limit')) {
+          setGenerationError('Rate limit exceeded. Please try again in a moment.');
+        } else if (error.message.includes('TypeError') || error.message.includes('CORS')) {
+          setGenerationError('Browser blocked the request. Consider using Supabase for server-side processing.');
+        } else {
+          setGenerationError(error.message);
+        }
+      } else {
+        setGenerationError('Failed to generate text');
+      }
       console.error('Text generation error:', error);
     } finally {
       setIsGenerating(false);
@@ -498,20 +509,11 @@ export default function TextStep({
                 </div>
               </div>
               
-              {/* Server Status */}
-              <div className="flex justify-center">
-                {!hasServerKey && (
-                  <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
-                    Server configuration pending...
-                  </div>
-                )}
-              </div>
-
               {/* Generate Button - Full width on mobile */}
               <div className="w-full">
                 <Button 
                   onClick={handleGenerate} 
-                  disabled={!hasServerKey || isGenerating}
+                  disabled={isGenerating}
                   className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isGenerating ? (
@@ -523,21 +525,41 @@ export default function TextStep({
                     'Generate Text'
                   )}
                 </Button>
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="text-xs text-gray-500 mt-1 text-center">
-                    Debug: hasServerKey={hasServerKey.toString()}, isGenerating={isGenerating.toString()}
-                  </div>
-                )}
               </div>
 
-              {/* Error Display */}
+              {/* Error Display and API Key Manager */}
               {generationError && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <p className="text-sm">{generationError}</p>
+                  <div className="flex-1">
+                    <p className="text-sm">{generationError}</p>
+                    {generationError.includes('Invalid API key') && (
+                      <Button
+                        onClick={() => setApiKeyPromptSignal(prev => prev + 1)}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                      >
+                        Update Key
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {/* API Key Manager */}
+              <div className="flex justify-center">
+                <ApiKeyManager
+                  onApiKeyChange={() => {
+                    if (pendingGenerate) {
+                      setPendingGenerate(false);
+                      handleGenerate();
+                    }
+                  }}
+                  promptSignal={apiKeyPromptSignal}
+                  autoOpenIfMissing={false}
+                />
+              </div>
             </div>
           </div>}
               

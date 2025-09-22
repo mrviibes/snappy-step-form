@@ -87,8 +87,30 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
     // Parse response - expect single line of text 60-120 chars
     const cleanText = content.replace(/^\d+\.?\s*/, '').replace(/^[-•]\s*/, '').trim()
     
-    // Generate 4 variations by calling API multiple times if needed
+    // Generate 4 variations by calling API multiple times
     const options = [cleanText]
+    const maxAttempts = 8 // Limit total API calls
+    let attempts = 1
+    
+    while (options.length < 4 && attempts < maxAttempts) {
+      try {
+        const additionalResponse = await makeApiCall(modelUsed)
+        if (additionalResponse.ok) {
+          const additionalData = await additionalResponse.json()
+          const additionalContent = additionalData.choices[0]?.message?.content?.trim()
+          if (additionalContent) {
+            const additionalCleanText = additionalContent.replace(/^\d+\.?\s*/, '').replace(/^[-•]\s*/, '').trim()
+            // Only add if it's different from existing options
+            if (!options.includes(additionalCleanText) && additionalCleanText.length >= 30) {
+              options.push(additionalCleanText)
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`Additional generation attempt ${attempts} failed:`, error)
+      }
+      attempts++
+    }
 
     // Validate each option against AI rules
     const validatedOptions: string[] = []
