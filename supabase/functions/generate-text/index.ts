@@ -158,40 +158,77 @@ No numbering, no bullets, no extra commentary, no blank lines.
 
 function singleLinePromptEnhanced(p: any) {
   const parsed = parseMandatoryWords(p.mandatory_words || '');
-  let constraints = '';
   
+  // Build explicit insert words constraints
+  let insertConstraints = '';
   if (parsed.structured) {
     const s = parsed.structured;
-    constraints = `
-Enhanced constraints:
-${s.name ? `- MUST include name: ${s.name}` : ''}
-${s.names ? `- MUST include names: ${s.names.join(', ')}` : ''}
-${s.team ? `- MUST include team: ${s.team}` : ''}
-${s.all ? `- MUST include ALL: ${s.all.join(', ')}` : ''}
-${s.any ? `- MUST use at least ONE from: ${s.any.join(', ')}` : ''}
-${s.ban ? `- NEVER use these words: ${s.ban.join(', ')}` : ''}
-${s.context ? `- Setting context: ${s.context}` : ''}
-${s.inside ? `- Include inside reference: ${s.inside}` : ''}
-${s.emphasize ? `- Emphasize this once: ${s.emphasize}` : ''}
-${s.syn ? `- Use synonyms for: ${Object.keys(s.syn).map(k => `${k} (options: ${s.syn[k].join(', ')})`).join('; ')}` : ''}`;
+    const mustInclude = [
+      ...(s.name ? [s.name] : []),
+      ...(s.names || []),
+      ...(s.team ? [s.team] : []),
+      ...(s.all || [])
+    ];
+    
+    if (mustInclude.length > 0) {
+      insertConstraints = `CRITICAL: You MUST include these exact words naturally in the sentence: ${mustInclude.join(', ')}`;
+    }
+    if (s.any && s.any.length > 0) {
+      insertConstraints += `\nMUST use at least ONE of these: ${s.any.join(', ')}`;
+    }
+    if (s.ban && s.ban.length > 0) {
+      insertConstraints += `\nNEVER use these words: ${s.ban.join(', ')}`;
+    }
+    if (s.context) {
+      insertConstraints += `\nSetting/context: ${s.context}`;
+    }
   } else if (parsed.simple.length > 0) {
-    constraints = `- MUST include these words naturally: ${parsed.simple.join(', ')}`;
+    insertConstraints = `CRITICAL: You MUST include these exact words naturally in the sentence: ${parsed.simple.join(', ')}`;
   }
 
-  return `
-Write ONE single-sentence one-liner (exactly one sentence) for a celebration text generator.
+  // Style examples based on style selection
+  const styleExamples = {
+    'sarcastic': '(dry wit, eye-rolling humor, backhanded compliments)',
+    'weird': '(absurd, surreal, unexpected comparisons, odd phrasing)',
+    'wholesome': '(heartwarming, family-friendly, positive)',
+    'savage': '(brutally honest, cutting, no-holds-barred)',
+    'generic': '(straightforward, standard celebration language)'
+  };
 
-Rules:
-- Length 40 to 140 characters inclusive.
-- ONE sentence only. No lists, no paragraphs.
-- No em dash.
-- Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
-- Tone: ${p.tone}. Style: ${p.style}. Rating: ${p.rating}.
-${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ''}
-${constraints}
+  // Rating guidelines
+  const ratingGuidelines = {
+    'G': '(completely clean, family-friendly)',
+    'PG': '(mild humor, very light innuendo allowed)', 
+    'PG-13': '(moderate adult humor, light profanity, suggestive content allowed)',
+    'R': '(explicit humor allowed, strong language, adult themes)'
+  };
 
-Output exactly the sentence only. No numbering. No quotes. No extra words.
-`;
+  const styleGuide = styleExamples[p.style?.toLowerCase()] || '';
+  const ratingGuide = ratingGuidelines[p.rating] || '';
+
+  return `Write ONE celebration one-liner. EXACTLY one sentence only.
+
+CATEGORY: ${p.category || "General"}${p.subcategory ? ` > ${p.subcategory}` : ""}
+TONE: ${p.tone} (be genuinely ${p.tone} in your response)
+STYLE: ${p.style} ${styleGuide}
+RATING: ${p.rating} ${ratingGuide}
+${p.comedian_style ? `COMEDY STYLE: In the spirit of ${p.comedian_style} without naming them` : ''}
+
+${insertConstraints}
+
+TECHNICAL REQUIREMENTS:
+- Length: 40-140 characters EXACTLY
+- ONE sentence only, no line breaks
+- No em dash (—)
+- Must end with punctuation (. ! or ?)
+- Output ONLY the sentence, no quotes, no extra text
+
+EXAMPLES for context:
+- Weird + R-rated: "Jesse, your cake is screaming and the candles are plotting revenge tonight."
+- Sarcastic + PG-13: "Another year older, Jesse—at least the cake won't judge your life choices."
+- Humorous + R: "Happy birthday Jesse, may your hangover outshine every damn candle."
+
+Generate the sentence now:`;
 }
 
 function validateConstraints(text: string, mandatoryWords: string): boolean {
@@ -295,7 +332,7 @@ async function generateNLines(p: any, n: number) {
       console.log("RAW OUTPUT:", raw);
       
       const normalized = normalizeOne(raw);
-      const enforced = enforce(normalized);
+      const enforced = enforce(normalized, p.rating);
       const passesConstraints = enforced && validateConstraints(enforced, p.mandatory_words);
       
       if (enforced && passesConstraints && !lines.includes(enforced)) {
@@ -370,10 +407,27 @@ function normalizeOne(raw: string) {
     .replace(/^\d+[\.)]\s*/, "");
 }
 
-function enforce(s: string) {
+function enforce(s: string, rating: string = 'G') {
   const len = [...s].length;
-  if (len < 40 || len > 140) return null;   // loosened from 60-120
+  if (len < 40 || len > 140) return null;   // length check
   if (/\u2014/.test(s)) return null;        // ban em dash
   if (!/[.!?]$/.test(s)) s += ".";          // ensure punctuation
+  
+  // Rating-based content filtering - be more permissive for higher ratings
+  if (rating === 'G') {
+    // Very strict for G rating
+    const strictProfanity = /\b(damn|hell|shit|fuck|ass|bitch|bastard|crap)\b/i;
+    if (strictProfanity.test(s)) return null;
+  } else if (rating === 'PG') {
+    // Allow mild language for PG
+    const strongProfanity = /\b(shit|fuck|bitch|bastard)\b/i;
+    if (strongProfanity.test(s)) return null;
+  } else if (rating === 'PG-13') {
+    // Allow moderate language for PG-13
+    const extremeProfanity = /\b(fuck)\b/i;
+    if (extremeProfanity.test(s)) return null;
+  }
+  // R rating allows everything through
+  
   return s;
 }
