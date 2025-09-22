@@ -225,8 +225,8 @@ export default function TextStep({
       <div className="bg-white rounded-lg border border-primary overflow-hidden">
         {/* Selected Tone */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="font-semibold text-foreground text-lg">
-            TONE - "{selectedTone?.label}"
+          <div className="font-medium text-foreground">
+            Tone - "{selectedTone?.label}"
           </div>
           <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -235,8 +235,8 @@ export default function TextStep({
 
         {/* Selected Writing Preference */}
         <div className="flex items-center justify-between p-4 {showGeneration ? 'border-b border-border' : ''}">
-          <div className="font-semibold text-foreground text-lg">
-            PROCESS - "{selectedWritingPreference?.label}"
+          <div className="font-medium text-foreground">
+            Process - "{selectedWritingPreference?.label}"
           </div>
           <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -245,8 +245,8 @@ export default function TextStep({
         
         {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="p-4">
-          <div className="font-semibold text-foreground text-lg">
-            SPECIFIC TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
+          <div className="font-medium text-foreground">
+            Specific Text - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
         </div>}
       </div>
