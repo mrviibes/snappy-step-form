@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent, useCallback } from 'react';
+import { useState, KeyboardEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -67,10 +67,15 @@ export default function TextStep({
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
 
-  const handleApiKeyChange = useCallback((hasKey: boolean) => {
-    console.log('API Key status changed:', hasKey);
-    setHasApiKey(hasKey);
+  // Check localStorage directly on mount as backup
+  useEffect(() => {
+    const savedKey = localStorage.getItem('openai_api_key');
+    setHasApiKey(!!savedKey);
   }, []);
+
+  const handleApiKeyChange = (hasKey: boolean) => {
+    setHasApiKey(hasKey);
+  };
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
