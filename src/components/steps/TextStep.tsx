@@ -13,6 +13,7 @@ import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
+import { generateTextOptions } from '@/lib/api';
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -67,31 +68,21 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const response = await fetch('https://qxfnvtnchuigjivcalqe.functions.supabase.co/generate-viibe-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          category: `${data.category}${data.subcategory ? ' > ' + data.subcategory : ''}`,
-          tone: data.text?.tone,
-          style: data.text?.style || 'Generic',
-          rating: data.text?.rating || 'G',
-          insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-          comedianStyle: data.text?.comedianStyle,
-          userId: 'anonymous' // Could be replaced with actual user ID if auth is implemented
-        })
-      });
-
-      // Check content type before parsing
-      const contentType = response.headers.get('content-type') || '';
-      const result = contentType.includes('application/json') ? await response.json() : {
-        error: await response.text()
+      const params = {
+        tone: data.text?.tone,
+        category: data.category || 'celebrations',
+        subcategory: data.subcategory || undefined,
+        specificWords: Array.isArray(data.text?.specificWords)
+          ? data.text?.specificWords
+          : data.text?.specificWords
+          ? [data.text?.specificWords]
+          : [],
+        style: data.text?.style || 'Generic',
+        rating: data.text?.rating || 'PG',
       };
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}`);
-      }
-      setTextOptions(result.options.slice(0, 4));
+
+      const options = await generateTextOptions(params as any);
+      setTextOptions(options.slice(0, 4));
       setShowTextOptions(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed';

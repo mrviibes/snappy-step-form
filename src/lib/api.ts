@@ -53,85 +53,71 @@ interface HealthResponse {
 }
 
 // Get Supabase URL from the environment or use localhost for development
-const getSupabaseUrl = () => {
-  // In production, this will be set by Lovable/Supabase
-  return import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321'
-}
+// NOTE: Lovable does not support VITE_* envs in preview. Prefer supabase.functions.invoke.
+import { supabase } from '@/integrations/supabase/client';
 
 export async function checkServerHealth(): Promise<boolean> {
   try {
-    const supabaseUrl = getSupabaseUrl()
-    const response = await fetch(`${supabaseUrl}/functions/v1/health`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    
-    if (!response.ok) {
-      return false
-    }
-    
-    const data: HealthResponse = await response.json()
-    return data.ok
+    const { data, error } = await supabase.functions.invoke('health', { body: {} });
+    if (error) return false;
+    const payload = (data as any) || {};
+    return !!payload.ok;
   } catch (error) {
-    console.error('Health check failed:', error)
-    return false
+    console.error('Health check failed:', error);
+    return false;
   }
 }
 
 export async function generateTextOptions(params: GenerateTextParams): Promise<string[]> {
   try {
-    const supabaseUrl = getSupabaseUrl()
-    const response = await fetch(`${supabaseUrl}/functions/v1/generate-text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    // Translate frontend params to edge function input
+    const mandatory_words = Array.isArray(params.specificWords)
+      ? params.specificWords.join(', ')
+      : (params.specificWords as any) || '';
+
+    const categoryPath = params.subcategory
+      ? `${params.category || 'celebrations'} > ${params.subcategory}`
+      : (params.category || 'celebrations');
+
+    const { data, error } = await supabase.functions.invoke('generate-text', {
+      body: {
+        category: categoryPath,
+        tone: params.tone,
+        style: params.style || 'Generic',
+        rating: params.rating || 'PG',
+        mandatory_words,
       },
-      body: JSON.stringify(params),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    });
+
+    if (error) throw error;
+    const payload = (data as any) || {};
+
+    // Support both shapes: { options } or { success, options }
+    const options: string[] = payload.options || [];
+    if (!options || options.length === 0) {
+      throw new Error(payload.error || 'No options returned');
     }
-    
-    const data: GenerateTextResponse = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Generation failed')
-    }
-    
-    return data.options
+    return options;
   } catch (error) {
-    console.error('Text generation failed:', error)
-    throw error
+    console.error('Text generation failed:', error);
+    throw error;
   }
 }
 
 export async function generateVisualOptions(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
   try {
-    const supabaseUrl = getSupabaseUrl()
-    const response = await fetch(`${supabaseUrl}/functions/v1/generate-visuals`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    const { data, error } = await supabase.functions.invoke('generate-visuals', {
+      body: params,
+    });
+    if (error) throw error;
+    const payload = (data as any) || {};
+    const visuals: VisualRecommendation[] = payload.visuals || payload || [];
+    if (!Array.isArray(visuals) || visuals.length === 0) {
+      throw new Error(payload.error || 'Visual generation failed');
     }
-    
-    const data: GenerateVisualsResponse = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Visual generation failed')
-    }
-    
-    return data.visuals
+    return visuals;
   } catch (error) {
-    console.error('Visual generation failed:', error)
-    throw error
+    console.error('Visual generation failed:', error);
+    throw error;
   }
 }
