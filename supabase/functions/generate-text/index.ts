@@ -34,14 +34,11 @@ Deno.serve(async (req) => {
   const prompt = buildPrompt(body, n);
 
   try {
-    let text = await callOpenAI(MODELS.primary, prompt);
-    if (!text) throw new Error("empty_response_primary");
-    const options = splitValidate(text, n);
+    const options = await generateOptions(MODELS.primary, prompt, n);
     return json({ model: MODELS.primary, options });
   } catch {
     try {
-      const text = await callOpenAI(MODELS.backup, prompt);
-      const options = splitValidate(text, n);
+      const options = await generateOptions(MODELS.backup, prompt, n);
       return json({ model: MODELS.backup, options });
     } catch (e) {
       return json({ error: String(e?.message || e || "generation_failed") }, 502);
@@ -59,21 +56,22 @@ function json(obj: any, status = 200) {
 function clamp(v: number, a: number, b: number) { return Math.max(a, Math.min(b, v)); }
 
 function buildPrompt(p: any, n: number) {
-  const mandatory = (p.mandatory_words || []).slice(0, 6).join(", ");
+  const must = (p.mandatory_words || []).slice(0, 6).join(", ");
   return `
 Write ${n} distinct one-liners for a celebration text generator.
 
-Constraints:
-- Each line 60 to 120 characters.
-- One sentence per line. No internal line breaks.
-- No em dash. Use commas or periods.
-- Include these words naturally if present: ${mandatory || "none"}.
+Rules:
+- Each line 60 to 120 characters inclusive.
+- Exactly one sentence per line.
+- No em dash.
+- Include these words naturally if present: ${must || "none"}.
 - Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
 - Tone: ${p.tone}. Style: ${p.style}. Rating: ${p.rating}.
-${p.comedian_style ? `- Deliver in the spirit of ${p.comedian_style} without naming them.` : ""}
+${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ""}
 
-Output:
-Return exactly ${n} lines, each on its own line. No numbering, no quotes, no extra commentary.
+Output format:
+Return exactly ${n} items separated by the delimiter "|||".
+No numbering, no bullets, no extra commentary, no blank lines.
 `;
 }
 
@@ -101,17 +99,46 @@ async function callOpenAI(model: string, input: string) {
   return text;
 }
 
-function splitValidate(raw: string, n: number) {
-  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  if (lines.length < n) throw new Error("not_enough_lines");
-  const sel = lines.slice(0, n).map(enforce);
-  return [...new Set(sel)];
+async function generateOptions(model: string, prompt: string, n: number) {
+  const options: string[] = [];
+  let tries = 0;
+
+  while (options.length < n && tries < 3) {
+    const raw = await callOpenAI(model, prompt);
+    const batch = normalizeLines(raw).map(enforce).filter(Boolean) as string[];
+
+    for (const line of batch) {
+      if (options.length >= n) break;
+      if (!options.includes(line)) options.push(line);
+    }
+    tries++;
+    // If still short, shrink the ask to just the remainder.
+    if (options.length < n) {
+      const remain = n - options.length;
+      prompt = prompt.replace(/Write \d+ distinct/, `Write ${remain} distinct`)
+                     .replace(/Return exactly \d+ items/, `Return exactly ${remain} items`);
+    }
+  }
+
+  if (options.length < n) throw new Error("not_enough_lines");
+  return options.slice(0, n);
+}
+
+function normalizeLines(raw: string): string[] {
+  // split on our delimiter first, then fallback to common list artifacts
+  const chunks = raw.split("|||")
+    .flatMap(s => s.split(/\r?\n/))
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => s.replace(/^[•*-]\s*/, ""))      // bullets
+    .map(s => s.replace(/^\d+[\.)]\s*/, ""));  // numbering
+  return chunks.filter(Boolean);
 }
 
 function enforce(s: string) {
   const len = [...s].length;
-  if (len < 60 || len > 120) throw new Error(`bad_length_${len}`);
-  if (/\u2014/.test(s)) throw new Error("em_dash_detected");
+  if (len < 60 || len > 120) return null;
+  if (/\u2014/.test(s)) return null;         // no em dash
   if (!/[.!?]$/.test(s)) s += ".";
   return s;
 }
