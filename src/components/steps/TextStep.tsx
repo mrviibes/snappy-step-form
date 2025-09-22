@@ -195,14 +195,11 @@ export default function TextStep({
         <div className="space-y-3">
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
           
-          {/* Show "I don't want any specific words" only when no tags exist */}
-          {(!data.text?.specificWords || data.text.specificWords.length === 0) && (
-            <div className="text-center">
-              <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-                I don't want any specific words
-              </button>
-            </div>
-          )}
+          <div className="text-center">
+            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              I don't want any specific words
+            </button>
+          </div>
 
           {/* Display tags */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
