@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import birthdayImage from "@/assets/birthday-celebration.jpg";
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -12,7 +13,8 @@ const fitnessGoals = [{
   id: "celebrations",
   title: "Celebrations",
   description: "Birthdays, holidays, and special events",
-  icon: "🎉"
+  icon: "🎉",
+  image: birthdayImage
 }, {
   id: "daily-life",
   title: "Daily Life",
@@ -72,7 +74,17 @@ export default function CategoryStep({
         "border-primary shadow-primary bg-accent": data.category === goal.id,
         "border-border": data.category !== goal.id
       })} onClick={() => handleSelection(goal.id)}>
-            <div className="mb-2 text-2xl">{goal.icon}</div>
+            {goal.image ? (
+              <div className="mb-2 w-full h-16 rounded-md overflow-hidden">
+                <img 
+                  src={goal.image} 
+                  alt={goal.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="mb-2 text-2xl">{goal.icon}</div>
+            )}
             <h3 className="mb-1 text-sm font-medium text-foreground">
               {goal.title}
             </h3>
