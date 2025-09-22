@@ -69,6 +69,8 @@ export default function VisualsStep({
 }: VisualsStepProps) {
   const [tagInput, setTagInput] = useState('');
   const [showVisualGeneration, setShowVisualGeneration] = useState(false);
+  const [showVisualOptions, setShowVisualOptions] = useState(false);
+  const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -132,6 +134,18 @@ export default function VisualsStep({
       customVisuals: data.visuals?.customVisuals,
       visualTaste: data.visuals?.visualTaste
     });
+    setShowVisualOptions(true);
+  };
+
+  const handleVisualOptionSelect = (optionIndex: number) => {
+    setSelectedVisualOption(optionIndex);
+    updateData({
+      visuals: {
+        ...data.visuals,
+        selectedVisualOption: optionIndex,
+        generatedVisual: visualOptions[optionIndex]
+      }
+    });
   };
 
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
@@ -139,6 +153,14 @@ export default function VisualsStep({
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedOption = !!data.visuals?.option;
   const isComplete = hasSelectedStyle && hasSelectedOption;
+
+  // Sample visual options (filler content)
+  const visualOptionsSamples = [
+    "Visual concept with vibrant colors and dynamic composition featuring modern elements and creative typography.",
+    "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.",
+    "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.",
+    "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."
+  ];
 
   return (
     <div className="space-y-6">
@@ -262,7 +284,7 @@ export default function VisualsStep({
           )}
 
           {/* Visual Generation Section - show below visuals input after ready to generate */}
-          {data.visuals?.option === "ai-assist" && showVisualGeneration && (
+          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && (
             <div className="space-y-4">
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-foreground">
@@ -289,6 +311,36 @@ export default function VisualsStep({
               >
                 Generate Visuals
               </Button>
+            </div>
+          )}
+
+          {/* Visual Options - show after generate is clicked */}
+          {showVisualOptions && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Choose your visual:
+                </h2>
+              </div>
+              
+              <div className="space-y-3">
+                {visualOptionsSamples.map((visual, index) => (
+                  <Card 
+                    key={index}
+                    className={cn(
+                      "p-4 cursor-pointer transition-all duration-200 border-2",
+                      selectedVisualOption === index 
+                        ? "border-primary bg-accent" 
+                        : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => handleVisualOptionSelect(index)}
+                  >
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {visual}
+                    </p>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
         </div>
