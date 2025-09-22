@@ -245,20 +245,8 @@ export default function TextStep({
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
   // Show layout options if text is selected
-  if (showLayoutOptions) {
+  if (selectedTextOption !== null && showLayoutOptions) {
     return <div className="space-y-6">
-        {/* Selected Text Summary */}
-        <div className="bg-white rounded-lg border border-primary overflow-hidden">
-          <div className="flex items-center justify-between p-4">
-            <div className="font-medium text-foreground">
-              Text - "{selectedTextOption !== null ? textOptions[selectedTextOption].substring(0, 20) + '...' : ''}"
-            </div>
-            <button onClick={() => setShowLayoutOptions(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-        </div>
-
         {/* Layout Options Grid */}
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-foreground">Choose Your Layout</h2>
@@ -374,11 +362,23 @@ export default function TextStep({
 
         {/* Style and Rating Summary - only show after text generation */}
         {showTextOptions && (
-          <div className="flex items-center justify-between p-4">
+          <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="font-medium text-foreground">
               Style - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | Rating - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
             </div>
             <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        )}
+
+        {/* Selected Text Summary - only show after text selection */}
+        {selectedTextOption !== null && (
+          <div className="flex items-center justify-between p-4">
+            <div className="font-medium text-foreground">
+              Text - "{textOptions[selectedTextOption].substring(0, 20)}..."
+            </div>
+            <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -478,6 +478,34 @@ export default function TextStep({
                         <p className="text-sm leading-relaxed">{text}</p>
                       </div>
                      ))}
+                   </div>
+                 </div>
+               )}
+
+               {/* Layout Options - Show after text selection */}
+               {selectedTextOption !== null && (
+                 <div className="space-y-3 p-4">
+                   <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
+                   <div className="grid grid-cols-2 gap-3">
+                     {layoutOptions.map(layout => 
+                       <Card key={layout.id} className={cn(
+                         "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105",
+                         "border-2 bg-card hover:bg-accent hover:border-primary",
+                         {
+                           "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
+                           "border-border": data.text?.layout !== layout.id
+                         }
+                       )} onClick={() => handleLayoutSelect(layout.id)}>
+                         <div className="w-full h-24 overflow-hidden">
+                           <img src={layout.image} alt={layout.title} className="w-full h-full object-cover" />
+                         </div>
+                         <div className="p-3 pt-2">
+                           <h3 className="text-sm font-medium text-foreground">
+                             {layout.title}
+                           </h3>
+                         </div>
+                       </Card>
+                     )}
                    </div>
                  </div>
                )}
