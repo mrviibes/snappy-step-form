@@ -2340,7 +2340,7 @@ export default function CategoryStep({
         <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-foreground">
-              <span className="font-medium text-muted-foreground">Category</span> - <span className="font-medium">{categoryData?.title}</span>
+              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -2366,7 +2366,7 @@ export default function CategoryStep({
         <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-foreground">
-              <span className="font-medium text-muted-foreground">Subcategory</span> - <span className="font-medium">{subcategoryData?.title}</span>
+              <span className="font-bold text-muted-foreground">Subcategory</span> - <span className="font-normal">{subcategoryData?.title}</span>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -2399,7 +2399,7 @@ export default function CategoryStep({
         <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-foreground">
-              <span className="font-medium text-muted-foreground">Category</span> - <span className="font-medium">{selectedCategoryData.title}</span>
+              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{selectedCategoryData.title}</span>
             </div>
             <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
@@ -2422,13 +2422,13 @@ export default function CategoryStep({
           </div>
 
           {/* Subcategories List */}
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto scrollbar-hide">
             <div className="space-y-2">
               {filteredSubcategories.map(subcategory => (
                 <Card 
                   key={subcategory.id} 
                   className={cn(
-                    "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border-2 rounded-lg",
+                    "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border-2 rounded-lg w-full",
                     {
                       "border-primary bg-accent shadow-sm": data.subcategory === subcategory.id,
                       "border-border hover:border-border": data.subcategory !== subcategory.id
