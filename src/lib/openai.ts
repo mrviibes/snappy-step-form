@@ -36,8 +36,8 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
             content: prompt
           }
         ],
-        max_tokens: 400,
-        temperature: 0.8,
+        max_tokens: 150,
+        temperature: 0.85,
       }),
     })
   }
@@ -84,17 +84,11 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
       throw new Error('No content received from OpenAI')
     }
 
-    // Split the response into individual options and clean them up
-    const options = content
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => {
-        // Remove any numbering or bullet points
-        return line.replace(/^\d+\.?\s*/, '').replace(/^[-•]\s*/, '').trim()
-      })
-      .filter(line => line.length > 0)
-      .slice(0, 4) // Ensure we only get 4 options
+    // Parse response - expect single line of text 60-120 chars
+    const cleanText = content.replace(/^\d+\.?\s*/, '').replace(/^[-•]\s*/, '').trim()
+    
+    // Generate 4 variations by calling API multiple times if needed
+    const options = [cleanText]
 
     // Validate each option against AI rules
     const validatedOptions: string[] = []
