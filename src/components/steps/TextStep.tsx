@@ -94,6 +94,7 @@ export default function TextStep({
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
+  const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -201,13 +202,26 @@ export default function TextStep({
   const handleCustomTextChange = (value: string) => {
     if (value.length <= 100) {
       setCustomText(value);
+      setIsCustomTextSaved(false); // Reset saved status when editing
+    }
+  };
+
+  const handleSaveCustomText = () => {
+    if (customText.trim()) {
       updateData({
         text: {
           ...data.text,
-          customText: value,
-          generatedText: value
+          customText: customText.trim(),
+          generatedText: customText.trim()
         }
       });
+      setIsCustomTextSaved(true);
+    }
+  };
+
+  const handleCustomTextKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && customText.trim()) {
+      handleSaveCustomText();
     }
   };
 
@@ -361,17 +375,18 @@ export default function TextStep({
           </div>
         )}
 
-        {/* Selected Text Summary - only show after text selection or custom text */}
-        {(selectedTextOption !== null || (data.text?.writingPreference === 'write-myself' && customText)) && (
+        {/* Selected Text Summary - only show after text selection or saved custom text */}
+        {(selectedTextOption !== null || (data.text?.writingPreference === 'write-myself' && isCustomTextSaved)) && (
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
               <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? 
-                customText.substring(0, 20) + (customText.length > 20 ? '...' : '') :
+                (data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '') :
                 textOptions[selectedTextOption].substring(0, 20) + '...'}
             </div>
             <button onClick={() => {
               if (data.text?.writingPreference === 'write-myself') {
                 setCustomText('');
+                setIsCustomTextSaved(false);
                 updateData({ text: { ...data.text, customText: '', generatedText: '' } });
               } else {
                 setSelectedTextOption(null);
@@ -424,16 +439,17 @@ export default function TextStep({
       </div>}
       
       {/* Custom Text Input for Write Myself option */}
-      {data.text?.writingPreference === 'write-myself' && (
+      {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && (
         <div className="space-y-4">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">Write Your Own Text</h2>
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Input 
               value={customText}
               onChange={(e) => handleCustomTextChange(e.target.value)}
+              onKeyDown={handleCustomTextKeyDown}
               placeholder="Enter your text here (up to 100 characters)"
               maxLength={100}
               className="w-full"
@@ -441,6 +457,18 @@ export default function TextStep({
             <div className="text-right text-sm text-muted-foreground">
               {customText.length}/100 characters
             </div>
+            
+            {/* Save Button - only show when there's text to save */}
+            {customText.trim() && (
+              <div className="flex justify-center">
+                <Button 
+                  onClick={handleSaveCustomText}
+                  className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium"
+                >
+                  Save Text
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -515,8 +543,8 @@ export default function TextStep({
                  </div>
                )}
 
-               {/* Layout Options - Show after text selection or custom text entry */}
-               {((selectedTextOption !== null && !data.text?.layout) || (data.text?.writingPreference === 'write-myself' && customText && !data.text?.layout)) && (
+               {/* Layout Options - Show after text selection or saved custom text */}
+               {((selectedTextOption !== null && !data.text?.layout) || (data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout)) && (
                  <div className="space-y-3 p-4">
                    <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
