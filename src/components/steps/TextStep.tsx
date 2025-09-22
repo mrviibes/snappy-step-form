@@ -69,15 +69,17 @@ export default function TextStep({
   const [pendingGenerate, setPendingGenerate] = useState(false);
   const [apiKeyPromptSignal, setApiKeyPromptSignal] = useState(0);
 
-  // Derive hasApiKey directly from localStorage
-  const hasApiKey = !!getStoredApiKey();
+  // Derive hasApiKey directly from localStorage, reactive to forceRerender
+  const hasApiKey = !!getStoredApiKey() && forceRerender >= 0;
 
   const handleApiKeyChange = () => {
+    console.log('API key changed, forcing re-render');
     // Force re-render to update the derived hasApiKey value
     setForceRerender(prev => prev + 1);
     
     // If we were waiting to generate and now have a key, proceed with generation
     if (pendingGenerate && getStoredApiKey()) {
+      console.log('Pending generate detected, proceeding with generation');
       setPendingGenerate(false);
       // Small delay to ensure the dialog closes first
       setTimeout(() => {
@@ -175,12 +177,17 @@ export default function TextStep({
     });
   };
   const handleGenerate = async () => {
+    const currentApiKey = getStoredApiKey();
+    console.log('Generate clicked - API key check:', { currentApiKey: !!currentApiKey, hasApiKey, forceRerender });
+    
     if (!hasApiKey) {
+      console.log('No API key detected, prompting for key');
       setPendingGenerate(true);
       setApiKeyPromptSignal(prev => prev + 1);
       return;
     }
 
+    console.log('Starting text generation...');
     setIsGenerating(true);
     setGenerationError(null);
     
