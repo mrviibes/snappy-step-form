@@ -34,15 +34,10 @@ Deno.serve(async (req) => {
   const prompt = buildPrompt(body, n);
 
   try {
-    const options = await generateOptions(MODELS.primary, prompt, n);
-    return json({ model: MODELS.primary, options });
-  } catch {
-    try {
-      const options = await generateOptions(MODELS.backup, prompt, n);
-      return json({ model: MODELS.backup, options });
-    } catch (e) {
-      return json({ error: String(e?.message || e || "generation_failed") }, 502);
-    }
+    const result = await generateNLines(body, n);
+    return json({ model: result.modelUsed, options: result.lines });
+  } catch (e) {
+    return json({ error: String(e?.message || e || "generation_failed") }, 502);
   }
 });
 
@@ -99,46 +94,58 @@ async function callOpenAI(model: string, input: string) {
   return text;
 }
 
-async function generateOptions(model: string, prompt: string, n: number) {
-  const options: string[] = [];
-  let tries = 0;
+async function generateNLines(p: any, n: number) {
+  const lines: string[] = [];
+  let modelUsed = MODELS.primary;
 
-  while (options.length < n && tries < 3) {
-    const raw = await callOpenAI(model, prompt);
-    const batch = normalizeLines(raw).map(enforce).filter(Boolean) as string[];
-
-    for (const line of batch) {
-      if (options.length >= n) break;
-      if (!options.includes(line)) options.push(line);
-    }
-    tries++;
-    // If still short, shrink the ask to just the remainder.
-    if (options.length < n) {
-      const remain = n - options.length;
-      prompt = prompt.replace(/Write \d+ distinct/, `Write ${remain} distinct`)
-                     .replace(/Return exactly \d+ items/, `Return exactly ${remain} items`);
+  for (let i = 0; i < n; ) {
+    const prompt = singleLinePrompt(p);
+    try {
+      const raw = await callOpenAI(modelUsed, prompt);
+      const line = enforce(normalizeOne(raw)) as string | null;
+      if (line && !lines.includes(line)) {
+        lines.push(line);
+        i++;
+      }
+    } catch (_e) {
+      // If primary fails once, switch to backup; otherwise retry with backup
+      if (modelUsed === MODELS.primary) { modelUsed = MODELS.backup; continue; }
     }
   }
 
-  if (options.length < n) throw new Error("not_enough_lines");
-  return options.slice(0, n);
+  return { modelUsed, lines };
 }
 
-function normalizeLines(raw: string): string[] {
-  // split on our delimiter first, then fallback to common list artifacts
-  const chunks = raw.split("|||")
-    .flatMap(s => s.split(/\r?\n/))
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(s => s.replace(/^[•*-]\s*/, ""))      // bullets
-    .map(s => s.replace(/^\d+[\.)]\s*/, ""));  // numbering
-  return chunks.filter(Boolean);
+function singleLinePrompt(p: any) {
+  const must = (p.mandatory_words || []).slice(0, 6).join(", ");
+  return `
+Write one single-sentence one-liner (exactly one sentence) for a celebration text generator.
+
+Rules:
+- Length 60 to 120 characters inclusive.
+- No em dash.
+- Include these words naturally if present: ${must || "none"}.
+- Category: ${p.category || "General"}${p.subcategory ? `, Subcategory: ${p.subcategory}` : ""}.
+- Tone: ${p.tone}. Style: ${p.style}. Rating: ${p.rating}.
+${p.comedian_style ? `- In the spirit of ${p.comedian_style} without naming them.` : ""}
+
+Output exactly the sentence only. No numbering. No quotes. No extra words.
+`;
+}
+
+function normalizeOne(raw: string) {
+  const first = raw.split(/\r?\n/).map(s => s.trim()).find(Boolean) || "";
+  return first
+    .replace(/^["'`]/, "")
+    .replace(/["'`]$/, "")
+    .replace(/^[•*-]\s*/, "")
+    .replace(/^\d+[\.)]\s*/, "");
 }
 
 function enforce(s: string) {
   const len = [...s].length;
   if (len < 60 || len > 120) return null;
-  if (/\u2014/.test(s)) return null;         // no em dash
-  if (!/[.!?]$/.test(s)) s += ".";
+  if (/\u2014/.test(s)) return null;      // ban em dash
+  if (!/[.!?]$/.test(s)) s += ".";        // ensure punctuation
   return s;
 }
