@@ -12,6 +12,7 @@ interface FormData {
   subcategory: string;
   text: {
     tone: string;
+    writingPreference: string;
   };
   visuals: {
     style: string;
@@ -45,7 +46,8 @@ export default function MultiStepForm() {
     category: "",
     subcategory: "",
     text: {
-      tone: ""
+      tone: "",
+      writingPreference: ""
     },
     visuals: {
       style: "",
@@ -77,7 +79,7 @@ export default function MultiStepForm() {
       case 1:
         return !!formData.category && !!formData.subcategory;
       case 2:
-        return !!formData.text.tone;
+        return !!formData.text.tone && !!formData.text.writingPreference;
       case 3:
         return !!formData.visuals.style && formData.visuals.colors.length > 0;
       case 4:
