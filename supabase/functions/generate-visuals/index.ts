@@ -67,18 +67,25 @@ interface GenerateVisualsParams {
   finalText: string
   category: string
   subcategory?: string
+  subSubcategory?: string
   tone: string
   textStyle: string
   rating: string
   insertWords?: string[]
   visualStyle: string
+  visualTaste?: string
+  customVisuals?: string[]
+  dimension?: string
 }
 
 interface VisualRecommendation {
   visualStyle: string
   layout: string
   description: string
-  props?: string[]
+  props: string[]
+  interpretation?: string
+  palette?: string[]
+  mood?: string
 }
 
 interface GenerateVisualsResponse {
@@ -88,81 +95,150 @@ interface GenerateVisualsResponse {
   error?: string
 }
 
-// Extract key visual elements from text
-function extractVisualElements(text: string): string[] {
-  const words = text.toLowerCase().split(/\s+/)
-  const visualElements = words.filter(word => {
-    // Remove common words and focus on nouns/verbs that could be visual
-    const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'just', 'called', 'it', 'is', 'was', 'are', 'were', 'have', 'has', 'had']
-    return word.length > 3 && !commonWords.includes(word) && !/^\d+$/.test(word)
+// Extract key visual concepts from text
+function extractVisualConcepts(text: string): { nouns: string[], verbs: string[], concepts: string[] } {
+  const words = text.toLowerCase().split(/\W+/).filter(word => word.length > 2)
+  
+  // Common words to exclude
+  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'just', 'called', 'it', 'is', 'was', 'are', 'were', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'might', 'must', 'can', 'do', 'did', 'does', 'get', 'got', 'been', 'being', 'well', 'now', 'then', 'here', 'there', 'this', 'that', 'these', 'those'])
+  
+  const meaningfulWords = words.filter(word => !stopWords.has(word) && !/^\d+$/.test(word))
+  
+  // Identify potential nouns (things that can be visualized)
+  const visualNouns = meaningfulWords.filter(word => {
+    // Look for concrete nouns that suggest visual elements
+    return word.length > 3 || ['cat', 'dog', 'car', 'sun', 'sky', 'sea', 'eye', 'art', 'cup', 'box', 'hat', 'map', 'key', 'gem', 'ice', 'oil', 'gas'].includes(word)
   })
-  return visualElements.slice(0, 5) // Top 5 visual elements
+  
+  // Identify potential action verbs
+  const actionWords = meaningfulWords.filter(word => {
+    const actionIndicators = ['made', 'make', 'creating', 'leaving', 'taking', 'giving', 'moving', 'running', 'walking', 'flying', 'falling', 'rising', 'shining', 'glowing', 'breaking', 'building', 'growing', 'flowing', 'burning', 'melting', 'dancing', 'singing']
+    return actionIndicators.some(indicator => word.includes(indicator) || indicator.includes(word))
+  })
+  
+  return {
+    nouns: visualNouns.slice(0, 4),
+    verbs: actionWords.slice(0, 3), 
+    concepts: meaningfulWords.slice(0, 6)
+  }
 }
 
-// Build visual generation prompt
+// Build visual generation prompt using text-anchored approach
 function buildVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
-  const { finalText, category, subcategory, tone, textStyle, rating, insertWords = [], visualStyle } = params
+  const { 
+    finalText, 
+    category, 
+    subcategory, 
+    subSubcategory,
+    tone, 
+    textStyle, 
+    rating, 
+    insertWords = [], 
+    visualStyle,
+    visualTaste = 'balanced',
+    customVisuals = [],
+    dimension = 'square'
+  } = params
   
   const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
-  const visualElements = extractVisualElements(finalText)
+  const { nouns, verbs, concepts } = extractVisualConcepts(finalText)
   const palette = toneToPalette[tone] || 'balanced color palette'
   const boldness = ratingToBoldness[rating] || 'moderate styling'
+  
+  // Map visual taste to specific guidance
+  const tasteGuidance = {
+    balanced: "balanced composition with natural elements",
+    cinematic: "dramatic lighting, depth of field, cinematic shadows and contrast", 
+    dreamlike: "soft ethereal textures, surreal atmospheric effects",
+    action: "dynamic motion, high energy composition, bold contrasts",
+    exaggerated: "amplified features, intense colors, dramatic proportions"
+  }[visualTaste] || "balanced approach"
+  
+  // Map dimensions to layout guidance
+  const dimensionGuidance = {
+    square: "centered composition with balanced negative space",
+    landscape: "wide cinematic format with horizontal emphasis", 
+    portrait: "vertical composition with upward visual flow"
+  }[dimension] || "centered composition"
   
   const bannedTerms = selectedStyle.banned.length > 0 
     ? `NEVER use these conflicting styles: ${selectedStyle.banned.join(', ')}`
     : ''
 
-  const system = `You are a visual content specialist who creates detailed visual recommendations for humorous one-liners.
+  const system = `You are a visual concept generator that creates text-anchored visual recommendations for humorous content.
 
 CRITICAL RULES:
-- Generate exactly 4 distinct visual recommendations
-- Each must use a different layout from: ${layouts.join(', ')}
-- Visual style MUST be: ${selectedStyle.name} - ${selectedStyle.description}
-- ${bannedTerms}
-- Tie visual elements to specific words from the text
-- Never fabricate personal details (age, occupation, etc.)
-- Focus on mood, objects, actions, and settings from the text
+1. ALWAYS anchor visuals to specific words from the text: "${finalText}"
+2. Extract key nouns, verbs, and concepts from the text to create props and scenes
+3. Generate exactly 4 distinct visual interpretations:
+   - Literal interpretation (direct objects/verbs from text)
+   - Metaphorical interpretation (symbolic props related to text meaning)
+   - Cinematic interpretation (dramatic lighting/focus on text elements)
+   - Abstract interpretation (textures/patterns inspired by text concepts)
+4. Visual style MUST be: ${selectedStyle.name} - ${selectedStyle.description}
+5. ${bannedTerms}
+6. Use ${tasteGuidance} for overall mood
+7. Apply ${dimensionGuidance} for composition
+8. Never fabricate personal details (age, occupation, relationships)
+9. Each recommendation must use a different layout approach
+
+LAYOUT TYPES: ${layouts.join(', ')}
 
 OUTPUT FORMAT (JSON only):
 {
   "visuals": [
     {
       "visualStyle": "${selectedStyle.name}",
-      "layout": "one of the layout types",
-      "description": "detailed visual description incorporating text elements",
-      "props": ["key", "visual", "elements"]
+      "layout": "layout-type",
+      "description": "detailed visual description anchored to text elements",
+      "props": ["specific", "elements", "from", "text"],
+      "interpretation": "literal/metaphorical/cinematic/abstract",
+      "palette": ["#color1", "#color2", "#color3"],
+      "mood": "specific mood description"
     }
   ]
 }`
 
-  const user = `Create 4 visual recommendations for this humorous line:
+  const user = `Create 4 visual recommendations anchored to this text:
 
 TEXT: "${finalText}"
 
-CONTEXT:
-- Category: ${category}${subcategory ? ` > ${subcategory}` : ''}
-- Tone: ${tone} (${palette})
-- Text Style: ${textStyle}
-- Rating: ${rating} (${boldness})
-- Key Visual Elements: ${visualElements.join(', ')}
-- Important Words: ${insertWords.join(', ')}
+EXTRACTED ELEMENTS:
+- Key Nouns: ${nouns.join(', ') || 'none identified'}
+- Action Verbs: ${verbs.join(', ') || 'none identified'} 
+- Visual Concepts: ${concepts.join(', ') || 'general themes'}
+- Insert Words: ${insertWords.join(', ') || 'none'}
+- Custom Visuals: ${customVisuals.join(', ') || 'none'}
 
-Requirements:
-- Each visual must highlight different aspects of the text
-- Use ${selectedStyle.name} style consistently
-- Incorporate the ${palette} and ${boldness} approach
-- Reference specific objects/actions from: ${visualElements.join(', ')}
-- Make each layout choice enhance the humor
-- Ensure variety across all 4 recommendations`
+CONTEXT:
+- Category: ${category}${subcategory ? ` > ${subcategory}` : ''}${subSubcategory ? ` > ${subSubcategory}` : ''}
+- Tone: ${tone} (use ${palette})
+- Text Style: ${textStyle}
+- Rating: ${rating} (apply ${boldness})
+- Visual Taste: ${visualTaste} (${tasteGuidance})
+- Dimension: ${dimension} (${dimensionGuidance})
+
+REQUIREMENTS:
+1. Literal: Use direct objects/verbs from the text (e.g., if text mentions "impression", show fingerprints, footprints, dents)
+2. Metaphorical: Create symbolic representations of text meaning
+3. Cinematic: Apply dramatic ${selectedStyle.name.toLowerCase()} lighting to text elements
+4. Abstract: Transform text concepts into textures/patterns while staying ${selectedStyle.name.toLowerCase()}
+
+Each visual must:
+- Reference specific words from: ${concepts.join(', ')}
+- Use ${selectedStyle.name} style language only
+- Apply ${palette} color approach
+- Follow ${dimensionGuidance} composition
+- Enhance the ${tone} mood of the text`
 
   return { system, user }
 }
 
-// Validate visual recommendation
-function validateVisualRec(rec: any, expectedStyle: string): VisualRecommendation | null {
+// Validate visual recommendation with enhanced checks
+function validateVisualRec(rec: any, expectedStyle: string, textConcepts: string[]): VisualRecommendation | null {
   if (!rec || typeof rec !== 'object') return null
   
-  const { visualStyle, layout, description, props = [] } = rec
+  const { visualStyle, layout, description, props = [], interpretation, palette = [], mood } = rec
   
   // Validate required fields
   if (!visualStyle || !layout || !description) return null
@@ -175,11 +251,26 @@ function validateVisualRec(rec: any, expectedStyle: string): VisualRecommendatio
   // Validate props if provided
   if (props && !Array.isArray(props)) return null
   
+  // Check if description is anchored to text concepts
+  const lowercaseDesc = description.toLowerCase()
+  const hasTextAnchor = textConcepts.some(concept => 
+    lowercaseDesc.includes(concept.toLowerCase()) || 
+    concept.toLowerCase().length > 3 && lowercaseDesc.includes(concept.toLowerCase().slice(0, -1))
+  )
+  
+  if (!hasTextAnchor && textConcepts.length > 0) {
+    console.log(`Visual rejected: no text anchoring. Concepts: ${textConcepts.join(', ')}, Description: ${description.substring(0, 50)}`)
+    return null
+  }
+  
   return {
     visualStyle,
     layout,
     description: description.trim(),
-    props: Array.isArray(props) ? props.filter(p => typeof p === 'string') : []
+    props: Array.isArray(props) ? props.filter(p => typeof p === 'string') : [],
+    interpretation,
+    palette: Array.isArray(palette) ? palette : [],
+    mood
   }
 }
 
@@ -232,6 +323,9 @@ async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any
       rating: payload.rating,
       insert_words: payload.insertWords || [],
       visual_style: payload.visualStyle,
+      visual_taste: payload.visualTaste || 'balanced',
+      custom_visuals: payload.customVisuals || [],
+      dimension: payload.dimension || 'square',
       generated_visuals: visuals,
       created_at: new Date().toISOString()
     })
@@ -244,6 +338,7 @@ async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any
 async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
   const { system, user } = buildVisualPrompt(params)
   const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
+  const { concepts } = extractVisualConcepts(params.finalText)
   
   console.log('Generating visuals with params:', params)
   
@@ -280,7 +375,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
       const usedLayouts = new Set<string>()
       
       for (const rec of parsed.visuals) {
-        const validated = validateVisualRec(rec, expectedStyle)
+        const validated = validateVisualRec(rec, expectedStyle, concepts)
         if (validated && !usedLayouts.has(validated.layout)) {
           validVisuals.push(validated)
           usedLayouts.add(validated.layout)
@@ -301,13 +396,14 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   // Fallback: create basic visual recommendations
   console.log('Using fallback visual generation')
   const fallbackLayouts = layouts.slice(0, 4)
-  const visualElements = extractVisualElements(params.finalText)
+  const { concepts: fallbackConcepts } = extractVisualConcepts(params.finalText)
   
   return fallbackLayouts.map((layout, index) => ({
     visualStyle: expectedStyle,
     layout,
-    description: `${expectedStyle} style ${layout.replace('-', ' ')} featuring ${visualElements[index] || 'the main concept'} from "${params.finalText.substring(0, 30)}..."`,
-    props: visualElements.slice(0, 3)
+    description: `${expectedStyle} style ${layout.replace('-', ' ')} featuring ${fallbackConcepts[index] || 'the main concept'} from "${params.finalText.substring(0, 30)}..."`,
+    props: fallbackConcepts.slice(0, 3),
+    interpretation: ['literal', 'metaphorical', 'cinematic', 'abstract'][index] || 'literal'
   }))
 }
 

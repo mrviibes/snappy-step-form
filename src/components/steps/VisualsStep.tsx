@@ -176,11 +176,15 @@ export default function VisualsStep({
         finalText,
         category: data.category || "",
         subcategory: data.subcategory || "",
+        subSubcategory: data.subSubcategory || "",
         tone: data.vibe?.tone || "Humorous",
         textStyle: data.vibe?.style || "Sarcastic", 
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
-        visualStyle: data.visuals?.style || "general"
+        visualStyle: data.visuals?.style || "general",
+        visualTaste: data.visuals?.visualTaste || "balanced",
+        customVisuals: data.visuals?.customVisuals || [],
+        dimension: data.visuals?.dimension || "square"
       };
 
       console.log("Generating visuals with params:", params);

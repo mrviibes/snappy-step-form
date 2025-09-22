@@ -19,18 +19,25 @@ export interface VisualRecommendation {
   visualStyle: string
   layout: string
   description: string
-  props?: string[]
+  props: string[]
+  interpretation?: string
+  palette?: string[]
+  mood?: string
 }
 
 interface GenerateVisualsParams {
   finalText: string
   category: string
   subcategory?: string
+  subSubcategory?: string
   tone: string
   textStyle: string
   rating: string
   insertWords?: string[]
   visualStyle: string
+  visualTaste?: string
+  customVisuals?: string[]
+  dimension?: string
 }
 
 interface GenerateVisualsResponse {
