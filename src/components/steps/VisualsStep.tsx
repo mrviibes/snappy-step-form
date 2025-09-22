@@ -94,9 +94,10 @@ export default function VisualsStep({
       }
     });
 
-    // If "AI Visuals Assist" is selected, show specific visuals choice
+    // If "AI Visuals Assist" is selected, show generation immediately
     if (optionId === 'ai-assist') {
-      setShowSpecificVisualsChoice(true);
+      setShowVisualGeneration(true);
+      setShowSpecificVisualsChoice(false);
     }
   };
 
@@ -737,56 +738,40 @@ export default function VisualsStep({
                 ))}
               </div>
 
-              {/* Custom Visuals Input for AI Assist - only show before generation */}
-              {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
-                <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Any Specific Visuals? (optional)
-                      </label>
-                      <Input
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={handleAddTag}
-                        placeholder="enter visuals here and hit return"
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    {/* Display visual tags */}
-                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {data.visuals.customVisuals.map((visual: string, index: number) => (
-                          <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                            <span>{visual}</span>
-                            <button 
-                              onClick={() => handleRemoveTag(visual)}
-                              className="text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="text-center">
-                      <button 
-                        onClick={handleReadyToGenerate}
-                        className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-                      >
-                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
-                          "I'm ready to generate my visuals" : 
-                          "I don't want any specific visuals"
-                        }
-                      </button>
-                    </div>
-                </div>
-              )}
-
-              {/* Visual Generation Section - only show after ready to generate */}
-              {data.visuals?.option === "ai-assist" && showVisualGeneration && (
+              {/* Custom Visuals Input for AI Assist - show immediately after selecting AI Assist */}
+              {data.visuals?.option === "ai-assist" && (
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Any Specific Visuals? (optional)
+                    </label>
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleAddTag}
+                      placeholder="enter visuals here and hit return"
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  {/* Display visual tags */}
+                  {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {data.visuals.customVisuals.map((visual: string, index: number) => (
+                        <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                          <span>{visual}</span>
+                          <button 
+                            onClick={() => handleRemoveTag(visual)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Style Selection and Generate Button */}
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-foreground">
                       Style
