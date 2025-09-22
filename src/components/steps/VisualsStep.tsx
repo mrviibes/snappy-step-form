@@ -168,10 +168,10 @@ export default function VisualsStep({
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Text (optional)
+                  Any Specific Visuals (optional)
                 </label>
                 <Textarea
-                  placeholder="enter words here and hit return"
+                  placeholder="describe visuals you would like"
                   value={data.visuals?.customVisuals || ""}
                   onChange={(e) => handleCustomVisualsChange(e.target.value)}
                   className="w-full min-h-[80px] resize-none"
@@ -179,7 +179,7 @@ export default function VisualsStep({
               </div>
               {!data.visuals?.customVisuals?.trim() && (
                 <p className="text-sm text-cyan-400 font-medium">
-                  I don't want any specific words
+                  Let AI Generate recommendations
                 </p>
               )}
             </div>
