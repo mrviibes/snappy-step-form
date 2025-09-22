@@ -153,7 +153,18 @@ export default function VisualsStep({
                   className="w-full min-h-[80px] resize-none"
                 />
               </div>
-              {!data.visuals?.customVisuals?.trim() && (
+              {data.visuals?.customVisuals?.trim() ? (
+                <Button 
+                  variant="ghost" 
+                  className="text-sm text-cyan-400 font-medium p-0 h-auto hover:text-cyan-500"
+                  onClick={() => {
+                    // Handle ready to generate action
+                    console.log("Ready to generate visuals");
+                  }}
+                >
+                  I'm ready to generate my visuals
+                </Button>
+              ) : (
                 <p className="text-sm text-cyan-400 font-medium">
                   I don't want any specific visuals
                 </p>
