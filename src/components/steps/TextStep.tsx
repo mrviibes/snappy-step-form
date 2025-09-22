@@ -212,7 +212,7 @@ export default function TextStep({
   const layoutOptions = [
     {
       id: "negative-space",
-      title: "Negative Space",
+      title: "Open Space",
       image: negativeSpaceImage
     },
     {
@@ -237,7 +237,7 @@ export default function TextStep({
     },
     {
       id: "subtle-caption",
-      title: "Subtle Caption",
+      title: "Caption",
       image: subtleCaptionImage
     }
   ];
