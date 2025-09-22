@@ -48,9 +48,9 @@ const visualStyles = [{
 }];
 
 const visualOptions = [
-  { id: "ai-assist", title: "Option 1 - AI Visuals Assist" },
-  { id: "design-myself", title: "Option 2 - Design Visuals Myself" },
-  { id: "no-visuals", title: "Option 3 - Don't Want Visuals" }
+  { id: "ai-assist", title: "AI Visuals Assist", fullTitle: "Option 1 - AI Visuals Assist" },
+  { id: "design-myself", title: "Design Visuals Myself", fullTitle: "Option 2 - Design Visuals Myself" },
+  { id: "no-visuals", title: "Don't Want Visuals", fullTitle: "Option 3 - Don't Want Visuals" }
 ];
 
 export default function VisualsStep({
@@ -118,6 +118,8 @@ export default function VisualsStep({
                 Edit
               </Button>
             </div>
+            
+            <div className="h-px bg-border"></div>
             
             <div className="flex items-center justify-between">
               <div>
@@ -204,7 +206,7 @@ export default function VisualsStep({
                     )}
                     onClick={() => handleVisualOptionChange(option.id)}
                   >
-                    {option.title}
+                    {option.fullTitle}
                   </Button>
                 ))}
               </div>
