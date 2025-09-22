@@ -72,6 +72,7 @@ export default function VisualsStep({
   const [showVisualOptions, setShowVisualOptions] = useState(false);
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [showDimensions, setShowDimensions] = useState(false);
+  const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -88,6 +89,21 @@ export default function VisualsStep({
         option: optionId
       }
     });
+
+    // If "AI Visuals Assist" is selected, show specific visuals choice
+    if (optionId === 'ai-assist') {
+      setShowSpecificVisualsChoice(true);
+    }
+  };
+
+  const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
+    if (hasVisuals) {
+      setShowSpecificVisualsChoice(false);
+      // Show the input section (current behavior)
+    } else {
+      setShowSpecificVisualsChoice(false);
+      setShowVisualGeneration(true); // Skip to generation step
+    }
   };
 
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -102,6 +118,11 @@ export default function VisualsStep({
         });
       }
       setTagInput('');
+      
+      // Automatically proceed to generation step when they add their first visual
+      if (!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) {
+        setShowVisualGeneration(true);
+      }
     }
   };
 
@@ -315,12 +336,42 @@ export default function VisualsStep({
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => updateData({ visuals: { ...data.visuals, option: "" } })}
+                  onClick={() => {
+                    updateData({ visuals: { ...data.visuals, option: "" } });
+                    setShowSpecificVisualsChoice(false);
+                  }}
                   className="text-xs text-cyan-500"
                 >
                   Edit
                 </Button>
               </div>
+
+              {/* Inserted Visuals Section - show after choosing yes for AI assist */}
+              {data.visuals?.option === 'ai-assist' && !showSpecificVisualsChoice && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Inserted Visuals - </span>
+                      <span className="text-sm text-foreground">
+                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
+                          data.visuals.customVisuals.join(', ') : 'chosen'}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowVisualGeneration(false);
+                        setShowSpecificVisualsChoice(true);
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
 
               {/* Visuals Row - only show after ready to generate (whether or not there are visuals) */}
               {showVisualGeneration && data.visuals?.option === "ai-assist" && (
@@ -445,8 +496,35 @@ export default function VisualsStep({
             </div>
           </Card>
 
-          {/* Custom Visuals Input for AI Assist - only show before generation */}
-          {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
+          {/* Specific Visuals Choice Section - only show for AI Visuals Assist */}
+          {showSpecificVisualsChoice && data.visuals?.option === 'ai-assist' && (
+            <div className="space-y-4 pt-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground">Do you have any specific visuals you want included?</h2>
+                <div className="mt-3">
+                  <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars, etc.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => handleSpecificVisualsChoice(true)}
+                  className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                >
+                  <div className="font-semibold text-lg">Yes</div>
+                </button>
+                <button 
+                  onClick={() => handleSpecificVisualsChoice(false)}
+                  className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                >
+                  <div className="font-semibold text-lg">No</div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Visuals Input for AI Assist - only show before generation and NOT when showing choice */}
+          {data.visuals?.option === "ai-assist" && !showVisualGeneration && !showSpecificVisualsChoice && (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -478,17 +556,17 @@ export default function VisualsStep({
                 </div>
               )}
 
-              <div className="text-center">
-                <button 
-                  onClick={handleReadyToGenerate}
-                  className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-                >
-                  {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
-                    "I'm ready to generate my visuals" : 
-                    "I don't want any specific visuals"
-                  }
-                </button>
-              </div>
+              {/* Show ready button only if no visuals added yet, hide once they start adding visuals */}
+              {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
+                <div className="text-center">
+                  <button 
+                    onClick={handleReadyToGenerate}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg"
+                  >
+                    I don't want any specific visuals
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
