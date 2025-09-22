@@ -428,7 +428,7 @@ export default function TextStep({
         </div>
 
         <div className="space-y-3">
-          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="I don't have any specific words I want included" className="w-full py-6 min-h-[72px] text-center placeholder:underline" />
           
           {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
