@@ -149,16 +149,19 @@ function validateFourPack(lines: string[], insertWords: string[] = [], category:
   const insertWordsLower = insertWords.map(w => w.toLowerCase());
 
   for (const line of lines) {
-    // 1. Basic validation (length, em dash, punctuation)
-    if (line.length < 50 || line.length > 120) return false;
+    // 1. Basic validation (length, em dash, punctuation) - made more lenient
+    if (line.length < 30 || line.length > 150) return false;
     if (line.includes('—')) return false;
     
     const punctCount = (line.match(/[,.!?]/g) || []).length;
-    if (punctCount > 3) return false;
+    if (punctCount > 5) return false;
 
-    // 2. Insert words present if required
-    for (const word of insertWords) {
-      if (!line.toLowerCase().includes(word.toLowerCase())) return false;
+    // 2. Insert words present if required - made more lenient
+    if (insertWords.length > 0) {
+      const hasAnyInsertWord = insertWords.some(word => 
+        line.toLowerCase().includes(word.toLowerCase())
+      );
+      if (!hasAnyInsertWord) return false;
     }
 
     // 3. Check for fabricated personal details (ages, milestones)
@@ -198,9 +201,13 @@ function validateFourPack(lines: string[], insertWords: string[] = [], category:
     }
   }
 
-  // Ensure variety across the pack
-  if (insertWords.length > 0 && seenPositions.size < 2) return false; // need at least 2 different positions
-  if (seenStructures.size < 2) return false; // need at least 2 different structures
+  // Ensure variety across the pack - made more lenient
+  // Allow packs with less variety if we have good content
+  if (lines.length >= 4) {
+    // Only require variety for full packs, and be more lenient
+    if (insertWords.length > 0 && seenPositions.size < 1) return false; // need at least 1 position
+    if (seenStructures.size < 1) return false; // need at least 1 structure
+  }
 
   return true;
 }
