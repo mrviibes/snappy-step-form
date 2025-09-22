@@ -20,15 +20,16 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
   // Build sophisticated prompt using the prompt builder
   const prompt = promptBuilder.buildPrompt(params)
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Helper function to make API calls
+  const makeApiCall = async (model: string): Promise<Response> => {
+    return await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model,
         messages: [
           {
             role: 'user',
@@ -39,6 +40,30 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
         temperature: 0.8,
       }),
     })
+  }
+
+  try {
+    let response: Response;
+    let modelUsed = 'gpt-5';
+
+    // Try GPT-5 first
+    try {
+      response = await makeApiCall('gpt-5');
+    } catch (error) {
+      console.warn('GPT-5 failed, falling back to GPT-5-Mini:', error);
+      // Fall back to GPT-5-Mini
+      response = await makeApiCall('gpt-5-mini');
+      modelUsed = 'gpt-5-mini';
+    }
+
+    // If GPT-5 returned an error, try GPT-5-Mini
+    if (!response.ok && modelUsed === 'gpt-5') {
+      if (response.status === 404 || response.status === 400) {
+        console.warn('GPT-5 not available, falling back to GPT-5-Mini');
+        response = await makeApiCall('gpt-5-mini');
+        modelUsed = 'gpt-5-mini';
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -49,6 +74,8 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
         throw new Error(`OpenAI API error: ${response.status}`)
       }
     }
+
+    console.log(`Successfully used model: ${modelUsed}`)
 
     const data = await response.json()
     const content = data.choices[0]?.message?.content?.trim()
