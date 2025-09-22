@@ -63,10 +63,8 @@ export default function VibeStep({
   };
   return <div className="space-y-6">
       <div className="text-center">
-        <h2 className="mb-2 text-xl font-semibold text-foreground">Viibe Preview</h2>
-        <p className="text-sm text-muted-foreground">
-          Help us match your personality and preferred intensity
-        </p>
+        <h2 className="mb-2 text-xl font-semibold text-foreground">Your Viibe Preview</h2>
+        
       </div>
 
       {/* Output Gallery */}
