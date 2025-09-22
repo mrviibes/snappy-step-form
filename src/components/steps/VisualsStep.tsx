@@ -102,41 +102,65 @@ export default function VisualsStep({
 
       {/* Complete Summary */}
       {isComplete ? (
-        <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium text-foreground">Style - </span>
-                <span className="text-sm text-foreground">{selectedStyle?.title}</span>
+        <div className="space-y-4">
+          <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">Style - </span>
+                  <span className="text-sm text-foreground">{selectedStyle?.title}</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => updateData({ visuals: { style: "", option: "" } })}
+                  className="text-xs text-cyan-500"
+                >
+                  Edit
+                </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => updateData({ visuals: { style: "", option: "" } })}
-                className="text-xs text-cyan-500"
-              >
-                Edit
-              </Button>
-            </div>
-            
-            <div className="h-px bg-border"></div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium text-foreground">Process - </span>
-                <span className="text-sm text-foreground">{selectedOption?.title}</span>
+              
+              <div className="h-px bg-border"></div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">Process - </span>
+                  <span className="text-sm text-foreground">{selectedOption?.title}</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => updateData({ visuals: { ...data.visuals, option: "" } })}
+                  className="text-xs text-cyan-500"
+                >
+                  Edit
+                </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => updateData({ visuals: { ...data.visuals, option: "" } })}
-                className="text-xs text-cyan-500"
-              >
-                Edit
-              </Button>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Custom Visuals Input for AI Assist */}
+          {data.visuals?.option === "ai-assist" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Any Specific Visuals? (optional)
+                </label>
+                <Textarea
+                  placeholder="enter visuals here and hit comma"
+                  value={data.visuals?.customVisuals || ""}
+                  onChange={(e) => handleCustomVisualsChange(e.target.value)}
+                  className="w-full min-h-[80px] resize-none"
+                />
+              </div>
+              {!data.visuals?.customVisuals?.trim() && (
+                <p className="text-sm text-cyan-400 font-medium">
+                  I don't want any specific visuals
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <>
           {/* Style Selection or Selected Style Summary */}
