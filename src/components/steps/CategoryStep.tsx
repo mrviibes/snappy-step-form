@@ -2421,26 +2421,51 @@ export default function CategoryStep({
           </div>
         </div>
 
-        {/* Subcategory Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
-          <Input type="text" placeholder="Search subcategories..." value={subcategorySearchQuery} onChange={e => setSubcategorySearchQuery(e.target.value)} className="pl-10 py-3" />
-        </div>
-
-        {/* Subcategories */}
-        <ScrollArea className="h-64">
-          <div className="space-y-2 pr-2">
-            {filteredSubcategories.map(subcategory => <Card key={subcategory.id} className={cn("cursor-pointer p-4 transition-all duration-200 hover:bg-accent hover:border-primary max-w-[85%]", "border-2 bg-card", {
-            "border-primary shadow-primary bg-accent": data.subcategory === subcategory.id,
-            "border-border": data.subcategory !== subcategory.id
-          })} onClick={() => handleSubcategorySelection(subcategory.id)}>
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-foreground">{subcategory.title}</h4>
-                  <div className="text-muted-foreground">→</div>
-                </div>
-              </Card>)}
+        {/* Subcategory Search and List */}
+        <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Search Header */}
+          <div className="p-4 border-b border-border/50">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+              <Input 
+                type="text" 
+                placeholder="Search subcategories..." 
+                value={subcategorySearchQuery} 
+                onChange={e => setSubcategorySearchQuery(e.target.value)} 
+                className="pl-12 py-4 h-12 text-base bg-background border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
+              />
+            </div>
           </div>
-        </ScrollArea>
+
+          {/* Subcategories List */}
+          <div className="max-h-80 overflow-y-auto">
+            <div className="p-2">
+              {filteredSubcategories.map(subcategory => (
+                <Card 
+                  key={subcategory.id} 
+                  className={cn(
+                    "cursor-pointer p-4 m-2 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border-2 rounded-lg",
+                    {
+                      "border-primary bg-accent shadow-sm": data.subcategory === subcategory.id,
+                      "border-border hover:border-border": data.subcategory !== subcategory.id
+                    }
+                  )} 
+                  onClick={() => handleSubcategorySelection(subcategory.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-foreground text-base">{subcategory.title}</h4>
+                    <div className="text-muted-foreground">→</div>
+                  </div>
+                </Card>
+              ))}
+              {filteredSubcategories.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No subcategories found
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>;
   }
   return <div className="space-y-6">
