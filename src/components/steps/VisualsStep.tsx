@@ -280,44 +280,6 @@ export default function VisualsStep({
         </div>
       )}
 
-      {/* Show Visual Process Selection after style is chosen */}
-      {hasSelectedStyle && !hasSelectedOption && (
-        <div className="space-y-6">
-          {/* Selected Style Display */}
-          <div className="rounded-lg border-2 border-primary bg-card p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-foreground">
-                <span className="font-semibold">Style</span> - {selectedStyle?.title}
-              </div>
-              <button 
-                onClick={() => updateData({ visuals: { style: "", option: "" } })}
-                className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-              >
-                Edit
-              </button>
-            </div>
-          </div>
-
-          {/* Visual Process Selection */}
-          <div className="text-center pt-4">
-            <h2 className="mb-4 text-xl font-semibold text-foreground">
-              Choose Your Visuals Process
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3">
-            {visualOptions.map(option => (
-              <button 
-                key={option.id} 
-                onClick={() => handleVisualOptionChange(option.id)}
-                className="rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-              >
-                <div className="font-semibold text-sm">{option.fullTitle}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Complete Summary */}
       {isComplete ? (
