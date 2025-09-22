@@ -1,25 +1,47 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'
 import { Key, Eye, EyeOff } from 'lucide-react'
 
 interface ApiKeyManagerProps {
   onApiKeyChange?: () => void
+  promptSignal?: number
+  autoOpenIfMissing?: boolean
 }
 
-export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
+export const ApiKeyManager = ({ onApiKeyChange, promptSignal, autoOpenIfMissing }: ApiKeyManagerProps) => {
   const [apiKey, setApiKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const savedKey = localStorage.getItem('openai_api_key')
     if (savedKey) {
       setApiKey(savedKey)
+    } else if (autoOpenIfMissing) {
+      setIsOpen(true)
     }
-  }, [])
+  }, [autoOpenIfMissing])
+
+  // Handle prompt signal for opening dialog
+  useEffect(() => {
+    if (promptSignal && promptSignal > 0) {
+      setIsOpen(true)
+    }
+  }, [promptSignal])
+
+  // Focus input when dialog opens and no key is set
+  useEffect(() => {
+    if (isOpen && !apiKey && inputRef.current) {
+      // Small delay to ensure the dialog is fully rendered
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 100)
+    }
+  }, [isOpen, apiKey])
 
   const handleSaveKey = () => {
     if (apiKey.trim()) {
@@ -53,11 +75,11 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>OpenAI API Key</DialogTitle>
+          <DialogDescription>
+            Your API key is stored locally in your browser and never sent to our servers.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Your API key is stored locally in your browser and never sent to our servers.
-          </div>
           
           {apiKey ? (
             <Card>
@@ -88,6 +110,10 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
                       // Also clear from localStorage to force a fresh state
                       localStorage.removeItem('openai_api_key')
                       onApiKeyChange?.()
+                      // Focus the input for immediate entry
+                      setTimeout(() => {
+                        inputRef.current?.focus()
+                      }, 100)
                     }}
                     variant="outline"
                     size="sm"
@@ -111,6 +137,7 @@ export const ApiKeyManager = ({ onApiKeyChange }: ApiKeyManagerProps) => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Enter your OpenAI API Key</label>
                 <Input
+                  ref={inputRef}
                   type={showKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}

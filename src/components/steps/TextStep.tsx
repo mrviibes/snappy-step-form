@@ -66,6 +66,8 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
+  const [pendingGenerate, setPendingGenerate] = useState(false);
+  const [apiKeyPromptSignal, setApiKeyPromptSignal] = useState(0);
 
   // Derive hasApiKey directly from localStorage
   const hasApiKey = !!getStoredApiKey();
@@ -73,6 +75,15 @@ export default function TextStep({
   const handleApiKeyChange = () => {
     // Force re-render to update the derived hasApiKey value
     setForceRerender(prev => prev + 1);
+    
+    // If we were waiting to generate and now have a key, proceed with generation
+    if (pendingGenerate && getStoredApiKey()) {
+      setPendingGenerate(false);
+      // Small delay to ensure the dialog closes first
+      setTimeout(() => {
+        handleGenerate();
+      }, 100);
+    }
   };
   const handleToneSelect = (toneId: string) => {
     updateData({
@@ -165,7 +176,8 @@ export default function TextStep({
   };
   const handleGenerate = async () => {
     if (!hasApiKey) {
-      setGenerationError('Please set your OpenAI API key first');
+      setPendingGenerate(true);
+      setApiKeyPromptSignal(prev => prev + 1);
       return;
     }
 
@@ -492,14 +504,17 @@ export default function TextStep({
               
               {/* API Key Manager */}
               <div className="flex justify-center">
-                <ApiKeyManager onApiKeyChange={handleApiKeyChange} />
+                <ApiKeyManager 
+                  onApiKeyChange={handleApiKeyChange}
+                  promptSignal={apiKeyPromptSignal}
+                />
               </div>
 
               {/* Generate Button - Full width on mobile */}
               <div className="w-full">
                 <Button 
                   onClick={handleGenerate} 
-                  disabled={!hasApiKey || isGenerating}
+                  disabled={isGenerating}
                   className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isGenerating ? (
