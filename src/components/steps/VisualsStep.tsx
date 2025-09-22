@@ -141,35 +141,37 @@ export default function VisualsStep({
 
           {/* Custom Visuals Input for AI Assist */}
           {data.visuals?.option === "ai-assist" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Visuals? (optional)
-                </label>
-                <Textarea
-                  placeholder="enter visuals here and hit comma"
-                  value={data.visuals?.customVisuals || ""}
-                  onChange={(e) => handleCustomVisualsChange(e.target.value)}
-                  className="w-full min-h-[80px] resize-none"
-                />
+            <Card className="border-2 border-border bg-background p-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Any Specific Visuals? (optional)
+                  </label>
+                  <Textarea
+                    placeholder="enter visuals here and hit comma"
+                    value={data.visuals?.customVisuals || ""}
+                    onChange={(e) => handleCustomVisualsChange(e.target.value)}
+                    className="w-full min-h-[80px] resize-none"
+                  />
+                </div>
+                {data.visuals?.customVisuals?.trim() ? (
+                  <Button 
+                    variant="ghost" 
+                    className="text-sm text-cyan-400 font-medium p-0 h-auto hover:text-cyan-500"
+                    onClick={() => {
+                      // Handle ready to generate action
+                      console.log("Ready to generate visuals");
+                    }}
+                  >
+                    I'm ready to generate my visuals
+                  </Button>
+                ) : (
+                  <p className="text-sm text-cyan-400 font-medium">
+                    I don't want any specific visuals
+                  </p>
+                )}
               </div>
-              {data.visuals?.customVisuals?.trim() ? (
-                <Button 
-                  variant="ghost" 
-                  className="text-sm text-cyan-400 font-medium p-0 h-auto hover:text-cyan-500"
-                  onClick={() => {
-                    // Handle ready to generate action
-                    console.log("Ready to generate visuals");
-                  }}
-                >
-                  I'm ready to generate my visuals
-                </Button>
-              ) : (
-                <p className="text-sm text-cyan-400 font-medium">
-                  I don't want any specific visuals
-                </p>
-              )}
-            </div>
+            </Card>
           )}
         </div>
       ) : (
