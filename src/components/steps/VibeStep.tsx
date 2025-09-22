@@ -76,6 +76,60 @@ export default function VibeStep({ data, updateData }: VibeStepProps) {
         </p>
       </div>
 
+      {/* Output Gallery */}
+      <div className="space-y-4">
+        <Card className="overflow-hidden bg-card">
+          {/* Header with icons */}
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
+            <h3 className="text-sm font-medium text-foreground">Output Gallery</h3>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Star className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Expand className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          
+          {/* Image content */}
+          <div className="p-4">
+            <div className="relative overflow-hidden rounded-lg">
+              <img
+                src={birthdayImage}
+                alt="Generated birthday celebration meme"
+                className="h-64 w-full object-cover"
+              />
+            </div>
+            
+            {/* Download button */}
+            <div className="mt-4 flex justify-center">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download Image
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Generation Tips */}
+        <Card className="bg-muted/50 p-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            <span className="text-sm font-medium">Generation Tips</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Use detailed descriptions for more accurate results
+          </p>
+        </Card>
+      </div>
+
       {/* Personality Selection */}
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-foreground">Personality Type</h3>
@@ -141,60 +195,6 @@ export default function VibeStep({ data, updateData }: VibeStepProps) {
             personalities.find(p => p.id === data.vibe.personality)?.title : "Not selected"
           } with {data.vibe?.intensity || "moderate"} intensity training
         </p>
-      </div>
-
-      {/* Output Gallery */}
-      <div className="space-y-4">
-        <Card className="overflow-hidden bg-card">
-          {/* Header with icons */}
-          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
-            <h3 className="text-sm font-medium text-foreground">Output Gallery</h3>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <Download className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <Star className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <Expand className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          
-          {/* Image content */}
-          <div className="p-4">
-            <div className="relative overflow-hidden rounded-lg">
-              <img
-                src={birthdayImage}
-                alt="Generated birthday celebration meme"
-                className="h-64 w-full object-cover"
-              />
-            </div>
-            
-            {/* Download button */}
-            <div className="mt-4 flex justify-center">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Download Image
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        {/* Generation Tips */}
-        <Card className="bg-muted/50 p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Sparkles className="h-4 w-4" />
-            <span className="text-sm font-medium">Generation Tips</span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Use detailed descriptions for more accurate results
-          </p>
-        </Card>
       </div>
     </div>
   );
