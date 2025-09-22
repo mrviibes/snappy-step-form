@@ -19,18 +19,18 @@ export default function StepIndicator({
 }: StepIndicatorProps) {
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
         {steps.map((step, index) => {
           const isActive = step.id === currentStep;
           const isCompleted = isStepCompleted(step.id);
           const isPast = step.id < currentStep;
 
           return (
-            <div key={step.id} className="flex flex-col items-center flex-1">
+            <div key={step.id} className="flex flex-col items-center flex-1 relative">
               {/* Step Circle */}
               <div
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ease-smooth",
+                  "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ease-smooth relative z-10 bg-background",
                   {
                     "border-step-active bg-step-active text-white": isActive,
                     "border-step-completed bg-step-completed text-white":
@@ -67,17 +67,16 @@ export default function StepIndicator({
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    "absolute top-5 h-0.5 transition-colors duration-300",
-                    "hidden sm:block", // Hide on mobile for cleaner look
+                    "absolute top-5 h-0.5 transition-colors duration-300 z-0",
                     {
                       "bg-step-completed": isPast,
                       "bg-step-inactive": !isPast,
                     }
                   )}
                   style={{
-                    left: `${((index + 1) / steps.length) * 100 - 50 / steps.length}%`,
-                    width: `${100 / steps.length}%`,
-                    zIndex: -1,
+                    left: "50%",
+                    right: `-${100 / steps.length}%`,
+                    width: `calc(100vw / ${steps.length} - 20px)`,
                   }}
                 />
               )}
