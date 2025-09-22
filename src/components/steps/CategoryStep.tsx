@@ -2328,27 +2328,25 @@ export default function CategoryStep({
     const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
     
     return (
-      <div className="bg-white rounded-lg border border-primary overflow-hidden">
+      <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Category */}
-        <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent border-b border-border" onClick={handleEditCategory}>
-          <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-            <img src={categoryData?.image} alt={categoryData?.title} className="w-full h-full object-cover" />
+        <div className="flex items-center justify-between p-4">
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground">Category - {categoryData?.title}</div>
           </div>
-          <div>
-            <h3 className="font-medium text-foreground">{categoryData?.title}</h3>
-            <p className="text-sm text-primary">Edit</p>
-          </div>
+          <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>
 
         {/* Selected Subcategory */}
-        <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent" onClick={handleEditSubcategory}>
-          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-            <span className="text-lg">{categoryData?.icon}</span>
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground">Subcategory - {subcategoryData?.title}</div>
           </div>
-          <div>
-            <h3 className="font-medium text-foreground">{subcategoryData?.title}</h3>
-            <p className="text-sm text-primary">Edit</p>
-          </div>
+          <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>
       </div>
     );
@@ -2359,13 +2357,14 @@ export default function CategoryStep({
         
 
         {/* Compact Selected Category */}
-        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary">
-          <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-            <img src={selectedCategoryData.image} alt={selectedCategoryData.title} className="w-full h-full object-cover" />
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground">{selectedCategoryData.title}</h3>
-            <p className="text-sm text-primary">Edit</p>
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <div className="text-base font-semibold text-foreground">Category - {selectedCategoryData.title}</div>
+            </div>
+            <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
           </div>
         </div>
 
