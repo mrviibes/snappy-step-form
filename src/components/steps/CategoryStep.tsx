@@ -45,12 +45,7 @@ export default function CategoryStep({
   onNext
 }: CategoryStepProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  
-  const filteredGoals = fitnessGoals.filter(goal =>
-    goal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    goal.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+  const filteredGoals = fitnessGoals.filter(goal => goal.title.toLowerCase().includes(searchQuery.toLowerCase()) || goal.description.toLowerCase().includes(searchQuery.toLowerCase()));
   const handleSelection = (goalId: string) => {
     updateData({
       category: goalId
@@ -69,13 +64,7 @@ export default function CategoryStep({
       {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
-        <Input
-          type="text"
-          placeholder="Search categories..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+        <Input type="text" placeholder="Search categories..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -87,7 +76,7 @@ export default function CategoryStep({
             <h3 className="mb-1 text-sm font-medium text-foreground">
               {goal.title}
             </h3>
-            <p className="text-xs text-muted-foreground">{goal.description}</p>
+            
           </Card>)}
       </div>
     </div>;
