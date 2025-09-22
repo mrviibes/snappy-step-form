@@ -791,10 +791,10 @@ export default function VisualsStep({
                     <label className="block text-sm font-medium text-foreground">
                       Style
                     </label>
-                    <div className="flex gap-3 items-end">
+                    <div className="flex gap-3 items-center">
                       <div className="flex-1">
                         <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full h-10">
                             <SelectValue placeholder="Choose style" />
                           </SelectTrigger>
                           <SelectContent className="bg-background border border-border shadow-lg z-50">
@@ -809,7 +809,7 @@ export default function VisualsStep({
                       
                       <Button 
                         onClick={handleGenerateVisuals}
-                        className="bg-cyan-400 hover:bg-cyan-500 text-white h-10 px-6 font-medium"
+                        className="bg-cyan-400 hover:bg-cyan-500 text-white h-10 px-6 font-medium whitespace-nowrap"
                         disabled={!data.visuals?.visualTaste || isGeneratingVisuals}
                       >
                         {isGeneratingVisuals ? (
