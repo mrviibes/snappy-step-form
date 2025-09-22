@@ -116,7 +116,12 @@ export default function VisualsStep({
   };
 
   const handleReadyToGenerate = () => {
+    console.log("handleReadyToGenerate called, current state:", {
+      showVisualGeneration,
+      customVisuals: data.visuals?.customVisuals
+    });
     setShowVisualGeneration(true);
+    console.log("Set showVisualGeneration to true");
   };
 
   const handleVisualTasteChange = (tasteId: string) => {
@@ -245,17 +250,21 @@ export default function VisualsStep({
                 </Button>
               </div>
 
-              {/* Visuals Row - only show after ready to generate and if there are visuals */}
-              {showVisualGeneration && data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+              {/* Visuals Row - only show after ready to generate (whether or not there are visuals) */}
+              {showVisualGeneration && data.visuals?.option === "ai-assist" && (
                 <>
                   <div className="h-px bg-border"></div>
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-sm font-medium text-foreground">Visuals - </span>
                       <span className="text-sm text-foreground">
-                        {data.visuals.customVisuals.map((visual: string, index: number) => 
-                          `"${visual}"${index < data.visuals.customVisuals.length - 1 ? ', ' : ''}`
-                        ).join('')}
+                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? (
+                          data.visuals.customVisuals.map((visual: string, index: number) => 
+                            `"${visual}"${index < data.visuals.customVisuals.length - 1 ? ', ' : ''}`
+                          ).join('')
+                        ) : (
+                          'none chosen'
+                        )}
                       </span>
                     </div>
                     <Button 
@@ -357,8 +366,8 @@ export default function VisualsStep({
             </div>
           </Card>
 
-          {/* Custom Visuals Input for AI Assist - always show when AI assist is selected */}
-          {data.visuals?.option === "ai-assist" && (
+          {/* Custom Visuals Input for AI Assist - only show before generation */}
+          {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -401,6 +410,37 @@ export default function VisualsStep({
                   }
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Style Selection and Generate Button - show after ready to generate */}
+          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-foreground">
+                  Style
+                </label>
+                <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose style" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visualTasteOptions.map(option => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button 
+                onClick={handleGenerateVisuals}
+                className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
+                disabled={!data.visuals?.visualTaste}
+              >
+                Generate Visuals
+              </Button>
             </div>
           )}
 
