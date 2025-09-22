@@ -251,8 +251,8 @@ export default function TextStep({
         </div>}
       </div>
 
-      {/* Add Specific Words Section */}
-      <div className="space-y-4">
+      {/* Add Specific Words Section - only show before generation */}
+      {!showGeneration && <div className="space-y-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground">Any Specific Text (optional)</h2>
         </div>
@@ -276,48 +276,48 @@ export default function TextStep({
             </button>
           </div>
         </div>
+      </div>}
         
         {/* Generation Section */}
         {showGeneration && <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Style Dropdown */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Style</label>
-                <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Generic (plain)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
-                        {style.label}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Rating Dropdown */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Rating</label>
-                <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="G (clean)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
-                        {rating.label}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Style Dropdown */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Style</label>
+                  <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Generic (plain)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
+                          {style.label}
+                        </SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Rating Dropdown with Generate Button */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Rating</label>
+                  <div className="flex gap-2">
+                    <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="G (clean)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
+                            {rating.label}
+                          </SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={handleGenerate} className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium">
+                      Generate
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-            
-            {/* Generate Button */}
-            {data.text?.style && data.text?.rating && <div className="flex justify-center">
-                <Button onClick={handleGenerate} className="bg-cyan-400 hover:bg-cyan-500 text-white px-8 py-2 rounded-md font-medium">
-                  Generate
-                </Button>
-              </div>}
           </div>}
-      </div>
     </div>;
 }
