@@ -140,6 +140,7 @@ export default function VisualsStep({
       customVisuals: data.visuals?.customVisuals,
       visualTaste: data.visuals?.visualTaste
     });
+    console.log("Setting showVisualOptions to true");
     setShowVisualOptions(true);
   };
 
@@ -446,7 +447,7 @@ export default function VisualsStep({
 
 
           {/* Visual Options - show after generate is clicked */}
-          {showVisualOptions && (
+          {showVisualOptions && data.visuals?.option === "ai-assist" && (
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-foreground">
