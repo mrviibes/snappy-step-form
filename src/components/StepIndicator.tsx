@@ -74,9 +74,8 @@ export default function StepIndicator({
                     }
                   )}
                   style={{
-                    left: "50%",
-                    right: `-${100 / steps.length}%`,
-                    width: `calc(100vw / ${steps.length} - 20px)`,
+                    left: "calc(50% + 20px)",
+                    width: "calc(100% - 40px)",
                   }}
                 />
               )}
