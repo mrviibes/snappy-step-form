@@ -1,11 +1,10 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ApiKeyManager, getStoredApiKey } from '@/components/ApiKeyManager';
-import { generateTextOptions } from '@/lib/openai';
+import { checkServerHealth, generateTextOptions } from '@/lib/api';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
@@ -61,129 +60,20 @@ export default function TextStep({
   const [textOptions, setTextOptions] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [forceRerender, setForceRerender] = useState(0);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
-  const [pendingGenerate, setPendingGenerate] = useState(false);
-  const [apiKeyPromptSignal, setApiKeyPromptSignal] = useState(0);
+  const [hasServerKey, setHasServerKey] = useState(false);
 
-  // Derive hasApiKey directly from localStorage, reactive to forceRerender
-  const hasApiKey = !!getStoredApiKey() && forceRerender >= 0;
+  // Check server health on component mount
+  useEffect(() => {
+    checkServerHealth().then(setHasServerKey);
+  }, []);
 
-  const handleApiKeyChange = () => {
-    console.log('API key changed, forcing re-render');
-    // Force re-render to update the derived hasApiKey value
-    setForceRerender(prev => prev + 1);
-    
-    // If we were waiting to generate and now have a key, proceed with generation
-    if (pendingGenerate && getStoredApiKey()) {
-      console.log('Pending generate detected, proceeding with generation');
-      setPendingGenerate(false);
-      // Small delay to ensure the dialog closes first
-      setTimeout(() => {
-        handleGenerate();
-      }, 100);
-    }
-  };
-  const handleToneSelect = (toneId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        tone: toneId
-      }
-    });
-  };
-  const handleEditTone = () => {
-    updateData({
-      text: {
-        ...data.text,
-        tone: ""
-      }
-    });
-  };
-  const handleWritingPreferenceSelect = (preferenceId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        writingPreference: preferenceId
-      }
-    });
-
-    // If "write-myself" is selected, skip to custom text input
-    if (preferenceId === 'write-myself') {
-      setShowGeneration(false);
-      setShowTextOptions(false);
-    }
-  };
-  const handleEditWritingPreference = () => {
-    updateData({
-      text: {
-        ...data.text,
-        writingPreference: ""
-      }
-    });
-  };
-  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      const currentWords = data.text?.specificWords || [];
-      if (!currentWords.includes(tagInput.trim())) {
-        updateData({
-          text: {
-            ...data.text,
-            specificWords: [...currentWords, tagInput.trim()]
-          }
-        });
-      }
-      setTagInput('');
-    }
-  };
-  const handleRemoveTag = (wordToRemove: string) => {
-    const currentWords = data.text?.specificWords || [];
-    updateData({
-      text: {
-        ...data.text,
-        specificWords: currentWords.filter(word => word !== wordToRemove)
-      }
-    });
-  };
-  const handleReadyToGenerate = () => {
-    setShowGeneration(true);
-  };
-  const handleStyleSelect = (styleId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        style: styleId
-      }
-    });
-  };
-  const handleRatingSelect = (ratingId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        rating: ratingId
-      }
-    });
-  };
-
-  const handleComedianStyleSelect = (comedianId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        comedianStyle: comedianId
-      }
-    });
-  };
   const handleGenerate = async () => {
-    const currentApiKey = getStoredApiKey();
-    console.log('Generate clicked - API key check:', { currentApiKey: !!currentApiKey, hasApiKey, forceRerender });
-    
-    if (!hasApiKey) {
-      console.log('No API key detected, prompting for key');
-      setPendingGenerate(true);
-      setApiKeyPromptSignal(prev => prev + 1);
+    if (!hasServerKey) {
+      setGenerationError('Server not configured properly. Please contact administrator.');
       return;
     }
 
@@ -211,6 +101,104 @@ export default function TextStep({
       setIsGenerating(false);
     }
   };
+  const handleToneSelect = (toneId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        tone: toneId
+      }
+    });
+  };
+
+  const handleEditTone = () => {
+    updateData({
+      text: {
+        ...data.text,
+        tone: ""
+      }
+    });
+  };
+
+  const handleWritingPreferenceSelect = (preferenceId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        writingPreference: preferenceId
+      }
+    });
+
+    // If "write-myself" is selected, skip to custom text input
+    if (preferenceId === 'write-myself') {
+      setShowGeneration(false);
+      setShowTextOptions(false);
+    }
+  };
+
+  const handleEditWritingPreference = () => {
+    updateData({
+      text: {
+        ...data.text,
+        writingPreference: ""
+      }
+    });
+  };
+
+  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      const currentWords = data.text?.specificWords || [];
+      if (!currentWords.includes(tagInput.trim())) {
+        updateData({
+          text: {
+            ...data.text,
+            specificWords: [...currentWords, tagInput.trim()]
+          }
+        });
+      }
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (wordToRemove: string) => {
+    const currentWords = data.text?.specificWords || [];
+    updateData({
+      text: {
+        ...data.text,
+        specificWords: currentWords.filter(word => word !== wordToRemove)
+      }
+    });
+  };
+
+  const handleReadyToGenerate = () => {
+    setShowGeneration(true);
+  };
+
+  const handleStyleSelect = (styleId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        style: styleId
+      }
+    });
+  };
+
+  const handleRatingSelect = (ratingId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        rating: ratingId
+      }
+    });
+  };
+
+  const handleComedianStyleSelect = (comedianId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        comedianStyle: comedianId
+      }
+    });
+  };
+
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
     // Don't automatically show layout options, keep them visible in the flow
@@ -335,7 +323,8 @@ export default function TextStep({
   }
 
   // Show selected preferences and specific words input
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* Selected Tone and Process in stacked format */}
       <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Tone */}
@@ -509,19 +498,20 @@ export default function TextStep({
                 </div>
               </div>
               
-              {/* API Key Manager */}
+              {/* Server Status */}
               <div className="flex justify-center">
-                <ApiKeyManager 
-                  onApiKeyChange={handleApiKeyChange}
-                  promptSignal={apiKeyPromptSignal}
-                />
+                {!hasServerKey && (
+                  <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-md">
+                    Server configuration pending...
+                  </div>
+                )}
               </div>
 
               {/* Generate Button - Full width on mobile */}
               <div className="w-full">
                 <Button 
                   onClick={handleGenerate} 
-                  disabled={isGenerating}
+                  disabled={!hasServerKey || isGenerating}
                   className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isGenerating ? (
@@ -536,7 +526,7 @@ export default function TextStep({
                 {/* Debug info */}
                 {process.env.NODE_ENV === 'development' && (
                   <div className="text-xs text-gray-500 mt-1 text-center">
-                    Debug: hasApiKey={hasApiKey.toString()}, isGenerating={isGenerating.toString()}
+                    Debug: hasServerKey={hasServerKey.toString()}, isGenerating={isGenerating.toString()}
                   </div>
                 )}
               </div>
@@ -579,6 +569,7 @@ export default function TextStep({
                          </div>
                        </Card>)}
                    </div>
-                 </div>}
-    </div>;
+                  </div>}
+    </div>
+  );
 }

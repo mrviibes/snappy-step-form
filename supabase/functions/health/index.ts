@@ -1,0 +1,48 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const openAiKey = Deno.env.get('OPENAI_API_KEY')
+    
+    if (!openAiKey) {
+      return Response.json(
+        { ok: false, error: 'No OpenAI API key configured' },
+        { status: 500, headers: corsHeaders }
+      )
+    }
+
+    // Test a minimal API call to verify the key works
+    const response = await fetch('https://api.openai.com/v1/models', {
+      headers: {
+        'Authorization': `Bearer ${openAiKey}`,
+      },
+    })
+
+    if (!response.ok) {
+      return Response.json(
+        { ok: false, error: 'OpenAI API key invalid' },
+        { status: 500, headers: corsHeaders }
+      )
+    }
+
+    return Response.json(
+      { ok: true },
+      { headers: corsHeaders }
+    )
+
+  } catch (error) {
+    return Response.json(
+      { ok: false, error: error.message },
+      { status: 500, headers: corsHeaders }
+    )
+  }
+})
