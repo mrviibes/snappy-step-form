@@ -45,9 +45,9 @@ const visualStyles = [{
 }];
 
 const visualOptions = [
-  { id: "ai-assist", title: "AI Visuals Assist" },
-  { id: "design-myself", title: "Design Visuals Myself" },
-  { id: "no-visuals", title: "Don't Want Visuals" }
+  { id: "ai-assist", title: "Option 1 - AI Visuals Assist" },
+  { id: "design-myself", title: "Option 2 - Design Visuals Myself" },
+  { id: "no-visuals", title: "Option 3 - Don't Want Visuals" }
 ];
 
 export default function VisualsStep({
@@ -75,11 +75,13 @@ export default function VisualsStep({
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const hasSelectedStyle = !!data.visuals?.style;
   return <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="mb-2 text-xl font-semibold text-foreground">
-          Choose your visual style
-        </h2>
-      </div>
+      {!hasSelectedStyle && (
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold text-foreground">
+            Choose your visual style
+          </h2>
+        </div>
+      )}
 
       {/* Style Selection or Selected Style Summary */}
       {!hasSelectedStyle ? (
