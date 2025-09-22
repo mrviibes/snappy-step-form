@@ -3,7 +3,6 @@ interface TextStepProps {
   updateData: (data: any) => void;
   onNext: () => void;
 }
-
 const tones = [{
   id: 'humorous',
   label: 'Humorous',
@@ -37,7 +36,6 @@ const tones = [{
   label: 'Serious',
   description: 'Formal, direct, weighty'
 }];
-
 const writingPreferences = [{
   id: 'ai-assist',
   label: 'AI Assist'
@@ -48,7 +46,6 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-
 export default function TextStep({
   data,
   updateData
@@ -61,7 +58,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleEditTone = () => {
     updateData({
       text: {
@@ -70,7 +66,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleWritingPreferenceSelect = (preferenceId: string) => {
     updateData({
       text: {
@@ -79,7 +74,6 @@ export default function TextStep({
       }
     });
   };
-
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
 
   // Show tone selection if no tone is selected
@@ -106,24 +100,19 @@ export default function TextStep({
   return <div className="space-y-6">
       {/* Selected Tone Display with Edit Option */}
       <div className="rounded-lg border-2 border-primary bg-card p-4">
-        <div className="flex items-center justify-between">
-          <div className="font-semibold text-foreground text-lg">
-            TONE - "{selectedTone?.label}"
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="font-semibold text-foreground text-lg">{selectedTone?.label}</div>
+            <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
           </div>
-          <button 
-            onClick={handleEditTone}
-            className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-          >
-            Edit
-          </button>
         </div>
       </div>
 
       {/* Writing Preference Selection */}
       <div className="text-center">
-        <h2 className="mb-4 text-xl font-semibold text-foreground">
-          Choose Your Writing Preference
-        </h2>
+        <h2 className="mb-4 text-xl font-semibold text-foreground">Choose Your Writing Process</h2>
       </div>
 
       <div className="grid grid-cols-1 gap-3">
