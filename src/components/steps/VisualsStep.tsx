@@ -131,6 +131,8 @@ export default function VisualsStep({
         visualTaste: tasteId
       }
     });
+    // Automatically show visual options when style is selected
+    setShowVisualOptions(true);
   };
 
   const handleGenerateVisuals = () => {
@@ -414,7 +416,7 @@ export default function VisualsStep({
             </div>
           )}
 
-          {/* Style Selection and Generate Button - show after ready to generate */}
+          {/* Style Selection - show after ready to generate */}
           {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && !data.visuals?.visualTaste && (
             <div className="space-y-4">
               <div className="space-y-3">
@@ -434,14 +436,6 @@ export default function VisualsStep({
                   </SelectContent>
                 </Select>
               </div>
-              
-              <Button 
-                onClick={handleGenerateVisuals}
-                className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
-                disabled={!data.visuals?.visualTaste}
-              >
-                Generate Visuals
-              </Button>
             </div>
           )}
 
