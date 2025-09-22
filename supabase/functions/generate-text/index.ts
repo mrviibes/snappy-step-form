@@ -87,8 +87,6 @@ async function callOpenAI(model: string, input: string) {
     body: JSON.stringify({
       model,
       input,
-      temperature: 0.9,
-      top_p: 0.95,
       max_output_tokens: 600,
     }),
   });
