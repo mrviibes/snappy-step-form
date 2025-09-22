@@ -105,26 +105,28 @@ export default function MultiStepForm() {
         <StepIndicator steps={steps} currentStep={currentStep} isStepCompleted={isStepCompleted} />
 
         {/* Main Content */}
-        <Card className="mb-6 bg-gradient-card shadow-card transition-all duration-300 ease-smooth">
+        <Card className="mb-20 bg-gradient-card shadow-card transition-all duration-300 ease-smooth">
           <div className="p-6">
             <CurrentStepComponent data={formData} updateData={updateFormData} onNext={nextStep} />
           </div>
         </Card>
 
         {/* Navigation */}
-        <div className="flex justify-between gap-4">
-          <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} className="flex-1 transition-all duration-300 ease-smooth">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
+          <div className="mx-auto max-w-md flex justify-between gap-4">
+            <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} className="flex-1 transition-all duration-300 ease-smooth">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
 
-          {currentStep === steps.length ? <Button onClick={handleSubmit} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
-              <Check className="mr-2 h-4 w-4" />
-              Complete
-            </Button> : <Button onClick={nextStep} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>}
+            {currentStep === steps.length ? <Button onClick={handleSubmit} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
+                <Check className="mr-2 h-4 w-4" />
+                Complete
+              </Button> : <Button onClick={nextStep} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>}
+          </div>
         </div>
       </div>
     </div>;
