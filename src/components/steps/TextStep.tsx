@@ -2,6 +2,14 @@ import { useState, KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
+import memeTextImage from "@/assets/meme-text-layout.jpg";
+import lowerBannerImage from "@/assets/lower-banner-layout.jpg";
+import sideBarImage from "@/assets/side-bar-layout.jpg";
+import badgeCalloutImage from "@/assets/badge-callout-layout.jpg";
+import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -84,6 +92,7 @@ export default function TextStep({
   const [showGeneration, setShowGeneration] = useState(false);
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
+  const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -172,11 +181,21 @@ export default function TextStep({
 
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
+    setShowLayoutOptions(true);
     updateData({
       text: {
         ...data.text,
         selectedOption: optionIndex,
         generatedText: textOptions[optionIndex]
+      }
+    });
+  };
+
+  const handleLayoutSelect = (layoutId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        layout: layoutId
       }
     });
   };
@@ -188,8 +207,86 @@ export default function TextStep({
     "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariat.",
     "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id."
   ];
+
+  // Layout options
+  const layoutOptions = [
+    {
+      id: "negative-space",
+      title: "Negative Space",
+      image: negativeSpaceImage
+    },
+    {
+      id: "meme-text",
+      title: "Meme Text",
+      image: memeTextImage
+    },
+    {
+      id: "lower-banner",
+      title: "Lower Banner",
+      image: lowerBannerImage
+    },
+    {
+      id: "side-bar",
+      title: "Side Bar",
+      image: sideBarImage
+    },
+    {
+      id: "badge-callout",
+      title: "Badge Callout",
+      image: badgeCalloutImage
+    },
+    {
+      id: "subtle-caption",
+      title: "Subtle Caption",
+      image: subtleCaptionImage
+    }
+  ];
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
+
+  // Show layout options if text is selected
+  if (showLayoutOptions) {
+    return <div className="space-y-6">
+        {/* Selected Text Summary */}
+        <div className="bg-white rounded-lg border border-primary overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <div className="font-medium text-foreground">
+              Text - "{selectedTextOption !== null ? textOptions[selectedTextOption].substring(0, 20) + '...' : ''}"
+            </div>
+            <button onClick={() => setShowLayoutOptions(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Layout Options Grid */}
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold text-foreground">Choose Your Layout</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {layoutOptions.map(layout => 
+            <Card key={layout.id} className={cn(
+              "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105",
+              "border-2 bg-card hover:bg-accent hover:border-primary",
+              {
+                "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
+                "border-border": data.text?.layout !== layout.id
+              }
+            )} onClick={() => handleLayoutSelect(layout.id)}>
+              <div className="w-full h-24 overflow-hidden">
+                <img src={layout.image} alt={layout.title} className="w-full h-full object-cover" />
+              </div>
+              <div className="p-3 pt-2">
+                <h3 className="text-sm font-medium text-foreground">
+                  {layout.title}
+                </h3>
+              </div>
+            </Card>
+          )}
+        </div>
+      </div>;
+  }
 
   // Show tone selection if no tone is selected
   if (!data.text?.tone) {
