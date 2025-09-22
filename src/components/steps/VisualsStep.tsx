@@ -8,11 +8,13 @@ import realisticImage from "@/assets/visual-style-realistic.jpg";
 import designImage from "@/assets/visual-style-design.jpg";
 import renderImage from "@/assets/visual-style-3d-render.jpg";
 import animeImage from "@/assets/visual-style-anime.jpg";
+
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
+
 const visualStyles = [{
   id: "auto",
   title: "Auto",
@@ -83,8 +85,13 @@ export default function VisualsStep({
   };
 
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
+  const selectedOption = visualOptions.find(option => option.id === data.visuals?.option);
   const hasSelectedStyle = !!data.visuals?.style;
-  return <div className="space-y-6">
+  const hasSelectedOption = !!data.visuals?.option;
+  const isComplete = hasSelectedStyle && hasSelectedOption;
+
+  return (
+    <div className="space-y-6">
       {!hasSelectedStyle && (
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-foreground">
@@ -93,34 +100,10 @@ export default function VisualsStep({
         </div>
       )}
 
-      {/* Style Selection or Selected Style Summary */}
-      {!hasSelectedStyle ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card overflow-hidden", {
-            "border-primary shadow-primary bg-accent": data.visuals?.style === style.id,
-            "border-border": data.visuals?.style !== style.id
-          })} onClick={() => handleStyleChange(style.id)}>
-                <div className="relative">
-                  <img 
-                    src={style.preview} 
-                    alt={style.title}
-                    className="w-full h-24 object-cover"
-                  />
-                </div>
-                <div className="p-3">
-                  <h4 className="mb-1 text-sm font-medium text-foreground">
-                    {style.title}
-                  </h4>
-                  <p className="text-xs text-muted-foreground">{style.description}</p>
-                </div>
-              </Card>)}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Selected Style Summary */}
-          <Card className="border-2 border-primary bg-accent p-3">
+      {/* Complete Summary */}
+      {isComplete ? (
+        <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
+          <div className="space-y-3">
             <div className="flex items-center space-x-3">
               <img 
                 src={selectedStyle?.preview} 
@@ -136,55 +119,132 @@ export default function VisualsStep({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => handleStyleChange("")}
-                className="text-xs"
+                onClick={() => updateData({ visuals: { style: "", option: "" } })}
+                className="text-xs text-cyan-500"
               >
-                Change
+                Edit
               </Button>
             </div>
-          </Card>
-
-          {/* Visual Options */}
-          <div className="space-y-3">
-            {visualOptions.map(option => (
-              <Button
-                key={option.id}
-                variant={data.visuals?.option === option.id ? "default" : "outline"}
-                className={cn(
-                  "w-full h-12 text-sm font-medium transition-all duration-300",
-                  data.visuals?.option === option.id 
-                    ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" 
-                    : "hover:bg-accent border-border"
-                )}
-                onClick={() => handleVisualOptionChange(option.id)}
-              >
-                {option.title}
-              </Button>
-            ))}
-          </div>
-
-          {/* Custom Visuals Input for AI Assist */}
-          {data.visuals?.option === "ai-assist" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Visuals (optional)
-                </label>
-                <Textarea
-                  placeholder="describe visuals you would like"
-                  value={data.visuals?.customVisuals || ""}
-                  onChange={(e) => handleCustomVisualsChange(e.target.value)}
-                  className="w-full min-h-[80px] resize-none"
-                />
+            
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-cyan-400 rounded flex items-center justify-center">
+                <span className="text-white text-xs font-bold">AI</span>
               </div>
-              {!data.visuals?.customVisuals?.trim() && (
-                <p className="text-sm text-cyan-400 font-medium">
-                  Let AI Generate recommendations
-                </p>
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-foreground">
+                  {selectedOption?.title}
+                </h4>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => updateData({ visuals: { ...data.visuals, option: "" } })}
+                className="text-xs text-cyan-500"
+              >
+                Edit
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <>
+          {/* Style Selection or Selected Style Summary */}
+          {!hasSelectedStyle ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {visualStyles.map(style => (
+                  <Card key={style.id} className={cn("cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card overflow-hidden", {
+                    "border-primary shadow-primary bg-accent": data.visuals?.style === style.id,
+                    "border-border": data.visuals?.style !== style.id
+                  })} onClick={() => handleStyleChange(style.id)}>
+                    <div className="relative">
+                      <img 
+                        src={style.preview} 
+                        alt={style.title}
+                        className="w-full h-24 object-cover"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <h4 className="mb-1 text-sm font-medium text-foreground">
+                        {style.title}
+                      </h4>
+                      <p className="text-xs text-muted-foreground">{style.description}</p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Selected Style Summary */}
+              <Card className="border-2 border-primary bg-accent p-3">
+                <div className="flex items-center space-x-3">
+                  <img 
+                    src={selectedStyle?.preview} 
+                    alt={selectedStyle?.title}
+                    className="w-12 h-12 rounded object-cover"
+                  />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-foreground">
+                      {selectedStyle?.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">{selectedStyle?.description}</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleStyleChange("")}
+                    className="text-xs"
+                  >
+                    Change
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Visual Options */}
+              <div className="space-y-3">
+                {visualOptions.map(option => (
+                  <Button
+                    key={option.id}
+                    variant={data.visuals?.option === option.id ? "default" : "outline"}
+                    className={cn(
+                      "w-full h-12 text-sm font-medium transition-all duration-300",
+                      data.visuals?.option === option.id 
+                        ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" 
+                        : "hover:bg-accent border-border"
+                    )}
+                    onClick={() => handleVisualOptionChange(option.id)}
+                  >
+                    {option.title}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Custom Visuals Input for AI Assist */}
+              {data.visuals?.option === "ai-assist" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Any Specific Visuals (optional)
+                    </label>
+                    <Textarea
+                      placeholder="describe visuals you would like"
+                      value={data.visuals?.customVisuals || ""}
+                      onChange={(e) => handleCustomVisualsChange(e.target.value)}
+                      className="w-full min-h-[80px] resize-none"
+                    />
+                  </div>
+                  {!data.visuals?.customVisuals?.trim() && (
+                    <p className="text-sm text-cyan-400 font-medium">
+                      Let AI Generate recommendations
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
+        </>
       )}
-    </div>;
+    </div>
+  );
 }
