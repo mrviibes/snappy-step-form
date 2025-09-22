@@ -335,7 +335,7 @@ export default function TextStep({
         </div>
         
         {/* Specific Text Section - only show after generation step */}
-        {showGeneration && <div className="flex items-center justify-between p-4 border-b border-border">
+        {showGeneration && <div className="flex items-center justify-between p-4 border-t border-b border-border">
           <div className="text-sm text-foreground">
             <span className="font-semibold">Mandatory Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
           </div>
