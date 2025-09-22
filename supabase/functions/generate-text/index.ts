@@ -3,43 +3,70 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const CHAT_MODEL = Deno.env.get("VIBE_CHAT_MODEL") || "gpt-4o-mini";
+const CHAT_MODEL = "gpt-4o-mini";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
+  "content-type": "application/json",
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "vary": "Origin"
 };
 
+// Comedian styles array
+const comedianStyles = [
+  { name: "Richard Pryor", flavor: "raw, confessional storytelling" },
+  { name: "George Carlin", flavor: "sharp, satirical, anti-establishment" },
+  { name: "Joan Rivers", flavor: "biting, fearless roast style" },
+  { name: "Eddie Murphy", flavor: "high-energy, character impressions" },
+  { name: "Robin Williams", flavor: "manic, surreal improvisation" },
+  { name: "Jerry Seinfeld", flavor: "clean observational minutiae" },
+  { name: "Chris Rock", flavor: "punchy, social commentary" },
+  { name: "Dave Chappelle", flavor: "thoughtful, edgy narrative riffs" },
+  { name: "Bill Burr", flavor: "ranting, blunt cynicism" },
+  { name: "Louis C.K.", flavor: "dark, self-deprecating honesty" },
+  { name: "Kevin Hart", flavor: "animated, personal storytelling" },
+  { name: "Ali Wong", flavor: "raunchy, feminist candor" },
+  { name: "Sarah Silverman", flavor: "deadpan, ironic taboo-poking" },
+  { name: "Amy Schumer", flavor: "self-aware, edgy relatability" },
+  { name: "Tiffany Haddish", flavor: "bold, outrageous energy" },
+  { name: "Jim Gaffigan", flavor: "clean, food/family obsession" },
+  { name: "Brian Regan", flavor: "clean, physical, goofy" },
+  { name: "John Mulaney", flavor: "polished, clever storytelling" },
+  { name: "Bo Burnham", flavor: "meta, musical satire" },
+  { name: "Hannah Gadsby", flavor: "vulnerable, subversive storytelling" },
+  { name: "Hasan Minhaj", flavor: "cultural/political storytelling" },
+  { name: "Russell Peters", flavor: "cultural riffing, accents" },
+  { name: "Aziz Ansari", flavor: "fast-paced, modern life takes" },
+  { name: "Patton Oswalt", flavor: "nerdy, sharp wit storytelling" },
+  { name: "Norm Macdonald", flavor: "absurd, slow-burn deadpan" },
+  { name: "Mitch Hedberg", flavor: "surreal, stoner one-liners" },
+  { name: "Steven Wright", flavor: "ultra-dry, absurd one-liners" },
+  { name: "Ellen DeGeneres", flavor: "relatable, observational, light" },
+  { name: "Chelsea Handler", flavor: "brash, self-aware honesty" },
+  { name: "Ricky Gervais", flavor: "mocking, irreverent roast" }
+];
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  
+  if (req.method !== "POST") {
+    return json({ error: "POST only" }, 405);
+  }
+
   try {
-    console.log("Request received:", req.method);
+    const body = await req.json();
+    console.log("Request received:", body);
     
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders });
-    }
-
-    if (req.method !== "POST") {
-      return json({ error: "POST only" }, 405);
-    }
-
-    let body: any = {};
-    try {
-      body = await req.json();
-      console.log("Request body:", body);
-    } catch {
-      return json({ error: "invalid_json" }, 400);
-    }
-
-    const { lines } = await generateFour(body);
-    console.log("Generated lines:", lines);
+    const options = await generateFour(body);
+    console.log("Generated options:", options);
     
-    return json({ options: lines });
+    return json({ options });
   } catch (e) {
-    console.error("Top-level error:", e);
-    return json({ error: String(e?.message || e || "generation_failed") }, 500);
+    console.error("Generation error:", e);
+    return json({ error: String(e?.message || "generation_failed") }, 500);
   }
 });
 
@@ -50,62 +77,12 @@ function json(obj: any, status = 200) {
   });
 }
 
-async function generateFour(p: any) {
-  // Parse insert words from the request
-  const insertWords = parseInsertWords(p.mandatory_words || '');
-  const lines: string[] = [];
-  let tries = 0;
-
-  console.log("Generating with params:", {
-    category: p.category,
-    subcategory: p.subcategory,
-    tone: p.tone,
-    style: p.style,
-    rating: p.rating,
-    insertWords
-  });
-
-  while (lines.length < 4 && tries < 12) {
-    try {
-      const sentence = await generateOneLine(p, insertWords);
-      const clean = enforceRules(sentence, insertWords, p.rating);
-      if (clean && !lines.includes(clean)) {
-        lines.push(clean);
-        console.log(`Generated line ${lines.length}:`, clean);
-      } else {
-        console.log("Rejected line:", { sentence, clean, reason: !clean ? 'failed validation' : 'duplicate' });
-      }
-    } catch (e) {
-      console.error(`Generation attempt ${tries + 1} failed:`, e);
-    }
-    tries++;
-  }
-
-  // Pad with fallbacks if needed
-  const fallbacks = [
-    "Celebrating wildly, because the cake said so and we listened.",
-    "Today deserves chaos, confetti, and questionable dance moves.",
-    "Making memories that sparkle brighter than your worst decisions.",
-    "Here's to another year of magnificent disasters and cake victories."
-  ];
-
-  while (lines.length < 4 && fallbacks.length > 0) {
-    const fallback = fallbacks.shift()!;
-    if (!lines.includes(fallback)) {
-      lines.push(fallback);
-      console.log("Added fallback:", fallback);
-    }
-  }
-
-  return { lines };
-}
-
+// Parse insert words from various input formats
 function parseInsertWords(input: string): string[] {
   if (!input?.trim()) return [];
   
   // Handle both simple comma-separated and structured input
   if (input.includes(':') || input.includes('[')) {
-    // Try to extract simple words from structured input
     const words: string[] = [];
     const nameMatch = input.match(/name:\s*([^,\n]+)/i);
     if (nameMatch) words.push(nameMatch[1].trim());
@@ -119,179 +96,240 @@ function parseInsertWords(input: string): string[] {
     return words.filter(Boolean);
   }
   
-  // Simple comma-separated
   return input.split(',').map(w => w.trim()).filter(Boolean);
 }
 
-function buildSystemPrompt(p: any, nonce: string): string {
-  const comedianHints = [
-    "Richard Pryor – raw confessional",
-    "George Carlin – sharp satirical", 
-    "Joan Rivers – biting roast",
-    "Bill Burr – ranting cynicism",
-    "Ali Wong – raunchy candor",
-    "Sarah Silverman – deadpan taboo",
-    "Mitch Hedberg – surreal one-liners",
-    "Steven Wright – ultra-dry absurd"
-  ];
-  
-  const randomComedian = comedianHints[Math.floor(Math.random() * comedianHints.length)];
-  
-  return `You write one-liner jokes for a celebration generator.
+// Build comprehensive prompt with style enforcement
+function buildPrompt(opts: {
+  category: string;
+  tone: string;
+  style: string;
+  rating: string;
+  insertWords: string[];
+  comedianStyle: { name: string; flavor: string };
+  nonce: string;
+}) {
+  const { category, tone, style, rating, insertWords, comedianStyle, nonce } = opts;
+  const insert = insertWords.join(", ") || "none";
 
-HARD RULES:
-- Exactly ONE sentence only
-- 60–120 characters total
-- No em dash (—)
-- End with . ! or ?
-- Include insert words NATURALLY if provided
-
-CONTEXT:
-- Category: ${p.category || "celebrations"}${p.subcategory ? ` > ${p.subcategory}` : ""}
-- Tone: ${p.tone || "Humorous"} (be genuinely ${p.tone})
-- Style: ${p.style || "Generic"} ${getStyleHint(p.style)}
-- Rating: ${p.rating || "PG"} ${getRatingHint(p.rating)}
-- Insert words: ${parseInsertWords(p.mandatory_words || '').join(', ') || 'none'}
-- Comedian flavor: ${randomComedian}
-
-Output ONLY the sentence. No quotes, no explanation.
-Nonce: ${nonce}`;
-}
-
-function getStyleHint(style: string): string {
-  const hints = {
-    'weird': '(absurd, surreal, unexpected comparisons)',
-    'sarcastic': '(dry wit, ironic bite, eye-rolling)',
-    'wholesome': '(heartwarming, kind, positive)',
-    'savage': '(brutally honest, cutting, no-holds-barred)',
-    'generic': '(straightforward celebration language)'
+  const ratingDesc: Record<string, string> = {
+    "g": "clean only; no profanity or innuendo.",
+    "pg": "mild spice allowed; no explicit profanity.",
+    "pg-13": "light profanity/innuendo allowed; avoid explicit slurs.",
+    "r": "explicit adult humor permitted; profanity allowed.",
   };
-  return hints[style?.toLowerCase()] || '';
-}
 
-function getRatingHint(rating: string): string {
-  const hints = {
-    'g': '(completely clean, family-friendly)',
-    'pg': '(mild humor, very light language)',
-    'pg-13': '(moderate adult humor, light profanity allowed)',
-    'r': '(explicit humor allowed, strong language, adult themes)'
-  };
-  return hints[rating?.toLowerCase()] || '';
-}
-
-function buildUserPrompt(p: any): string {
-  const styleExamples = {
-    'weird': [
-      "The cake blinked first, which is rude but also impressive.",
-      "Confetti whispers secrets only the balloons can hear today."
+  const styleExamples: Record<string, string[]> = {
+    "generic": [
+      "Let the cake be loud and the smiles be louder.",
+      "May joy arrive early and stay past midnight."
     ],
-    'sarcastic': [
-      "Another birthday, same human, bigger frosting to hide evidence.",
-      "Make a wish; the candles are judging your life choices anyway."
+    "sarcastic": [
+      "Make a wish; the candles are judging your life choices.",
+      "Another birthday, same you, bigger frosting to hide the evidence."
     ],
-    'wholesome': [
-      "May today be gentle, bright, and full of laughing crumbs.",
-      "You're loved loudly, even when the candles whisper softly."
+    "wholesome": [
+      "You're loved loudly, even when the candles whisper.",
+      "May today be gentle, bright, and full of laughing crumbs."
     ],
-    'savage': [
+    "weird": [
+      "The balloons unionized and demanded cake before anyone blinked.",
+      "Happy BDAY, may your candles whisper stock tips and bad advice."
+    ],
+    "savage": [
       "Another year closer to death, but at least there's cake.",
       "Congrats on surviving another trip around the sun, barely."
-    ],
-    'generic': [
-      "Let the cake be loud and the smiles be even louder.",
-      "May joy arrive early and stay well past midnight tonight."
     ]
   };
-  
-  const examples = styleExamples[p.style?.toLowerCase()] || styleExamples.generic;
-  const sample = examples[Math.floor(Math.random() * examples.length)];
-  
-  return `Write one new line in this style:
 
-Example: "${sample}"
+  const styleHints: Record<string, string> = {
+    "sarcastic": "ironic bite, dry, eye-roll",
+    "wholesome": "warm, kind, supportive", 
+    "weird": "absurd, surreal, bizarre imagery",
+    "savage": "brutally honest, cutting, no-holds-barred",
+    "generic": "neutral, straightforward phrasing"
+  };
 
-Remember: one sentence, 60–120 chars, no em dash, include insert words naturally if given.`;
+  const examples = styleExamples[style.toLowerCase()] || styleExamples.generic;
+  const example = examples[Math.floor(Math.random() * examples.length)];
+  const hint = styleHints[style.toLowerCase()] || styleHints.generic;
+
+  const system = `You write one-liner jokes for a celebration generator.
+
+Hard rules:
+- Exactly ONE sentence.
+- 60–120 characters.
+- No em dash.
+- End with ., !, or ?.
+- If insert words are provided, include them NATURALLY (not bolted on).
+- Do not explain. Output only the sentence.
+
+Nonce: ${nonce}`.trim();
+
+  const user = `Write ONE new line.
+
+Context:
+- Category: ${category}
+- Tone: ${tone}
+- Style: ${style} (${hint})
+- Rating: ${rating} (${ratingDesc[rating.toLowerCase()] || ratingDesc.pg})
+- Insert words: ${insert}
+- Comedian style hint: ${comedianStyle.name} – ${comedianStyle.flavor}
+
+Style example (do not copy):
+"${example}"
+
+Remember: one sentence, 60–120 chars, no em dash, include insert words if given.`.trim();
+
+  return { system, user };
 }
 
-async function generateOneLine(p: any, insertWords: string[]): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+// Normalize and validate generated text
+function normalizeFirstLine(raw: string): string {
+  const first = (raw || "")
+    .split(/\r?\n/).map(s => s.trim()).find(Boolean) || "";
+  return first
+    .replace(/^["'`]/, "").replace(/["'`]$/, "")   // strip surrounding quotes
+    .replace(/^[•*\-]\s*/, "")                     // bullets
+    .replace(/^\d+[\.)]\s*/, "");                  // numbered lists
+}
+
+function validateLine(line: string, rating: string, insertWords: string[]): string | null {
+  if (!line) return null;
+
+  const len = [...line].length;
+  if (len < 60 || len > 120) return null;
+
+  if (/\u2014/.test(line)) return null; // no em dash
+
+  // enforce ending punctuation
+  if (!/[.!?]$/.test(line)) line += ".";
+
+  // enforce insert words (case-insensitive whole-words)
+  const okWords = insertWords.every(w =>
+    new RegExp(`\\b${escapeReg(w)}\\b`, "i").test(line)
+  );
+  if (!okWords) return null;
+
+  // rating gates
+  const mild = /\b(hell|damn|crap)\b/i.test(line);
+  const explicit = /\b(fuck|shit|asshole|bastard|dick|piss|bitch)\b/i.test(line);
+
+  if (rating.toLowerCase() === "g" && (mild || explicit)) return null;
+  if (rating.toLowerCase() === "pg" && explicit) return null;
+  // PG-13 allows mild, R allows explicit
+
+  return line;
+}
+
+function escapeReg(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Generate a single line with retries
+async function generateOne(opts: {
+  category: string;
+  tone: string;
+  style: string;
+  rating: string;
+  insertWords: string[];
+  comedianStyle: { name: string; flavor: string };
+}) {
   const nonce = Math.random().toString(36).slice(2);
+  const { system, user } = buildPrompt({ ...opts, nonce });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const payload = {
-      model: CHAT_MODEL,
-      temperature: 0.95,  // High creativity
-      top_p: 0.9,         // Good diversity
-      max_tokens: 120,
-      messages: [
-        { role: "system", content: buildSystemPrompt(p, nonce) },
-        { role: "user", content: buildUserPrompt(p) }
-      ]
-    };
-
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "authorization": `Bearer ${OPENAI_API_KEY}`,
         "content-type": "application/json"
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        temperature: 0.95,
+        top_p: 0.9,
+        max_tokens: 140,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user }
+        ]
+      }),
       signal: controller.signal
     });
 
-    clearTimeout(timeout);
+    clearTimeout(timer);
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`openai_${response.status}_${text.slice(0, 200)}`);
+      const txt = await response.text();
+      console.error("OpenAI API error:", response.status, txt.slice(0, 200));
+      throw new Error(`openai_${response.status}_${txt.slice(0, 200)}`);
     }
 
     const data = await response.json();
-    return (data?.choices?.[0]?.message?.content || "").trim();
+    const raw = (data?.choices?.[0]?.message?.content || "").trim();
+    const first = normalizeFirstLine(raw);
+    const valid = validateLine(first, opts.rating, opts.insertWords);
+    
+    console.log("Generated line attempt:", { raw, first, valid });
+    return valid;
   } catch (e) {
-    clearTimeout(timeout);
-    if (e.name === 'AbortError') {
-      throw new Error("timeout_or_network_error");
-    }
+    clearTimeout(timer);
     throw e;
   }
 }
 
-function enforceRules(s: string, insertWords: string[], rating: string = 'PG'): string | null {
-  if (!s) return null;
+// Generate 4 options with retries and padding
+async function generateFour(body: any): Promise<string[]> {
+  const insertWords = parseInsertWords(body.mandatory_words || '');
+  const comedianStyle = comedianStyles[Math.floor(Math.random() * comedianStyles.length)];
   
-  // Take first non-empty line if model misbehaves
-  s = s.split(/\r?\n/).map(x => x.trim()).find(Boolean) || "";
-  
-  // Strip quotes/bullets/numbering
-  s = s.replace(/^["'`]/, "").replace(/["'`]$/, "")
-       .replace(/^[•*\-]\s*/, "").replace(/^\d+[\.)]\s*/, "");
-  
-  const len = [...s].length;
-  if (len < 60 || len > 120) return null;
-  if (/\u2014/.test(s)) return null; // no em dash
-  
-  // Check insert words are included
-  const hasAllWords = insertWords.every(word => 
-    new RegExp(`\\b${escapeRegex(word)}\\b`, "i").test(s)
-  );
-  if (!hasAllWords) return null;
-  
-  // Rating-based profanity filtering
-  const mild = /\b(hell|damn|crap)\b/i.test(s);
-  const explicit = /\b(fuck|shit|asshole|bastard|bitch)\b/i.test(s);
-  
-  if (rating?.toLowerCase() === "g" && (mild || explicit)) return null;
-  if (rating?.toLowerCase() === "pg" && explicit) return null;
-  // PG-13 allows mild, R allows explicit
-  
-  // Ensure proper punctuation
-  if (!/[.!?]$/.test(s)) s += ".";
-  
-  return s;
-}
+  const opts = {
+    category: body.category || "celebrations",
+    tone: body.tone || "Humorous",
+    style: body.style || "Generic", 
+    rating: body.rating || "PG",
+    insertWords,
+    comedianStyle
+  };
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  console.log("Generating with options:", opts);
+
+  const lines: string[] = [];
+  let tries = 0;
+
+  while (lines.length < 4 && tries < 12) {
+    try {
+      const line = await generateOne(opts);
+      if (line && !lines.includes(line)) {
+        lines.push(line);
+        console.log(`Generated line ${lines.length}:`, line);
+      }
+    } catch (e) {
+      console.error(`Generation attempt ${tries + 1} failed:`, e);
+    }
+    tries++;
+  }
+
+  // Pad with safe fallbacks that honor insert words
+  while (lines.length < 4) {
+    const iwText = insertWords.length > 0 ? ` ${insertWords.join(" ")}` : "";
+    const fallbacks = [
+      `Party mode armed, questionable choices pending.${iwText}`,
+      `Celebrating wildly, because the cake said so.${iwText}`, 
+      `Making memories that sparkle brighter than bad decisions.${iwText}`,
+      `Here's to magnificent disasters and cake victories.${iwText}`
+    ];
+    
+    const fallback = fallbacks[lines.length] || fallbacks[0];
+    if (!lines.includes(fallback)) {
+      lines.push(fallback.trim());
+      console.log("Added fallback:", fallback);
+    }
+  }
+
+  return lines;
 }
