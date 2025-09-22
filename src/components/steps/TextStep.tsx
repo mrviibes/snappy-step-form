@@ -315,7 +315,7 @@ export default function TextStep({
         </div>
 
         {/* Writing Preference Selection */}
-        <div className="text-center">
+        <div className="text-center pt-4">
           <h2 className="mb-4 text-xl font-semibold text-foreground">
             Choose Your Writing Preference
           </h2>
@@ -412,7 +412,7 @@ export default function TextStep({
       </div>
 
       {/* Add Specific Words Section - only show before generation and NOT for write-myself */}
-      {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4">
+      {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground">Any Specific Text (optional)</h2>
         </div>
@@ -440,7 +440,7 @@ export default function TextStep({
       
       {/* Custom Text Input for Write Myself option */}
       {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && (
-        <div className="space-y-4">
+        <div className="space-y-4 pt-4">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">Write Your Own Text</h2>
           </div>
@@ -474,7 +474,7 @@ export default function TextStep({
       )}
         
         {/* Generation Section */}
-        {showGeneration && !showTextOptions && <div className="space-y-4">
+        {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
             <div className="space-y-4">
               {/* Style and Rating - Keep on same row */}
               <div className="grid grid-cols-2 gap-4">
