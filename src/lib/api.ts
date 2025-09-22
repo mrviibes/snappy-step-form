@@ -15,6 +15,13 @@ interface GenerateTextResponse {
   error?: string
 }
 
+export interface VisualRecommendation {
+  visualStyle: string
+  layout: string
+  description: string
+  props?: string[]
+}
+
 interface GenerateVisualsParams {
   finalText: string
   category: string
@@ -24,13 +31,6 @@ interface GenerateVisualsParams {
   rating: string
   insertWords?: string[]
   visualStyle: string
-}
-
-interface VisualRecommendation {
-  visualStyle: string
-  layout: string
-  description: string
-  props?: string[]
 }
 
 interface GenerateVisualsResponse {

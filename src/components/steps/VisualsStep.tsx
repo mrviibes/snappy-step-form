@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
+import { Sparkles, Loader2 } from "lucide-react";
 import autoImage from "@/assets/visual-style-auto.jpg";
 import generalImage from "@/assets/visual-style-general.jpg";
 import realisticImage from "@/assets/visual-style-realistic.jpg";
@@ -73,6 +75,8 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [showDimensions, setShowDimensions] = useState(false);
   const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
+  const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
+  const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -156,24 +160,56 @@ export default function VisualsStep({
     setShowVisualOptions(true);
   };
 
-  const handleGenerateVisuals = () => {
-    console.log("Generate visuals with:", {
-      style: data.visuals?.style,
-      option: data.visuals?.option,
-      customVisuals: data.visuals?.customVisuals,
-      visualTaste: data.visuals?.visualTaste
-    });
-    console.log("Setting showVisualOptions to true");
-    setShowVisualOptions(true);
+  const handleGenerateVisuals = async () => {
+    if (!data.text?.generatedText && !data.text?.customText) {
+      console.error("No text available for visual generation");
+      return;
+    }
+
+    setIsGeneratingVisuals(true);
+    
+    try {
+      const finalText = data.text.generatedText || data.text.customText;
+      
+      const params = {
+        finalText,
+        category: data.category || "",
+        subcategory: data.subcategory || "",
+        tone: data.vibe?.tone || "Humorous",
+        textStyle: data.vibe?.style || "Sarcastic", 
+        rating: data.vibe?.rating || "PG",
+        insertWords: data.vibe?.insertWords || [],
+        visualStyle: data.visuals?.style || "general"
+      };
+
+      console.log("Generating visuals with params:", params);
+      
+      const visuals = await generateVisualOptions(params);
+      
+      setGeneratedVisuals(visuals);
+      setShowVisualOptions(true);
+      
+      console.log("Generated visuals:", visuals);
+      
+    } catch (error) {
+      console.error("Failed to generate visuals:", error);
+      // Fallback to sample visuals if generation fails
+      setGeneratedVisuals([]);
+      setShowVisualOptions(true);
+    } finally {
+      setIsGeneratingVisuals(false);
+    }
   };
 
   const handleVisualOptionSelect = (optionIndex: number) => {
     setSelectedVisualOption(optionIndex);
+    const selectedVisual = generatedVisuals.length > 0 ? generatedVisuals[optionIndex] : null;
+    
     updateData({
       visuals: {
         ...data.visuals,
         selectedVisualOption: optionIndex,
-        generatedVisual: visualOptionsSamples[optionIndex]
+        generatedVisual: selectedVisual || visualOptionsSamples[optionIndex]
       }
     });
     setShowVisualOptions(false);
@@ -583,7 +619,7 @@ export default function VisualsStep({
               </div>
               
               <div className="space-y-3">
-                {visualOptionsSamples.map((visual, index) => (
+                {(generatedVisuals.length > 0 ? generatedVisuals : visualOptionsSamples).map((visual, index) => (
                   <Card 
                     key={index}
                     className={cn(
@@ -594,9 +630,25 @@ export default function VisualsStep({
                     )}
                     onClick={() => handleVisualOptionSelect(index)}
                   >
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {visual}
-                    </p>
+                    {generatedVisuals.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
+                            {visual.visualStyle}
+                          </span>
+                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                            {visual.layout.replace('-', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {visual.description}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {visual}
+                      </p>
+                    )}
                   </Card>
                 ))}
               </div>
@@ -756,9 +808,19 @@ export default function VisualsStep({
                   <Button 
                     onClick={handleGenerateVisuals}
                     className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
-                    disabled={!data.visuals?.visualTaste}
+                    disabled={!data.visuals?.visualTaste || isGeneratingVisuals}
                   >
-                    Generate Visuals
+                    {isGeneratingVisuals ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating Visuals...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generate Visuals
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
