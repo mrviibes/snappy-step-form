@@ -280,13 +280,14 @@ export default function TextStep({
         
         {/* Generation Section */}
         {showGeneration && <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* Style and Rating - Stack vertically on mobile, side by side on larger screens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Style Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Style</label>
                   <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full min-h-[44px]">
                       <SelectValue placeholder="Generic (plain)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,25 +298,30 @@ export default function TextStep({
                   </Select>
                 </div>
                 
-                {/* Rating Dropdown with Generate Button */}
+                {/* Rating Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Rating</label>
-                  <div className="flex gap-2">
-                    <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="G (clean)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
-                            {rating.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={handleGenerate} className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium">
-                      Generate
-                    </Button>
-                  </div>
+                  <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
+                    <SelectTrigger className="w-full min-h-[44px]">
+                      <SelectValue placeholder="G (clean)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
+                          {rating.label}
+                        </SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              
+              {/* Generate Button - Full width on mobile */}
+              <div className="w-full">
+                <Button 
+                  onClick={handleGenerate} 
+                  className="w-full bg-cyan-400 hover:bg-cyan-500 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  Generate Text
+                </Button>
               </div>
             </div>
           </div>}
