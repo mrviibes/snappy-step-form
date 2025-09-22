@@ -1,5 +1,7 @@
 import { useState, KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -48,11 +50,40 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
+
+const styleOptions = [{
+  id: 'generic',
+  label: 'Generic (plain)'
+}, {
+  id: 'sarcastic',
+  label: 'Sarcastic (ironic)'
+}, {
+  id: 'wholesome',
+  label: 'Wholesome (kind)'
+}, {
+  id: 'weird',
+  label: 'Weird (absurd)'
+}];
+
+const ratingOptions = [{
+  id: 'g',
+  label: 'G (clean)'
+}, {
+  id: 'pg',
+  label: 'PG (mild)'
+}, {
+  id: 'pg-13',
+  label: 'PG-13 (edgy)'
+}, {
+  id: 'r',
+  label: 'R (explicit)'
+}];
 export default function TextStep({
   data,
   updateData
 }: TextStepProps) {
   const [tagInput, setTagInput] = useState('');
+  const [showGeneration, setShowGeneration] = useState(false);
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -108,6 +139,40 @@ export default function TextStep({
       }
     });
   };
+  
+  const handleReadyToGenerate = () => {
+    setShowGeneration(true);
+  };
+  
+  const handleStyleSelect = (styleId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        style: styleId
+      }
+    });
+  };
+  
+  const handleRatingSelect = (ratingId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        rating: ratingId
+      }
+    });
+  };
+  
+  const handleGenerate = () => {
+    // TODO: Implement text generation logic
+    console.log('Generate text with:', {
+      tone: data.text?.tone,
+      writingPreference: data.text?.writingPreference,
+      specificWords: data.text?.specificWords,
+      style: data.text?.style,
+      rating: data.text?.rating
+    });
+  };
+  
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
@@ -206,13 +271,69 @@ export default function TextStep({
             </div>}
 
           <div className="text-center">
-            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button 
+              onClick={() => data.text?.specificWords && data.text.specificWords.length > 0 ? handleReadyToGenerate() : undefined}
+              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+            >
               {data.text?.specificWords && data.text.specificWords.length > 0 
                 ? "I'm ready to generate my text now" 
                 : "I don't want any specific words"}
             </button>
           </div>
         </div>
+        
+        {/* Generation Section */}
+        {showGeneration && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Style Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Style</label>
+                <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Punchline First" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {styleOptions.map((style) => (
+                      <SelectItem key={style.id} value={style.id}>
+                        {style.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Rating Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Rating</label>
+                <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="PG-13 - Mild" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ratingOptions.map((rating) => (
+                      <SelectItem key={rating.id} value={rating.id}>
+                        {rating.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Generate Button */}
+            {data.text?.style && data.text?.rating && (
+              <div className="flex justify-center">
+                <Button 
+                  onClick={handleGenerate}
+                  className="bg-cyan-400 hover:bg-cyan-500 text-white px-8 py-2 rounded-md font-medium"
+                >
+                  Generate
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>;
 }
