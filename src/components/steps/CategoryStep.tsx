@@ -454,7 +454,7 @@ export default function CategoryStep({
         </div>
 
         {/* Compact Selected Category */}
-        <div className="flex items-center gap-3 p-3 bg-accent rounded-lg border border-primary">
+        <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-primary">
           <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
             <img 
               src={selectedCategoryData.image} 
@@ -464,7 +464,7 @@ export default function CategoryStep({
           </div>
           <div>
             <h3 className="font-medium text-foreground">{selectedCategoryData.title}</h3>
-            <p className="text-sm text-muted-foreground">Choose a subcategory</p>
+            <p className="text-sm text-primary">Edit</p>
           </div>
         </div>
 
