@@ -186,84 +186,84 @@ export default function VisualsStep({
                   Edit
                 </Button>
               </div>
-
-              {/* Visual Taste Row - only show after ready to generate */}
-              {showVisualGeneration && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <span className="text-sm font-medium text-foreground min-w-[60px]">Style - </span>
-                      <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Choose style" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {visualTasteOptions.map(option => (
-                            <SelectItem key={option.id} value={option.id}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        onClick={handleGenerateVisuals}
-                        className="bg-cyan-400 hover:bg-cyan-500 text-white ml-auto"
-                        disabled={!data.visuals?.visualTaste}
-                      >
-                        Generate Visuals
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           </Card>
 
           {/* Custom Visuals Input for AI Assist */}
           {data.visuals?.option === "ai-assist" && (
             <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Any Specific Visuals? (optional)
-                  </label>
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={handleAddTag}
-                    placeholder="enter visuals here and hit return"
-                    className="w-full"
-                  />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Any Specific Visuals? (optional)
+                </label>
+                <Input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                  placeholder="enter visuals here and hit return"
+                  className="w-full"
+                />
+              </div>
+              
+              {/* Display visual tags */}
+              {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {data.visuals.customVisuals.map((visual: string, index: number) => (
+                    <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                      <span>{visual}</span>
+                      <button 
+                        onClick={() => handleRemoveTag(visual)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                
-                {/* Display visual tags */}
-                {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {data.visuals.customVisuals.map((visual: string, index: number) => (
-                      <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                        <span>{visual}</span>
-                        <button 
-                          onClick={() => handleRemoveTag(visual)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              )}
 
-                <div className="text-center">
-                  <button 
-                    onClick={handleReadyToGenerate}
-                    className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-                  >
-                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
-                      "I'm ready to generate my visuals" : 
-                      "I don't want any specific visuals"
-                    }
-                  </button>
-                </div>
+              <div className="text-center">
+                <button 
+                  onClick={handleReadyToGenerate}
+                  className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+                >
+                  {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? 
+                    "I'm ready to generate my visuals" : 
+                    "I don't want any specific visuals"
+                  }
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Visual Generation Section - show below visuals input after ready to generate */}
+          {data.visuals?.option === "ai-assist" && showVisualGeneration && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-foreground">
+                  Style
+                </label>
+                <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose style" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visualTasteOptions.map(option => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button 
+                onClick={handleGenerateVisuals}
+                className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
+                disabled={!data.visuals?.visualTaste}
+              >
+                Generate Visuals
+              </Button>
             </div>
           )}
         </div>
