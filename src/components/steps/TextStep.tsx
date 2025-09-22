@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
-import memeTextImage from "@/assets/meme-layout.jpg";  
+import memeTextImage from "@/assets/meme-layout.jpg";
 import lowerBannerImage from "@/assets/lower-banner-snailed-it-peace.jpg";
 import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
@@ -77,9 +77,7 @@ export default function TextStep({
           tone: data.text?.tone,
           style: data.text?.style || 'Generic',
           rating: data.text?.rating || 'G',
-          insertWords: Array.isArray(data.text?.specificWords) 
-            ? data.text.specificWords 
-            : data.text?.specificWords ? [data.text.specificWords] : [],
+          insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
           comedianStyle: data.text?.comedianStyle,
           userId: 'anonymous' // Could be replaced with actual user ID if auth is implemented
         })
@@ -157,7 +155,6 @@ export default function TextStep({
     });
     setShowSpecificWordsChoice(false);
   };
-
   const handleSpecificWordsChoice = (hasWords: boolean) => {
     if (hasWords) {
       setShowSpecificWordsChoice(false);
@@ -170,7 +167,7 @@ export default function TextStep({
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const input = tagInput.trim();
-      
+
       // Check if it's advanced format (contains colons, brackets, or braces)
       if (/[\[\]{}:]/.test(input)) {
         // Store as a single structured string for the backend to parse
@@ -184,7 +181,6 @@ export default function TextStep({
         // Handle simple comma-separated words
         const currentWords = data.text?.specificWords || [];
         const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
-        
         const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
         if (newWords.length > 0) {
           updateData({
@@ -195,9 +191,8 @@ export default function TextStep({
           });
         }
       }
-      
       setTagInput('');
-      
+
       // Automatically proceed to generation step when they add their first word
       if (!data.text?.specificWords || data.text.specificWords.length === 0) {
         setShowGeneration(true);
@@ -387,19 +382,17 @@ export default function TextStep({
         </div>
         
         {/* Inserted Words Section - show after choosing yes for AI assist */}
-        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && (
-          <div className="flex items-center justify-between p-4 border-t border-border">
+        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && <div className="flex items-center justify-between p-4 border-t border-border">
             <div className="text-sm text-foreground">
               <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'chosen'}
             </div>
             <button onClick={() => {
-              setShowGeneration(false);
-              setShowSpecificWordsChoice(true);
-            }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+          setShowGeneration(false);
+          setShowSpecificWordsChoice(true);
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
-          </div>
-        )}
+          </div>}
 
         {/* Style and Rating Summary - only show after text generation */}
         {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
@@ -456,8 +449,7 @@ export default function TextStep({
       </div>
 
       {/* Add Specific Words Choice Section - only show for AI Assist */}
-      {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && (
-        <div className="space-y-4 pt-4">
+      {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
             <div className="mt-3">
@@ -466,21 +458,14 @@ export default function TextStep({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button 
-              onClick={() => handleSpecificWordsChoice(true)}
-              className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-            >
+            <button onClick={() => handleSpecificWordsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
               <div className="font-semibold text-lg">Yes</div>
             </button>
-            <button 
-              onClick={() => handleSpecificWordsChoice(false)}
-              className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-            >
+            <button onClick={() => handleSpecificWordsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
               <div className="font-semibold text-lg">No</div>
             </button>
           </div>
-        </div>
-      )}
+        </div>}
 
       {/* Add Specific Words Section - only show before generation and NOT for write-myself and NOT when showing choice */}
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && !showSpecificWordsChoice && <div className="space-y-4 pt-4">
@@ -492,11 +477,7 @@ export default function TextStep({
           
           {/* Text Layout Example */}
           <div className="mt-4 mb-4">
-            <img 
-              src={textLayoutExample} 
-              alt="Text layout example showing 'YOU GOT IT DUDE!' with cartoon character"
-              className="mx-auto rounded-lg shadow-md max-w-sm w-full h-auto"
-            />
+            <img src={textLayoutExample} alt="Text layout example showing 'YOU GOT IT DUDE!' with cartoon character" className="mx-auto rounded-lg shadow-md max-w-sm w-full h-auto" />
           </div>
         </div>
 
@@ -601,11 +582,7 @@ export default function TextStep({
                   
                   {/* Generate Again Button */}
                   <div className="flex justify-center">
-                    <button 
-                      onClick={handleGenerate} 
-                      disabled={isGenerating}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50"
-                    >
+                    <button onClick={handleGenerate} disabled={isGenerating} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
@@ -622,7 +599,7 @@ export default function TextStep({
 
                {/* Layout Options - Show after text selection or saved custom text */}
                {(selectedTextOption !== null && !data.text?.layout || data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout) && <div className="space-y-3 p-4">
-                   <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
+                   <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Text Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
                      {layoutOptions.map(layout => <Card key={layout.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
           "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
