@@ -104,17 +104,10 @@ export default function VisualsStep({
       {isComplete ? (
         <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
           <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <img 
-                src={selectedStyle?.preview} 
-                alt={selectedStyle?.title}
-                className="w-12 h-12 rounded object-cover"
-              />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground">
-                  {selectedStyle?.title}
-                </h4>
-                <p className="text-xs text-muted-foreground">{selectedStyle?.description}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium text-foreground">Style - </span>
+                <span className="text-sm text-foreground">{selectedStyle?.title}</span>
               </div>
               <Button 
                 variant="ghost" 
@@ -126,14 +119,10 @@ export default function VisualsStep({
               </Button>
             </div>
             
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-cyan-400 rounded flex items-center justify-center">
-                <span className="text-white text-xs font-bold">AI</span>
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground">
-                  {selectedOption?.title}
-                </h4>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium text-foreground">Process - </span>
+                <span className="text-sm text-foreground">{selectedOption?.title}</span>
               </div>
               <Button 
                 variant="ghost" 
