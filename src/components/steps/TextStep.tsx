@@ -266,7 +266,7 @@ export default function TextStep({
         </div>
         
         {/* Specific Text Section - only show after generation step */}
-        {showGeneration && <div className="flex items-center justify-between p-4">
+        {showGeneration && <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="font-medium text-foreground">
             Specific Text - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
@@ -274,6 +274,18 @@ export default function TextStep({
             Edit
           </button>
         </div>}
+
+        {/* Style and Rating Summary - only show after text generation */}
+        {showTextOptions && (
+          <div className="flex items-center justify-between p-4">
+            <div className="font-medium text-foreground">
+              Style - "{data.text?.style || 'Generic (plain)'}" | Rating - "{data.text?.rating || 'G (clean)'}"
+            </div>
+            <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Add Specific Words Section - only show before generation */}
@@ -304,7 +316,7 @@ export default function TextStep({
       </div>}
         
         {/* Generation Section */}
-        {showGeneration && <div className="space-y-4">
+        {showGeneration && !showTextOptions && <div className="space-y-4">
             <div className="space-y-4">
               {/* Style and Rating - Keep on same row */}
               <div className="grid grid-cols-2 gap-4">
@@ -348,10 +360,12 @@ export default function TextStep({
                   Generate Text
                 </Button>
               </div>
+            </div>
+          </div>}
               
               {/* Text Options - Show after generation */}
               {showTextOptions && (
-                <div className="space-y-3">
+                <div className="space-y-3 p-4">
                   <h3 className="text-lg font-semibold text-foreground text-center">Choose your text:</h3>
                   <div className="space-y-3">
                     {textOptions.map((text, index) => (
@@ -366,11 +380,9 @@ export default function TextStep({
                       >
                         <p className="text-sm leading-relaxed">{text}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>}
+                     ))}
+                   </div>
+                 </div>
+               )}
     </div>;
 }
