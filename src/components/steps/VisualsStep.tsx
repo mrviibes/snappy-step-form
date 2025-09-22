@@ -230,12 +230,12 @@ export default function VisualsStep({
   return (
     <div className="space-y-6">
       {/* Text Summary from Step 2 */}
-      <div className="rounded-lg border-2 border-cyan-400 bg-card p-4">
-        <div className="text-sm text-foreground">
+      <div className="text-center mb-6">
+        <div className="text-sm text-muted-foreground">
           <span className="font-semibold">Your text: </span>
           <span>
             {data.text?.generatedText || data.text?.customText ? 
-              `"${(data.text.generatedText || data.text.customText).substring(0, 60)}${(data.text.generatedText || data.text.customText).length > 60 ? '...' : ''}"` : 
+              `"${data.text.generatedText || data.text.customText}"` : 
               'no text chosen'
             }
           </span>
