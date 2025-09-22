@@ -420,7 +420,7 @@ export default function TextStep({
 
           <div className="text-center">
             <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't want any specific words"}
+              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't have any mandatory text"}
             </button>
           </div>
         </div>
