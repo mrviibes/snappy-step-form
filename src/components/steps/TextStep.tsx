@@ -243,10 +243,10 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Exact Text Section - only show after generation step */}
+        {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="p-4">
           <div className="font-semibold text-foreground text-lg">
-            EXACT TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
+            SPECIFIC TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
         </div>}
       </div>
