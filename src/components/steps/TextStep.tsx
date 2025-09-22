@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
-import memeTextImage from "@/assets/meme-layout.jpg";
+import memeTextImage from "@/assets/meme-layout.jpg";  
 import lowerBannerImage from "@/assets/lower-banner-layout.jpg";
-import sideBarImage from "@/assets/side-bar-layout.jpg";
+import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-layout.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 interface TextStepProps {
