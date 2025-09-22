@@ -13,6 +13,65 @@ const corsHeaders = {
   "vary": "Origin"
 };
 
+// Category-specific ban words to avoid clichés
+const categoryBanWords: Record<string, string[]> = {
+  "birthday": ["cake", "candles", "confetti", "balloons", "party hat"],
+  "wedding": ["vows", "roses", "rings", "forever", "altar", "dress"],
+  "graduation": ["cap", "gown", "diploma", "ceremony", "tassel"],
+  "engagement": ["ring", "proposal", "diamond", "forever", "knee"],
+  "baby-shower": ["stork", "bundle", "diapers", "bottles", "bassinet"],
+  "retirement": ["gold watch", "pension", "rocking chair", "golf", "sunset"],
+  "anniversary": ["years together", "milestone", "celebration", "love"],
+  "new-job": ["briefcase", "office", "desk", "promotion", "career"],
+  "house-warming": ["keys", "home", "address", "mortgage", "moving"],
+  "sports": ["trophy", "victory", "scoreboard", "championship", "winner"],
+  "default": ["celebration", "special day", "milestone", "achievement"]
+};
+
+// Expanded style examples library for better voice guidance
+const styleExamples: Record<string, Record<string, string[]>> = {
+  "generic": {
+    "humorous": [
+      "Another year of questionable WiFi passwords and awkward Zoom calls.",
+      "Here's to surviving group chats and pretending to like coworkers."
+    ],
+    "savage": [
+      "Another year of peak mediocrity and Netflix addiction.",
+      "Congrats on surviving another year without adult supervision."
+    ]
+  },
+  "sarcastic": {
+    "humorous": [
+      "Congrats on surviving another year without Googling your own symptoms.",
+      "Another year of pretending you understand cryptocurrency."
+    ],
+    "savage": [
+      "Another year closer to finally understanding your parents' disappointment.",
+      "Congrats on another year of professional procrastination."
+    ]
+  },
+  "wholesome": {
+    "humorous": [
+      "You're proof that good things happen to patient people.",
+      "May your year be filled with unexpected kindness and perfect timing."
+    ],
+    "savage": [
+      "You're living proof that persistence pays off eventually.",
+      "Another year of being the friend everyone secretly envies."
+    ]
+  },
+  "weird": {
+    "humorous": [
+      "May your neighbor's WiFi always disconnect mid-Zoom call.",
+      "Here's to surviving another year without the microwave judging you."
+    ],
+    "savage": [
+      "May your enemies' phone batteries die at 97% forever.",
+      "Here's to another year of your houseplants silently judging you."
+    ]
+  }
+};
+
 // Comedian styles array
 const comedianStyles = [
   { name: "Richard Pryor", flavor: "raw, confessional storytelling" },
@@ -99,9 +158,37 @@ function parseInsertWords(input: string): string[] {
   return input.split(',').map(w => w.trim()).filter(Boolean);
 }
 
-// Build comprehensive prompt with style enforcement
+// Get category-specific ban words
+function getCategoryBanWords(category: string, subcategory: string): string[] {
+  // Try subcategory first, then category, then default
+  return categoryBanWords[subcategory] || 
+         categoryBanWords[category] || 
+         categoryBanWords.default;
+}
+
+// Get style-specific examples based on style and tone
+function getStyleExamples(style: string, tone: string): string[] {
+  const styleKey = style.toLowerCase();
+  const toneKey = tone.toLowerCase();
+  
+  // Try to get examples for specific style + tone combination
+  if (styleExamples[styleKey] && styleExamples[styleKey][toneKey]) {
+    return styleExamples[styleKey][toneKey];
+  }
+  
+  // Fallback to style with humorous tone
+  if (styleExamples[styleKey] && styleExamples[styleKey]["humorous"]) {
+    return styleExamples[styleKey]["humorous"];
+  }
+  
+  // Ultimate fallback to generic humorous
+  return styleExamples.generic.humorous;
+}
+
+// Universal prompt template with dynamic category-specific elements
 function buildPrompt(opts: {
   category: string;
+  subcategory: string;
   tone: string;
   style: string;
   rating: string;
@@ -109,78 +196,54 @@ function buildPrompt(opts: {
   comedianStyle: { name: string; flavor: string };
   nonce: string;
 }) {
-  const { category, tone, style, rating, insertWords, comedianStyle, nonce } = opts;
+  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, nonce } = opts;
   const insert = insertWords.join(", ") || "none";
 
-  const ratingDesc: Record<string, string> = {
-    "g": "clean only; no profanity or innuendo.",
-    "pg": "mild spice allowed; no explicit profanity.",
-    "pg-13": "light profanity/innuendo allowed; avoid explicit slurs.",
-    "r": "explicit adult humor permitted; profanity allowed.",
-  };
-
-  const styleExamples: Record<string, string[]> = {
-    "generic": [
-      "Another year of questionable WiFi passwords and awkward Zoom calls.",
-      "Here's to surviving group chats and pretending to like coworkers."
-    ],
-    "sarcastic": [
-      "Congrats on surviving another year without Googling your own symptoms.",
-      "Another birthday, another year of pretending you like group chats."
-    ],
-    "wholesome": [
-      "You're proof that good things happen to patient people.",
-      "May your year be filled with unexpected kindness and perfect timing."
-    ],
-    "weird": [
-      "May your neighbor's WiFi always disconnect mid-Zoom call.",
-      "Here's to surviving another year without the microwave judging you."
-    ],
-    "savage": [
-      "Another year closer to finally understanding your parents' disappointment.",
-      "Congrats on another year of peak mediocrity and Netflix addiction."
-    ]
+  const ratingRules: Record<string, string> = {
+    "g": "clean only, no profanity or innuendo",
+    "pg": "mild spice allowed, no explicit profanity",
+    "pg-13": "light profanity or innuendo ok, avoid explicit",
+    "r": "explicit adult humor permitted",
   };
 
   const styleHints: Record<string, string> = {
-    "sarcastic": "ironic bite, dry, eye-roll",
-    "wholesome": "warm, kind, supportive", 
+    "sarcastic": "ironic bite, eye-roll",
+    "wholesome": "warm, kind, uplifting", 
     "weird": "absurd, surreal, bizarre imagery",
     "savage": "brutally honest, cutting, no-holds-barred",
     "generic": "neutral, straightforward phrasing"
   };
 
-  const examples = styleExamples[style.toLowerCase()] || styleExamples.generic;
-  const example = examples[Math.floor(Math.random() * examples.length)];
+  // Get category-specific ban words and style examples
+  const banWords = getCategoryBanWords(category, subcategory);
+  const examples = getStyleExamples(style, tone);
+  const selectedExample = examples[Math.floor(Math.random() * examples.length)];
   const hint = styleHints[style.toLowerCase()] || styleHints.generic;
+  const ratingRule = ratingRules[rating.toLowerCase()] || ratingRules.pg;
 
-  const system = `You write one-liner jokes for a celebration generator.
+  const system = `Write ONE ${tone.toLowerCase()} one-liner for a celebration text generator.
+Exactly one sentence, 50–120 characters.
 
-Hard rules:
-- Exactly ONE sentence.
-- 50–120 characters.
-- No em dash.
+Category: ${category}${subcategory ? ` > ${subcategory}` : ''}
+Tone: ${tone}
+Style: ${style} (${hint})
+Rating: ${rating} (${ratingRule})
+Insert words: ${insert}
+Comedian style: ${comedianStyle.name} – ${comedianStyle.flavor}
+
+Constraints:
+- Must include all Insert Words naturally.
+- Avoid clichés related to ${category} (${banWords.join(', ')}) unless they are in Insert Words.
+- Do not use em dashes.
 - End with ., !, or ?.
-- If insert words are provided, include them NATURALLY (not bolted on).
-- Avoid default birthday clichés (cake, candles, confetti, balloons) unless they are explicitly in insertWords.
-- Do not explain. Output only the sentence.
+- Output only the sentence, no explanations.
 
 Nonce: ${nonce}`.trim();
 
-  const user = `Write ONE new line.
+  const user = `Style example (do not copy):
+"${selectedExample}"
 
-Context:
-- Category: ${category}
-- Tone: ${tone}
-- Style: ${style} (${hint})
-- Rating: ${rating} (${ratingDesc[rating.toLowerCase()] || ratingDesc.pg})
-- Insert words: ${insert}
-- Comedian style hint: ${comedianStyle.name} – ${comedianStyle.flavor}
-
-Style example (do not copy):
-"${example}"
-
-Remember: one sentence, 60–120 chars, no em dash, include insert words if given.`.trim();
+Remember: one sentence, 50–120 chars, no em dash, include insert words if given.`.trim();
 
   return { system, user };
 }
@@ -238,6 +301,7 @@ function tooSimilar(a: string, b: string): boolean {
 // Generate a single line with retries
 async function generateOne(opts: {
   category: string;
+  subcategory: string;
   tone: string;
   style: string;
   rating: string;
@@ -296,8 +360,14 @@ async function generateFour(body: any): Promise<string[]> {
   const insertWords = parseInsertWords(body.mandatory_words || '');
   const comedianStyle = comedianStyles[Math.floor(Math.random() * comedianStyles.length)];
   
+  // Extract category and subcategory from the body
+  const categoryParts = (body.category || "celebrations").split(' > ');
+  const category = categoryParts[0] || "celebrations";
+  const subcategory = body.subcategory || categoryParts[1] || "";
+  
   const opts = {
-    category: body.category || "celebrations",
+    category,
+    subcategory,
     tone: body.tone || "Humorous",
     style: body.style || "Generic", 
     rating: body.rating || "PG",
@@ -310,7 +380,7 @@ async function generateFour(body: any): Promise<string[]> {
   const lines: string[] = [];
   let tries = 0;
 
-  while (lines.length < 4 && tries < 12) {
+  while (lines.length < 4 && tries < 15) {
     try {
       const line = await generateOne(opts);
       if (line && !lines.includes(line) && !lines.some(existing => tooSimilar(line, existing))) {
@@ -327,16 +397,20 @@ async function generateFour(body: any): Promise<string[]> {
   while (lines.length < 4) {
     const iwText = insertWords.length > 0 ? ` ${insertWords.join(" ")}` : "";
     const fallbacks = [
-      `Party mode armed, questionable choices pending.${iwText}`,
-      `Celebrating wildly, because the cake said so.${iwText}`, 
-      `Making memories that sparkle brighter than bad decisions.${iwText}`,
-      `Here's to magnificent disasters and cake victories.${iwText}`
+      `Another year of questionable life choices and WiFi passwords.${iwText}`,
+      `Here's to surviving group chats and adulting attempts.${iwText}`, 
+      `Celebrating another year of professional procrastination.${iwText}`,
+      `May your enemies' phones die at 97% forever.${iwText}`
     ];
     
     const fallback = fallbacks[lines.length] || fallbacks[0];
-    if (!lines.includes(fallback)) {
-      lines.push(fallback.trim());
-      console.log("Added fallback:", fallback);
+    const finalFallback = fallback.trim();
+    if (!lines.includes(finalFallback) && finalFallback.length >= 50 && finalFallback.length <= 120) {
+      lines.push(finalFallback);
+      console.log("Added fallback:", finalFallback);
+    } else {
+      // If fallback fails validation, add a simple one
+      lines.push(`Another year, another adventure awaits.${iwText}`.trim());
     }
   }
 
