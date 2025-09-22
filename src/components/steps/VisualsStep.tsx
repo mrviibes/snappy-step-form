@@ -6,25 +6,35 @@ interface VisualsStepProps {
   onNext: () => void;
 }
 const visualStyles = [{
-  id: "minimal",
-  title: "Minimal",
-  description: "Clean and simple design",
-  preview: "🎯"
+  id: "auto",
+  title: "Auto",
+  description: "Smart default",
+  preview: "🤖"
 }, {
-  id: "bold",
-  title: "Bold",
-  description: "Vibrant and energetic",
-  preview: "⚡"
+  id: "general",
+  title: "General",
+  description: "Clean standard",
+  preview: "📋"
 }, {
-  id: "nature",
-  title: "Nature",
-  description: "Organic and calming",
-  preview: "🌿"
+  id: "realistic",
+  title: "Realistic",
+  description: "True photo",
+  preview: "📷"
 }, {
-  id: "tech",
-  title: "Tech",
-  description: "Modern and futuristic",
-  preview: "🚀"
+  id: "design",
+  title: "Design",
+  description: "Flat graphic",
+  preview: "🎨"
+}, {
+  id: "3d-render",
+  title: "3D Render",
+  description: "CGI model",
+  preview: "🎭"
+}, {
+  id: "anime",
+  title: "Anime",
+  description: "Japanese cartoon",
+  preview: "🎌"
 }];
 const colorPalettes = [{
   id: "blue",
