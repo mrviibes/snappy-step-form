@@ -9,35 +9,35 @@ interface CategoryStepProps {
   onNext: () => void;
 }
 const fitnessGoals = [{
-  id: "lose-weight",
-  title: "Lose weight",
-  description: "Burn calories and shed pounds",
-  icon: "🏃‍♀️"
+  id: "celebrations",
+  title: "Celebrations",
+  description: "Birthdays, holidays, and special events",
+  icon: "🎉"
 }, {
-  id: "gain-muscle",
-  title: "Gain muscle",
-  description: "Build strength and mass",
-  icon: "💪"
+  id: "daily-life",
+  title: "Daily Life",
+  description: "Everyday activities and routines",
+  icon: "☀️"
 }, {
-  id: "improve-health",
-  title: "Improve health",
-  description: "Feel better overall",
-  icon: "❤️"
+  id: "sports",
+  title: "Sports",
+  description: "Athletic activities and competitions",
+  icon: "⚽"
 }, {
-  id: "repair-injury",
-  title: "Repair injury",
-  description: "Recover and rehabilitate",
-  icon: "🩹"
+  id: "pop-culture",
+  title: "Pop Culture",
+  description: "Movies, music, and trending topics",
+  icon: "🎬"
 }, {
-  id: "be-flexible",
-  title: "Be more flexible",
-  description: "Increase mobility and range",
-  icon: "🧘‍♀️"
+  id: "jokes",
+  title: "Jokes",
+  description: "Funny content and humor",
+  icon: "😂"
 }, {
-  id: "train-event",
-  title: "Train for event",
-  description: "Prepare for competition",
-  icon: "🏆"
+  id: "custom",
+  title: "Custom",
+  description: "Create your own unique content",
+  icon: "✨"
 }];
 export default function CategoryStep({
   data,
