@@ -4,6 +4,11 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import birthdayImage from "@/assets/birthday-celebration.jpg";
+import coffeeImage from "@/assets/coffee-morning.jpg";
+import footballImage from "@/assets/football-player.jpg";
+import paparazziImage from "@/assets/paparazzi-scene.jpg";
+import comedianImage from "@/assets/comedian-performance.jpg";
+import sorceressImage from "@/assets/sorceress-majestic.jpg";
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -19,27 +24,32 @@ const fitnessGoals = [{
   id: "daily-life",
   title: "Daily Life",
   description: "Everyday activities and routines",
-  icon: "☀️"
+  icon: "☀️",
+  image: coffeeImage
 }, {
   id: "sports",
   title: "Sports",
   description: "Athletic activities and competitions",
-  icon: "⚽"
+  icon: "⚽",
+  image: footballImage
 }, {
   id: "pop-culture",
   title: "Pop Culture",
   description: "Movies, music, and trending topics",
-  icon: "🎬"
+  icon: "🎬",
+  image: paparazziImage
 }, {
   id: "jokes",
   title: "Jokes",
   description: "Funny content and humor",
-  icon: "😂"
+  icon: "😂",
+  image: comedianImage
 }, {
   id: "custom",
   title: "Custom",
   description: "Create your own unique content",
-  icon: "✨"
+  icon: "✨",
+  image: sorceressImage
 }];
 export default function CategoryStep({
   data,
