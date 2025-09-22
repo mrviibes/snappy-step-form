@@ -4,6 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { generateTextOptions } from '@/lib/openai';
+import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
 import memeTextImage from "@/assets/meme-text-layout.jpg";
 import lowerBannerImage from "@/assets/lower-banner-layout.jpg";
@@ -92,6 +95,10 @@ export default function TextStep({
   const [showGeneration, setShowGeneration] = useState(false);
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
+  const [textOptions, setTextOptions] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
@@ -175,16 +182,33 @@ export default function TextStep({
       }
     });
   };
-  const handleGenerate = () => {
-    // Show text options when generate is clicked
-    setShowTextOptions(true);
-    console.log('Generate text with:', {
-      tone: data.text?.tone,
-      writingPreference: data.text?.writingPreference,
-      specificWords: data.text?.specificWords,
-      style: data.text?.style,
-      rating: data.text?.rating
-    });
+  const handleGenerate = async () => {
+    if (!hasApiKey) {
+      setGenerationError('Please set your OpenAI API key first');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationError(null);
+    
+    try {
+      const options = await generateTextOptions({
+        tone: data.text?.tone,
+        category: data.category,
+        subcategory: data.subcategory,
+        specificWords: data.text?.specificWords,
+        style: data.text?.style,
+        rating: data.text?.rating
+      });
+      
+      setTextOptions(options);
+      setShowTextOptions(true);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'Failed to generate text');
+      console.error('Text generation error:', error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
@@ -229,8 +253,6 @@ export default function TextStep({
     });
   };
 
-  // Sample text options (Lorem Ipsum style, up to 100 characters each)
-  const textOptions = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.", "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.", "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariat.", "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id."];
 
   // Layout options
   const layoutOptions = [{
@@ -486,12 +508,36 @@ export default function TextStep({
                 </div>
               </div>
               
+              {/* API Key Manager */}
+              <div className="flex justify-center">
+                <ApiKeyManager onApiKeyChange={setHasApiKey} />
+              </div>
+
               {/* Generate Button - Full width on mobile */}
               <div className="w-full">
-                <Button onClick={handleGenerate} className="w-full bg-cyan-400 hover:bg-cyan-500 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
-                  Generate Text
+                <Button 
+                  onClick={handleGenerate} 
+                  disabled={!hasApiKey || isGenerating}
+                  className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Text'
+                  )}
                 </Button>
               </div>
+
+              {/* Error Display */}
+              {generationError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <p className="text-sm">{generationError}</p>
+                </div>
+              )}
             </div>
           </div>}
               
