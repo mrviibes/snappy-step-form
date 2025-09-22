@@ -37,12 +37,10 @@ const styleOptions = getStyles().map(style => ({
   id: style.id,
   label: `${style.name} (${style.tag})`
 }));
-
 const ratingOptions = getRatings().map(rating => ({
   id: rating.id,
   label: `${rating.name} (${rating.tag})`
 }));
-
 const comedianOptions = getComedianStyles().map(comedian => ({
   id: comedian.id,
   label: comedian.name,
@@ -63,15 +61,15 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
-
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationError(null);
-    
     try {
       const response = await fetch('https://qxfnvtnchuigjivcalqe.functions.supabase.co/generate-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           tone: data.text?.tone,
           category: data.category,
@@ -83,17 +81,15 @@ export default function TextStep({
           num_variations: 4
         })
       });
-      
+
       // Check content type before parsing
       const contentType = response.headers.get('content-type') || '';
-      const result = contentType.includes('application/json') 
-        ? await response.json() 
-        : { error: await response.text() };
-      
+      const result = contentType.includes('application/json') ? await response.json() : {
+        error: await response.text()
+      };
       if (!response.ok) {
         throw new Error(result.error || `HTTP ${response.status}`);
       }
-      
       setTextOptions(result.options.slice(0, 4));
       setShowTextOptions(true);
     } catch (error) {
@@ -112,7 +108,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleEditTone = () => {
     updateData({
       text: {
@@ -121,7 +116,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleWritingPreferenceSelect = (preferenceId: string) => {
     updateData({
       text: {
@@ -136,7 +130,6 @@ export default function TextStep({
       setShowTextOptions(false);
     }
   };
-
   const handleEditWritingPreference = () => {
     updateData({
       text: {
@@ -145,7 +138,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const currentWords = data.text?.specificWords || [];
@@ -160,7 +152,6 @@ export default function TextStep({
       setTagInput('');
     }
   };
-
   const handleRemoveTag = (wordToRemove: string) => {
     const currentWords = data.text?.specificWords || [];
     updateData({
@@ -170,11 +161,9 @@ export default function TextStep({
       }
     });
   };
-
   const handleReadyToGenerate = () => {
     setShowGeneration(true);
   };
-
   const handleStyleSelect = (styleId: string) => {
     updateData({
       text: {
@@ -183,7 +172,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleRatingSelect = (ratingId: string) => {
     updateData({
       text: {
@@ -192,7 +180,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleComedianStyleSelect = (comedianId: string) => {
     updateData({
       text: {
@@ -201,7 +188,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
     // Don't automatically show layout options, keep them visible in the flow
@@ -244,7 +230,6 @@ export default function TextStep({
       }
     });
   };
-
 
   // Layout options
   const layoutOptions = [{
@@ -326,8 +311,7 @@ export default function TextStep({
   }
 
   // Show selected preferences and specific words input
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Selected Tone and Process in stacked format */}
       <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Tone */}
@@ -503,38 +487,23 @@ export default function TextStep({
               
               {/* Generate Button - Full width on mobile */}
               <div className="w-full space-y-3">
-                <Button 
-                  onClick={handleGenerate} 
-                  disabled={isGenerating}
-                  className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  {isGenerating ? (
-                    <>
+                <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
+                  {isGenerating ? <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Generating...
-                    </>
-                  ) : (
-                    'Generate Text'
-                  )}
+                    </> : 'Generate Text'}
                 </Button>
                 
-                <div className="text-center text-xs text-muted-foreground p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <strong>⚠️ Backend Required</strong><br />
-                  Lovable projects are frontend-only. You need:<br />
-                  • Deploy to Vercel/Netlify with API routes, OR<br />
-                  • Use Supabase Edge Functions (green button above)
-                </div>
+                
               </div>
 
               {/* Error Display */}
-              {generationError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              {generationError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm">{generationError}</p>
                   </div>
-                </div>
-              )}
+                </div>}
             </div>
           </div>}
               
@@ -567,6 +536,5 @@ export default function TextStep({
                        </Card>)}
                    </div>
                   </div>}
-    </div>
-  );
+    </div>;
 }
