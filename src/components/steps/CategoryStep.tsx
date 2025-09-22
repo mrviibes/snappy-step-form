@@ -1137,16 +1137,20 @@ export default function CategoryStep({
                 <div className="w-full h-24 overflow-hidden">
                   <img src={goal.image} alt={goal.title} className="w-full h-full object-cover" />
                 </div>
-                <div className="p-3 pt-2">
+                <div className="p-3 pt-2 flex items-center justify-between">
                   <h3 className="text-sm font-medium text-foreground">
                     {goal.title}
                   </h3>
+                  <div className="text-muted-foreground">→</div>
                 </div>
               </> : <div className="p-3">
                 <div className="mb-2 text-2xl">{goal.icon}</div>
-                <h3 className="text-sm font-medium text-foreground">
-                  {goal.title}
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-foreground">
+                    {goal.title}
+                  </h3>
+                  <div className="text-muted-foreground">→</div>
+                </div>
               </div>}
           </Card>)}
       </div>
