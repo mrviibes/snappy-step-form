@@ -68,8 +68,8 @@ export default function StepIndicator({
                 <div
                   className="absolute top-5 h-0.5 bg-step-inactive transition-colors duration-300 z-0"
                   style={{
-                    left: "calc(50% + 20px)",
-                    width: "calc(100% - 40px)",
+                    left: "calc(50% + 25px)",
+                    width: "calc(100% - 50px)",
                   }}
                 />
               )}
