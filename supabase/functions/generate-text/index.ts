@@ -78,7 +78,7 @@ Return exactly ${n} lines, each on its own line. No numbering, no quotes, no ext
 }
 
 async function callOpenAI(model: string, input: string) {
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "authorization": `Bearer ${OPENAI_API_KEY}`,
@@ -86,20 +86,20 @@ async function callOpenAI(model: string, input: string) {
     },
     body: JSON.stringify({
       model,
-      messages: [{ role: "user", content: input }],
+      input,
       temperature: 0.9,
       top_p: 0.95,
-      max_tokens: 600,
+      max_output_tokens: 600,
     }),
   });
 
   if (!resp.ok) {
     const txt = await resp.text();
-    throw new Error(`openai_${resp.status}_${txt.slice(0, 120)}`);
+    throw new Error(`openai_${resp.status}_${txt.slice(0, 200)}`);
   }
 
   const data = await resp.json();
-  const text = data?.choices?.[0]?.message?.content?.trim() || "";
+  const text = data?.output_text?.trim() || "";
   return text;
 }
 
