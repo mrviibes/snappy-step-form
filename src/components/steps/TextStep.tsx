@@ -195,13 +195,7 @@ export default function TextStep({
         <div className="space-y-3">
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
           
-          <div className="text-center">
-            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-              I don't want any specific words
-            </button>
-          </div>
-
-          {/* Display tags */}
+          {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
               {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
                   <span>{word}</span>
@@ -210,6 +204,14 @@ export default function TextStep({
                   </button>
                 </div>)}
             </div>}
+
+          <div className="text-center">
+            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              {data.text?.specificWords && data.text.specificWords.length > 0 
+                ? "I'm ready to generate my text now" 
+                : "I don't want any specific words"}
+            </button>
+          </div>
         </div>
       </div>
     </div>;
