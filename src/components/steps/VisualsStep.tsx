@@ -81,7 +81,7 @@ export default function VisualsStep({
 
       {/* Style Selection */}
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-foreground">Visual Style</h3>
+        
         <div className="grid grid-cols-2 gap-3">
           {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
           "border-primary shadow-primary bg-accent": data.visuals?.style === style.id,
