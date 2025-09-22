@@ -492,14 +492,6 @@ export default function TextStep({
                 </div>)}
             </div>}
 
-          {/* Show ready button only if no words added yet, hide once they start adding words */}
-          {(!data.text?.specificWords || data.text.specificWords.length === 0) && (
-            <div className="text-center">
-              <button onClick={handleReadyToGenerate} className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg">
-                I don't have any specific words I want included
-              </button>
-            </div>
-          )}
         </div>
       </div>}
       
