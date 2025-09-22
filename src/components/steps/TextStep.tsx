@@ -8,7 +8,7 @@ import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiR
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
 import memeTextImage from "@/assets/meme-layout.jpg";  
-import lowerBannerImage from "@/assets/lower-banner-snailed-it.jpg";
+import lowerBannerImage from "@/assets/lower-banner-snailed-it-peace.jpg";
 import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
