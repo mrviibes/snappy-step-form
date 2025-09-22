@@ -84,22 +84,24 @@ export default function TextStep({
         })
       });
       
-      const result = await response.json();
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type') || '';
+      const result = contentType.includes('application/json') 
+        ? await response.json() 
+        : { error: await response.text() };
       
       if (!response.ok) {
-        throw new Error(result.error || 'Generation failed');
+        if (response.status === 404) {
+          throw new Error('API route not found. Lovable projects need external hosting for backend endpoints.');
+        }
+        throw new Error(result.error || `HTTP ${response.status}`);
       }
       
       setTextOptions(result.options.slice(0, 4));
       setShowTextOptions(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed';
-      
-      if (errorMessage.includes('fetch')) {
-        setGenerationError('Please deploy your serverless function first. See instructions above.');
-      } else {
-        setGenerationError(errorMessage);
-      }
+      setGenerationError(errorMessage);
       console.error('Text generation error:', error);
     } finally {
       setIsGenerating(false);
@@ -519,9 +521,11 @@ export default function TextStep({
                   )}
                 </Button>
                 
-                <div className="text-center text-xs text-muted-foreground">
-                  Requires serverless function at <code>/api/generate-text</code><br />
-                  Deploy to Vercel/Netlify with your OpenAI key in env vars
+                <div className="text-center text-xs text-muted-foreground p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <strong>⚠️ Backend Required</strong><br />
+                  Lovable projects are frontend-only. You need:<br />
+                  • Deploy to Vercel/Netlify with API routes, OR<br />
+                  • Use Supabase Edge Functions (green button above)
                 </div>
               </div>
 
