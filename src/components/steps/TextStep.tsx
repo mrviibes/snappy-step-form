@@ -1,12 +1,10 @@
 import { useState, KeyboardEvent } from 'react';
 import { Input } from '@/components/ui/input';
-
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
-
 const tones = [{
   id: 'humorous',
   label: 'Humorous',
@@ -40,7 +38,6 @@ const tones = [{
   label: 'Serious',
   description: 'Formal, direct, weighty'
 }];
-
 const writingPreferences = [{
   id: 'ai-assist',
   label: 'AI Assist'
@@ -51,13 +48,11 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-
 export default function TextStep({
   data,
   updateData
 }: TextStepProps) {
   const [tagInput, setTagInput] = useState('');
-
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -66,7 +61,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleEditTone = () => {
     updateData({
       text: {
@@ -75,7 +69,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleWritingPreferenceSelect = (preferenceId: string) => {
     updateData({
       text: {
@@ -84,7 +77,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleEditWritingPreference = () => {
     updateData({
       text: {
@@ -93,7 +85,6 @@ export default function TextStep({
       }
     });
   };
-
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const currentWords = data.text?.specificWords || [];
@@ -108,7 +99,6 @@ export default function TextStep({
       setTagInput('');
     }
   };
-
   const handleRemoveTag = (wordToRemove: string) => {
     const currentWords = data.text?.specificWords || [];
     updateData({
@@ -118,7 +108,6 @@ export default function TextStep({
       }
     });
   };
-
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
@@ -151,10 +140,7 @@ export default function TextStep({
             <div className="font-semibold text-foreground text-lg">
               TONE - "{selectedTone?.label}"
             </div>
-            <button 
-              onClick={handleEditTone}
-              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-            >
+            <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -184,10 +170,7 @@ export default function TextStep({
           <div className="font-semibold text-foreground text-lg">
             TONE - "{selectedTone?.label}"
           </div>
-          <button 
-            onClick={handleEditTone}
-            className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-          >
+          <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
@@ -197,10 +180,7 @@ export default function TextStep({
           <div className="font-semibold text-foreground text-lg">
             PROCESS - "{selectedWritingPreference?.label}"
           </div>
-          <button 
-            onClick={handleEditWritingPreference}
-            className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-          >
+          <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
@@ -209,39 +189,21 @@ export default function TextStep({
       {/* Add Specific Words Section */}
       <div className="space-y-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">
-            Add Specific Words
-          </h2>
+          <h2 className="text-xl font-semibold text-foreground">Add Specific Words (optional)</h2>
         </div>
 
         <div className="space-y-3">
-          <Input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleAddTag}
-            placeholder="enter words here and hit return"
-            className="w-full"
-          />
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
 
           {/* Display tags */}
-          {data.text?.specificWords && data.text.specificWords.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {data.text.specificWords.map((word: string, index: number) => (
-                <div 
-                  key={index}
-                  className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm"
-                >
+          {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
+              {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
                   <span>{word}</span>
-                  <button
-                    onClick={() => handleRemoveTag(word)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
                     ×
                   </button>
-                </div>
-              ))}
-            </div>
-          )}
+                </div>)}
+            </div>}
         </div>
       </div>
     </div>;
