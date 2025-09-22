@@ -194,6 +194,12 @@ export default function TextStep({
 
         <div className="space-y-3">
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words here and hit return" className="w-full" />
+          
+          <div className="text-center">
+            <button className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+              I don't want any specific words
+            </button>
+          </div>
 
           {/* Display tags */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
