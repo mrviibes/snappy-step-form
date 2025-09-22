@@ -341,8 +341,8 @@ export default function VisualsStep({
                 ))}
               </div>
 
-              {/* Custom Visuals Input for AI Assist */}
-              {data.visuals?.option === "ai-assist" && (
+              {/* Custom Visuals Input for AI Assist - only show before generation */}
+              {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
                 <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-2">
@@ -385,6 +385,37 @@ export default function VisualsStep({
                         }
                       </button>
                     </div>
+                </div>
+              )}
+
+              {/* Visual Generation Section - only show after ready to generate */}
+              {data.visuals?.option === "ai-assist" && showVisualGeneration && (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-foreground">
+                      Style
+                    </label>
+                    <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visualTasteOptions.map(option => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleGenerateVisuals}
+                    className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
+                    disabled={!data.visuals?.visualTaste}
+                  >
+                    Generate Visuals
+                  </Button>
                 </div>
               )}
             </div>
