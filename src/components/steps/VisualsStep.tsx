@@ -771,45 +771,46 @@ export default function VisualsStep({
                     </div>
                   )}
 
-                  {/* Style Selection and Generate Button */}
+                  {/* Style Selection */}
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-foreground">
                       Style
                     </label>
-                    <div className="flex gap-3 items-center">
-                      <div className="flex-1">
-                        <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                          <SelectTrigger className="w-full h-10">
-                            <SelectValue placeholder="Choose style" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border border-border shadow-lg z-50">
-                            {visualTasteOptions.map(option => (
-                              <SelectItem key={option.id} value={option.id}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                      <SelectTrigger className="w-full h-10">
+                        <SelectValue placeholder="Choose style" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border border-border shadow-lg z-50">
+                        {visualTasteOptions.map(option => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* Generate Button - show below style selection */}
+                    {data.visuals?.visualTaste && (
+                      <div className="pt-2">
+                        <Button 
+                          onClick={handleGenerateVisuals}
+                          className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 px-6 font-medium"
+                          disabled={isGeneratingVisuals}
+                        >
+                          {isGeneratingVisuals ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Generate Visuals
+                            </>
+                          )}
+                        </Button>
                       </div>
-                      
-                      <Button 
-                        onClick={handleGenerateVisuals}
-                        className="bg-cyan-400 hover:bg-cyan-500 text-white h-10 px-6 font-medium whitespace-nowrap"
-                        disabled={!data.visuals?.visualTaste || isGeneratingVisuals}
-                      >
-                        {isGeneratingVisuals ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Generate Visuals
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
