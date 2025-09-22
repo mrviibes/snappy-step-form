@@ -44,24 +44,24 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
 
   try {
     let response: Response;
-    let modelUsed = 'gpt-5';
+    let modelUsed = 'gpt-4o';
 
-    // Try GPT-5 first
+    // Try GPT-4o first
     try {
-      response = await makeApiCall('gpt-5');
+      response = await makeApiCall('gpt-4o');
     } catch (error) {
-      console.warn('GPT-5 failed, falling back to GPT-5-Mini:', error);
-      // Fall back to GPT-5-Mini
-      response = await makeApiCall('gpt-5-mini');
-      modelUsed = 'gpt-5-mini';
+      console.warn('GPT-4o failed, falling back to GPT-4o-mini:', error);
+      // Fall back to GPT-4o-mini
+      response = await makeApiCall('gpt-4o-mini');
+      modelUsed = 'gpt-4o-mini';
     }
 
-    // If GPT-5 returned an error, try GPT-5-Mini
-    if (!response.ok && modelUsed === 'gpt-5') {
+    // If GPT-4o returned an error, try GPT-4o-mini
+    if (!response.ok && modelUsed === 'gpt-4o') {
       if (response.status === 404 || response.status === 400) {
-        console.warn('GPT-5 not available, falling back to GPT-5-Mini');
-        response = await makeApiCall('gpt-5-mini');
-        modelUsed = 'gpt-5-mini';
+        console.warn('GPT-4o not available, falling back to GPT-4o-mini');
+        response = await makeApiCall('gpt-4o-mini');
+        modelUsed = 'gpt-4o-mini';
       }
     }
 
