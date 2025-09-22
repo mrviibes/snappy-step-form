@@ -369,15 +369,20 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Specific Text Section - only show after generation step */}
-        {showGeneration && <div className="flex items-center justify-between p-4 border-t border-b border-border">
-          <div className="text-sm text-foreground">
-            <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
+        {/* Inserted Words Section - show after choosing yes for AI assist */}
+        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && (
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'chosen'}
+            </div>
+            <button onClick={() => {
+              setShowGeneration(false);
+              setShowSpecificWordsChoice(true);
+            }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
           </div>
-          <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-            Edit
-          </button>
-        </div>}
+        )}
 
         {/* Style and Rating Summary - only show after text generation */}
         {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
