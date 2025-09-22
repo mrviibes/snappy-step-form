@@ -1051,24 +1051,76 @@ export default function CategoryStep({
   const filteredGoals = fitnessGoals.filter(goal => goal.title.toLowerCase().includes(searchQuery.toLowerCase()) || goal.description.toLowerCase().includes(searchQuery.toLowerCase()));
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
   const filteredSubcategories = selectedCategoryData ? selectedCategoryData.subcategories.filter(subcategory => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
+  
   const handleCategorySelection = (goalId: string) => {
     setSelectedCategory(goalId);
     setShowingSubcategories(true);
     setSearchQuery("");
     setSubcategorySearchQuery("");
   };
+  
   const handleSubcategorySelection = (subcategoryId: string) => {
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
     });
   };
+  
+  const handleEditCategory = () => {
+    setShowingSubcategories(false);
+    setSelectedCategory(null);
+    setSearchQuery("");
+    setSubcategorySearchQuery("");
+    updateData({
+      category: "",
+      subcategory: ""
+    });
+  };
+  
+  const handleEditSubcategory = () => {
+    updateData({
+      subcategory: ""
+    });
+  };
+  
   const handleBack = () => {
     setShowingSubcategories(false);
     setSelectedCategory(null);
     setSearchQuery("");
     setSubcategorySearchQuery("");
   };
+
+  // If both category and subcategory are selected, show the compact view
+  if (data.category && data.subcategory) {
+    const categoryData = fitnessGoals.find(goal => goal.id === data.category);
+    const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
+    
+    return (
+      <div className="space-y-4">
+        {/* Selected Category */}
+        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary cursor-pointer" onClick={handleEditCategory}>
+          <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
+            <img src={categoryData?.image} alt={categoryData?.title} className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <h3 className="font-medium text-foreground">{categoryData?.title}</h3>
+            <p className="text-sm text-primary">Edit</p>
+          </div>
+        </div>
+
+        {/* Selected Subcategory */}
+        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary cursor-pointer" onClick={handleEditSubcategory}>
+          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+            <span className="text-lg">{categoryData?.icon}</span>
+          </div>
+          <div>
+            <h3 className="font-medium text-foreground">{subcategoryData?.title}</h3>
+            <p className="text-sm text-primary">Edit</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (showingSubcategories && selectedCategoryData) {
     return <div className="space-y-6">
         {/* Selected Category Header */}
