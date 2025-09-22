@@ -301,8 +301,8 @@ export default function TextStep({
       <div className="bg-white rounded-lg border border-primary overflow-hidden">
         {/* Selected Tone */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="text-base font-normal text-foreground">
-            Tone - "{selectedTone?.label}"
+          <div className="text-base text-foreground">
+            <span className="font-semibold">Tone</span> - "{selectedTone?.label}"
           </div>
           <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -310,9 +310,9 @@ export default function TextStep({
         </div>
 
         {/* Selected Writing Preference */}
-        <div className="flex items-center justify-between p-4 {showGeneration ? 'border-b border-border' : ''}">
-          <div className="text-base font-normal text-foreground">
-            Process - "{selectedWritingPreference?.label}"
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="text-base text-foreground">
+            <span className="font-semibold">Process</span> - "{selectedWritingPreference?.label}"
           </div>
           <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -321,8 +321,8 @@ export default function TextStep({
         
         {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="text-base font-normal text-foreground">
-            Specific Text - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
+          <div className="text-base text-foreground">
+            <span className="font-semibold">Specific Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
           <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -332,8 +332,8 @@ export default function TextStep({
         {/* Style and Rating Summary - only show after text generation */}
         {showTextOptions && (
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="text-base font-normal text-foreground">
-              Style - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | Rating - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
+            <div className="text-base text-foreground">
+              <span className="font-semibold">Style</span> - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | <span className="font-semibold">Rating</span> - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
             </div>
             <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
@@ -344,8 +344,8 @@ export default function TextStep({
         {/* Selected Text Summary - only show after text selection */}
         {selectedTextOption !== null && (
           <div className="flex items-center justify-between p-4">
-            <div className="text-base font-normal text-foreground">
-              Text - "{textOptions[selectedTextOption].substring(0, 20)}..."
+            <div className="text-base text-foreground">
+              <span className="font-semibold">Text</span> - "{textOptions[selectedTextOption].substring(0, 20)}..."
             </div>
             <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
