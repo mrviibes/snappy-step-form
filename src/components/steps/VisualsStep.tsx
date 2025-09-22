@@ -676,33 +676,8 @@ export default function VisualsStep({
         </div>
       ) : (
         <>
-          {/* Style Selection or Selected Style Summary */}
-          {!hasSelectedStyle ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {visualStyles.map(style => (
-                  <Card key={style.id} className={cn("cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card overflow-hidden", {
-                    "border-primary shadow-primary bg-accent": data.visuals?.style === style.id,
-                    "border-border": data.visuals?.style !== style.id
-                  })} onClick={() => handleStyleChange(style.id)}>
-                    <div className="relative">
-                      <img 
-                        src={style.preview} 
-                        alt={style.title}
-                        className="w-full h-24 object-cover"
-                      />
-                    </div>
-                    <div className="p-3">
-                      <h4 className="mb-1 text-sm font-medium text-foreground">
-                        {style.title}
-                      </h4>
-                      <p className="text-xs text-muted-foreground">{style.description}</p>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ) : (
+          {/* Selected Style Summary */}
+          {hasSelectedStyle && (
             <div className="space-y-4">
               {/* Selected Style Summary */}
               <Card className="border-2 border-primary bg-accent p-3">
