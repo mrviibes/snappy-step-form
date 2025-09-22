@@ -281,8 +281,8 @@ export default function TextStep({
         {/* Generation Section */}
         {showGeneration && <div className="space-y-4">
             <div className="space-y-4">
-              {/* Style and Rating - Stack vertically on mobile, side by side on larger screens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Style and Rating - Keep on same row */}
+              <div className="grid grid-cols-2 gap-4">
                 {/* Style Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Style</label>
