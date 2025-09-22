@@ -66,13 +66,7 @@ export default function StepIndicator({
               {/* Connection Line */}
               {index < steps.length - 1 && (
                 <div
-                  className={cn(
-                    "absolute top-5 h-0.5 transition-colors duration-300 z-0",
-                    {
-                      "bg-step-completed": isPast,
-                      "bg-step-inactive": !isPast,
-                    }
-                  )}
+                  className="absolute top-5 h-0.5 bg-step-inactive transition-colors duration-300 z-0"
                   style={{
                     left: "calc(50% + 20px)",
                     width: "calc(100% - 40px)",
