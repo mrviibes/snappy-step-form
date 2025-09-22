@@ -104,7 +104,7 @@ export default function MultiStepForm() {
       <div className="mx-auto max-w-md">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Choose Your VISUALS</h1>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">Your Viibe</h1>
           
         </div>
 
@@ -126,25 +126,13 @@ export default function MultiStepForm() {
               Back
             </Button>
 
-            {currentStep === steps.length ? (
-              <Button 
-                onClick={handleSubmit} 
-                disabled={!isStepCompleted(currentStep)} 
-                className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover"
-              >
+            {currentStep === steps.length ? <Button onClick={handleSubmit} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
                 <Check className="mr-2 h-4 w-4" />
                 Complete
-              </Button>
-            ) : (
-              <Button 
-                onClick={nextStep} 
-                disabled={!isStepCompleted(currentStep)} 
-                className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover"
-              >
+              </Button> : <Button onClick={nextStep} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+              </Button>}
           </div>
         </div>
       </div>
