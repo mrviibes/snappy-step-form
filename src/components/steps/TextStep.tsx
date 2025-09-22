@@ -422,8 +422,8 @@ export default function TextStep({
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground">Inserted Words (optional)</h2>
-          <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700 text-left">eg. Names, Happy Birthday, Congrats etc.</p>
+          <div className="mt-3">
+            <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
           </div>
         </div>
 
