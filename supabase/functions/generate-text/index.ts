@@ -31,6 +31,17 @@ const categoryBanWords: Record<string, string[]> = {
   "default": ["celebration", "special day", "milestone", "achievement"]
 };
 
+// Diverse topic seed nouns to avoid repetition
+const topicSeeds = [
+  "playlist", "balloons", "Wi-Fi", "snacks", "candles", "karaoke", 
+  "leaf blower", "group chat", "speakers", "coffee", "microwave",
+  "smoke alarm", "doorbell", "garage", "lawn mower", "thermostat"
+];
+
+// Structure types for variety enforcement
+const structureTypes = ["quip", "question", "metaphor", "observational"] as const;
+type StructureType = typeof structureTypes[number];
+
 // Diverse style examples to break cliché patterns
 const styleExamples: Record<string, string[]> = {
   "sarcastic": [
@@ -188,13 +199,40 @@ function bucketHintText(bucket: PosBucket): string {
   }
 }
 
+// Get structure hint for variety
+function getStructureHint(structureType: StructureType): string {
+  switch (structureType) {
+    case "quip": return "Write a short, punchy quip (50-75 characters).";
+    case "question": return "Write a rhetorical question.";
+    case "metaphor": return "Write a playful metaphor or absurd comparison.";
+    case "observational": return "Write a straight observational line.";
+  }
+}
+
+// Extract non-insert nouns from a line to track topic diversity
+function extractTopicNouns(line: string, insertWords: string[]): string[] {
+  const insertSet = new Set(insertWords.map(w => w.toLowerCase()));
+  const words = line.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
+  return words.filter(w => 
+    !insertSet.has(w) && 
+    !['the', 'and', 'but', 'for', 'with', 'was', 'were', 'are', 'had', 'has', 'have'].includes(w)
+  );
+}
+
+// Check if lines repeat same topic nouns
+function repeatsTopicNouns(lines: string[], insertWords: string[]): boolean {
+  const allNouns = lines.flatMap(line => extractTopicNouns(line, insertWords));
+  const uniqueNouns = new Set(allNouns);
+  return allNouns.length > uniqueNouns.size * 1.5; // Too much repetition
+}
+
 // Check if lines have same opener structure
 function sameOpener(a: string, b: string): boolean {
   const getFirst4 = (s: string) => s.toLowerCase().split(/\W+/).slice(0, 4).join(" ");
   return getFirst4(a) === getFirst4(b);
 }
 
-// Universal prompt template v3 with natural insert word placement
+// Universal prompt template with variety enforcement
 function buildPrompt(opts: {
   category: string;
   subcategory: string;
@@ -204,9 +242,11 @@ function buildPrompt(opts: {
   insertWords: string[];
   comedianStyle: { name: string; flavor: string };
   targetBucket: PosBucket;
+  structureType: StructureType;
+  usedTopics: Set<string>;
   nonce: string;
 }) {
-  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, targetBucket, nonce } = opts;
+  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, targetBucket, structureType, usedTopics, nonce } = opts;
   const insert = insertWords.join(", ") || "none";
 
   const ratingRules: Record<string, string> = {
@@ -233,7 +273,12 @@ function buildPrompt(opts: {
   const hint = styleHints[style.toLowerCase()] || styleHints.generic;
   const ratingRule = ratingRules[rating.toLowerCase()] || ratingRules.pg;
   const bucketHint = bucketHintText(targetBucket);
-
+  const structureHint = getStructureHint(structureType);
+  
+  // Generate topic guidance to avoid repetition
+  const avoidTopics = Array.from(usedTopics).slice(0, 5);
+  const suggestTopics = topicSeeds.filter(t => !usedTopics.has(t)).slice(0, 3);
+  
   const system = `You write one-liner jokes for a celebration generator.
 
 Hard rules:
@@ -245,16 +290,22 @@ Hard rules:
 Insert Words policy:
 - Include all Insert Words naturally in the sentence.
 - Vary placement: sometimes early, sometimes mid-sentence, sometimes late.
-- It's allowed to split multi-word phrases across the sentence only if it reads naturally.
+- It's allowed to split multi-word phrases across the sentence only if it reads naturally.  
 - Do NOT always place Insert Words at the end.
 - Do NOT repeat Insert Words more than once unless it improves flow.
 
+Structure requirement: ${structureHint}
+
 Diversity rules:
-- Vary comedic form: rhetorical question, roast, short quip, metaphor, surreal observation.
+- Vary sentence shape: one short quip, one rhetorical question, one playful metaphor, one observational line.
 - Avoid category clichés (${banWords.join(', ')}) unless they are in Insert Words.
-- Use a different rhythm each time based on the comedian style hint.
+- Do not invent personal details (age, jobs, diagnoses) unless in Insert Words.
+- Keep family-friendly for rating = G.
+${avoidTopics.length > 0 ? `- Avoid repeating these topics: ${avoidTopics.join(', ')}` : ''}
+${suggestTopics.length > 0 ? `- Consider these fresh topics: ${suggestTopics.join(', ')}` : ''}
 
 Rating: ${rating} — ${ratingRule}
+${rating.toLowerCase() === 'g' ? '- For G rating: forbid crisis, panic, anxiety, hangover, divorce, midlife themes.' : ''}
 
 Output exactly the sentence. No preface or commentary.
 Nonce: ${nonce}`.trim();
@@ -268,9 +319,8 @@ Rating: ${rating}
 Insert Words: ${insert}
 Comedian style: ${comedianStyle.name} – ${comedianStyle.flavor}
 
-Placement requirement: Insert Words may appear at different positions across options; avoid identical placement.
-Placement hint for this attempt: ${bucketHint} 
-(Still keep it natural; do not force awkward phrasing.)
+Structure: ${structureHint}
+Placement hint: ${bucketHint} (Keep it natural; do not force awkward phrasing.)
 
 Style examples (do not copy, just the vibe):
 - "${selectedExamples[0]}"
@@ -340,7 +390,13 @@ function validateLine(
     return null;
   }
 
-  // rating gates
+  // Enhanced G-rating guards
+  if (rating.toLowerCase() === "g") {
+    const gBanned = /\b(hell|damn|crap|crisis|panic|anxiety|hangover|divorce|midlife|turned \d+|diagnosis|therapist)\b/i.test(line);
+    if (gBanned) return null;
+  }
+
+  // Rating gates
   const mild = /\b(hell|damn|crap)\b/i.test(line);
   const explicit = /\b(fuck|shit|asshole|bastard|dick|piss|bitch)\b/i.test(line);
 
@@ -363,7 +419,7 @@ function tooSimilar(a: string, b: string): boolean {
   return overlap / Math.min(wa.size, wb.size) > 0.6;
 }
 
-// Generate a single line with specific bucket targeting
+// Generate a single line with specific bucket and structure targeting
 async function generateOne(opts: {
   category: string;
   subcategory: string;
@@ -373,6 +429,8 @@ async function generateOne(opts: {
   insertWords: string[];
   usedComedians: Set<string>;
   targetBucket: PosBucket;
+  structureType: StructureType;
+  usedTopics: Set<string>;
   existingLines: string[];
 }) {
   // Pick a comedian not yet used
@@ -428,9 +486,17 @@ async function generateOne(opts: {
       valid, 
       comedian: comedianStyle.name,
       targetBucket: opts.targetBucket,
+      structureType: opts.structureType,
       actualBucket: valid ? positionBucket(valid, opts.insertWords[0] || "") : null,
       length: valid ? valid.length : 0
     });
+    
+    // Track topic nouns if line is valid
+    if (valid) {
+      const topicNouns = extractTopicNouns(valid, opts.insertWords);
+      topicNouns.forEach(noun => opts.usedTopics.add(noun));
+    }
+    
     return valid;
   } catch (e) {
     clearTimeout(timer);
@@ -438,7 +504,7 @@ async function generateOne(opts: {
   }
 }
 
-// Generate 4 diverse options with varied insert word placement
+// Generate 4 diverse options with varied placement, structure, and topics
 async function generateFour(body: any): Promise<string[]> {
   const insertWords = parseInsertWords(body.mandatory_words || '');
   
@@ -455,6 +521,7 @@ async function generateFour(body: any): Promise<string[]> {
     rating: body.rating || "PG",
     insertWords,
     usedComedians: new Set<string>(),
+    usedTopics: new Set<string>(),
     existingLines: [] as string[]
   };
 
@@ -462,15 +529,23 @@ async function generateFour(body: any): Promise<string[]> {
 
   const lines: string[] = [];
   const usedBuckets = new Set<PosBucket>();
+  const usedStructures = new Set<StructureType>();
   let attempts = 0;
 
-  // Generate 4 lines with different placement buckets
+  // Generate 4 lines with different placement buckets and structures
   while (lines.length < 4 && attempts < 25) {
     try {
       const targetBucket = pickNeededBucket(usedBuckets);
+      // Pick structure type we haven't used yet
+      const availableStructures = structureTypes.filter(s => !usedStructures.has(s));
+      const structureType = availableStructures.length > 0 
+        ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
+        : structureTypes[Math.floor(Math.random() * structureTypes.length)];
+      
       const line = await generateOne({
         ...opts,
         targetBucket,
+        structureType,
         existingLines: lines
       });
       
@@ -483,6 +558,9 @@ async function generateFour(body: any): Promise<string[]> {
           const actualBucket = positionBucket(line, insertWords[0]);
           usedBuckets.add(actualBucket);
         }
+        
+        // Track structure usage
+        usedStructures.add(structureType);
         
         lines.push(line);
         console.log(`Generated line ${lines.length}:`, line);
@@ -523,11 +601,15 @@ async function generateFour(body: any): Promise<string[]> {
   const lengths = lines.map(l => l.length);
   const buckets = insertWords.length > 0 ? 
     lines.map(l => positionBucket(l, insertWords[0])) : [];
+  const topicNouns = lines.flatMap(l => extractTopicNouns(l, insertWords));
   
   console.log("Final lengths:", lengths);
   console.log("Length variety:", Math.max(...lengths) - Math.min(...lengths));
   console.log("Position buckets:", buckets);
   console.log("Bucket variety:", new Set(buckets).size);
+  console.log("Structure variety:", usedStructures.size);
+  console.log("Topic diversity:", new Set(topicNouns).size, "unique topics from", topicNouns.length, "total nouns");
+  console.log("Topic repetition check:", !repeatsTopicNouns(lines, insertWords) ? "PASSED" : "FAILED");
 
   return lines;
 }
