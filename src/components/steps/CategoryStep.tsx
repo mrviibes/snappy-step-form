@@ -2431,7 +2431,7 @@ export default function CategoryStep({
         <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-cyan-400" size={24} />
         <Input 
           type="text" 
-          placeholder="Search categories..." 
+          placeholder="Search categories and interests..." 
           value={searchQuery} 
           onChange={e => setSearchQuery(e.target.value)} 
           className="pl-14 py-6 h-16 text-xl font-medium bg-background border-2 border-border rounded-xl focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg placeholder:font-medium text-center" 
