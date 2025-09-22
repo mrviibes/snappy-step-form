@@ -153,8 +153,8 @@ export default function VisualsStep({
                 className={cn(
                   "w-full h-12 text-sm font-medium transition-all duration-300",
                   data.visuals?.option === option.id 
-                    ? "bg-gradient-primary shadow-primary" 
-                    : "hover:bg-accent"
+                    ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" 
+                    : "hover:bg-accent border-border"
                 )}
                 onClick={() => handleVisualOptionChange(option.id)}
               >
@@ -168,18 +168,18 @@ export default function VisualsStep({
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Visuals (optional)
+                  Any Specific Text (optional)
                 </label>
                 <Textarea
-                  placeholder="describe visuals you would like"
+                  placeholder="enter words here and hit return"
                   value={data.visuals?.customVisuals || ""}
                   onChange={(e) => handleCustomVisualsChange(e.target.value)}
                   className="w-full min-h-[80px] resize-none"
                 />
               </div>
               {!data.visuals?.customVisuals?.trim() && (
-                <p className="text-sm text-primary font-medium">
-                  Let AI Generate recommendations
+                <p className="text-sm text-cyan-400 font-medium">
+                  I don't want any specific words
                 </p>
               )}
             </div>
