@@ -13,6 +13,9 @@ const corsHeaders = {
   "vary": "Origin"
 };
 
+// Position buckets for insert word placement tracking
+type PosBucket = "front" | "middle" | "end";
+
 // Category-specific ban words to avoid clichés
 const categoryBanWords: Record<string, string[]> = {
   "birthday": ["cake", "candles", "confetti", "balloons", "party hat"],
@@ -49,10 +52,10 @@ const styleExamples: Record<string, string[]> = {
     "May your year be filled with unexpected kindness and perfect timing."
   ],
   "generic": [
-    "Permission granted to be loud, joyful, and a little ridiculous.",
-    "Time to collect more stories you can't tell at work.",
-    "Another year of questionable WiFi passwords and awkward Zoom calls.",
-    "Here's to surviving group chats and pretending to like coworkers."
+    "Jesse, the playlist still slaps, but man you are old and somehow trending.",
+    "Another orbit completed and, man you are old, Jesse still forgets Wi-Fi passwords.",
+    "The group chat voted you most likely to nap mid-party, man you are old Jesse.",
+    "Stories age like milk, Jesse — and so do you."
   ]
 };
 
@@ -155,7 +158,43 @@ function getStyleExamples(style: string): string[] {
   return styleExamples[styleKey] || styleExamples.generic;
 }
 
-// Universal prompt template v2 with diversity enforcement
+// Detect position bucket for insert word placement
+function positionBucket(line: string, token: string): PosBucket {
+  const words = line.toLowerCase().split(/\W+/).filter(Boolean);
+  const idx = words.findIndex(w => token.toLowerCase().includes(w) || w.includes(token.toLowerCase()));
+  if (idx === -1) return "middle"; // fallback
+  const n = words.length;
+  const ratio = (idx + 1) / n;
+  if (ratio <= 0.33) return "front";
+  if (ratio >= 0.67) return "end";
+  return "middle";
+}
+
+// Pick needed bucket for variety
+function pickNeededBucket(used: Set<PosBucket>): PosBucket {
+  for (const b of ["front", "middle", "end"] as const) {
+    if (!used.has(b)) return b;
+  }
+  // All taken; prefer front or middle over end
+  return Math.random() < 0.5 ? "front" : "middle";
+}
+
+// Get bucket hint text for prompting
+function bucketHintText(bucket: PosBucket): string {
+  switch (bucket) {
+    case "front": return "Place one Insert Word early in the sentence.";
+    case "middle": return "Place one Insert Word mid-sentence.";
+    case "end": return "Place one Insert Word near the end (but not as a bolted suffix).";
+  }
+}
+
+// Check if lines have same opener structure
+function sameOpener(a: string, b: string): boolean {
+  const getFirst4 = (s: string) => s.toLowerCase().split(/\W+/).slice(0, 4).join(" ");
+  return getFirst4(a) === getFirst4(b);
+}
+
+// Universal prompt template v3 with natural insert word placement
 function buildPrompt(opts: {
   category: string;
   subcategory: string;
@@ -164,13 +203,14 @@ function buildPrompt(opts: {
   rating: string;
   insertWords: string[];
   comedianStyle: { name: string; flavor: string };
+  targetBucket: PosBucket;
   nonce: string;
 }) {
-  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, nonce } = opts;
+  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, targetBucket, nonce } = opts;
   const insert = insertWords.join(", ") || "none";
 
   const ratingRules: Record<string, string> = {
-    "g": "clean only",
+    "g": "clean language only. Humor may be playful, observational, or absurd without profanity.",
     "pg": "mild spice, no explicit profanity",
     "pg-13": "light innuendo allowed, no explicit profanity",
     "r": "adult humor allowed, profanity permitted",
@@ -192,6 +232,7 @@ function buildPrompt(opts: {
   const selectedExamples = shuffled.slice(0, 2);
   const hint = styleHints[style.toLowerCase()] || styleHints.generic;
   const ratingRule = ratingRules[rating.toLowerCase()] || ratingRules.pg;
+  const bucketHint = bucketHintText(targetBucket);
 
   const system = `You write one-liner jokes for a celebration generator.
 
@@ -200,15 +241,20 @@ Hard rules:
 - 50–120 characters.
 - No em dash.
 - End with ., !, or ?.
-- Include all Insert Words naturally. Do not bolt them on at the end.
-- Vary sentence length across attempts. Some short punchy, some longer rambly.
-- Do NOT auto-start with clichés like "Happy birthday" unless it appears in Insert Words.
-- Insert Words can appear anywhere in the sentence, not always at the beginning.
+
+Insert Words policy:
+- Include all Insert Words naturally in the sentence.
+- Vary placement: sometimes early, sometimes mid-sentence, sometimes late.
+- It's allowed to split multi-word phrases across the sentence only if it reads naturally.
+- Do NOT always place Insert Words at the end.
+- Do NOT repeat Insert Words more than once unless it improves flow.
 
 Diversity rules:
-- Vary comedic form: roast, metaphor, surreal observation, rhetorical question, blunt statement.
+- Vary comedic form: rhetorical question, roast, short quip, metaphor, surreal observation.
 - Avoid category clichés (${banWords.join(', ')}) unless they are in Insert Words.
 - Use a different rhythm each time based on the comedian style hint.
+
+Rating: ${rating} — ${ratingRule}
 
 Output exactly the sentence. No preface or commentary.
 Nonce: ${nonce}`.trim();
@@ -218,9 +264,13 @@ Nonce: ${nonce}`.trim();
 Category: ${category}${subcategory ? ` > ${subcategory}` : ''}
 Tone: ${tone}
 Style: ${style} (${hint})
-Rating: ${rating} (${ratingRule})
+Rating: ${rating}
 Insert Words: ${insert}
 Comedian style: ${comedianStyle.name} – ${comedianStyle.flavor}
+
+Placement requirement: Insert Words may appear at different positions across options; avoid identical placement.
+Placement hint for this attempt: ${bucketHint} 
+(Still keep it natural; do not force awkward phrasing.)
 
 Style examples (do not copy, just the vibe):
 - "${selectedExamples[0]}"
@@ -244,7 +294,8 @@ function validateLine(
   rating: string, 
   insertWords: string[], 
   category: string,
-  subcategory: string
+  subcategory: string,
+  existingLines: string[]
 ): string | null {
   if (!line) return null;
 
@@ -267,10 +318,25 @@ function validateLine(
     return null;
   }
 
+  // Reject if all insert words are shoved to the end
+  const endsWithAll = insertWords.every(w =>
+    new RegExp(`${escapeReg(w)}[.!?"]?$`, "i").test(line)
+  );
+  if (endsWithAll && insertWords.length > 0) return null;
+
+  // Reject bolted-on comma suffix patterns
+  const boltedPattern = new RegExp(`[,;:]\\s*(?:${insertWords.map(escapeReg).join("|")})\\s*[.!?]?$`, "i");
+  if (boltedPattern.test(line) && insertWords.length > 0) return null;
+
   // Ban category clichés unless they're in insert words
   const banWords = getCategoryBanWords(category, subcategory);
   const insertedSet = new Set(insertWords.map(x => x.toLowerCase()));
   if (banWords.some(b => line.toLowerCase().includes(b) && !insertedSet.has(b))) {
+    return null;
+  }
+
+  // Check for same opener as existing lines
+  if (existingLines.some(existing => sameOpener(line, existing))) {
     return null;
   }
 
@@ -297,23 +363,7 @@ function tooSimilar(a: string, b: string): boolean {
   return overlap / Math.min(wa.size, wb.size) > 0.6;
 }
 
-// Check if insert words are always in first position across lines
-function checkInsertWordVariety(lines: string[], insertWords: string[]): boolean {
-  if (insertWords.length === 0 || lines.length < 2) return true;
-  
-  let frontLoadedCount = 0;
-  for (const line of lines) {
-    const firstTokens = line.toLowerCase().split(/\W+/).slice(0, 3);
-    if (insertWords.some(w => firstTokens.includes(w.toLowerCase()))) {
-      frontLoadedCount++;
-    }
-  }
-  
-  // If more than 75% of lines have insert words in first 3 positions, reject
-  return frontLoadedCount / lines.length < 0.75;
-}
-
-// Generate a single line with comedian style
+// Generate a single line with specific bucket targeting
 async function generateOne(opts: {
   category: string;
   subcategory: string;
@@ -322,6 +372,8 @@ async function generateOne(opts: {
   rating: string;
   insertWords: string[];
   usedComedians: Set<string>;
+  targetBucket: PosBucket;
+  existingLines: string[];
 }) {
   // Pick a comedian not yet used
   const availableComedians = comedianStyles.filter(c => !opts.usedComedians.has(c.name));
@@ -368,13 +420,15 @@ async function generateOne(opts: {
     const data = await response.json();
     const raw = (data?.choices?.[0]?.message?.content || "").trim();
     const first = normalizeFirstLine(raw);
-    const valid = validateLine(first, opts.rating, opts.insertWords, opts.category, opts.subcategory);
+    const valid = validateLine(first, opts.rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines);
     
     console.log("Generated line attempt:", { 
       raw, 
       first, 
       valid, 
       comedian: comedianStyle.name,
+      targetBucket: opts.targetBucket,
+      actualBucket: valid ? positionBucket(valid, opts.insertWords[0] || "") : null,
       length: valid ? valid.length : 0
     });
     return valid;
@@ -384,7 +438,7 @@ async function generateOne(opts: {
   }
 }
 
-// Generate 4 diverse options with different comedians and structures
+// Generate 4 diverse options with varied insert word placement
 async function generateFour(body: any): Promise<string[]> {
   const insertWords = parseInsertWords(body.mandatory_words || '');
   
@@ -400,21 +454,36 @@ async function generateFour(body: any): Promise<string[]> {
     style: body.style || "Generic", 
     rating: body.rating || "PG",
     insertWords,
-    usedComedians: new Set<string>()
+    usedComedians: new Set<string>(),
+    existingLines: [] as string[]
   };
 
   console.log("Generating with options:", opts);
 
   const lines: string[] = [];
+  const usedBuckets = new Set<PosBucket>();
   let attempts = 0;
 
-  // Generate one line at a time with different comedians
-  while (lines.length < 4 && attempts < 20) {
+  // Generate 4 lines with different placement buckets
+  while (lines.length < 4 && attempts < 25) {
     try {
-      const line = await generateOne(opts);
+      const targetBucket = pickNeededBucket(usedBuckets);
+      const line = await generateOne({
+        ...opts,
+        targetBucket,
+        existingLines: lines
+      });
+      
       if (line && 
           !lines.includes(line) && 
           !lines.some(existing => tooSimilar(line, existing))) {
+        
+        // Check if this line achieves desired placement variety
+        if (insertWords.length > 0) {
+          const actualBucket = positionBucket(line, insertWords[0]);
+          usedBuckets.add(actualBucket);
+        }
+        
         lines.push(line);
         console.log(`Generated line ${lines.length}:`, line);
       }
@@ -424,38 +493,41 @@ async function generateFour(body: any): Promise<string[]> {
     attempts++;
   }
 
-  // Check for insert word variety
-  if (!checkInsertWordVariety(lines, insertWords)) {
-    console.log("Insert word variety check failed, regenerating some lines");
-    // Could implement re-generation logic here if needed
-  }
-
-  // Pad with diverse fallbacks that honor insert words
+  // Pad with diverse fallbacks that honor insert words and vary placement
   while (lines.length < 4) {
-    const iwText = insertWords.length > 0 ? ` ${insertWords.join(" ")}` : "";
-    const fallbacks = [
-      `Permission granted to be loud, joyful, and ridiculous.${iwText}`,
-      `Time to collect stories you can't tell at work.${iwText}`, 
-      `Another year of professional procrastination.${iwText}`,
-      `May laughter arrive early and overstay its welcome.${iwText}`
-    ];
+    const iwText = insertWords.length > 0 ? insertWords.join(" ") : "";
+    const position = lines.length % 3; // rotate positions
     
-    const fallback = fallbacks[lines.length] || fallbacks[0];
-    const finalFallback = fallback.trim();
-    if (!lines.includes(finalFallback) && 
-        finalFallback.length >= 50 && 
-        finalFallback.length <= 120) {
-      lines.push(finalFallback);
-      console.log("Added fallback:", finalFallback);
+    let fallback: string;
+    if (position === 0 && iwText) {
+      fallback = `${iwText}, but at least the Wi-Fi password is still 123456.`;
+    } else if (position === 1 && iwText) {
+      fallback = `Time to collect stories you can't tell at work, ${iwText}.`;
+    } else if (iwText) {
+      fallback = `Another adventure awaits when you realize ${iwText}.`;
     } else {
-      lines.push(`Another adventure awaits.${iwText}`.trim());
+      fallback = "Permission granted to be loud, joyful, and ridiculous.";
+    }
+    
+    if (!lines.includes(fallback) && 
+        fallback.length >= 50 && 
+        fallback.length <= 120) {
+      lines.push(fallback);
+      console.log("Added positioned fallback:", fallback);
+    } else {
+      lines.push("Another adventure awaits, naturally.");
     }
   }
 
   // Log final variety stats
   const lengths = lines.map(l => l.length);
+  const buckets = insertWords.length > 0 ? 
+    lines.map(l => positionBucket(l, insertWords[0])) : [];
+  
   console.log("Final lengths:", lengths);
   console.log("Length variety:", Math.max(...lengths) - Math.min(...lengths));
+  console.log("Position buckets:", buckets);
+  console.log("Bucket variety:", new Set(buckets).size);
 
   return lines;
 }
