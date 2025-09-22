@@ -337,7 +337,7 @@ export default function TextStep({
         {/* Selected Tone */}
         <div className="flex items-center justify-between p-4">
           <div className="space-y-1">
-            <div className="text-sm font-semibold text-foreground">Tone - {selectedTone?.label}</div>
+            <div className="text-sm text-foreground"><span className="font-semibold">Tone</span> - {selectedTone?.label}</div>
           </div>
           <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
@@ -347,7 +347,7 @@ export default function TextStep({
         {/* Selected Writing Preference */}
         <div className="flex items-center justify-between p-4 border-t border-border">
           <div className="space-y-1">
-            <div className="text-sm font-semibold text-foreground">Process - {selectedWritingPreference?.label}</div>
+            <div className="text-sm text-foreground"><span className="font-semibold">Process</span> - {selectedWritingPreference?.label}</div>
           </div>
           <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
