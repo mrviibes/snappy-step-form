@@ -1062,10 +1062,6 @@ export default function CategoryStep({
       category: selectedCategory,
       subcategory: subcategoryId
     });
-    // Auto-advance after selection with a small delay for visual feedback
-    setTimeout(() => {
-      onNext();
-    }, 300);
   };
   const handleBack = () => {
     setShowingSubcategories(false);

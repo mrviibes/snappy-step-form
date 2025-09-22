@@ -9,6 +9,7 @@ import VisualsStep from "./steps/VisualsStep";
 import VibeStep from "./steps/VibeStep";
 interface FormData {
   category: string;
+  subcategory: string;
   text: {
     name: string;
     goal: string;
@@ -43,6 +44,7 @@ export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     category: "",
+    subcategory: "",
     text: {
       name: "",
       goal: ""
@@ -75,7 +77,7 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
-        return !!formData.category;
+        return !!formData.category && !!formData.subcategory;
       case 2:
         return !!formData.text.name && !!formData.text.goal;
       case 3:
