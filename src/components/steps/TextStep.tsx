@@ -3,6 +3,7 @@ interface TextStepProps {
   updateData: (data: any) => void;
   onNext: () => void;
 }
+
 const tones = [{
   id: 'humorous',
   label: 'Humorous',
@@ -47,6 +48,7 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
+
 export default function TextStep({
   data,
   updateData
@@ -56,6 +58,15 @@ export default function TextStep({
       text: {
         ...data.text,
         tone: toneId
+      }
+    });
+  };
+
+  const handleEditTone = () => {
+    updateData({
+      text: {
+        ...data.text,
+        tone: ""
       }
     });
   };
@@ -93,10 +104,19 @@ export default function TextStep({
 
   // Show selected tone and writing preference selection
   return <div className="space-y-6">
-      {/* Selected Tone Display */}
-      <div className="rounded-lg border bg-card p-4 text-center">
-        <div className="font-semibold text-foreground">{selectedTone?.label}</div>
-        <div className="text-sm text-muted-foreground">{selectedTone?.description}</div>
+      {/* Selected Tone Display with Edit Option */}
+      <div className="rounded-lg border-2 border-primary bg-card p-4">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="font-semibold text-foreground text-lg">{selectedTone?.label}</div>
+            <button 
+              onClick={handleEditTone}
+              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Writing Preference Selection */}
