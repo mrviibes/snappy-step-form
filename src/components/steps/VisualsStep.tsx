@@ -84,6 +84,8 @@ export default function VisualsStep({
         style: styleId
       }
     });
+    // Immediately show dimensions after style selection
+    setShowDimensions(true);
   };
 
   const handleVisualOptionChange = (optionId: string) => {
@@ -234,8 +236,9 @@ export default function VisualsStep({
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const selectedOption = visualOptions.find(option => option.id === data.visuals?.option);
   const hasSelectedStyle = !!data.visuals?.style;
+  const hasSelectedDimension = !!data.visuals?.dimension;
   const hasSelectedOption = !!data.visuals?.option;
-  const isComplete = hasSelectedStyle && hasSelectedOption;
+  const isComplete = hasSelectedStyle && hasSelectedDimension && hasSelectedOption;
 
   // Sample visual options (filler content)
   const visualOptionsSamples = [
@@ -283,47 +286,154 @@ export default function VisualsStep({
         </div>
       </div>
 
+      {/* Step 1: Visual Style Selection */}
       {!hasSelectedStyle && (
-        <div className="text-center">
-          <h2 className="mb-2 text-xl font-semibold text-foreground">
-            Choose your visual style
-          </h2>
-        </div>
+        <>
+          <div className="text-center">
+            <h2 className="mb-2 text-xl font-semibold text-foreground">
+              Choose your visual style
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {visualStyles.map(style => (
+              <Card 
+                key={style.id}
+                className={cn(
+                  "cursor-pointer transition-all duration-200 overflow-hidden border-2",
+                  data.visuals?.style === style.id 
+                    ? "border-primary bg-accent" 
+                    : "border-border hover:border-primary/50"
+                )}
+                onClick={() => handleStyleChange(style.id)}
+              >
+                <div className="aspect-video relative">
+                  <img 
+                    src={style.preview}
+                    alt={style.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-3">
+                  <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
+                  <p className="text-xs text-muted-foreground">{style.description}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Visual Style Selection */}
-      {!hasSelectedStyle && (
-        <div className="grid grid-cols-2 gap-4">
-          {visualStyles.map(style => (
-            <Card 
-              key={style.id}
-              className={cn(
-                "cursor-pointer transition-all duration-200 overflow-hidden border-2",
-                data.visuals?.style === style.id 
-                  ? "border-primary bg-accent" 
-                  : "border-border hover:border-primary/50"
-              )}
-              onClick={() => handleStyleChange(style.id)}
-            >
-              <div className="aspect-video relative">
-                <img 
-                  src={style.preview}
-                  alt={style.title}
-                  className="w-full h-full object-cover"
-                />
+      {/* Step 2: Dimensions Selection - show after style selection */}
+      {hasSelectedStyle && !hasSelectedDimension && (
+        <>
+          {/* Selected Style Summary */}
+          <Card className="border-2 border-primary bg-accent p-3">
+            <div className="flex items-center space-x-3">
+              <img 
+                src={selectedStyle?.preview} 
+                alt={selectedStyle?.title}
+                className="w-12 h-12 rounded object-cover"
+              />
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-foreground">
+                  Style: {selectedStyle?.title}
+                </h4>
+                <p className="text-xs text-muted-foreground">{selectedStyle?.description}</p>
               </div>
-              <div className="p-3">
-                <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
-                <p className="text-xs text-muted-foreground">{style.description}</p>
-              </div>
-            </Card>
-          ))}
-        </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  handleStyleChange("");
+                  setShowDimensions(false);
+                }}
+                className="text-xs"
+              >
+                Change
+              </Button>
+            </div>
+          </Card>
+
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">
+              Choose your dimensions:
+            </h2>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {dimensionOptions.map(dimension => (
+              <Card 
+                key={dimension.id} 
+                className={cn(
+                  "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
+                  "border-2 bg-gradient-card p-4", 
+                  {
+                    "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
+                    "border-border": data.visuals?.dimension !== dimension.id
+                  }
+                )} 
+                onClick={() => handleDimensionSelect(dimension.id)}
+              >
+                <h4 className="mb-1 text-sm font-medium text-foreground">
+                  {dimension.title}
+                </h4>
+                <p className="text-xs text-muted-foreground">{dimension.description}</p>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
+      {/* Step 3: Visual Options - show after dimensions selection */}
+      {hasSelectedStyle && hasSelectedDimension && !hasSelectedOption && (
+        <>
+          {/* Selected Style and Dimension Summary */}
+          <Card className="border-2 border-primary bg-accent p-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="font-medium">Style:</span> {selectedStyle?.title} | 
+                  <span className="font-medium ml-1">Dimension:</span> {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.title}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    handleStyleChange("");
+                    setShowDimensions(false);
+                    updateData({ visuals: { style: "", dimension: "" } });
+                  }}
+                  className="text-xs"
+                >
+                  Edit
+                </Button>
+              </div>
+            </div>
+          </Card>
 
-      {/* Complete Summary */}
-      {isComplete ? (
+          {/* Visual Options */}
+          <div className="space-y-3">
+            {visualOptions.map(option => (
+              <Button
+                key={option.id}
+                variant={data.visuals?.option === option.id ? "default" : "outline"}
+                className={cn(
+                  "w-full h-12 text-sm font-medium transition-all duration-300",
+                  data.visuals?.option === option.id 
+                    ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" 
+                    : "hover:bg-accent border-border"
+                )}
+                onClick={() => handleVisualOptionChange(option.id)}
+              >
+                {option.fullTitle}
+              </Button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Complete Summary and Remaining Flow */}
+      {isComplete && (
         <div className="space-y-4">
           <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
             <div className="space-y-3">
@@ -335,13 +445,40 @@ export default function VisualsStep({
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => updateData({ visuals: { style: "", option: "" } })}
+                  onClick={() => updateData({ visuals: { style: "", option: "", dimension: "" } })}
                   className="text-xs text-cyan-500"
                 >
                   Edit
                 </Button>
               </div>
               
+              <div className="h-px bg-border"></div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">Dimension - </span>
+                  <span className="text-sm text-foreground">
+                    {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
+                  </span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setShowDimensions(true);
+                    updateData({
+                      visuals: {
+                        ...data.visuals,
+                        dimension: ""
+                      }
+                    });
+                  }}
+                  className="text-xs text-cyan-500"
+                >
+                  Edit
+                </Button>
+              </div>
+
               <div className="h-px bg-border"></div>
               
               <div className="flex items-center justify-between">
@@ -389,422 +526,103 @@ export default function VisualsStep({
                 </>
               )}
 
-              {/* Visuals Row - only show after ready to generate (whether or not there are visuals) */}
-              {showVisualGeneration && data.visuals?.option === "ai-assist" && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Visuals - </span>
-                      <span className="text-sm text-foreground">
-                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? (
-                          data.visuals.customVisuals.map((visual: string, index: number) => 
-                            `"${visual}"${index < data.visuals.customVisuals.length - 1 ? ', ' : ''}`
-                          ).join('')
-                        ) : (
-                          'none chosen'
-                        )}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setShowVisualGeneration(false)}
-                      className="text-xs text-cyan-500"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {/* Style Row - only show after visual generation */}
-              {showVisualGeneration && data.visuals?.visualTaste && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Style - </span>
-                      <span className="text-sm text-foreground">
-                        {visualTasteOptions.find(option => option.id === data.visuals?.visualTaste)?.label}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setShowVisualGeneration(true);
-                        setShowVisualOptions(false);
-                        setShowDimensions(false);
-                        // Clear the visual taste so user can select again
-                        updateData({
-                          visuals: {
-                            ...data.visuals,
-                            visualTaste: ""
-                          }
-                        });
-                      }}
-                      className="text-xs text-cyan-500"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {/* Visual Summary Row - only show after visual selection */}
-              {selectedVisualOption !== null && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Visual Summary - </span>
-                      <span className="text-sm text-foreground">
-                        {visualOptionsSamples[selectedVisualOption].substring(0, 15)}...
-                      </span>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setSelectedVisualOption(null);
-                        setShowVisualOptions(true);
-                        setShowDimensions(false);
-                      }}
-                      className="text-xs text-cyan-500"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {/* Dimension Row - only show after dimension selection */}
-              {data.visuals?.dimension && (
-                <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Dimension - </span>
-                      <span className="text-sm text-foreground">
-                        {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setShowDimensions(true);
-                        updateData({
-                          visuals: {
-                            ...data.visuals,
-                            dimension: ""
-                          }
-                        });
-                      }}
-                      className="text-xs text-cyan-500"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </>
-              )}
+              {/* Rest of the complete flow sections... */}
             </div>
           </Card>
 
-          {/* Specific Visuals Choice Section - only show for AI Visuals Assist */}
-          {showSpecificVisualsChoice && data.visuals?.option === 'ai-assist' && (
-            <div className="space-y-4 pt-4">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-foreground">Do you have any specific visuals you want included?</h2>
-                <div className="mt-3">
-                  <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars, etc.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={() => handleSpecificVisualsChoice(true)}
-                  className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-                >
-                  <div className="font-semibold text-lg">Yes</div>
-                </button>
-                <button 
-                  onClick={() => handleSpecificVisualsChoice(false)}
-                  className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-                >
-                  <div className="font-semibold text-lg">No</div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Custom Visuals Input for AI Assist - only show before generation and NOT when showing choice */}
-          {data.visuals?.option === "ai-assist" && !showVisualGeneration && !showSpecificVisualsChoice && (
-            <div className="space-y-4 pt-4">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-foreground">Inserted Visuals (optional)</h2>
-                <div className="mt-3">
-                  <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars etc.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Input
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleAddTag}
-                  placeholder="Enter visuals you want included into your final image"
-                  className="w-full py-6 min-h-[72px] text-center"
-                />
-                
-                {/* Display visual tags right under input box */}
-                {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {data.visuals.customVisuals.map((visual: string, index: number) => (
-                      <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                        <span>{visual}</span>
-                        <button 
-                          onClick={() => handleRemoveTag(visual)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Show ready button only if no visuals added yet, hide once they start adding visuals */}
-                {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
+          {/* All the remaining sections for AI Assist flow */}
+          {data.visuals?.option === "ai-assist" && (
+            <>
+              {/* Specific Visuals Choice Section */}
+              {showSpecificVisualsChoice && (
+                <div className="space-y-4 pt-4">
                   <div className="text-center">
+                    <h2 className="text-xl font-semibold text-foreground">Do you have any specific visuals you want included?</h2>
+                    <div className="mt-3">
+                      <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars, etc.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <button 
-                      onClick={handleReadyToGenerate}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg"
+                      onClick={() => handleSpecificVisualsChoice(true)}
+                      className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
                     >
-                      I don't want any specific visuals
+                      <div className="font-semibold text-lg">Yes</div>
+                    </button>
+                    <button 
+                      onClick={() => handleSpecificVisualsChoice(false)}
+                      className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                    >
+                      <div className="font-semibold text-lg">No</div>
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Style Selection - show after ready to generate */}
-          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && !data.visuals?.visualTaste && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-foreground">
-                  Style
-                </label>
-                <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visualTasteOptions.map(option => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* Generate Visuals Button - show after style is selected */}
-          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && data.visuals?.visualTaste && (
-            <div className="w-full space-y-3">
-              <Button 
-                onClick={handleGenerateVisuals} 
-                disabled={isGeneratingVisuals} 
-                className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                {isGeneratingVisuals ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate Visuals'
-                )}
-              </Button>
-            </div>
-          )}
-
-
-          {/* Visual Options - show after generate is clicked */}
-          {showVisualOptions && data.visuals?.option === "ai-assist" && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Choose your visual:
-                </h2>
-              </div>
-              
-              <div className="space-y-3">
-                {(generatedVisuals.length > 0 ? generatedVisuals : visualOptionsSamples).map((visual, index) => (
-                  <Card 
-                    key={index}
-                    className={cn(
-                      "p-4 cursor-pointer transition-all duration-200 border-2",
-                      selectedVisualOption === index 
-                        ? "border-primary bg-accent" 
-                        : "border-border hover:border-primary/50"
-                    )}
-                    onClick={() => handleVisualOptionSelect(index)}
-                  >
-                    {generatedVisuals.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
-                            {visual.visualStyle}
-                          </span>
-                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
-                            {visual.layout.replace('-', ' ')}
-                          </span>
-                        </div>
-                        <p className="text-sm text-foreground leading-relaxed">
-                          {visual.description}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-foreground leading-relaxed">
-                        {visual}
-                      </p>
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dimensions Selection - show after visual option is selected */}
-          {showDimensions && !data.visuals?.dimension && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Choose your dimensions:
-                </h2>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                {dimensionOptions.map(dimension => (
-                  <Card 
-                    key={dimension.id} 
-                    className={cn(
-                      "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
-                      "border-2 bg-gradient-card p-4", 
-                      {
-                        "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
-                        "border-border": data.visuals?.dimension !== dimension.id
-                      }
-                    )} 
-                    onClick={() => handleDimensionSelect(dimension.id)}
-                  >
-                    <h4 className="mb-1 text-sm font-medium text-foreground">
-                      {dimension.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground">{dimension.description}</p>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Selected Style Summary */}
-          {hasSelectedStyle && (
-            <div className="space-y-4">
-              {/* Selected Style Summary */}
-              <Card className="border-2 border-primary bg-accent p-3">
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src={selectedStyle?.preview} 
-                    alt={selectedStyle?.title}
-                    className="w-12 h-12 rounded object-cover"
-                  />
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-foreground">
-                      {selectedStyle?.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground">{selectedStyle?.description}</p>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleStyleChange("")}
-                    className="text-xs"
-                  >
-                    Change
-                  </Button>
                 </div>
-              </Card>
+              )}
 
-              {/* Visual Options */}
-              <div className="space-y-3">
-                {visualOptions.map(option => (
-                  <Button
-                    key={option.id}
-                    variant={data.visuals?.option === option.id ? "default" : "outline"}
-                    className={cn(
-                      "w-full h-12 text-sm font-medium transition-all duration-300",
-                      data.visuals?.option === option.id 
-                        ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" 
-                        : "hover:bg-accent border-border"
-                    )}
-                    onClick={() => handleVisualOptionChange(option.id)}
-                  >
-                    {option.fullTitle}
-                  </Button>
-                ))}
-              </div>
+              {/* Custom Visuals Input */}
+              {!showVisualGeneration && !showSpecificVisualsChoice && (
+                <div className="space-y-4 pt-4">
+                  <div className="text-center">
+                    <h2 className="text-xl font-semibold text-foreground">Inserted Visuals (optional)</h2>
+                    <div className="mt-3">
+                      <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars etc.</p>
+                    </div>
+                  </div>
 
-              {/* Custom Visuals Input for AI Assist - show immediately after selecting AI Assist */}
-              {data.visuals?.option === "ai-assist" && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Any Specific Visuals? (optional)
-                    </label>
+                  <div className="space-y-3">
                     <Input
                       value={tagInput}
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleAddTag}
-                      placeholder="enter visuals here and hit return"
-                      className="w-full"
+                      placeholder="Enter visuals you want included into your final image"
+                      className="w-full py-6 min-h-[72px] text-center"
                     />
-                  </div>
-                  
-                  {/* Display visual tags */}
-                  {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {data.visuals.customVisuals.map((visual: string, index: number) => (
-                        <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                          <span>{visual}</span>
-                          <button 
-                            onClick={() => handleRemoveTag(visual)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    
+                    {/* Display visual tags */}
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {data.visuals.customVisuals.map((visual: string, index: number) => (
+                          <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                            <span>{visual}</span>
+                            <button 
+                              onClick={() => handleRemoveTag(visual)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                  {/* Style Selection */}
+                    {/* Ready button if no visuals added yet */}
+                    {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
+                      <div className="text-center">
+                        <button 
+                          onClick={handleReadyToGenerate}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg"
+                        >
+                          I don't want any specific visuals
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Style Selection */}
+              {showVisualGeneration && !showVisualOptions && !data.visuals?.visualTaste && (
+                <div className="space-y-4">
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-foreground">
                       Style
                     </label>
                     <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                      <SelectTrigger className="w-full h-10">
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose style" />
                       </SelectTrigger>
-                      <SelectContent className="bg-background border border-border shadow-lg z-50">
+                      <SelectContent>
                         {visualTasteOptions.map(option => (
                           <SelectItem key={option.id} value={option.id}>
                             {option.label}
@@ -812,35 +630,78 @@ export default function VisualsStep({
                         ))}
                       </SelectContent>
                     </Select>
-                    
-                    {/* Generate Button - show below style selection */}
-                    {data.visuals?.visualTaste && (
-                      <div className="pt-2">
-                        <Button 
-                          onClick={handleGenerateVisuals}
-                          className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 px-6 font-medium"
-                          disabled={isGeneratingVisuals}
-                        >
-                          {isGeneratingVisuals ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Generate Visuals
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
-            </div>
+
+              {/* Generate Visuals Button */}
+              {showVisualGeneration && !showVisualOptions && data.visuals?.visualTaste && (
+                <div className="w-full space-y-3">
+                  <Button 
+                    onClick={handleGenerateVisuals} 
+                    disabled={isGeneratingVisuals} 
+                    className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    {isGeneratingVisuals ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      'Generate Visuals'
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Visual Options */}
+              {showVisualOptions && (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h2 className="text-xl font-semibold text-foreground">
+                      Choose your visual:
+                    </h2>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {(generatedVisuals.length > 0 ? generatedVisuals : visualOptionsSamples).map((visual, index) => (
+                      <Card 
+                        key={index}
+                        className={cn(
+                          "p-4 cursor-pointer transition-all duration-200 border-2",
+                          selectedVisualOption === index 
+                            ? "border-primary bg-accent" 
+                            : "border-border hover:border-primary/50"
+                        )}
+                        onClick={() => handleVisualOptionSelect(index)}
+                      >
+                        {generatedVisuals.length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
+                                {visual.visualStyle}
+                              </span>
+                              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                                {visual.layout.replace('-', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground leading-relaxed">
+                              {visual.description}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-foreground leading-relaxed">
+                            {visual}
+                          </p>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
-        </>
+        </div>
       )}
     </div>
   );
