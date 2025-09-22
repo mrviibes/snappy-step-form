@@ -279,7 +279,7 @@ export default function TextStep({
         {showTextOptions && (
           <div className="flex items-center justify-between p-4">
             <div className="font-medium text-foreground">
-              Style - "{data.text?.style || 'Generic (plain)'}" | Rating - "{data.text?.rating || 'G (clean)'}"
+              Style - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | Rating - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
             </div>
             <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
