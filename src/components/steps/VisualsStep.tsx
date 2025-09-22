@@ -791,37 +791,41 @@ export default function VisualsStep({
                     <label className="block text-sm font-medium text-foreground">
                       Style
                     </label>
-                    <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {visualTasteOptions.map(option => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Choose style" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border border-border shadow-lg z-50">
+                            {visualTasteOptions.map(option => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <Button 
+                        onClick={handleGenerateVisuals}
+                        className="bg-cyan-400 hover:bg-cyan-500 text-white h-10 px-6 font-medium"
+                        disabled={!data.visuals?.visualTaste || isGeneratingVisuals}
+                      >
+                        {isGeneratingVisuals ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Generate Visuals
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <Button 
-                    onClick={handleGenerateVisuals}
-                    className="w-full bg-cyan-400 hover:bg-cyan-500 text-white h-12 text-base font-medium"
-                    disabled={!data.visuals?.visualTaste || isGeneratingVisuals}
-                  >
-                    {isGeneratingVisuals ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating Visuals...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Generate Visuals
-                      </>
-                    )}
-                  </Button>
                 </div>
               )}
             </div>
