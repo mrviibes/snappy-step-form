@@ -441,8 +441,8 @@ export default function TextStep({
             </div>}
 
           <div className="text-center">
-            <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't have any mandatory text"}
+            <button onClick={handleReadyToGenerate} className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg">
+              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't have any specific words I want included"}
             </button>
           </div>
         </div>
