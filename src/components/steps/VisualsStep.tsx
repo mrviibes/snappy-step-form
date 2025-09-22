@@ -609,6 +609,26 @@ export default function VisualsStep({
             </div>
           )}
 
+          {/* Generate Visuals Button - show after style is selected */}
+          {data.visuals?.option === "ai-assist" && showVisualGeneration && !showVisualOptions && data.visuals?.visualTaste && (
+            <div className="w-full space-y-3">
+              <Button 
+                onClick={handleGenerateVisuals} 
+                disabled={isGeneratingVisuals} 
+                className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                {isGeneratingVisuals ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate Visuals'
+                )}
+              </Button>
+            </div>
+          )}
+
 
           {/* Visual Options - show after generate is clicked */}
           {showVisualOptions && data.visuals?.option === "ai-assist" && (
