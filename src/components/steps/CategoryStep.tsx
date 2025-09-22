@@ -1885,8 +1885,8 @@ export default function CategoryStep({
 
         {/* Subcategories */}
         <ScrollArea className="h-64">
-          <div className="space-y-2">
-            {filteredSubcategories.map(subcategory => <Card key={subcategory.id} className={cn("cursor-pointer p-4 transition-all duration-200 hover:bg-accent hover:border-primary", "border-2 bg-card", {
+          <div className="space-y-2 pr-2">
+            {filteredSubcategories.map(subcategory => <Card key={subcategory.id} className={cn("cursor-pointer p-4 transition-all duration-200 hover:bg-accent hover:border-primary max-w-[85%]", "border-2 bg-card", {
             "border-primary shadow-primary bg-accent": data.subcategory === subcategory.id,
             "border-border": data.subcategory !== subcategory.id
           })} onClick={() => handleSubcategorySelection(subcategory.id)}>
