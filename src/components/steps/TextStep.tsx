@@ -300,7 +300,7 @@ export default function TextStep({
                 <label className="text-sm font-medium text-foreground">Style</label>
                 <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Punchline First" />
+                    <SelectValue placeholder="Generic (plain)" />
                   </SelectTrigger>
                   <SelectContent>
                     {styleOptions.map((style) => (
@@ -317,7 +317,7 @@ export default function TextStep({
                 <label className="text-sm font-medium text-foreground">Rating</label>
                 <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="PG-13 - Mild" />
+                    <SelectValue placeholder="G (clean)" />
                   </SelectTrigger>
                   <SelectContent>
                     {ratingOptions.map((rating) => (
