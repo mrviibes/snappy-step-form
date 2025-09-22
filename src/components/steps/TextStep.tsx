@@ -286,7 +286,7 @@ export default function TextStep({
         {/* Selected Tone Display with Edit Option */}
         <div className="rounded-lg border-2 border-primary bg-card p-4">
           <div className="flex items-center justify-between">
-            <div className="text-base text-foreground">
+            <div className="text-sm text-foreground">
               <span className="font-semibold">Tone</span> - {selectedTone?.label}
             </div>
             <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
@@ -317,7 +317,7 @@ export default function TextStep({
         {/* Selected Tone */}
         <div className="flex items-center justify-between p-4">
           <div className="space-y-1">
-            <div className="text-base font-semibold text-foreground">Tone - {selectedTone?.label}</div>
+            <div className="text-sm font-semibold text-foreground">Tone - {selectedTone?.label}</div>
           </div>
           <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
@@ -327,7 +327,7 @@ export default function TextStep({
         {/* Selected Writing Preference */}
         <div className="flex items-center justify-between p-4 border-t border-border">
           <div className="space-y-1">
-            <div className="text-base font-semibold text-foreground">Process - {selectedWritingPreference?.label}</div>
+            <div className="text-sm font-semibold text-foreground">Process - {selectedWritingPreference?.label}</div>
           </div>
           <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
@@ -336,7 +336,7 @@ export default function TextStep({
         
         {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="text-base text-foreground">
+          <div className="text-sm text-foreground">
             <span className="font-semibold">Mandatory Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
           </div>
           <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
@@ -346,7 +346,7 @@ export default function TextStep({
 
         {/* Style and Rating Summary - only show after text generation */}
         {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="text-base text-foreground">
+            <div className="text-sm text-foreground">
               <span className="font-semibold">Style</span> - {styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'} | <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
             </div>
             <button onClick={() => {
@@ -359,7 +359,7 @@ export default function TextStep({
 
         {/* Selected Text Summary - only show after text selection or saved custom text */}
         {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="text-base text-foreground">
+            <div className="text-sm text-foreground">
               <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption].substring(0, 20) + '...'}
             </div>
             <button onClick={() => {
@@ -384,7 +384,7 @@ export default function TextStep({
 
         {/* Selected Layout Summary - only show after layout selection */}
         {data.text?.layout && <div className="flex items-center justify-between p-4">
-            <div className="text-base text-foreground">
+            <div className="text-sm text-foreground">
               <span className="font-semibold">Layout</span> - {layoutOptions.find(l => l.id === data.text?.layout)?.title}
             </div>
             <button onClick={() => updateData({
