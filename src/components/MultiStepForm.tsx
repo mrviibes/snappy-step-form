@@ -105,11 +105,11 @@ export default function MultiStepForm() {
         <StepIndicator steps={steps} currentStep={currentStep} isStepCompleted={isStepCompleted} />
 
         {/* Main Content */}
-        <Card className="mb-20 bg-gradient-card shadow-card transition-all duration-300 ease-smooth">
+        <div className="mb-20">
           <div className="p-6">
             <CurrentStepComponent data={formData} updateData={updateFormData} onNext={nextStep} />
           </div>
-        </Card>
+        </div>
 
         {/* Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
