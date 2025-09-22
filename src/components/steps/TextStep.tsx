@@ -192,11 +192,6 @@ export default function TextStep({
         }
       }
       setTagInput('');
-
-      // Automatically proceed to generation step when they add their first word
-      if (!data.text?.specificWords || data.text.specificWords.length === 0) {
-        setShowGeneration(true);
-      }
     }
   };
   const handleRemoveTag = (wordToRemove: string) => {
@@ -490,6 +485,13 @@ export default function TextStep({
                     ×
                   </button>
                 </div>)}
+            </div>}
+
+          {/* Done button - only show when there's at least one word */}
+          {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex justify-center pt-4">
+              <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
+                I'm Done With Putting Text
+              </Button>
             </div>}
 
         </div>
