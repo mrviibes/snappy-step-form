@@ -2335,57 +2335,25 @@ export default function CategoryStep({
     const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
     
     return (
-      <div className="space-y-4">
+      <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Category */}
-        <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover border border-border">
-                <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer text-destructive focus:text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="flex items-center justify-between p-4">
+          <div className="text-sm text-foreground">
+            <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
           </div>
+          <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>
 
         {/* Selected Subcategory */}
-        <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Subcategory</span> - <span className="font-normal">{subcategoryData?.title}</span>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover border border-border">
-                <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer text-destructive focus:text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="text-sm text-foreground">
+            <span className="font-bold text-muted-foreground">Subcategory</span> - <span className="font-normal">{subcategoryData?.title}</span>
           </div>
+          <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>
       </div>
     );
