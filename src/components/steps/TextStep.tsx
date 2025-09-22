@@ -118,7 +118,7 @@ export default function TextStep({
         writingPreference: preferenceId
       }
     });
-    
+
     // If "write-myself" is selected, skip to custom text input
     if (preferenceId === 'write-myself') {
       setShowGeneration(false);
@@ -186,7 +186,6 @@ export default function TextStep({
       rating: data.text?.rating
     });
   };
-
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
     // Don't automatically show layout options, keep them visible in the flow
@@ -198,14 +197,12 @@ export default function TextStep({
       }
     });
   };
-
   const handleCustomTextChange = (value: string) => {
     if (value.length <= 100) {
       setCustomText(value);
       setIsCustomTextSaved(false); // Reset saved status when editing
     }
   };
-
   const handleSaveCustomText = () => {
     if (customText.trim()) {
       updateData({
@@ -218,13 +215,11 @@ export default function TextStep({
       setIsCustomTextSaved(true);
     }
   };
-
   const handleCustomTextKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && customText.trim()) {
       handleSaveCustomText();
     }
   };
-
   const handleLayoutSelect = (layoutId: string) => {
     updateData({
       text: {
@@ -235,47 +230,34 @@ export default function TextStep({
   };
 
   // Sample text options (Lorem Ipsum style, up to 100 characters each)
-  const textOptions = [
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
-    "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.",
-    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariat.",
-    "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id."
-  ];
+  const textOptions = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.", "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.", "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariat.", "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id."];
 
   // Layout options
-  const layoutOptions = [
-    {
-      id: "negative-space",
-      title: "Open Space",
-      image: negativeSpaceImage
-    },
-    {
-      id: "meme-text",
-      title: "Meme Text",
-      image: memeTextImage
-    },
-    {
-      id: "lower-banner",
-      title: "Lower Banner",
-      image: lowerBannerImage
-    },
-    {
-      id: "side-bar",
-      title: "Side Bar",
-      image: sideBarImage
-    },
-    {
-      id: "badge-callout",
-      title: "Badge Callout",
-      image: badgeCalloutImage
-    },
-    {
-      id: "subtle-caption",
-      title: "Caption",
-      image: subtleCaptionImage
-    }
-  ];
-  
+  const layoutOptions = [{
+    id: "negative-space",
+    title: "Open Space",
+    image: negativeSpaceImage
+  }, {
+    id: "meme-text",
+    title: "Meme Text",
+    image: memeTextImage
+  }, {
+    id: "lower-banner",
+    title: "Lower Banner",
+    image: lowerBannerImage
+  }, {
+    id: "side-bar",
+    title: "Side Bar",
+    image: sideBarImage
+  }, {
+    id: "badge-callout",
+    title: "Badge Callout",
+    image: badgeCalloutImage
+  }, {
+    id: "subtle-caption",
+    title: "Caption",
+    image: subtleCaptionImage
+  }];
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
@@ -364,57 +346,63 @@ export default function TextStep({
         </div>}
 
         {/* Style and Rating Summary - only show after text generation */}
-        {showTextOptions && (
-          <div className="flex items-center justify-between p-4 border-b border-border">
+        {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
               <span className="font-semibold">Style</span> - {styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'} | <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
             </div>
-            <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={() => {
+          setShowTextOptions(false);
+          setSelectedTextOption(null);
+        }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
-          </div>
-        )}
+          </div>}
 
         {/* Selected Text Summary - only show after text selection or saved custom text */}
-        {(selectedTextOption !== null || (data.text?.writingPreference === 'write-myself' && isCustomTextSaved)) && (
-          <div className="flex items-center justify-between p-4 border-b border-border">
+        {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
-              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? 
-                (data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '') :
-                textOptions[selectedTextOption].substring(0, 20) + '...'}
+              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption].substring(0, 20) + '...'}
             </div>
             <button onClick={() => {
-              if (data.text?.writingPreference === 'write-myself') {
-                setCustomText('');
-                setIsCustomTextSaved(false);
-                updateData({ text: { ...data.text, customText: '', generatedText: '' } });
-              } else {
-                setSelectedTextOption(null);
-                setShowLayoutOptions(false);
+          if (data.text?.writingPreference === 'write-myself') {
+            setCustomText('');
+            setIsCustomTextSaved(false);
+            updateData({
+              text: {
+                ...data.text,
+                customText: '',
+                generatedText: ''
               }
-            }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            });
+          } else {
+            setSelectedTextOption(null);
+            setShowLayoutOptions(false);
+          }
+        }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
-          </div>
-        )}
+          </div>}
 
         {/* Selected Layout Summary - only show after layout selection */}
-        {data.text?.layout && (
-          <div className="flex items-center justify-between p-4">
+        {data.text?.layout && <div className="flex items-center justify-between p-4">
             <div className="text-base text-foreground">
               <span className="font-semibold">Layout</span> - {layoutOptions.find(l => l.id === data.text?.layout)?.title}
             </div>
-            <button onClick={() => updateData({ text: { ...data.text, layout: '' } })} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={() => updateData({
+          text: {
+            ...data.text,
+            layout: ''
+          }
+        })} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
-          </div>
-        )}
+          </div>}
       </div>
 
       {/* Add Specific Words Section - only show before generation and NOT for write-myself */}
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">Any Specific Text (optional)</h2>
+          <h2 className="text-xl font-semibold text-foreground">Any Mandatory Text (optional)</h2>
         </div>
 
         <div className="space-y-3">
@@ -439,39 +427,25 @@ export default function TextStep({
       </div>}
       
       {/* Custom Text Input for Write Myself option */}
-      {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && (
-        <div className="space-y-4 pt-4">
+      {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && <div className="space-y-4 pt-4">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">Write Your Own Text</h2>
           </div>
           
           <div className="space-y-3">
-            <Input 
-              value={customText}
-              onChange={(e) => handleCustomTextChange(e.target.value)}
-              onKeyDown={handleCustomTextKeyDown}
-              placeholder="Enter your text here (up to 100 characters)"
-              maxLength={100}
-              className="w-full"
-            />
+            <Input value={customText} onChange={e => handleCustomTextChange(e.target.value)} onKeyDown={handleCustomTextKeyDown} placeholder="Enter your text here (up to 100 characters)" maxLength={100} className="w-full" />
             <div className="text-right text-sm text-muted-foreground">
               {customText.length}/100 characters
             </div>
             
             {/* Save Button - only show when there's text to save */}
-            {customText.trim() && (
-              <div className="flex justify-center">
-                <Button 
-                  onClick={handleSaveCustomText}
-                  className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium"
-                >
+            {customText.trim() && <div className="flex justify-center">
+                <Button onClick={handleSaveCustomText} className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium">
                   Save Text
                 </Button>
-              </div>
-            )}
+              </div>}
           </div>
-        </div>
-      )}
+        </div>}
         
         {/* Generation Section */}
         {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
@@ -511,10 +485,7 @@ export default function TextStep({
               
               {/* Generate Button - Full width on mobile */}
               <div className="w-full">
-                <Button 
-                  onClick={handleGenerate} 
-                  className="w-full bg-cyan-400 hover:bg-cyan-500 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
-                >
+                <Button onClick={handleGenerate} className="w-full bg-cyan-400 hover:bg-cyan-500 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
                   Generate Text
                 </Button>
               </div>
@@ -522,41 +493,23 @@ export default function TextStep({
           </div>}
               
               {/* Text Options - Show after generation but only if no text selected yet */}
-              {showTextOptions && selectedTextOption === null && (
-                <div className="space-y-3 p-4">
+              {showTextOptions && selectedTextOption === null && <div className="space-y-3 p-4">
                   <h3 className="text-lg font-semibold text-foreground text-center">Choose your text:</h3>
                   <div className="space-y-3">
-                    {textOptions.map((text, index) => (
-                      <div
-                        key={index}
-                        onClick={() => handleTextOptionSelect(index)}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                          selectedTextOption === index
-                            ? 'border-primary bg-accent text-foreground'
-                            : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'
-                        }`}
-                      >
+                    {textOptions.map((text, index) => <div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
                         <p className="text-sm leading-relaxed">{text}</p>
-                      </div>
-                     ))}
+                      </div>)}
                    </div>
-                 </div>
-               )}
+                 </div>}
 
                {/* Layout Options - Show after text selection or saved custom text */}
-               {((selectedTextOption !== null && !data.text?.layout) || (data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout)) && (
-                 <div className="space-y-3 p-4">
+               {(selectedTextOption !== null && !data.text?.layout || data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout) && <div className="space-y-3 p-4">
                    <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
-                     {layoutOptions.map(layout => 
-                       <Card key={layout.id} className={cn(
-                         "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105",
-                         "border-2 bg-card hover:bg-accent hover:border-primary",
-                         {
-                           "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
-                           "border-border": data.text?.layout !== layout.id
-                         }
-                       )} onClick={() => handleLayoutSelect(layout.id)}>
+                     {layoutOptions.map(layout => <Card key={layout.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+          "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
+          "border-border": data.text?.layout !== layout.id
+        })} onClick={() => handleLayoutSelect(layout.id)}>
                          <div className="w-full h-24 overflow-hidden">
                            <img src={layout.image} alt={layout.title} className="w-full h-full object-cover" />
                          </div>
@@ -565,10 +518,8 @@ export default function TextStep({
                              {layout.title}
                            </h3>
                          </div>
-                       </Card>
-                     )}
+                       </Card>)}
                    </div>
-                 </div>
-               )}
+                 </div>}
     </div>;
 }
