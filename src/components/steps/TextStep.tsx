@@ -132,6 +132,17 @@ export default function TextStep({
       setShowGeneration(false);
       setShowTextOptions(false);
     }
+    // If "no-text" is selected, mark as complete - no further input needed
+    else if (preferenceId === 'no-text') {
+      updateData({
+        text: {
+          ...data.text,
+          writingPreference: preferenceId,
+          generatedText: 'No text selected',
+          isComplete: true
+        }
+      });
+    }
     // If "AI Assist" is selected, show specific words choice
     else if (preferenceId === 'ai-assist') {
       setShowSpecificWordsChoice(true);
