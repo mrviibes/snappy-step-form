@@ -314,23 +314,23 @@ export default function TextStep({
   // Show selected preferences and specific words input
   return <div className="space-y-6">
       {/* Selected Tone and Process in stacked format */}
-      <div className="bg-white rounded-lg border border-primary overflow-hidden">
+      <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Tone */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="text-base text-foreground">
-            <span className="font-semibold">Tone</span> - {selectedTone?.label}
+        <div className="flex items-center justify-between p-4">
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground">Tone - {selectedTone?.label}</div>
           </div>
-          <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+          <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
 
         {/* Selected Writing Preference */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="text-base text-foreground">
-            <span className="font-semibold">Process</span> - {selectedWritingPreference?.label}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground">Process - {selectedWritingPreference?.label}</div>
           </div>
-          <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+          <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
