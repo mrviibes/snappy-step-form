@@ -66,22 +66,21 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const response = await fetch('https://qxfnvtnchuigjivcalqe.functions.supabase.co/generate-text', {
+      const response = await fetch('https://qxfnvtnchuigjivcalqe.functions.supabase.co/generate-viibe-text', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          category: `${data.category}${data.subcategory ? ' > ' + data.subcategory : ''}`,
           tone: data.text?.tone,
-          category: data.category,
-          subcategory: data.subcategory,
-          mandatory_words: Array.isArray(data.text?.specificWords) 
-            ? data.text.specificWords.join('\n') 
-            : data.text?.specificWords || '',
           style: data.text?.style || 'Generic',
           rating: data.text?.rating || 'G',
-          comedian_style: data.text?.comedianStyle,
-          num_variations: 4
+          insertWords: Array.isArray(data.text?.specificWords) 
+            ? data.text.specificWords 
+            : data.text?.specificWords ? [data.text.specificWords] : [],
+          comedianStyle: data.text?.comedianStyle,
+          userId: 'anonymous' // Could be replaced with actual user ID if auth is implemented
         })
       });
 

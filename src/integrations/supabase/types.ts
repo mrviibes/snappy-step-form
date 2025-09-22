@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      gen_history: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          insert_words: Json | null
+          rating: string
+          style: string
+          text_hash: string
+          text_out: string
+          tone: string
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          insert_words?: Json | null
+          rating: string
+          style: string
+          text_hash: string
+          text_out: string
+          tone: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          insert_words?: Json | null
+          rating?: string
+          style?: string
+          text_hash?: string
+          text_out?: string
+          tone?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
