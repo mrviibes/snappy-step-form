@@ -266,10 +266,13 @@ export default function TextStep({
         </div>
         
         {/* Specific Text Section - only show after generation step */}
-        {showGeneration && <div className="p-4">
+        {showGeneration && <div className="flex items-center justify-between p-4">
           <div className="font-medium text-foreground">
             Specific Text - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
+          <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>}
       </div>
 
