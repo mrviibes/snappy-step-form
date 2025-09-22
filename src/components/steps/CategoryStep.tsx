@@ -1,4 +1,7 @@
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 interface CategoryStepProps {
   data: any;
@@ -41,6 +44,13 @@ export default function CategoryStep({
   updateData,
   onNext
 }: CategoryStepProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredGoals = fitnessGoals.filter(goal =>
+    goal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    goal.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleSelection = (goalId: string) => {
     updateData({
       category: goalId
@@ -56,8 +66,20 @@ export default function CategoryStep({
         
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+        <Input
+          type="text"
+          placeholder="Search categories..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
-        {fitnessGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
+        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
         "border-primary shadow-primary bg-accent": data.category === goal.id,
         "border-border": data.category !== goal.id
       })} onClick={() => handleSelection(goal.id)}>
