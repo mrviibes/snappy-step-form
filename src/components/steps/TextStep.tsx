@@ -476,9 +476,7 @@ export default function TextStep({
           </div>
           
           {/* Text Layout Example */}
-          <div className="mt-4 mb-4">
-            <img src={textLayoutExample} alt="Text layout example showing 'YOU GOT IT DUDE!' with cartoon character" className="mx-auto rounded-lg shadow-md max-w-sm w-full h-auto" />
-          </div>
+          
         </div>
 
         <div className="space-y-3">
