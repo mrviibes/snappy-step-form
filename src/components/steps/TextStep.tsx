@@ -302,7 +302,7 @@ export default function TextStep({
         {/* Selected Tone */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="text-base text-foreground">
-            <span className="font-semibold">Tone</span> - "{selectedTone?.label}"
+            <span className="font-semibold">Tone</span> - {selectedTone?.label}
           </div>
           <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -312,7 +312,7 @@ export default function TextStep({
         {/* Selected Writing Preference */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="text-base text-foreground">
-            <span className="font-semibold">Process</span> - "{selectedWritingPreference?.label}"
+            <span className="font-semibold">Process</span> - {selectedWritingPreference?.label}
           </div>
           <button onClick={handleEditWritingPreference} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -322,7 +322,7 @@ export default function TextStep({
         {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="text-base text-foreground">
-            <span className="font-semibold">Specific Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
+            <span className="font-semibold">Specific Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
           </div>
           <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -333,7 +333,7 @@ export default function TextStep({
         {showTextOptions && (
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
-              <span className="font-semibold">Style</span> - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | <span className="font-semibold">Rating</span> - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
+              <span className="font-semibold">Style</span> - {styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'} | <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
             </div>
             <button onClick={() => {setShowTextOptions(false); setSelectedTextOption(null);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
@@ -345,7 +345,7 @@ export default function TextStep({
         {selectedTextOption !== null && (
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
-              <span className="font-semibold">Text</span> - "{textOptions[selectedTextOption].substring(0, 20)}..."
+              <span className="font-semibold">Text</span> - {textOptions[selectedTextOption].substring(0, 20)}...
             </div>
             <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
@@ -357,7 +357,7 @@ export default function TextStep({
         {data.text?.layout && (
           <div className="flex items-center justify-between p-4">
             <div className="text-base text-foreground">
-              <span className="font-semibold">Layout</span> - "{layoutOptions.find(l => l.id === data.text?.layout)?.title}"
+              <span className="font-semibold">Layout</span> - {layoutOptions.find(l => l.id === data.text?.layout)?.title}
             </div>
             <button onClick={() => updateData({ text: { ...data.text, layout: '' } })} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
