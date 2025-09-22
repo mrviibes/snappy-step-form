@@ -19,6 +19,7 @@ interface FormData {
   visuals: {
     style: string;
     option: string;
+    customVisuals?: string;
   };
   vibe: {
     intensity: string;

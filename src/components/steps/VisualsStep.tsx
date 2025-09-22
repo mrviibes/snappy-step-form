@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import autoImage from "@/assets/visual-style-auto.jpg";
 import generalImage from "@/assets/visual-style-general.jpg";
@@ -68,6 +69,15 @@ export default function VisualsStep({
       visuals: {
         ...data.visuals,
         option: optionId
+      }
+    });
+  };
+
+  const handleCustomVisualsChange = (customVisuals: string) => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        customVisuals: customVisuals
       }
     });
   };
@@ -152,6 +162,28 @@ export default function VisualsStep({
               </Button>
             ))}
           </div>
+
+          {/* Custom Visuals Input for AI Assist */}
+          {data.visuals?.option === "ai-assist" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Any Specific Visuals (optional)
+                </label>
+                <Textarea
+                  placeholder="describe visuals you would like"
+                  value={data.visuals?.customVisuals || ""}
+                  onChange={(e) => handleCustomVisualsChange(e.target.value)}
+                  className="w-full min-h-[80px] resize-none"
+                />
+              </div>
+              {!data.visuals?.customVisuals?.trim() && (
+                <p className="text-sm text-primary font-medium">
+                  Let AI Generate recommendations
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>;
