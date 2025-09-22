@@ -186,11 +186,36 @@ export default function VisualsStep({
                   Edit
                 </Button>
               </div>
+
+              {/* Visuals Row - only show after ready to generate and if there are visuals */}
+              {showVisualGeneration && data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Visuals - </span>
+                      <span className="text-sm text-foreground">
+                        {data.visuals.customVisuals.map((visual: string, index: number) => 
+                          `"${visual}"${index < data.visuals.customVisuals.length - 1 ? ', ' : ''}`
+                        ).join('')}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowVisualGeneration(false)}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
-          {/* Custom Visuals Input for AI Assist */}
-          {data.visuals?.option === "ai-assist" && (
+          {/* Custom Visuals Input for AI Assist - only show before generation */}
+          {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
