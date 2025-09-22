@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,11 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
+
+  const handleApiKeyChange = useCallback((hasKey: boolean) => {
+    console.log('API Key status changed:', hasKey);
+    setHasApiKey(hasKey);
+  }, []);
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -499,7 +504,7 @@ export default function TextStep({
                         <SelectValue placeholder="Choose comedian style" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (Random)</SelectItem>
+                        <SelectItem value="">Let AI Choose</SelectItem>
                         {comedianOptions.map(comedian => (
                           <SelectItem key={comedian.id} value={comedian.id}>
                             {comedian.label}
@@ -519,7 +524,7 @@ export default function TextStep({
               
               {/* API Key Manager */}
               <div className="flex justify-center">
-                <ApiKeyManager onApiKeyChange={setHasApiKey} />
+                <ApiKeyManager onApiKeyChange={handleApiKeyChange} />
               </div>
 
               {/* Generate Button - Full width on mobile */}
@@ -538,6 +543,12 @@ export default function TextStep({
                     'Generate Text'
                   )}
                 </Button>
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="text-xs text-gray-500 mt-1 text-center">
+                    Debug: hasApiKey={hasApiKey.toString()}, isGenerating={isGenerating.toString()}
+                  </div>
+                )}
               </div>
 
               {/* Error Display */}
