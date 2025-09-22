@@ -216,6 +216,75 @@ export default function VisualsStep({
         </div>
       )}
 
+      {/* Visual Style Selection */}
+      {!hasSelectedStyle && (
+        <div className="grid grid-cols-2 gap-4">
+          {visualStyles.map(style => (
+            <Card 
+              key={style.id}
+              className={cn(
+                "cursor-pointer transition-all duration-200 overflow-hidden border-2",
+                data.visuals?.style === style.id 
+                  ? "border-primary bg-accent" 
+                  : "border-border hover:border-primary/50"
+              )}
+              onClick={() => handleStyleChange(style.id)}
+            >
+              <div className="aspect-video relative">
+                <img 
+                  src={style.preview}
+                  alt={style.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-3">
+                <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
+                <p className="text-xs text-muted-foreground">{style.description}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Show Visual Process Selection after style is chosen */}
+      {hasSelectedStyle && !hasSelectedOption && (
+        <div className="space-y-6">
+          {/* Selected Style Display */}
+          <div className="rounded-lg border-2 border-primary bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Style</span> - {selectedStyle?.title}
+              </div>
+              <button 
+                onClick={() => updateData({ visuals: { style: "", option: "" } })}
+                className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+
+          {/* Visual Process Selection */}
+          <div className="text-center pt-4">
+            <h2 className="mb-4 text-xl font-semibold text-foreground">
+              Choose Your Visuals Process
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {visualOptions.map(option => (
+              <button 
+                key={option.id} 
+                onClick={() => handleVisualOptionChange(option.id)}
+                className="rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              >
+                <div className="font-semibold text-sm">{option.fullTitle}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Complete Summary */}
       {isComplete ? (
         <div className="space-y-4">
