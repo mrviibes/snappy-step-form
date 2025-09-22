@@ -181,7 +181,7 @@ export default function TextStep({
 
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
-    setShowLayoutOptions(true);
+    // Don't automatically show layout options, keep them visible in the flow
     updateData({
       text: {
         ...data.text,
@@ -241,40 +241,9 @@ export default function TextStep({
       image: subtleCaptionImage
     }
   ];
+  
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
-
-  // Show layout options if text is selected
-  if (selectedTextOption !== null && showLayoutOptions) {
-    return <div className="space-y-6">
-        {/* Layout Options Grid */}
-        <div className="text-center">
-          <h2 className="mb-2 text-xl font-semibold text-foreground">Choose Your Layout</h2>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {layoutOptions.map(layout => 
-            <Card key={layout.id} className={cn(
-              "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105",
-              "border-2 bg-card hover:bg-accent hover:border-primary",
-              {
-                "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
-                "border-border": data.text?.layout !== layout.id
-              }
-            )} onClick={() => handleLayoutSelect(layout.id)}>
-              <div className="w-full h-24 overflow-hidden">
-                <img src={layout.image} alt={layout.title} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3 pt-2">
-                <h3 className="text-sm font-medium text-foreground">
-                  {layout.title}
-                </h3>
-              </div>
-            </Card>
-          )}
-        </div>
-      </div>;
-  }
 
   // Show tone selection if no tone is selected
   if (!data.text?.tone) {
