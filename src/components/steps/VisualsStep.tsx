@@ -65,21 +65,23 @@ export default function VisualsStep({
       <div className="space-y-3">
         
         <div className="grid grid-cols-2 gap-3">
-          {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
+          {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card overflow-hidden", {
           "border-primary shadow-primary bg-accent": data.visuals?.style === style.id,
           "border-border": data.visuals?.style !== style.id
         })} onClick={() => handleStyleChange(style.id)}>
-              <div className="mb-2">
+              <div className="relative">
                 <img 
                   src={style.preview} 
                   alt={style.title}
-                  className="w-12 h-12 mx-auto rounded object-cover"
+                  className="w-full h-24 object-cover"
                 />
               </div>
-              <h4 className="mb-1 text-sm font-medium text-foreground">
-                {style.title}
-              </h4>
-              <p className="text-xs text-muted-foreground">{style.description}</p>
+              <div className="p-3">
+                <h4 className="mb-1 text-sm font-medium text-foreground">
+                  {style.title}
+                </h4>
+                <p className="text-xs text-muted-foreground">{style.description}</p>
+              </div>
             </Card>)}
         </div>
       </div>
