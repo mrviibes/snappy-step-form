@@ -538,48 +538,52 @@ export default function VisualsStep({
 
           {/* Custom Visuals Input for AI Assist - only show before generation and NOT when showing choice */}
           {data.visuals?.option === "ai-assist" && !showVisualGeneration && !showSpecificVisualsChoice && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Any Specific Visuals? (optional)
-                </label>
+            <div className="space-y-4 pt-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground">Inserted Visuals (optional)</h2>
+                <div className="mt-3">
+                  <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars etc.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
                 <Input
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleAddTag}
-                  placeholder="enter visuals here and hit return"
-                  className="w-full"
+                  placeholder="Enter visuals you want included into your final image"
+                  className="w-full py-6 min-h-[72px] text-center"
                 />
-              </div>
-              
-              {/* Display visual tags */}
-              {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {data.visuals.customVisuals.map((visual: string, index: number) => (
-                    <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                      <span>{visual}</span>
-                      <button 
-                        onClick={() => handleRemoveTag(visual)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                
+                {/* Display visual tags right under input box */}
+                {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {data.visuals.customVisuals.map((visual: string, index: number) => (
+                      <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                        <span>{visual}</span>
+                        <button 
+                          onClick={() => handleRemoveTag(visual)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* Show ready button only if no visuals added yet, hide once they start adding visuals */}
-              {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
-                <div className="text-center">
-                  <button 
-                    onClick={handleReadyToGenerate}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg"
-                  >
-                    I don't want any specific visuals
-                  </button>
-                </div>
-              )}
+                {/* Show ready button only if no visuals added yet, hide once they start adding visuals */}
+                {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
+                  <div className="text-center">
+                    <button 
+                      onClick={handleReadyToGenerate}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg"
+                    >
+                      I don't want any specific visuals
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
