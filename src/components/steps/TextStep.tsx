@@ -305,8 +305,8 @@ export default function TextStep({
         {/* Selected Tone Display with Edit Option */}
         <div className="rounded-lg border-2 border-primary bg-card p-4">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-foreground text-lg">
-              TONE - "{selectedTone?.label}"
+            <div className="text-base text-foreground">
+              <span className="font-semibold">Tone</span> - {selectedTone?.label}
             </div>
             <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
