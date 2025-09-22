@@ -61,6 +61,7 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
+  const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationError(null);
@@ -131,6 +132,10 @@ export default function TextStep({
       setShowGeneration(false);
       setShowTextOptions(false);
     }
+    // If "AI Assist" is selected, show specific words choice
+    else if (preferenceId === 'ai-assist') {
+      setShowSpecificWordsChoice(true);
+    }
   };
   const handleEditWritingPreference = () => {
     updateData({
@@ -139,6 +144,17 @@ export default function TextStep({
         writingPreference: ""
       }
     });
+    setShowSpecificWordsChoice(false);
+  };
+
+  const handleSpecificWordsChoice = (hasWords: boolean) => {
+    if (hasWords) {
+      setShowSpecificWordsChoice(false);
+      // Show the input section (current behavior)
+    } else {
+      setShowSpecificWordsChoice(false);
+      setShowGeneration(true); // Skip to generation step
+    }
   };
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
@@ -418,8 +434,35 @@ export default function TextStep({
           </div>}
       </div>
 
-      {/* Add Specific Words Section - only show before generation and NOT for write-myself */}
-      {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
+      {/* Add Specific Words Choice Section - only show for AI Assist */}
+      {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && (
+        <div className="space-y-4 pt-4">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
+            <div className="mt-3">
+              <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button 
+              onClick={() => handleSpecificWordsChoice(true)}
+              className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+            >
+              <div className="font-semibold text-lg">Yes</div>
+            </button>
+            <button 
+              onClick={() => handleSpecificWordsChoice(false)}
+              className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+            >
+              <div className="font-semibold text-lg">No</div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Specific Words Section - only show before generation and NOT for write-myself and NOT when showing choice */}
+      {!showGeneration && data.text?.writingPreference !== 'write-myself' && !showSpecificWordsChoice && <div className="space-y-4 pt-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-foreground">Inserted Words (optional)</h2>
           <div className="mt-3">
