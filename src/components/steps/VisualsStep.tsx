@@ -357,8 +357,8 @@ export default function VisualsStep({
             </div>
           </Card>
 
-          {/* Custom Visuals Input for AI Assist - only show before generation */}
-          {data.visuals?.option === "ai-assist" && !showVisualGeneration && (
+          {/* Custom Visuals Input for AI Assist - always show when AI assist is selected */}
+          {data.visuals?.option === "ai-assist" && (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
