@@ -294,6 +294,33 @@ export default function VisualsStep({
                   </div>
                 </>
               )}
+
+              {/* Style Row - only show after visual generation */}
+              {showVisualGeneration && data.visuals?.visualTaste && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Style - </span>
+                      <span className="text-sm text-foreground">
+                        {visualTasteOptions.find(option => option.id === data.visuals?.visualTaste)?.label}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowVisualGeneration(false);
+                        setShowVisualOptions(false);
+                        setShowDimensions(false);
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
