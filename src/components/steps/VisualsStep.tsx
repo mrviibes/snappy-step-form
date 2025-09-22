@@ -159,8 +159,7 @@ export default function VisualsStep({
 
           {/* Custom Visuals Input for AI Assist */}
           {data.visuals?.option === "ai-assist" && (
-            <Card className="border-2 border-border bg-card p-4">
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Any Specific Visuals? (optional)
@@ -199,8 +198,7 @@ export default function VisualsStep({
                     }
                   </button>
                 </div>
-              </div>
-            </Card>
+            </div>
           )}
         </div>
       ) : (
@@ -279,8 +277,7 @@ export default function VisualsStep({
 
               {/* Custom Visuals Input for AI Assist */}
               {data.visuals?.option === "ai-assist" && (
-                <Card className="border-2 border-border bg-card p-4">
-                  <div className="space-y-3">
+                <div className="space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-2">
                         Any Specific Visuals? (optional)
@@ -319,8 +316,7 @@ export default function VisualsStep({
                         }
                       </button>
                     </div>
-                  </div>
-                </Card>
+                </div>
               )}
             </div>
           )}
