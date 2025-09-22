@@ -121,24 +121,24 @@ function buildPrompt(opts: {
 
   const styleExamples: Record<string, string[]> = {
     "generic": [
-      "Let the cake be loud and the smiles be louder.",
-      "May joy arrive early and stay past midnight."
+      "Another year of questionable WiFi passwords and awkward Zoom calls.",
+      "Here's to surviving group chats and pretending to like coworkers."
     ],
     "sarcastic": [
-      "Make a wish; the candles are judging your life choices.",
-      "Another birthday, same you, bigger frosting to hide the evidence."
+      "Congrats on surviving another year without Googling your own symptoms.",
+      "Another birthday, another year of pretending you like group chats."
     ],
     "wholesome": [
-      "You're loved loudly, even when the candles whisper.",
-      "May today be gentle, bright, and full of laughing crumbs."
+      "You're proof that good things happen to patient people.",
+      "May your year be filled with unexpected kindness and perfect timing."
     ],
     "weird": [
-      "The balloons unionized and demanded cake before anyone blinked.",
-      "Happy BDAY, may your candles whisper stock tips and bad advice."
+      "May your neighbor's WiFi always disconnect mid-Zoom call.",
+      "Here's to surviving another year without the microwave judging you."
     ],
     "savage": [
-      "Another year closer to death, but at least there's cake.",
-      "Congrats on surviving another trip around the sun, barely."
+      "Another year closer to finally understanding your parents' disappointment.",
+      "Congrats on another year of peak mediocrity and Netflix addiction."
     ]
   };
 
@@ -158,10 +158,11 @@ function buildPrompt(opts: {
 
 Hard rules:
 - Exactly ONE sentence.
-- 60–120 characters.
+- 50–120 characters.
 - No em dash.
 - End with ., !, or ?.
 - If insert words are provided, include them NATURALLY (not bolted on).
+- Avoid default birthday clichés (cake, candles, confetti, balloons) unless they are explicitly in insertWords.
 - Do not explain. Output only the sentence.
 
 Nonce: ${nonce}`.trim();
@@ -198,7 +199,7 @@ function validateLine(line: string, rating: string, insertWords: string[]): stri
   if (!line) return null;
 
   const len = [...line].length;
-  if (len < 60 || len > 120) return null;
+  if (len < 50 || len > 120) return null;
 
   if (/\u2014/.test(line)) return null; // no em dash
 
@@ -226,6 +227,14 @@ function escapeReg(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Check if two lines are too similar
+function tooSimilar(a: string, b: string): boolean {
+  const wa = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
+  const wb = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
+  const overlap = [...wa].filter(x => wb.has(x)).length;
+  return overlap / Math.min(wa.size, wb.size) > 0.6;
+}
+
 // Generate a single line with retries
 async function generateOne(opts: {
   category: string;
@@ -250,7 +259,7 @@ async function generateOne(opts: {
       },
       body: JSON.stringify({
         model: CHAT_MODEL,
-        temperature: 0.95,
+        temperature: 1.0,
         top_p: 0.9,
         max_tokens: 140,
         messages: [
@@ -304,7 +313,7 @@ async function generateFour(body: any): Promise<string[]> {
   while (lines.length < 4 && tries < 12) {
     try {
       const line = await generateOne(opts);
-      if (line && !lines.includes(line)) {
+      if (line && !lines.includes(line) && !lines.some(existing => tooSimilar(line, existing))) {
         lines.push(line);
         console.log(`Generated line ${lines.length}:`, line);
       }
