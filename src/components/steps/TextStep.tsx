@@ -69,7 +69,7 @@ export default function TextStep({
     setGenerationError(null);
     
     try {
-      const response = await fetch('/api/generate-text', {
+      const response = await fetch('https://qxfnvtnchuigjivcalqe.functions.supabase.co/generate-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,9 +91,6 @@ export default function TextStep({
         : { error: await response.text() };
       
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('API route not found. Lovable projects need external hosting for backend endpoints.');
-        }
         throw new Error(result.error || `HTTP ${response.status}`);
       }
       
