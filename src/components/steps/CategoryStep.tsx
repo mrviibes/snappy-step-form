@@ -70,24 +70,33 @@ export default function CategoryStep({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer p-3 text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
         "border-primary shadow-primary bg-accent": data.category === goal.id,
         "border-border": data.category !== goal.id
       })} onClick={() => handleSelection(goal.id)}>
             {goal.image ? (
-              <div className="mb-2 w-full h-24 rounded-md overflow-hidden">
-                <img 
-                  src={goal.image} 
-                  alt={goal.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <>
+                <div className="w-full h-24 overflow-hidden">
+                  <img 
+                    src={goal.image} 
+                    alt={goal.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-3 pt-2">
+                  <h3 className="text-sm font-medium text-foreground">
+                    {goal.title}
+                  </h3>
+                </div>
+              </>
             ) : (
-              <div className="mb-2 text-2xl">{goal.icon}</div>
+              <div className="p-3">
+                <div className="mb-2 text-2xl">{goal.icon}</div>
+                <h3 className="text-sm font-medium text-foreground">
+                  {goal.title}
+                </h3>
+              </div>
             )}
-            <h3 className="text-sm font-medium text-foreground">
-              {goal.title}
-            </h3>
           </Card>)}
       </div>
     </div>;
