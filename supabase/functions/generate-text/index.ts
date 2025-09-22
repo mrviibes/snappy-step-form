@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
   }
   
   if (req.method !== "POST") {
-    return json({ error: "POST only" }, 405);
+    return json({ success: false, error: "POST only" }, 405);
   }
 
   try {
@@ -120,10 +120,13 @@ Deno.serve(async (req) => {
     const options = await generateFour(body);
     console.log("Generated options:", options);
     
-    return json({ options });
+    return json({ success: true, options });
   } catch (e) {
     console.error("Generation error:", e);
-    return json({ error: String(e?.message || "generation_failed") }, 500);
+    return json({ 
+      success: false, 
+      error: String(e?.message || "generation_failed") 
+    }, 500);
   }
 });
 
@@ -506,7 +509,7 @@ async function generateOne(opts: {
 
 // Generate 4 diverse options with varied placement, structure, and topics
 async function generateFour(body: any): Promise<string[]> {
-  const insertWords = parseInsertWords(body.mandatory_words || '');
+  const insertWords = parseInsertWords(body.insertWords || body.mandatory_words || '');
   
   // Extract category and subcategory from the body
   const categoryParts = (body.category || "celebrations").split(' > ');

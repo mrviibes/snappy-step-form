@@ -68,21 +68,34 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const params = {
-        tone: data.text?.tone,
+      const options = await generateTextOptions({
         category: data.category || 'celebrations',
-        subcategory: data.subcategory || undefined,
-        specificWords: Array.isArray(data.text?.specificWords)
+        subcategory: data.subcategory,
+        tone: data.text?.tone,
+        style: data.text?.style || 'Generic',
+        rating: data.text?.rating || 'PG',
+        insertWords: Array.isArray(data.text?.specificWords)
           ? data.text?.specificWords
           : data.text?.specificWords
           ? [data.text?.specificWords]
           : [],
-        style: data.text?.style || 'Generic',
-        rating: data.text?.rating || 'PG',
-      };
+        comedianStyle: data.text?.comedianStyle ? { 
+          name: data.text.comedianStyle, 
+          flavor: '' 
+        } : null,
+        userId: 'anonymous'
+      });
 
-      const options = await generateTextOptions(params as any);
-      setTextOptions(options.slice(0, 4));
+      // Client-side guard: ensure 50–120 chars
+      const safe = options.filter(s => s && s.length >= 50 && s.length <= 120);
+      if (safe.length < 4) {
+        // Pad with existing safe options or show what we have
+        const finalOptions = safe.length > 0 ? safe : options.slice(0, 4);
+        setTextOptions(finalOptions);
+      } else {
+        setTextOptions(safe.slice(0, 4));
+      }
+
       setShowTextOptions(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Generation failed';
