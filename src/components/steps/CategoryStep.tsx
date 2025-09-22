@@ -1096,9 +1096,9 @@ export default function CategoryStep({
     const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
     
     return (
-      <div className="space-y-4">
+      <div className="bg-white rounded-lg border border-primary overflow-hidden">
         {/* Selected Category */}
-        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary cursor-pointer" onClick={handleEditCategory}>
+        <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent border-b border-border" onClick={handleEditCategory}>
           <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
             <img src={categoryData?.image} alt={categoryData?.title} className="w-full h-full object-cover" />
           </div>
@@ -1109,7 +1109,7 @@ export default function CategoryStep({
         </div>
 
         {/* Selected Subcategory */}
-        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary cursor-pointer" onClick={handleEditSubcategory}>
+        <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent" onClick={handleEditSubcategory}>
           <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
             <span className="text-lg">{categoryData?.icon}</span>
           </div>
