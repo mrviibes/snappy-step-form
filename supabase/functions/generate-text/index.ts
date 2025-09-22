@@ -114,8 +114,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    console.log("Request received:", body);
+    const body = await req.json().catch(() => ({}));
+    console.log("Request received with body:", body);
+    
+    // Validate required fields
+    if (!body.tone || !body.category) {
+      console.error("Missing required fields:", { tone: body.tone, category: body.category });
+      return json({ 
+        success: false, 
+        error: "Missing required fields: tone and category" 
+      }, 400);
+    }
     
     const options = await generateFour(body);
     console.log("Generated options:", options);
@@ -138,16 +147,25 @@ function json(obj: any, status = 200) {
 }
 
 // Parse insert words from various input formats
-function parseInsertWords(input: string): string[] {
-  if (!input?.trim()) return [];
+function parseInsertWords(input: string[] | string | undefined): string[] {
+  if (!input) return [];
+  
+  // If already an array, return it cleaned
+  if (Array.isArray(input)) {
+    return input.filter(Boolean).map(w => String(w).trim()).filter(Boolean);
+  }
+  
+  // If it's a string, parse it
+  const inputStr = String(input).trim();
+  if (!inputStr) return [];
   
   // Handle both simple comma-separated and structured input
-  if (input.includes(':') || input.includes('[')) {
+  if (inputStr.includes(':') || inputStr.includes('[')) {
     const words: string[] = [];
-    const nameMatch = input.match(/name:\s*([^,\n]+)/i);
+    const nameMatch = inputStr.match(/name:\s*([^,\n]+)/i);
     if (nameMatch) words.push(nameMatch[1].trim());
     
-    const allMatch = input.match(/all:\s*\[([^\]]+)\]/i);
+    const allMatch = inputStr.match(/all:\s*\[([^\]]+)\]/i);
     if (allMatch) {
       const allWords = allMatch[1].split(',').map(w => w.trim().replace(/['"]/g, ''));
       words.push(...allWords);
@@ -156,7 +174,7 @@ function parseInsertWords(input: string): string[] {
     return words.filter(Boolean);
   }
   
-  return input.split(',').map(w => w.trim()).filter(Boolean);
+  return inputStr.split(',').map(w => w.trim()).filter(Boolean);
 }
 
 // Get category-specific ban words
