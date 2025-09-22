@@ -106,16 +106,16 @@ export default function TextStep({
   return <div className="space-y-6">
       {/* Selected Tone Display with Edit Option */}
       <div className="rounded-lg border-2 border-primary bg-card p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="font-semibold text-foreground text-lg">{selectedTone?.label}</div>
-            <button 
-              onClick={handleEditTone}
-              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-            >
-              Edit
-            </button>
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-foreground text-lg">
+            TONE - "{selectedTone?.label}"
           </div>
+          <button 
+            onClick={handleEditTone}
+            className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+          >
+            Edit
+          </button>
         </div>
       </div>
 
