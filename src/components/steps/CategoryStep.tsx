@@ -70,12 +70,12 @@ export default function CategoryStep({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer p-4 text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", "border-2 bg-gradient-card", {
+        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer p-3 text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
         "border-primary shadow-primary bg-accent": data.category === goal.id,
         "border-border": data.category !== goal.id
       })} onClick={() => handleSelection(goal.id)}>
             {goal.image ? (
-              <div className="mb-2 w-full h-16 rounded-md overflow-hidden">
+              <div className="mb-2 w-full h-24 rounded-md overflow-hidden">
                 <img 
                   src={goal.image} 
                   alt={goal.title}
@@ -85,10 +85,9 @@ export default function CategoryStep({
             ) : (
               <div className="mb-2 text-2xl">{goal.icon}</div>
             )}
-            <h3 className="mb-1 text-sm font-medium text-foreground">
+            <h3 className="text-sm font-medium text-foreground">
               {goal.title}
             </h3>
-            
           </Card>)}
       </div>
     </div>;
