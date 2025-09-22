@@ -376,7 +376,7 @@ export default function TextStep({
         {selectedTextOption !== null && (
           <div className="flex items-center justify-between p-4">
             <div className="font-medium text-foreground">
-              Text - "{textOptions[selectedTextOption].substring(0, 20)}..."
+              Text - "{styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'}" | Rating - "{ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}"
             </div>
             <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
