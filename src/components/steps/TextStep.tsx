@@ -4,9 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { generateTextOptions } from '@/lib/openai';
 import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
-import { ApiKeyManager, getStoredApiKey } from '@/components/ApiKeyManager';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
 import memeTextImage from "@/assets/meme-text-layout.jpg";
@@ -65,47 +63,42 @@ export default function TextStep({
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
-  const [apiKeyPromptSignal, setApiKeyPromptSignal] = useState(0);
-  const [pendingGenerate, setPendingGenerate] = useState(false);
 
   const handleGenerate = async () => {
-    const apiKey = getStoredApiKey();
-    if (!apiKey) {
-      setPendingGenerate(true);
-      setApiKeyPromptSignal(prev => prev + 1);
-      return;
-    }
-
-    console.log('Starting text generation...');
     setIsGenerating(true);
     setGenerationError(null);
     
     try {
-      const options = await generateTextOptions({
-        tone: data.text?.tone,
-        category: data.category,
-        subcategory: data.subcategory,
-        specificWords: data.text?.specificWords,
-        style: data.text?.style,
-        rating: data.text?.rating,
-        comedianStyle: data.text?.comedianStyle
+      const response = await fetch('/api/generate-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tone: data.text?.tone,
+          category: data.category,
+          subcategory: data.subcategory,
+          mandatory_words: data.text?.specificWords,
+          style: data.text?.style || 'Generic',
+          rating: data.text?.rating || 'G',
+          comedian_style: data.text?.comedianStyle,
+          num_variations: 4
+        })
       });
       
-      setTextOptions(options);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Generation failed');
+      }
+      
+      setTextOptions(result.options.slice(0, 4));
       setShowTextOptions(true);
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('401') || error.message.includes('Invalid API key')) {
-          setGenerationError('Invalid API key. Please update your key.');
-        } else if (error.message.includes('429') || error.message.includes('Rate limit')) {
-          setGenerationError('Rate limit exceeded. Please try again in a moment.');
-        } else if (error.message.includes('TypeError') || error.message.includes('CORS')) {
-          setGenerationError('Browser blocked the request. Consider using Supabase for server-side processing.');
-        } else {
-          setGenerationError(error.message);
-        }
+      const errorMessage = error instanceof Error ? error.message : 'Generation failed';
+      
+      if (errorMessage.includes('fetch')) {
+        setGenerationError('Please deploy your serverless function first. See instructions above.');
       } else {
-        setGenerationError('Failed to generate text');
+        setGenerationError(errorMessage);
       }
       console.error('Text generation error:', error);
     } finally {
@@ -510,7 +503,7 @@ export default function TextStep({
               </div>
               
               {/* Generate Button - Full width on mobile */}
-              <div className="w-full">
+              <div className="w-full space-y-3">
                 <Button 
                   onClick={handleGenerate} 
                   disabled={isGenerating}
@@ -525,41 +518,22 @@ export default function TextStep({
                     'Generate Text'
                   )}
                 </Button>
+                
+                <div className="text-center text-xs text-muted-foreground">
+                  Requires serverless function at <code>/api/generate-text</code><br />
+                  Deploy to Vercel/Netlify with your OpenAI key in env vars
+                </div>
               </div>
 
-              {/* Error Display and API Key Manager */}
+              {/* Error Display */}
               {generationError && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm">{generationError}</p>
-                    {generationError.includes('Invalid API key') && (
-                      <Button
-                        onClick={() => setApiKeyPromptSignal(prev => prev + 1)}
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                      >
-                        Update Key
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
-
-              {/* API Key Manager */}
-              <div className="flex justify-center">
-                <ApiKeyManager
-                  onApiKeyChange={() => {
-                    if (pendingGenerate) {
-                      setPendingGenerate(false);
-                      handleGenerate();
-                    }
-                  }}
-                  promptSignal={apiKeyPromptSignal}
-                  autoOpenIfMissing={false}
-                />
-              </div>
             </div>
           </div>}
               
