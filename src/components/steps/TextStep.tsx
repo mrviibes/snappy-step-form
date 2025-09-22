@@ -440,21 +440,6 @@ export default function TextStep({
                 </div>)}
             </div>}
 
-          {/* Advanced format hint */}
-          <div className="mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700 mb-2 font-medium">Simple: jesse, cake, candles</p>
-            <details className="text-xs text-blue-600">
-              <summary className="cursor-pointer font-medium">Advanced format (tap to expand)</summary>
-              <div className="mt-2 space-y-1 font-mono text-xs">
-                <div>name: Jesse</div>
-                <div>all: [cake, candles]</div>
-                <div>any: [party, celebration]</div>
-                <div>ban: [wholesome]</div>
-                <div>context: office party</div>
-              </div>
-            </details>
-          </div>
-
           <div className="text-center">
             <button onClick={handleReadyToGenerate} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't have any mandatory text"}
