@@ -50,7 +50,6 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-
 const styleOptions = [{
   id: 'generic',
   label: 'Generic (plain)'
@@ -64,7 +63,6 @@ const styleOptions = [{
   id: 'weird',
   label: 'Weird (absurd)'
 }];
-
 const ratingOptions = [{
   id: 'g',
   label: 'G (clean)'
@@ -139,11 +137,9 @@ export default function TextStep({
       }
     });
   };
-  
   const handleReadyToGenerate = () => {
     setShowGeneration(true);
   };
-  
   const handleStyleSelect = (styleId: string) => {
     updateData({
       text: {
@@ -152,7 +148,6 @@ export default function TextStep({
       }
     });
   };
-  
   const handleRatingSelect = (ratingId: string) => {
     updateData({
       text: {
@@ -161,7 +156,6 @@ export default function TextStep({
       }
     });
   };
-  
   const handleGenerate = () => {
     // TODO: Implement text generation logic
     console.log('Generate text with:', {
@@ -172,7 +166,6 @@ export default function TextStep({
       rating: data.text?.rating
     });
   };
-  
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
@@ -253,9 +246,7 @@ export default function TextStep({
         {/* Exact Text Section */}
         <div className="p-4">
           <div className="font-semibold text-foreground text-lg">
-            EXACT TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 
-              ? data.text.specificWords.map(word => `"${word}"`).join(', ')
-              : 'none chosen'}
+            EXACT TEXT - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `"${word}"`).join(', ') : 'none chosen'}
           </div>
         </div>
       </div>
@@ -263,7 +254,7 @@ export default function TextStep({
       {/* Add Specific Words Section */}
       <div className="space-y-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">Add Specific Words (optional)</h2>
+          <h2 className="text-xl font-semibold text-foreground">Any Specific Text (optional)</h2>
         </div>
 
         <div className="space-y-3">
@@ -280,20 +271,14 @@ export default function TextStep({
             </div>}
 
           <div className="text-center">
-            <button 
-              onClick={() => data.text?.specificWords && data.text.specificWords.length > 0 ? handleReadyToGenerate() : undefined}
-              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-            >
-              {data.text?.specificWords && data.text.specificWords.length > 0 
-                ? "I'm ready to generate my text now" 
-                : "I don't want any specific words"}
+            <button onClick={() => data.text?.specificWords && data.text.specificWords.length > 0 ? handleReadyToGenerate() : undefined} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              {data.text?.specificWords && data.text.specificWords.length > 0 ? "I'm ready to generate my text now" : "I don't want any specific words"}
             </button>
           </div>
         </div>
         
         {/* Generation Section */}
-        {showGeneration && (
-          <div className="space-y-4">
+        {showGeneration && <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {/* Style Dropdown */}
               <div className="space-y-2">
@@ -303,11 +288,9 @@ export default function TextStep({
                     <SelectValue placeholder="Generic (plain)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {styleOptions.map((style) => (
-                      <SelectItem key={style.id} value={style.id}>
+                    {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
                         {style.label}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -320,29 +303,21 @@ export default function TextStep({
                     <SelectValue placeholder="G (clean)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ratingOptions.map((rating) => (
-                      <SelectItem key={rating.id} value={rating.id}>
+                    {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
                         {rating.label}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
             {/* Generate Button */}
-            {data.text?.style && data.text?.rating && (
-              <div className="flex justify-center">
-                <Button 
-                  onClick={handleGenerate}
-                  className="bg-cyan-400 hover:bg-cyan-500 text-white px-8 py-2 rounded-md font-medium"
-                >
+            {data.text?.style && data.text?.rating && <div className="flex justify-center">
+                <Button onClick={handleGenerate} className="bg-cyan-400 hover:bg-cyan-500 text-white px-8 py-2 rounded-md font-medium">
                   Generate
                 </Button>
-              </div>
-            )}
-          </div>
-        )}
+              </div>}
+          </div>}
       </div>
     </div>;
 }
