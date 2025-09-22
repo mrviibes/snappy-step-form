@@ -454,7 +454,7 @@ export default function CategoryStep({
         </div>
 
         {/* Compact Selected Category */}
-        <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-primary">
+        <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-primary">
           <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
             <img 
               src={selectedCategoryData.image} 
