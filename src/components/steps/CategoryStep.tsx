@@ -1075,14 +1075,6 @@ export default function CategoryStep({
   };
   if (showingSubcategories && selectedCategoryData) {
     return <div className="space-y-6">
-        {/* Selected Category Header */}
-        <div className="flex items-center justify-between">
-          <button onClick={handleBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft size={20} />
-            <span>Back</span>
-          </button>
-        </div>
-
         {/* Compact Selected Category */}
         <div className="flex items-center gap-3 p-3 bg-accent rounded-lg border border-primary">
           <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
