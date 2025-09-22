@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
 import { generateTextOptions } from '@/lib/openai';
+import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/negative-space-layout.jpg";
 import memeTextImage from "@/assets/meme-text-layout.jpg";
@@ -18,39 +19,12 @@ interface TextStepProps {
   updateData: (data: any) => void;
   onNext: () => void;
 }
-const tones = [{
-  id: 'humorous',
-  label: 'Humorous',
-  description: 'Funny, witty, light'
-}, {
-  id: 'savage',
-  label: 'Savage',
-  description: 'Harsh, blunt, cutting'
-}, {
-  id: 'sentimental',
-  label: 'Sentimental',
-  description: 'Warm, heartfelt, tender'
-}, {
-  id: 'nostalgic',
-  label: 'Nostalgic',
-  description: 'Reflective, old-times, wistful'
-}, {
-  id: 'romantic',
-  label: 'Romantic',
-  description: 'Loving, passionate, sweet'
-}, {
-  id: 'inspirational',
-  label: 'Inspirational',
-  description: 'Motivating, uplifting, bold'
-}, {
-  id: 'playful',
-  label: 'Playful',
-  description: 'Silly, cheeky, fun'
-}, {
-  id: 'serious',
-  label: 'Serious',
-  description: 'Formal, direct, weighty'
-}];
+// Get configuration from AI rules
+const tones = getTones().map(tone => ({
+  id: tone.id,
+  label: tone.name,
+  description: tone.summary
+}));
 const writingPreferences = [{
   id: 'ai-assist',
   label: 'AI Assist'
@@ -61,32 +35,21 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-const styleOptions = [{
-  id: 'generic',
-  label: 'Generic (plain)'
-}, {
-  id: 'sarcastic',
-  label: 'Sarcastic (ironic)'
-}, {
-  id: 'wholesome',
-  label: 'Wholesome (kind)'
-}, {
-  id: 'weird',
-  label: 'Weird (absurd)'
-}];
-const ratingOptions = [{
-  id: 'g',
-  label: 'G (clean)'
-}, {
-  id: 'pg',
-  label: 'PG (mild)'
-}, {
-  id: 'pg-13',
-  label: 'PG-13 (edgy)'
-}, {
-  id: 'r',
-  label: 'R (explicit)'
-}];
+const styleOptions = getStyles().map(style => ({
+  id: style.id,
+  label: `${style.name} (${style.tag})`
+}));
+
+const ratingOptions = getRatings().map(rating => ({
+  id: rating.id,
+  label: `${rating.name} (${rating.tag})`
+}));
+
+const comedianOptions = getComedianStyles().map(comedian => ({
+  id: comedian.id,
+  label: comedian.name,
+  description: comedian.notes
+}));
 export default function TextStep({
   data,
   updateData
@@ -102,6 +65,7 @@ export default function TextStep({
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
+  const [showComedianStyle, setShowComedianStyle] = useState(false);
   const handleToneSelect = (toneId: string) => {
     updateData({
       text: {
@@ -182,6 +146,15 @@ export default function TextStep({
       }
     });
   };
+
+  const handleComedianStyleSelect = (comedianId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        comedianStyle: comedianId
+      }
+    });
+  };
   const handleGenerate = async () => {
     if (!hasApiKey) {
       setGenerationError('Please set your OpenAI API key first');
@@ -198,7 +171,8 @@ export default function TextStep({
         subcategory: data.subcategory,
         specificWords: data.text?.specificWords,
         style: data.text?.style,
-        rating: data.text?.rating
+        rating: data.text?.rating,
+        comedianStyle: data.text?.comedianStyle
       });
       
       setTextOptions(options);
@@ -505,6 +479,41 @@ export default function TextStep({
                         </SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                
+                {/* Comedian Style Selection (Optional) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">Comedian Style (Optional)</label>
+                    <button 
+                      onClick={() => setShowComedianStyle(!showComedianStyle)}
+                      className="text-primary hover:text-primary/80 text-sm transition-colors"
+                    >
+                      {showComedianStyle ? 'Hide' : 'Show Options'}
+                    </button>
+                  </div>
+                  
+                  {showComedianStyle && (
+                    <Select value={data.text?.comedianStyle || ''} onValueChange={handleComedianStyleSelect}>
+                      <SelectTrigger className="w-full min-h-[44px]">
+                        <SelectValue placeholder="Choose comedian style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None (Random)</SelectItem>
+                        {comedianOptions.map(comedian => (
+                          <SelectItem key={comedian.id} value={comedian.id}>
+                            {comedian.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {data.text?.comedianStyle && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {comedianOptions.find(c => c.id === data.text?.comedianStyle)?.description}
+                    </p>
+                  )}
                 </div>
               </div>
               

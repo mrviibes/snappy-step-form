@@ -1,4 +1,5 @@
 import { getStoredApiKey } from '@/components/ApiKeyManager'
+import { promptBuilder } from './promptBuilder'
 
 interface GenerateTextParams {
   tone: string
@@ -7,6 +8,7 @@ interface GenerateTextParams {
   specificWords?: string[]
   style?: string
   rating?: string
+  comedianStyle?: string
 }
 
 export const generateTextOptions = async (params: GenerateTextParams): Promise<string[]> => {
@@ -15,28 +17,8 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
     throw new Error('OpenAI API key not found. Please set your API key first.')
   }
 
-  const { tone, category, subcategory, specificWords, style, rating } = params
-
-  // Build the prompt based on parameters
-  let prompt = `Generate 4 different short text options (each under 100 characters) with a ${tone} tone`
-  
-  if (category && subcategory) {
-    prompt += ` for a ${category} - ${subcategory} context`
-  }
-  
-  if (specificWords && specificWords.length > 0) {
-    prompt += `. Must include these words: ${specificWords.join(', ')}`
-  }
-  
-  if (style && style !== 'generic') {
-    prompt += `. Style: ${style}`
-  }
-  
-  if (rating && rating !== 'g') {
-    prompt += `. Rating: ${rating}`
-  }
-  
-  prompt += '. Each option should be unique and creative. Return only the 4 text options, one per line, no numbering or extra formatting.'
+  // Build sophisticated prompt using the prompt builder
+  const prompt = promptBuilder.buildPrompt(params)
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -87,12 +69,42 @@ export const generateTextOptions = async (params: GenerateTextParams): Promise<s
       .filter(line => line.length > 0)
       .slice(0, 4) // Ensure we only get 4 options
 
-    // If we don't have exactly 4 options, pad with fallbacks
-    while (options.length < 4) {
-      options.push(`Generated ${tone} text option ${options.length + 1}`)
+    // Validate each option against AI rules
+    const validatedOptions: string[] = []
+    const validationErrors: string[] = []
+
+    for (const option of options) {
+      const validation = promptBuilder.validateGeneratedText(option, params)
+      if (validation.isValid) {
+        validatedOptions.push(option)
+      } else {
+        validationErrors.push(`"${option}": ${validation.errors.join(', ')}`)
+      }
     }
 
-    return options
+    // If we don't have enough valid options, use the best we have
+    if (validatedOptions.length === 0) {
+      console.warn('No options passed validation:', validationErrors)
+      // Return original options if none pass validation
+      return options.length > 0 ? options : [`Generated ${params.tone} text fallback`]
+    }
+
+    // Pad with fallbacks if needed, but prioritize valid options
+    while (validatedOptions.length < 4 && options.length > validatedOptions.length) {
+      const remainingOption = options.find(opt => !validatedOptions.includes(opt))
+      if (remainingOption) {
+        validatedOptions.push(remainingOption)
+      } else {
+        break
+      }
+    }
+
+    // Final fallback if still not enough options
+    while (validatedOptions.length < 4) {
+      validatedOptions.push(`Generated ${params.tone || 'humorous'} text option ${validatedOptions.length + 1}`)
+    }
+
+    return validatedOptions
   } catch (error) {
     console.error('OpenAI API Error:', error)
     throw error
