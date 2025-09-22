@@ -343,11 +343,23 @@ export default function TextStep({
 
         {/* Selected Text Summary - only show after text selection */}
         {selectedTextOption !== null && (
-          <div className="flex items-center justify-between p-4">
+          <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-base text-foreground">
               <span className="font-semibold">Text</span> - "{textOptions[selectedTextOption].substring(0, 20)}..."
             </div>
             <button onClick={() => {setSelectedTextOption(null); setShowLayoutOptions(false);}} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        )}
+
+        {/* Selected Layout Summary - only show after layout selection */}
+        {data.text?.layout && (
+          <div className="flex items-center justify-between p-4">
+            <div className="text-base text-foreground">
+              <span className="font-semibold">Layout</span> - "{layoutOptions.find(l => l.id === data.text?.layout)?.title}"
+            </div>
+            <button onClick={() => updateData({ text: { ...data.text, layout: '' } })} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -451,8 +463,8 @@ export default function TextStep({
                  </div>
                )}
 
-               {/* Layout Options - Show after text selection */}
-               {selectedTextOption !== null && (
+               {/* Layout Options - Show after text selection but before layout selection */}
+               {selectedTextOption !== null && !data.text?.layout && (
                  <div className="space-y-3 p-4">
                    <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
