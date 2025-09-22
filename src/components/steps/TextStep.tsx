@@ -357,7 +357,7 @@ export default function TextStep({
         {/* Specific Text Section - only show after generation step */}
         {showGeneration && <div className="flex items-center justify-between p-4 border-t border-b border-border">
           <div className="text-sm text-foreground">
-            <span className="font-semibold">Mandatory Text</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
+            <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'none chosen'}
           </div>
           <button onClick={() => setShowGeneration(false)} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
             Edit
@@ -421,14 +421,14 @@ export default function TextStep({
       {/* Add Specific Words Section - only show before generation and NOT for write-myself */}
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && <div className="space-y-4 pt-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">Mandatory Text (optional)</h2>
+          <h2 className="text-xl font-semibold text-foreground">Inserted Words (optional)</h2>
           <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700 text-left">eg. Names, Happy Birthday, Congrats etc.</p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter text and hit return, or use advanced format" className="w-full py-6 min-h-[72px]" />
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="enter words you would like included into your text and hit return" className="w-full py-6 min-h-[72px]" />
           
           {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
