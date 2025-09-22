@@ -53,6 +53,48 @@ export type Database = {
         }
         Relationships: []
       }
+      visual_history: {
+        Row: {
+          category: string
+          created_at: string
+          final_text: string
+          generated_visuals: Json
+          id: string
+          insert_words: string[] | null
+          rating: string
+          subcategory: string | null
+          text_style: string
+          tone: string
+          visual_style: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          final_text: string
+          generated_visuals: Json
+          id?: string
+          insert_words?: string[] | null
+          rating: string
+          subcategory?: string | null
+          text_style: string
+          tone: string
+          visual_style: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          final_text?: string
+          generated_visuals?: Json
+          id?: string
+          insert_words?: string[] | null
+          rating?: string
+          subcategory?: string | null
+          text_style?: string
+          tone?: string
+          visual_style?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
