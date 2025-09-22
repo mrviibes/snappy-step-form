@@ -71,6 +71,7 @@ export default function VisualsStep({
   const [showVisualGeneration, setShowVisualGeneration] = useState(false);
   const [showVisualOptions, setShowVisualOptions] = useState(false);
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
+  const [showDimensions, setShowDimensions] = useState(false);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -143,7 +144,18 @@ export default function VisualsStep({
       visuals: {
         ...data.visuals,
         selectedVisualOption: optionIndex,
-        generatedVisual: visualOptions[optionIndex]
+        generatedVisual: visualOptionsSamples[optionIndex]
+      }
+    });
+    setShowVisualOptions(false);
+    setShowDimensions(true);
+  };
+
+  const handleDimensionSelect = (dimensionId: string) => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        dimension: dimensionId
       }
     });
   };
@@ -160,6 +172,29 @@ export default function VisualsStep({
     "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.",
     "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.",
     "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."
+  ];
+
+  const dimensionOptions = [
+    {
+      id: "square",
+      title: "Square",
+      description: "1:1 aspect ratio"
+    },
+    {
+      id: "landscape", 
+      title: "Landscape",
+      description: "16:9 aspect ratio"
+    },
+    {
+      id: "portrait",
+      title: "Portrait", 
+      description: "9:16 aspect ratio"
+    },
+    {
+      id: "custom",
+      title: "Custom",
+      description: "Define your own dimensions"
+    }
   ];
 
   return (
@@ -364,6 +399,39 @@ export default function VisualsStep({
                     <p className="text-sm text-foreground leading-relaxed">
                       {visual}
                     </p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Dimensions Selection - show after visual option is selected */}
+          {showDimensions && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Choose your dimensions:
+                </h2>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {dimensionOptions.map(dimension => (
+                  <Card 
+                    key={dimension.id} 
+                    className={cn(
+                      "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
+                      "border-2 bg-gradient-card p-4", 
+                      {
+                        "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
+                        "border-border": data.visuals?.dimension !== dimension.id
+                      }
+                    )} 
+                    onClick={() => handleDimensionSelect(dimension.id)}
+                  >
+                    <h4 className="mb-1 text-sm font-medium text-foreground">
+                      {dimension.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">{dimension.description}</p>
                   </Card>
                 ))}
               </div>
