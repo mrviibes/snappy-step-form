@@ -158,6 +158,7 @@ export default function VisualsStep({
         dimension: dimensionId
       }
     });
+    setShowDimensions(false);
   };
 
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
@@ -322,6 +323,37 @@ export default function VisualsStep({
                   </div>
                 </>
               )}
+
+              {/* Dimension Row - only show after dimension selection */}
+              {data.visuals?.dimension && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Dimension - </span>
+                      <span className="text-sm text-foreground">
+                        {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowDimensions(true);
+                        updateData({
+                          visuals: {
+                            ...data.visuals,
+                            dimension: ""
+                          }
+                        });
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
@@ -404,7 +436,7 @@ export default function VisualsStep({
           )}
 
           {/* Dimensions Selection - show after visual option is selected */}
-          {showDimensions && (
+          {showDimensions && !data.visuals?.dimension && (
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-foreground">
