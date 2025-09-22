@@ -2335,53 +2335,57 @@ export default function CategoryStep({
     const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
     
     return (
-      <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+      <div className="space-y-4">
         {/* Selected Category */}
-        <div className="flex items-center justify-between p-4">
-          <div className="space-y-1">
-            <div className="text-sm text-foreground"><span className="font-semibold">Category</span> - {categoryData?.title}</div>
+        <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-foreground">
+              <span className="font-medium text-muted-foreground">Category</span> - <span className="font-medium">{categoryData?.title}</span>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover border border-border">
+                <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover border border-border">
-              <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleEditCategory} className="cursor-pointer text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {/* Selected Subcategory */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
-          <div className="space-y-1">
-            <div className="text-sm text-foreground"><span className="font-semibold">Subcategory</span> - {subcategoryData?.title}</div>
+        <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-foreground">
+              <span className="font-medium text-muted-foreground">Subcategory</span> - <span className="font-medium">{subcategoryData?.title}</span>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover border border-border">
+                <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover border border-border">
-              <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleEditSubcategory} className="cursor-pointer text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     );
@@ -2392,10 +2396,10 @@ export default function CategoryStep({
         
 
         {/* Compact Selected Category */}
-        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
-          <div className="flex items-center justify-between p-4">
-            <div className="space-y-1">
-              <div className="text-sm text-foreground"><span className="font-semibold">Category</span> - {selectedCategoryData.title}</div>
+        <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-foreground">
+              <span className="font-medium text-muted-foreground">Category</span> - <span className="font-medium">{selectedCategoryData.title}</span>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
