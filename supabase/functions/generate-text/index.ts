@@ -247,20 +247,32 @@ function passesStep2Rules(l: LineCheck): boolean {
     if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
   }
 
-  // 3) Category-specific vocabulary requirements
+  // 3) NO PLACEHOLDER FALLBACKS - fail fast instead of using "friend"
+  if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+
+  // 4) Category-specific vocabulary requirements - STRICT
   if (l.category.toLowerCase() === "wedding") {
     // Wedding must include at least one wedding keyword
     if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
     // Ban irrelevant topics for weddings
     if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-    // No placeholder fallbacks for weddings
-    if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
   } else if (l.category.toLowerCase() === "birthday" || l.category.toLowerCase().includes("birthday")) {
-    // Birthday content should feel birthday-themed but doesn't require specific keywords
-    // Allow "friend" as it's common in birthday content
+    // Birthday content MUST include birthday-specific vocabulary
+    if (!BIRTHDAY_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
     // Ban overly serious topics
     if (BIRTHDAY_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+  } else if (l.category.toLowerCase() === "work") {
+    // Work categories need work-related vocabulary
+    const WORK_LEX = ["meeting","boss","deadline","office","email","calendar","slides","presentation","team","project"];
+    if (!WORK_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+  } else if (l.category.toLowerCase() === "sports") {
+    // Sports categories need sports vocabulary
+    const SPORTS_LEX = ["game","score","fans","stadium","coach","ref","trophy","season","team","player","match"];
+    if (!SPORTS_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
   }
+
+  // 5) Rating validation
+  if (l.rating.toLowerCase() === "g" && /\b(damn|hell)\b/i.test(t)) return false;
 
   return true;
 }
@@ -354,17 +366,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number, name = "operation"): Pr
   ]);
 }
 
-// Sanitize insert words to avoid model confusion
+// Sanitize insert words to avoid model confusion - NO FALLBACKS
 function sanitizeInsertWords(words: string[]): string[] {
   const sanitized = words.filter(word => {
     const w = word.toLowerCase().trim();
     // Filter out problematic words that confuse the model
-    return w.length >= 3 && !['test', 'example', 'sample'].includes(w);
+    return w.length >= 3 && !['test', 'example', 'sample', 'friend', 'name', 'user'].includes(w);
   });
   
-  // CRITICAL: Don't fallback if insert_words is required for Step-2
-  if (sanitized.length === 0 && words.length > 0) {
-    throw new Error("insert_words required for Step-2");
+  // CRITICAL: FAIL FAST - no fallbacks to "friend" or placeholder words
+  if (sanitized.length === 0) {
+    throw new Error("Valid insert_words required for Step-2 - no fallbacks allowed");
   }
   
   return sanitized;

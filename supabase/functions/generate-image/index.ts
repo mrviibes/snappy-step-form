@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface GenerateImageRequest {
   prompt: string;
+  negativePrompt?: string;
   dimension?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
 }
@@ -25,12 +26,12 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY is not set');
+    const ideogramApiKey = Deno.env.get('IDEOGRAM_API_KEY');
+    if (!ideogramApiKey) {
+      throw new Error('IDEOGRAM_API_KEY is not set');
     }
 
-    const { prompt, dimension = 'square', quality = 'high' }: GenerateImageRequest = await req.json();
+    const { prompt, negativePrompt, dimension = 'square', quality = 'high' }: GenerateImageRequest = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -39,47 +40,97 @@ serve(async (req) => {
       );
     }
 
-    // Map dimensions to OpenAI sizes
-    const sizeMap = {
-      square: '1024x1024',
-      portrait: '1024x1536',
-      landscape: '1536x1024'
+    // Map dimensions to Ideogram aspect ratios
+    const aspectRatioMap = {
+      square: 'ASPECT_1_1',
+      portrait: 'ASPECT_9_16', 
+      landscape: 'ASPECT_16_9'
     };
 
-    console.log('Generating image with prompt:', prompt);
+    // Map quality to Ideogram model
+    const modelMap = {
+      high: 'V_2_TURBO',
+      medium: 'V_2',
+      low: 'V_1_TURBO'
+    };
 
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    console.log('Generating image with Ideogram:', { prompt: prompt.slice(0, 100), dimension, quality });
+
+    const requestBody = {
+      image_request: {
+        model: modelMap[quality],
+        prompt: prompt,
+        negative_prompt: negativePrompt || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
+        aspect_ratio: aspectRatioMap[dimension],
+        magic_prompt_option: "ON", // Enhance prompts automatically
+        seed: Math.floor(Math.random() * 1000000), // Random seed for variety
+        style_type: "AUTO" // Let Ideogram choose appropriate style
+      }
+    };
+
+    const response = await fetch('https://api.ideogram.ai/generate', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${ideogramApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-image-1',
-        prompt: prompt,
-        n: 1,
-        size: sizeMap[dimension],
-        quality: quality,
-        output_format: 'png',
-        response_format: 'b64_json'
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+      console.error('Ideogram API error:', response.status, errorData);
+      
+      // Return detailed error information
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Ideogram API error: ${response.status}`,
+          details: errorData.slice(0, 800),
+          status: response.status
+        }),
+        { 
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const data = await response.json();
+    console.log('Ideogram response structure:', Object.keys(data));
     
-    if (!data.data || !data.data[0] || !data.data[0].b64_json) {
-      throw new Error('Invalid response from OpenAI API');
+    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+      console.error('Invalid Ideogram response structure:', data);
+      throw new Error('Invalid response from Ideogram API - no image data');
     }
 
-    const imageData = `data:image/png;base64,${data.data[0].b64_json}`;
+    // Get the first generated image
+    const imageResult = data.data[0];
+    if (!imageResult.url && !imageResult.b64_json) {
+      console.error('No image URL or base64 data in response:', imageResult);
+      throw new Error('No image data in Ideogram response');
+    }
 
-    console.log('Image generated successfully');
+    let imageData: string;
+    
+    if (imageResult.b64_json) {
+      // If we have base64 data, use it directly
+      imageData = `data:image/png;base64,${imageResult.b64_json}`;
+    } else if (imageResult.url) {
+      // If we have a URL, fetch and convert to base64
+      const imageResponse = await fetch(imageResult.url);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
+      }
+      
+      const imageBuffer = await imageResponse.arrayBuffer();
+      const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+      imageData = `data:image/png;base64,${imageBase64}`;
+    } else {
+      throw new Error('No valid image data format found');
+    }
+
+    console.log('Image generated successfully via Ideogram');
 
     return new Response(
       JSON.stringify({ 
@@ -94,7 +145,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Failed to generate image' 
+        error: error.message || 'Failed to generate image',
+        type: 'edge_exception'
       }),
       { 
         status: 500,

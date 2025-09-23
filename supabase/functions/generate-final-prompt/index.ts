@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const CHAT_MODEL = "gpt-4o-mini";
 
 const corsHeaders = {
   "content-type": "application/json",
@@ -15,22 +14,26 @@ interface FinalPromptRequest {
   finalText: string;
   category: string;
   subcategory?: string;
-  subSubcategory?: string;
   tone: string;
   textStyle: string;
   rating: string;
   insertWords?: string[];
-  comedianStyle?: string;
   visualStyle: string;
   layout: string;
   dimension: string;
   insertedVisuals?: string[];
 }
 
+interface PromptTemplate {
+  name: string;
+  positive: string;
+  negative: string;
+  description: string;
+}
+
 interface FinalPromptResponse {
   success: boolean;
-  positivePrompt?: string;
-  negativePrompt?: string;
+  templates?: PromptTemplate[];
   error?: string;
 }
 
@@ -55,13 +58,12 @@ Deno.serve(async (req) => {
       }, 400);
     }
     
-    const prompts = await generatePrompts(body);
-    console.log("Generated prompts:", prompts);
+    const templates = await generatePromptTemplates(body);
+    console.log("Generated templates:", templates.length);
     
     return json({ 
       success: true, 
-      positivePrompt: prompts.positive,
-      negativePrompt: prompts.negative
+      templates 
     });
   } catch (e) {
     console.error("Generation error:", e);
@@ -79,177 +81,124 @@ function json(obj: any, status = 200) {
   });
 }
 
-async function generatePrompts(params: FinalPromptRequest): Promise<{positive: string, negative: string}> {
+async function generatePromptTemplates(params: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     finalText,
     category,
-    subcategory,
-    subSubcategory,
     tone,
     textStyle,
     rating,
-    insertWords = [],
-    comedianStyle,
     visualStyle,
     layout,
     dimension,
     insertedVisuals = []
   } = params;
 
-  // Build context for the prompt
-  const categoryPath = [category, subcategory, subSubcategory].filter(Boolean).join(' > ');
-  const insertWordsText = insertWords.length > 0 ? insertWords.join(', ') : 'none';
-  const visualElements = insertedVisuals.length > 0 ? insertedVisuals.join(', ') : 'none';
-
-  // Visual style mappings
+  // Visual style mappings for Ideogram
   const visualStyleGuides: Record<string, {positive: string[], negative: string[]}> = {
-    "Realistic": {
-      positive: ["photorealistic", "high quality photography", "natural lighting", "detailed textures"],
-      negative: ["cartoon", "anime", "illustration", "vector art", "flat design", "abstract"]
+    "realistic": {
+      positive: ["photorealistic", "high quality photography", "natural lighting", "detailed textures", "real world"],
+      negative: ["cartoon", "anime", "illustration", "vector art", "flat design", "abstract", "CGI", "3D render"]
     },
-    "Design": {
-      positive: ["modern graphic design", "clean typography", "minimalist", "professional design", "sleek"],
-      negative: ["photorealistic", "cluttered", "amateur design", "busy background"]
+    "design": {
+      positive: ["modern graphic design", "clean typography", "minimalist design", "professional layout", "sleek"],
+      negative: ["photorealistic", "cluttered", "amateur design", "busy background", "realistic textures"]
     },
-    "3D Render": {
-      positive: ["3D rendered", "volumetric lighting", "high quality 3D", "realistic materials", "depth"],
-      negative: ["2D", "flat", "hand-drawn", "sketchy", "low poly unless stylized"]
+    "3d": {
+      positive: ["3D rendered", "volumetric lighting", "high quality 3D", "realistic materials", "depth", "ray traced"],
+      negative: ["2D", "flat", "hand-drawn", "sketchy", "photograph", "anime style"]
     },
-    "Anime": {
+    "anime": {
       positive: ["anime style", "manga illustration", "cel-shaded", "vibrant colors", "Japanese art style"],
-      negative: ["photorealistic", "western cartoon", "3D render", "realistic proportions"]
+      negative: ["photorealistic", "western cartoon", "3D render", "realistic proportions", "photograph"]
     },
-    "General": {
-      positive: ["artistic", "creative", "well-composed", "balanced"],
-      negative: ["poor quality", "blurry", "distorted"]
+    "general": {
+      positive: ["artistic", "creative", "well-composed", "balanced", "high quality"],
+      negative: ["poor quality", "blurry", "distorted", "amateur"]
     },
-    "Auto": {
-      positive: ["high quality", "well-composed", "appropriate style"],
-      negative: ["poor quality", "distorted", "inappropriate style"]
+    "auto": {
+      positive: ["high quality", "well-composed", "appropriate style", "professional"],
+      negative: ["poor quality", "distorted", "inappropriate style", "amateur"]
     }
   };
 
-  // Layout positioning guides
-  const layoutGuides: Record<string, string> = {
-    "meme-text": "text overlays at top and bottom of image",
-    "lower-banner": "text banner at bottom of image", 
-    "side-bar": "text sidebar on left or right side",
-    "badge-callout": "text in decorative badge or callout bubble",
-    "subtle-caption": "subtle text overlay integrated into scene",
-    "negative-space": "text placed in empty/negative space areas"
+  // Layout positioning guides with exact constraints
+  const layoutGuides: Record<string, {description: string, constraints: string}> = {
+    "meme-text": {
+      description: "bold text overlays at top and bottom of image",
+      constraints: "text_overlay_max_fraction: 0.25, top_bottom_text_layout, bold_readable_font"
+    },
+    "lower-banner": {
+      description: "clean text banner at bottom of image", 
+      constraints: "text_overlay_max_fraction: 0.20, bottom_banner_layout, clean_typography"
+    },
+    "side-bar": {
+      description: "elegant text sidebar on left or right side",
+      constraints: "text_overlay_max_fraction: 0.25, side_panel_layout, vertical_text_option"
+    },
+    "badge-callout": {
+      description: "text in decorative badge or callout bubble",
+      constraints: "text_overlay_max_fraction: 0.15, badge_design, decorative_frame"
+    },
+    "subtle-caption": {
+      description: "subtle text overlay integrated naturally into scene",
+      constraints: "text_overlay_max_fraction: 0.20, natural_integration, subtle_placement"
+    },
+    "negative-space": {
+      description: "text placed strategically in empty/negative space areas",
+      constraints: "text_overlay_max_fraction: 0.25, negative_space_placement, smart_positioning"
+    }
   };
 
-  // Tone influences
+  // Tone influences for mood
   const toneGuides: Record<string, {mood: string, avoid: string}> = {
-    "Sentimental": { mood: "warm, heartfelt, gentle, emotional", avoid: "cold, harsh, sarcastic" },
-    "Humorous": { mood: "playful, fun, lighthearted, cheerful", avoid: "serious, dramatic, somber" },
-    "Playful": { mood: "energetic, fun, vibrant, joyful", avoid: "formal, stiff, boring" },
-    "Savage": { mood: "bold, edgy, confident, striking", avoid: "cute, innocent, overly sweet" },
-    "Weird": { mood: "quirky, unusual, surreal, creative", avoid: "conventional, boring, predictable" }
+    "sentimental": { mood: "warm, heartfelt, gentle, emotional, soft lighting", avoid: "cold, harsh, sarcastic, dark" },
+    "humorous": { mood: "playful, fun, lighthearted, cheerful, bright", avoid: "serious, dramatic, somber, dark" },
+    "playful": { mood: "energetic, fun, vibrant, joyful, colorful", avoid: "formal, stiff, boring, monochrome" },
+    "savage": { mood: "bold, edgy, confident, striking, dramatic", avoid: "cute, innocent, overly sweet, soft" },
+    "weird": { mood: "quirky, unusual, surreal, creative, unexpected", avoid: "conventional, boring, predictable, normal" }
   };
-
-  // Rating considerations
-  const ratingGuides: Record<string, {allow: string, avoid: string}> = {
-    "G": { allow: "family-friendly, wholesome, innocent", avoid: "suggestive, dark themes, adult content" },
-    "PG": { allow: "mild themes, gentle humor", avoid: "explicit content, strong themes" },
-    "PG-13": { allow: "moderate themes, some edge", avoid: "explicit content, extreme themes" },
-    "R": { allow: "mature themes, edgy content", avoid: "extremely graphic content" }
-  };
-
-  const styleGuide = visualStyleGuides[visualStyle] || visualStyleGuides["Auto"];
-  const layoutGuide = layoutGuides[layout] || "text overlay";
-  const toneGuide = toneGuides[tone] || { mood: "appropriate", avoid: "inappropriate" };
-  const ratingGuide = ratingGuides[rating] || { allow: "appropriate content", avoid: "inappropriate content" };
 
   // Dimension specifications
   const dimensionSpecs: Record<string, string> = {
-    "Square": "1:1 aspect ratio, square composition",
-    "Portrait": "vertical orientation, 9:16 or 4:5 aspect ratio",
-    "Landscape": "horizontal orientation, 16:9 or 3:2 aspect ratio"
+    "square": "1:1 aspect ratio, centered composition",
+    "portrait": "vertical 9:16 or 4:5 aspect ratio, portrait orientation",
+    "landscape": "horizontal 16:9 or 3:2 aspect ratio, landscape orientation"
   };
 
-  const system = `You are a text-to-image prompt generator for Ideogram AI. Create precise positive and negative prompts.
+  const styleGuide = visualStyleGuides[visualStyle.toLowerCase()] || visualStyleGuides["auto"];
+  const layoutGuide = layoutGuides[layout.toLowerCase()] || layoutGuides["lower-banner"];
+  const toneGuide = toneGuides[tone.toLowerCase()] || { mood: "appropriate", avoid: "inappropriate" };
+  const dimensionSpec = dimensionSpecs[dimension.toLowerCase()] || dimensionSpecs["square"];
+  const visualElements = insertedVisuals.length > 0 ? insertedVisuals.join(', ') : '';
 
-Rules:
-- Positive prompt: describe what to include, emphasizing visual style, composition, and text placement
-- Negative prompt: describe what to avoid, preventing style conflicts and unwanted elements
-- Always specify text overlay requirements clearly
-- Consider tone, rating, and visual style compatibility
-- Keep prompts under 500 characters each
-- Be specific about visual elements and composition
-
-Output format: JSON with "positive" and "negative" keys only.`;
-
-  const user = `Generate Ideogram prompts for:
-
-Text to display: "${finalText}"
-Category: ${categoryPath}
-Tone: ${tone} (${toneGuide.mood})
-Visual Style: ${visualStyle}
-Layout: ${layout} (${layoutGuide})
-Dimension: ${dimension} (${dimensionSpecs[dimension] || "standard composition"})
-Rating: ${rating} (${ratingGuide.allow})
-Visual elements to include: ${visualElements}
-
-Style requirements:
-- Include: ${styleGuide.positive.join(', ')}
-- Avoid: ${styleGuide.negative.join(', ')}
-
-Composition:
-- ${dimensionSpecs[dimension]}
-- ${layoutGuide}
-- Mood: ${toneGuide.mood}
-
-Create prompts that ensure the text "${finalText}" is clearly displayed as ${layoutGuide}.`;
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
+  // Generate 4 distinct templates
+  const templates: PromptTemplate[] = [
+    {
+      name: "Cinematic",
+      description: "Dramatic, movie-like composition with professional lighting",
+      positive: `${dimensionSpec}, cinematic composition, ${styleGuide.positive.join(', ')}, dramatic lighting, professional quality, ${layoutGuide.description} showing "${finalText}", ${toneGuide.mood} atmosphere, ${visualElements ? `include ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, no_duplicate_text: true, high production value`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, amateur quality, poor lighting, cluttered composition, extra text, watermarks, spelling errors, duplicate text, low resolution`
     },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      max_tokens: 800,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error("No response from OpenAI");
-  }
-
-  try {
-    // Parse JSON response
-    const parsed = JSON.parse(content);
-    
-    if (!parsed.positive || !parsed.negative) {
-      throw new Error("Invalid response format");
+    {
+      name: "Close-up",
+      description: "Intimate, detailed focus on key elements with shallow depth",
+      positive: `${dimensionSpec}, close-up detailed composition, ${styleGuide.positive.join(', ')}, shallow depth of field, focus on main subject, ${layoutGuide.description} with "${finalText}", ${toneGuide.mood} mood, ${visualElements ? `featuring ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, macro detail, intimate perspective`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, wide angle, busy background, distracted focus, extra text, watermarks, spelling errors, blurry details, poor focus`
+    },
+    {
+      name: "Crowd Reaction",
+      description: "Dynamic scene showing people or environment reacting to the message",
+      positive: `${dimensionSpec}, dynamic crowd scene, ${styleGuide.positive.join(', ')}, people reacting, energetic atmosphere, ${layoutGuide.description} displaying "${finalText}", ${toneGuide.mood} energy, ${visualElements ? `with ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, social interaction, lively scene`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, static scene, lonely, empty, antisocial, extra text, watermarks, spelling errors, boring composition, lifeless`
+    },
+    {
+      name: "Minimalist",
+      description: "Clean, simple design focusing on essential elements only",
+      positive: `${dimensionSpec}, minimalist composition, ${styleGuide.positive.join(', ')}, clean simple design, plenty of white space, ${layoutGuide.description} featuring "${finalText}", ${toneGuide.mood} simplicity, ${visualElements ? `minimal ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, elegant simplicity, uncluttered`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, cluttered, busy, complex, overwhelming, extra text, watermarks, spelling errors, chaotic, too many elements`
     }
+  ];
 
-    return {
-      positive: parsed.positive,
-      negative: parsed.negative
-    };
-  } catch (parseError) {
-    console.error("Failed to parse OpenAI response:", content);
-    
-    // Fallback: create structured prompts manually
-    const positive = `${styleGuide.positive.join(', ')}, ${dimensionSpecs[dimension]}, ${layoutGuide} showing "${finalText}", ${toneGuide.mood} mood, ${visualElements !== 'none' ? `include ${visualElements},` : ''} high quality, well-composed`;
-    
-    const negative = `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${ratingGuide.avoid}, poor quality, blurry, distorted, extra text, watermarks`;
-
-    return { positive, negative };
-  }
+  return templates;
 }

@@ -59,18 +59,23 @@ type GenerateFinalPromptParams = {
 
 type GenerateFinalPromptResponse = { 
   success: true; 
-  positivePrompt: string; 
-  negativePrompt: string; 
+  templates: Array<{
+    name: string;
+    positive: string;
+    negative: string;
+    description: string;
+  }>; 
 } | { 
   success: false; 
   error: string; 
 };
 
-type GenerateImageParams = {
+export interface GenerateImageParams {
   prompt: string;
+  negativePrompt?: string;
   dimension?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
-};
+}
 
 type GenerateImageResponse = {
   success: true;
@@ -183,27 +188,31 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
   }
 }
 
-export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{positivePrompt: string, negativePrompt: string}> {
+// Generate 4 prompt templates for Step-4
+export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{templates: Array<{name: string, positive: string, negative: string, description: string}>}> {
   try {
     const res = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
     if (!res || !(res as any).success) {
-      throw new Error((res as any)?.error || "Final prompt generation failed");
+      throw new Error((res as any)?.error || "Template generation failed");
     }
     return {
-      positivePrompt: (res as any).positivePrompt,
-      negativePrompt: (res as any).negativePrompt
+      templates: (res as any).templates
     };
   } catch (error) {
-    console.error('Final prompt generation failed:', error);
+    console.error('Template generation failed:', error);
     throw error;
   }
 }
 
+// Generate image using Ideogram V3
 export async function generateImage(params: GenerateImageParams): Promise<string> {
   try {
-    const res = await ctlFetch<GenerateImageResponse>("generate-image", params, 60000); // 60s timeout for image generation
+    const res = await ctlFetch<GenerateImageResponse>("generate-image", params, 120000); // 2 minutes timeout for Ideogram
     if (!res || !(res as any).success) {
-      throw new Error((res as any)?.error || "Image generation failed");
+      const errorMsg = (res as any)?.error || "Image generation failed";
+      const statusInfo = (res as any)?.status ? ` (Status: ${(res as any).status})` : '';
+      const details = (res as any)?.details ? ` Details: ${(res as any).details}` : '';
+      throw new Error(`${errorMsg}${statusInfo}${details}`);
     }
     return (res as any).imageData;
   } catch (error) {
