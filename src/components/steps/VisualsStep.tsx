@@ -328,17 +328,9 @@ export default function VisualsStep({
         <>
           {/* Selected Style Summary */}
           <Card className="border-2 border-primary bg-accent p-3">
-            <div className="flex items-center space-x-3">
-              <img 
-                src={selectedStyle?.preview} 
-                alt={selectedStyle?.title}
-                className="w-12 h-12 rounded object-cover"
-              />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground">
-                  Style: {selectedStyle?.title}
-                </h4>
-                <p className="text-xs text-muted-foreground">{selectedStyle?.description}</p>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-foreground">
+                Style - {selectedStyle?.title}
               </div>
               <Button 
                 variant="ghost" 
@@ -403,15 +395,10 @@ export default function VisualsStep({
         <>
           {/* Selected Style and Dimension Summary */}
           <Card className="border-2 border-primary bg-accent p-3">
-            <div className="flex items-center space-x-3">
-              <img 
-                src={selectedStyle?.preview} 
-                alt={selectedStyle?.title}
-                className="w-12 h-12 rounded object-cover"
-              />
-              <div className="flex-1">
-                <div className="text-sm">
-                  <span className="font-medium">Style:</span> {selectedStyle?.title}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-foreground">
+                  Style - {selectedStyle?.title}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {selectedStyle?.description} | {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.title}
