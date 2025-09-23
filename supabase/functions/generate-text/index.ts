@@ -407,69 +407,79 @@ function buildInsertWordInstruction(insertWords: string[]): string {
 }
 
 const TONE_SEED_TEMPLATES = {
-  'playful': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'playful': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 playful one-sentence jokes for a ${subcategory} celebration.
 Each must be EXACTLY one sentence, 55-115 characters total, punchy and quotable.
 Use at most 2 punctuation marks per line. NO em dashes, semicolons, or ellipses.
 Include ${subcategory} context with words like: ${getLexiconFor(subcategory).slice(0, 5).join(', ')}.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Keep them short, crisp, and memorable. No rambling or complex clauses.
 Return each line on a separate line with no numbering or formatting.`,
 
-  'romantic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'romantic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 romantic one-sentence lines for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, heartfelt but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`,
 
-  'sentimental': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'sentimental': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 sentimental one-sentence lines for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, emotional but NOT wordy.
 CRITICAL: No rambling, no flowery language that creates long sentences.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Use simple, direct emotional statements tied to ${subcategory} context.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`,
 
-  'nostalgic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'nostalgic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 nostalgic one-sentence lines for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, reflective but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with memories or reflections.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`,
 
-  'sarcastic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'sarcastic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 sarcastic one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, witty but punchy.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with ironic humor.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`,
 
-  'witty': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'savage': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
+Write 4 savage one-sentence roasts for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, brutal but clever.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context with cutting humor.
+${buildInsertWordInstruction(insertWords)}
+${getRatingGuidance(rating, tone)}
+REMEMBER: Rating ${rating} determines language limits - savage tone must work within ${rating} constraints.
+Return each line on a separate line with no numbering or formatting.`,
+
+  'witty': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 witty one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, clever but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with smart wordplay.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`,
 
-  'dry': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+  'dry': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 dry humor one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, deadpan but tight.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with understated humor.
 ${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating)}
+${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`
 }
 
@@ -484,12 +494,12 @@ function getRatingGuidance(rating: string): string {
   return `Rating ${rating}: ${guidance[rating] || guidance['PG']}`
 }
 
-// Build tone-specific seed prompt
+// Build tone-specific seed prompt with RATING OVERRIDES TONE logic
 function buildToneSpecificSeed(tone: string, subcategory: string, config: any, insertWords: string[] = [], rating: string = 'PG'): string {
   const normalizedTone = tone.toLowerCase().replace(/\s+/g, '')
   const seedTemplate = TONE_SEED_TEMPLATES[normalizedTone] || TONE_SEED_TEMPLATES['playful']
   
-  return seedTemplate(subcategory, config, insertWords, rating)
+  return seedTemplate(subcategory, config, insertWords, rating, tone)
 }
     
     // Use tone-specific seed template for strict one-sentence enforcement
@@ -543,8 +553,9 @@ Generate exactly 4 lines:`;
       const candidates = [];
       const detailedFailures = [];
       
-      // Only pick comedians if comedianStyle is explicitly set
-      const comedians = payload.comedianStyle ? pickComedians(4) : null;
+      // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
+      const comedianPool = getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic');
+      const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
       
       for (let i = 0; i < 4; i++) {
         const line = lines[i];
@@ -562,7 +573,7 @@ Generate exactly 4 lines:`;
         if (validation.ok) {
           candidates.push({
             line: line,
-            comedian: comedians ? comedians[i].name : 'AI Assist'
+            comedian: selectedComedians[i] || selectedComedians[0] // Always use a comedian, never "AI Assist"
           });
           console.log(`✅ Line ${i+1} PASSED (${payload.tone}): "${line.substring(0, 60)}..."`);
         } else {
@@ -634,7 +645,7 @@ Generate ${needToGenerate} replacement lines:`;
             if (validation.ok) {
               candidates.push({
                 line: line,
-                comedian: comedians ? comedians[failedIndices[retrySuccesses]]?.name || 'AI Assist' : 'AI Assist'
+                comedian: selectedComedians[retrySuccesses] || selectedComedians[0] // Always use comedian
               });
               retrySuccesses++;
               console.log(`✅ Retry line ${i+1} PASSED: "${line.substring(0, 60)}..."`);
@@ -729,25 +740,27 @@ serve(async (req) => {
     const nonce = generateNonce();
     const subcategory = payload.subcategory || payload.category;
     
-    // Enhanced system prompt with master rules
+    // Enhanced system prompt with RATING OVERRIDES TONE emphasis
     const systemPrompt = `You are a master comedy writer following strict Step-2 Text Generation Rules.
 
 MASTER RULES (CRITICAL - NO EXCEPTIONS):
 1. Structure: Exactly ONE sentence, 50-120 characters total
-2. Insert Tags: If provided, use each tag ONCE per line with natural inflections (plurals, past tense OK)
-3. Category Anchoring: Each line must clearly relate to ${subcategory} using direct keywords or contextual cues
-4. Rating Control: ${payload.rating} = ${MASTER_CONFIG.ratings[payload.rating]?.description}
+2. Insert Tags: If provided, use each tag ONCE per line with natural inflections (plurls, past tense OK)
+3. Category Anchoring (LOOSENED): Each line must relate to ${subcategory} using direct keywords OR cultural cues. At batch level, at least 2 of 4 lines should contain direct category keywords.
+4. RATING ALWAYS OVERRIDES TONE: ${payload.rating} rating limits supersede ${payload.tone} tone preferences
 5. Punctuation: Max 2 marks per line. NO em dashes (—), semicolons (;), or ellipses (…)
 6. Quality: Sharp, quotable, stand-up quality humor - no greeting card fluff
 7. Variety: Vary line length and structure within each set of 4
+8. Comedian Persona: Write in the voice of ${getComedianPool(payload.tone || 'Playful', payload.rating || 'PG')[0]} - NEVER generic "AI Assist" style
 
 Category Keywords Available: ${getLexiconFor(subcategory).join(', ') || 'general'}
+Cultural Context: ${subcategory} celebrations, traditions, emotions, and experiences
 
-Rating Guidelines:
-- G: Family-safe, wholesome, playful
-- PG: Light sarcasm, safe irony
-- PG-13: Edgy sarcasm, mild swears allowed (hell, damn)
-- R: SAVAGE AND EXPLICIT. Strong profanity REQUIRED (fuck, shit, asshole). At least 2/4 lines must contain explicit language. Raw, unfiltered edge.
+Rating Guidelines (THESE OVERRIDE TONE):
+- G: Family-safe, wholesome, playful - even "Savage" tone must be gentle
+- PG: Light sarcasm, safe irony - tone can be edgier but clean
+- PG-13: Edgy sarcasm, mild swears allowed (hell, damn) - tone can be sharp
+- R: SAVAGE AND EXPLICIT required. Strong profanity MANDATORY (fuck, shit, asshole). At least 2/4 lines must contain explicit language. Raw, unfiltered edge.
 
 FORBIDDEN: Placeholder words (friend, NAME, USER), em dashes, generic filler
 OUTPUT: Only the joke line, nothing else.

@@ -63,26 +63,28 @@ function hasInsertOnceFlexible(text: string, tag: string): boolean {
   return re.test(t) && ((t.match(reAll) || []).length === 1);
 }
 
-// Category anchoring: direct keyword or contextual cue
+// Category anchoring: direct keyword or contextual cue (LOOSENED RULES)
 function anchoredToCategory(text: string, subcat: string): boolean {
   const words = LEX[subcat] || [];
+  // Check for direct lexicon keywords first
   if (words.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(text))) return true;
 
-  // Context cues when explicit keywords are absent
+  // Expanded context cues - now includes cultural and situational references
   const cues: Record<string, RegExp> = {
-    wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
-    engagement: /\b(proposed|popped the question|she said yes|he said yes)\b/i,
-    birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party)\b/i,
-    graduation: /\b(graduat|commencement|walk the stage)\b/i,
-    work: /\b(office|boss|coworker|meeting|deck|spreadsheet)\b/i,
-    school: /\b(homework|cafeteria|locker|principal)\b/i,
-    soccer: /\b(offside|corner kick|yellow card|red card)\b/i,
-    basketball: /\b(free throw|fast break|shot clock)\b/i,
-    baseball: /\b(home run|double play|dugout)\b/i,
-    hockey: /\b(power play|faceoff|hat trick)\b/i,
-    music: /\b(setlist|encore|crowd surf)\b/i,
-    movies: /\b(red carpet|credits rolled|director's cut)\b/i,
-    tv: /\b(season finale|binge|remote)\b/i
+    wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws|married|ceremony|veil|dress|suit|couple|unity|eternal|forever|commitment|sacred|blessed|husband|wife)\b/i,
+    engagement: /\b(proposed|popped the question|she said yes|he said yes|diamond|proposal|future|commitment|planning|engaged|fiancé|fiancée)\b/i,
+    birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party|age|years old|older|celebration|presents|gifts|aging|another year|milestone|candle|wish)\b/i,
+    babyshower: /\b(expecting|mom to be|little one|bundle of joy|due date|gender reveal|pregnant|baby|shower|newborn|infant|arrival|blessing|tiny|precious)\b/i,
+    graduation: /\b(graduat|commencement|walk the stage|diploma|degree|education|achievement|accomplished|future|career|proud|success|milestone)\b/i,
+    work: /\b(office|boss|coworker|meeting|deck|spreadsheet|corporate|business|career|professional|salary|promotion|overtime|deadline)\b/i,
+    school: /\b(homework|cafeteria|locker|principal|student|teacher|class|grade|exam|study|education|learning|campus)\b/i,
+    soccer: /\b(offside|corner kick|yellow card|red card|field|goal|match|team|fans|stadium|world cup|league)\b/i,
+    basketball: /\b(free throw|fast break|shot clock|court|hoop|dunk|team|fans|playoffs|championship|league)\b/i,
+    baseball: /\b(home run|double play|dugout|diamond|stadium|fans|season|playoffs|world series|league)\b/i,
+    hockey: /\b(power play|faceoff|hat trick|ice|rink|fans|season|playoffs|cup|league)\b/i,
+    music: /\b(setlist|encore|crowd surf|concert|performance|stage|audience|fans|sound|rhythm|melody)\b/i,
+    movies: /\b(red carpet|credits rolled|director's cut|cinema|theater|screen|premiere|hollywood|entertainment|film)\b/i,
+    tv: /\b(season finale|binge|remote|streaming|episode|series|show|entertainment|television|screen)\b/i
   };
   return cues[subcat]?.test(text) || false;
 }
@@ -153,7 +155,8 @@ export function validateBatch(input: BatchInput): { ok: true } | { ok: false; de
   const hasLong = lens.some(n => n >= 100);
   if (!hasShort || !hasLong) return { ok: false, details: "rhythm_variety_missing" };
 
-  // batch-level anchoring: at least 2 lines should contain a direct lexicon hit (not only context)
+  // LOOSENED RULE: batch-level anchoring - at least 2 of 4 lines should contain a direct lexicon hit
+  // The other lines can rely on contextual cues only
   const directLexHits = lines.filter(l =>
     (LEX[scenario.subcategory] || []).some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(l))
   ).length;
