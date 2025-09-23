@@ -299,6 +299,28 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
     return { ok: false, details: "rhythm_variety_missing" };
   }
   
+  // Structural variety check for R-rated content
+  if (scenario.rating === 'R') {
+    const profanityCount = lines.filter(line => SWEARS_STRONG.test(line)).length;
+    if (profanityCount < 2) {
+      return { ok: false, details: "r_rating_insufficient_profanity" };
+    }
+  }
+
+  // Structure variety check - prevent repetitive patterns  
+  const structures = lines.map(line => {
+    if (line.includes(' but ')) return 'contrast';
+    if (line.includes('?')) return 'question';
+    if (line.match(/\b(like|than)\b/)) return 'comparison';
+    if (line.match(/\b(when|while|after|before)\b/)) return 'temporal';
+    return 'statement';
+  });
+
+  const uniqueStructures = [...new Set(structures)];
+  if (uniqueStructures.length < 3) {
+    return { ok: false, details: "structure_variety_missing" };
+  }
+  
   // Batch anchoring check
   if (directAnchors < 2) {
     return { ok: false, details: "insufficient_direct_anchors" };
@@ -446,13 +468,13 @@ ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`
 }
 
-// Rating enforcement guidance
+// Rating enforcement guidance with enhanced R-level requirements
 function getRatingGuidance(rating: string): string {
   const guidance = {
-    'G': 'Keep it wholesome and family-friendly, no swears.',
-    'PG': 'Light sarcasm allowed, no strong swears.',
-    'PG-13': 'Edgier sarcasm allowed, mild swears like hell/damn OK.',
-    'R': 'Strong swears allowed, savage humor, no slurs.'
+    'G': 'Family-safe, wholesome humor. No swearing or edge.',
+    'PG': 'Light sarcasm and irony. Gentle roasting. Words like "hell" or "damn" allowed.',
+    'PG-13': 'Edgy sarcasm, sharper wit. Mild swears allowed (hell, damn, crap).',
+    'R': 'SAVAGE and EXPLICIT. Must include strong language (fuck, shit, asshole, bastard). Raw, unfiltered comedy. At least 2 lines should have profanity.'
   }
   return `Rating ${rating}: ${guidance[rating] || guidance['PG']}`
 }
@@ -515,11 +537,12 @@ Generate exactly 4 lines:`;
       const lines = cleanedLines.slice(0, 4);
       const candidates = [];
       const detailedFailures = [];
-      const comedians = pickComedians(4);
+      
+      // Only pick comedians if comedianStyle is explicitly set
+      const comedians = payload.comedianStyle ? pickComedians(4) : null;
       
       for (let i = 0; i < 4; i++) {
         const line = lines[i];
-        const comedian = comedians[i];
         
         // Enhanced validation with tone-specific parameters
         const validation = debugValidateLine(line, {
@@ -534,7 +557,7 @@ Generate exactly 4 lines:`;
         if (validation.ok) {
           candidates.push({
             line: line,
-            comedian: comedian.name
+            comedian: comedians ? comedians[i].name : 'AI Assist'
           });
           console.log(`✅ Line ${i+1} PASSED (${payload.tone}): "${line.substring(0, 60)}..."`);
         } else {
@@ -606,7 +629,7 @@ Generate ${needToGenerate} replacement lines:`;
             if (validation.ok) {
               candidates.push({
                 line: line,
-                comedian: comedians[failedIndices[retrySuccesses]]?.name || 'Retry'
+                comedian: comedians ? comedians[failedIndices[retrySuccesses]]?.name || 'AI Assist' : 'AI Assist'
               });
               retrySuccesses++;
               console.log(`✅ Retry line ${i+1} PASSED: "${line.substring(0, 60)}..."`);
@@ -719,7 +742,7 @@ Rating Guidelines:
 - G: Family-safe, wholesome, playful
 - PG: Light sarcasm, safe irony
 - PG-13: Edgy sarcasm, mild swears allowed (hell, damn)
-- R: Savage, explicit swears allowed (fuck, shit), no slurs
+- R: SAVAGE AND EXPLICIT. Strong profanity REQUIRED (fuck, shit, asshole). At least 2/4 lines must contain explicit language. Raw, unfiltered edge.
 
 FORBIDDEN: Placeholder words (friend, NAME, USER), em dashes, generic filler
 OUTPUT: Only the joke line, nothing else.
