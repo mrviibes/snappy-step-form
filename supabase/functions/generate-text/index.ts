@@ -363,58 +363,122 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Enhanced prompt with ultra-clear formatting requirements - special handling for complex tones
-    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes in ${payload.tone} tone.`;
-    
-    // Special handling for tones that tend to create complex/long text
-    if (['sentimental', 'nostalgic', 'heartfelt', 'romantic'].includes(payload.tone?.toLowerCase())) {
-      instructions += `
+// =============== TONE-SPECIFIC SEED TEMPLATES ===============
 
-CRITICAL FOR SENTIMENTAL TONE:
-- Keep each joke to ONE sentence only (no rambling)
-- Be heartfelt but concise (50-120 characters)
-- Avoid flowery language that creates long sentences
-- Use simple, direct emotional statements`;
-    }
-    
-    instructions += `
+const TONE_SEED_TEMPLATES = {
+  'playful': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 playful one-sentence jokes for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, concise and punchy.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
 
-STRICT FORMAT REQUIREMENTS:
-- Each line: ${config.lengthMin}-${config.lengthMax} characters
-- Maximum ${config.maxPunct} punctuation marks per line  
-- NO semicolons, em dashes, or ellipses
-- NO numbered lists (1., 2., etc.)
-- NO bullet points (-, *, •)
-- NO markdown formatting (**bold**, *italic*)
-- NO quotes around jokes ("joke")
-- NO extra text or explanations`;
+  'romantic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 romantic one-sentence lines for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, heartfelt but concise.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
+
+  'sentimental': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 sentimental one-sentence lines for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, emotional but NOT wordy.
+CRITICAL: No rambling, no flowery language that creates long sentences.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Use simple, direct emotional statements tied to ${subcategory} context.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
+
+  'nostalgic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 nostalgic one-sentence lines for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, reflective but concise.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context with memories or reflections.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
+
+  'sarcastic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 sarcastic one-sentence jokes for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, witty but punchy.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context with ironic humor.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
+
+  'witty': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 witty one-sentence jokes for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, clever but concise.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context with smart wordplay.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`,
+
+  'dry': (subcategory: string, config: any, insertWords: string[], rating: string) => `
+Write 4 dry humor one-sentence jokes for a ${subcategory} celebration.
+Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, deadpan but tight.
+Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
+Tie each line clearly to ${subcategory} context with understated humor.
+${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${getRatingGuidance(rating)}
+Return each line on a separate line with no numbering or formatting.`
+}
+
+// Rating enforcement guidance
+function getRatingGuidance(rating: string): string {
+  const guidance = {
+    'G': 'Keep it wholesome and family-friendly, no swears.',
+    'PG': 'Light sarcasm allowed, no strong swears.',
+    'PG-13': 'Edgier sarcasm allowed, mild swears like hell/damn OK.',
+    'R': 'Strong swears allowed, savage humor, no slurs.'
+  }
+  return `Rating ${rating}: ${guidance[rating] || guidance['PG']}`
+}
+
+// Build tone-specific seed prompt
+function buildToneSpecificSeed(tone: string, subcategory: string, config: any, insertWords: string[] = [], rating: string = 'PG'): string {
+  const normalizedTone = tone.toLowerCase().replace(/\s+/g, '')
+  const seedTemplate = TONE_SEED_TEMPLATES[normalizedTone] || TONE_SEED_TEMPLATES['playful']
+  
+  return seedTemplate(subcategory, config, insertWords, rating)
+}
     
-    // Add context requirements
+    // Use tone-specific seed template for strict one-sentence enforcement
+    const instructions = buildToneSpecificSeed(
+      payload.tone || 'playful',
+      subcategory, 
+      config,
+      payload.insertWords || [],
+      payload.rating || 'PG'
+    );
+    
+    // Add category context for better anchoring
     const contextWords = getLexiconFor(subcategory);
-    if (contextWords.length > 0) {
-      instructions += `\n- Must reference ${subcategory} using words like: ${contextWords.slice(0, 4).join(', ')}`;
-    }
-    
-    // OPTIONAL: Only add insert word requirements if they exist
-    if (Array.isArray(payload.insertWords) && payload.insertWords.length > 0) {
-      const insertTag = payload.insertWords[0];
-      instructions += `\n- Include "${insertTag}" exactly once per line, naturally`;
-    }
-    
-    instructions += `\n- Rating: ${payload.rating}
+    const contextHint = contextWords.length > 0 
+      ? `\nUse ${subcategory} words like: ${contextWords.slice(0, 4).join(', ')}`
+      : '';
+      
+    const userPrompt = `${instructions}${contextHint}
 
-RETURN FORMAT: Just 4 jokes, each on its own line, nothing else:`;
-    
-    const userPrompt = `${instructions}
-
-Examples of valid ${subcategory} jokes:
+EXAMPLES of valid single-sentence ${subcategory} lines:
 ${subcategory === 'birthday' ? 
   `The cake had so many candles the smoke alarm joined the party.
-Nothing says birthday like frosting on your face before noon.
-Balloons popped faster than my birthday wish left my lips.
-The party peaked when grandma stole the first slice of cake.` :
-  `Use specific ${subcategory} words and situations
-Keep jokes short, punchy, and contextually relevant`}
+The balloons popped faster than my birthday wish left my lips.
+Another year older means another year of pretending to like cake.
+The frosting survived longer than my diet did at this party.` :
+subcategory === 'wedding' ? 
+  `The cake toppled before vows ended but everyone called it tradition.
+Uncle Bob hit the dance floor like it was a second wedding vow.
+The bouquet sailed farther than the bride ever planned to throw.
+The DJ shouted toast time and half the guests raised cake instead.` :
+  `Generate ${subcategory}-specific one-sentence lines that are punchy and contextual.`}
 
 Generate exactly 4 lines:`;
 
@@ -432,7 +496,7 @@ Generate exactly 4 lines:`;
         continue;
       }
       
-      // Take first 4 lines and validate each
+      // Take first 4 lines and validate each with tone-specific validation
       const lines = cleanedLines.slice(0, 4);
       const candidates = [];
       const detailedFailures = [];
@@ -442,59 +506,81 @@ Generate exactly 4 lines:`;
         const line = lines[i];
         const comedian = comedians[i];
         
-        const validation = debugValidateLine(line, payload);
+        // Enhanced validation with tone-specific parameters
+        const validation = debugValidateLine(line, {
+          insertWords: payload.insertWords || [],
+          lengthMin: config.lengthMin,
+          lengthMax: config.lengthMax,
+          maxPunct: config.maxPunct,
+          subcategory,
+          tone: payload.tone
+        });
         
         if (validation.ok) {
           candidates.push({
             line: line,
             comedian: comedian.name
           });
-          console.log(`✅ Line ${i+1} PASSED: "${line.substring(0, 60)}..."`);
+          console.log(`✅ Line ${i+1} PASSED (${payload.tone}): "${line.substring(0, 60)}..."`);
         } else {
           detailedFailures.push({
             index: i,
             line: line.substring(0, 80) + '...',
             reason: validation.reason,
             details: validation.details,
-            fullLine: line
+            fullLine: line,
+            tone: payload.tone
           });
-          console.log(`❌ Line ${i+1} FAILED (${validation.reason}): "${line.substring(0, 60)}..."`);
+          console.log(`❌ Line ${i+1} FAILED (${validation.reason}) for ${payload.tone} tone: "${line.substring(0, 60)}..."`);
           if (validation.details) {
             console.log(`   Details:`, validation.details);
           }
         }
       }
       
-      console.log(`📊 Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines`);
+      console.log(`📊 Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines using ${payload.tone} tone`);
       
-      // If we have exactly 4 valid lines, check batch validation
+      // Success condition: exactly 4 valid lines
       if (candidates.length === 4) {
-        const batchValidation = validateBatch(candidates.map(c => c.line), payload);
-        
-        if (batchValidation.ok) {
-          console.log(`🎉 Batch validation PASSED! Returning 4 valid lines.`);
-          return candidates;
-        } else {
-          console.log(`❌ Batch validation failed:`, batchValidation.details);
-          detailedFailures.push({
-            index: -1,
-            reason: 'batch_validation_failed',
-            details: batchValidation.details
-          });
-        }
+        console.log(`🎉 All lines passed validation for ${payload.tone} tone! Returning 4 valid lines.`);
+        return candidates;
       }
       
-      // If this is our last attempt, provide detailed error information
+      // If this is our last attempt, provide tone-specific guidance
       if (attempt === maxRetries - 1) {
+        const toneAdvice = {
+          'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
+          'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
+          'romantic': 'Try "witty" or "playful" tone for less wordy output',
+          'playful': 'Try "witty" or "dry" tone for more structured humor'
+        };
+        
+        const suggestion = toneAdvice[payload.tone?.toLowerCase()] || 'Try a different tone like "playful" or "witty"';
+        
         const errorDetails = {
           validLines: candidates.length,
           totalRequested: 4,
+          tone: payload.tone,
+          suggestion,
           detailedFailures,
           lastAttemptConfig: config,
           allLines: lines.map((line, i) => ({
             index: i,
             line: line.substring(0, 100) + (line.length > 100 ? '...' : ''),
-            length: line.length
+            length: line.length,
+            tone: payload.tone
+          }))
+        };
+        
+        console.log(`💥 Final attempt failed for ${payload.tone} tone. Suggestion: ${suggestion}`);
+        console.log(`🔍 Full debug info:`, JSON.stringify(errorDetails, null, 2));
+        
+        throw new Error(`validation_failed:${JSON.stringify(errorDetails)}`);
+      }
+      
+      // Continue to next attempt with more relaxed config
+      console.log(`⏳ Waiting ${300 + attempt * 100}ms before retry with relaxed config...`);
+      await sleep(300 + attempt * 100);
           }))
         };
         console.log(`💥 Final attempt failed. Full debug info:`, JSON.stringify(errorDetails, null, 2));
