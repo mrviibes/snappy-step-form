@@ -205,9 +205,7 @@ export default function VisualsStep({
       {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-6 rounded border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
-                <img src={selectedStyle?.preview} alt="" className="w-full h-full object-cover rounded-sm" />
-              </div>
+              
               <div>
                 <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
                 <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
