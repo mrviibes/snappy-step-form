@@ -535,8 +535,8 @@ export default function TextStep({
           </div>}
       </div>
 
-      {/* AI Assist Configuration - show directly when AI Assist is selected */}
-      {data.text?.writingPreference === 'ai-assist' && <div className="space-y-6 pt-4">
+      {/* AI Assist Configuration - show directly when AI Assist is selected, hide when text options are shown */}
+      {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
           {/* Specific Words Section */}
           <div className="space-y-3">
             <h3 className="text-lg font-semibold text-foreground">Any specific words?</h3>
