@@ -253,6 +253,15 @@ export default function VisualsStep({
     description: "Define your own dimensions"
   }];
   return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {data.category && data.subcategory && (
+        <div className="text-left mb-4">
+          <div className="text-sm text-muted-foreground">
+            {data.category} &gt; {data.subcategory}
+          </div>
+        </div>
+      )}
+
       {/* Text Summary from Step 2 */}
       <div className="text-center mb-6">
         <div className="text-sm text-muted-foreground">

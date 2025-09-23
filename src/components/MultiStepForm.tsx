@@ -124,14 +124,6 @@ export default function MultiStepForm() {
         {/* Step Indicator */}
         <StepIndicator steps={steps} currentStep={currentStep} isStepCompleted={isStepCompleted} />
 
-        {/* Category Breadcrumb - Show on step 2 when category and subcategory are selected */}
-        {currentStep === 2 && formData.category && formData.subcategory && (
-          <div className="text-center mb-4">
-            <div className="text-sm text-muted-foreground">
-              {formData.category} &gt; {formData.subcategory}
-            </div>
-          </div>
-        )}
 
         {/* Main Content */}
         <div className="mb-20">
