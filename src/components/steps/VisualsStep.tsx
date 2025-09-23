@@ -360,32 +360,52 @@ export default function VisualsStep({
             </h2>
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
-            {dimensionOptions.map(dimension => (
-              <Card 
-                key={dimension.id} 
-                className={cn(
-                  "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
-                  "border-2 bg-gradient-card p-4 flex flex-col justify-center", 
-                  {
-                    "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
-                    "border-border": data.visuals?.dimension !== dimension.id,
-                    // Different aspect ratios for visual representation
-                    "aspect-square": dimension.id === "square",
-                    "aspect-[16/9]": dimension.id === "landscape", 
-                    "aspect-[9/16]": dimension.id === "portrait",
-                    "aspect-[4/3] border-dashed": dimension.id === "custom"
-                  }
-                )} 
-                onClick={() => handleDimensionSelect(dimension.id)}
-              >
-                <h4 className="mb-1 text-sm font-medium text-foreground">
-                  {dimension.title}
-                </h4>
-                <p className="text-xs text-muted-foreground">{dimension.description}</p>
-              </Card>
-            ))}
-          </div>
+              <div className="flex gap-4 h-48">
+                {/* Portrait on the left */}
+                <div 
+                  className={cn(
+                    "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
+                    "border-2 bg-gradient-card p-4 flex flex-col justify-center aspect-[9/16] flex-1", 
+                    {
+                      "border-primary shadow-primary bg-accent": data.visuals?.dimension === "portrait",
+                      "border-border": data.visuals?.dimension !== "portrait"
+                    }
+                  )} 
+                  onClick={() => handleDimensionSelect("portrait")}
+                >
+                  <h4 className="mb-1 text-sm font-medium text-foreground">
+                    Portrait
+                  </h4>
+                  <p className="text-xs text-muted-foreground">9:16 aspect ratio</p>
+                </div>
+                
+                {/* Other three stacked on the right */}
+                <div className="flex-1 flex flex-col gap-4">
+                  {dimensionOptions.filter(d => d.id !== "portrait").map((dimension) => (
+                    <Card 
+                      key={dimension.id} 
+                      className={cn(
+                        "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
+                        "border-2 bg-gradient-card p-4 flex flex-col justify-center flex-1", 
+                        {
+                          "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
+                          "border-border": data.visuals?.dimension !== dimension.id,
+                          // Different aspect ratios for visual representation
+                          "aspect-square": dimension.id === "square",
+                          "aspect-[16/9]": dimension.id === "landscape", 
+                          "border-dashed": dimension.id === "custom"
+                        }
+                      )} 
+                      onClick={() => handleDimensionSelect(dimension.id)}
+                    >
+                      <h4 className="mb-1 text-sm font-medium text-foreground">
+                        {dimension.title}
+                      </h4>
+                      <p className="text-xs text-muted-foreground">{dimension.description}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
         </>
       )}
 
