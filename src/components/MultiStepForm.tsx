@@ -144,14 +144,39 @@ export default function MultiStepForm() {
 
         {/* Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
-          <div className="mx-auto max-w-md flex justify-center">
-            {currentStep === steps.length ? <Button onClick={handleSubmit} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
+          <div className="mx-auto max-w-md flex justify-between gap-4">
+            {/* Back Button */}
+            {currentStep > 1 && (
+              <Button 
+                variant="outline" 
+                onClick={prevStep}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
+
+            {/* Next/Complete Button */}
+            {currentStep === steps.length ? (
+              <Button 
+                onClick={handleSubmit} 
+                disabled={!isStepCompleted(currentStep)} 
+                className="bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover ml-auto"
+              >
                 <Check className="mr-2 h-4 w-4" />
                 Complete
-              </Button> : <Button onClick={nextStep} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
+              </Button>
+            ) : (
+              <Button 
+                onClick={nextStep} 
+                disabled={!isStepCompleted(currentStep)} 
+                className="bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover ml-auto"
+              >
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>}
+              </Button>
+            )}
           </div>
         </div>
       </div>
