@@ -535,13 +535,15 @@ export default function TextStep({
           </div>}
       </div>
 
-      {/* Add Specific Words Section - show directly for AI Assist */}
-      {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
-          <div className="text-left">
-            <h3 className="text-lg font-semibold text-foreground">Optional - any specific words?</h3>
-          </div>
-
+      {/* AI Assist Configuration - show directly when AI Assist is selected */}
+      {data.text?.writingPreference === 'ai-assist' && <div className="space-y-6 pt-4">
+          {/* Specific Words Section */}
           <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-foreground">Optional - any specific words?</h3>
+            <div className="text-sm text-muted-foreground">
+              e.g., names, congrats etc. and hit return
+            </div>
+            
             <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
             
             {/* Display tags right under input box */}
@@ -553,13 +555,58 @@ export default function TextStep({
                     </button>
                   </div>)}
               </div>}
-
-            {/* Done button - show always, auto-generate if no words */}
-            <div className="flex justify-center pt-4">
-              
-            </div>
-
           </div>
+
+          {/* Style and Rating Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Style Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Style</label>
+              <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
+                <SelectTrigger className="w-full min-h-[44px]">
+                  <SelectValue placeholder="Generic (plain)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
+                      {style.label}
+                    </SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Rating Dropdown */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Rating</label>
+              <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
+                <SelectTrigger className="w-full min-h-[44px]">
+                  <SelectValue placeholder="G (clean)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
+                      {rating.label}
+                    </SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <div className="w-full">
+            <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
+              {isGenerating ? <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </> : 'Generate Text'}
+            </Button>
+          </div>
+
+          {/* Error Display */}
+          {generationError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm">{generationError}</p>
+              </div>
+            </div>}
         </div>}
 
       {/* Add Specific Words Section - only show when showSpecificWordsInput is true */}
