@@ -126,19 +126,36 @@ function getComedianPool(tone: string, style: string, rating: string): string[] 
   return matrixConfig.comedian_pools.CLEAN;
 }
 
-// Apply impossible combo overrides
+// Apply impossible combo overrides with stronger conflict resolution
 function applyComboOverrides(tone: string, style: string, rating: string): {tone: string, style: string, rating: string} {
   let finalTone = tone;
   let finalStyle = style;
   let finalRating = rating;
   
+  // Handle contradictory combinations more aggressively
+  if (tone.toLowerCase() === "sentimental" && rating.toLowerCase() === "r") {
+    console.log("OVERRIDE: Sentimental + R is contradictory, switching to Savage tone");
+    finalTone = "savage";
+  }
+  
+  if (tone.toLowerCase() === "wholesome" && rating.toLowerCase() === "r") {
+    console.log("OVERRIDE: Wholesome + R is contradictory, downgrading to PG-13");
+    finalRating = "pg-13";
+  }
+  
+  if (tone.toLowerCase() === "romantic" && rating.toLowerCase() === "r" && style.toLowerCase() === "wholesome") {
+    console.log("OVERRIDE: Romantic + Wholesome + R is contradictory, switching to Sarcastic style");
+    finalStyle = "sarcastic";
+  }
+  
+  // Apply matrix config overrides
   for (const override of matrixConfig.global_rules.impossible_combo_overrides) {
     const conditions = override.if;
     let matches = true;
     
-    if (conditions.style && conditions.style.toLowerCase() !== style.toLowerCase()) matches = false;
-    if (conditions.rating && conditions.rating.toLowerCase() !== rating.toLowerCase()) matches = false;
-    if (conditions.tone && conditions.tone.toLowerCase() !== tone.toLowerCase()) matches = false;
+    if (conditions.style && conditions.style.toLowerCase() !== finalStyle.toLowerCase()) matches = false;
+    if (conditions.rating && conditions.rating.toLowerCase() !== finalRating.toLowerCase()) matches = false;
+    if (conditions.tone && conditions.tone.toLowerCase() !== finalTone.toLowerCase()) matches = false;
     
     if (matches) {
       if (override.action === "downgrade_rating") {
@@ -435,8 +452,8 @@ function buildPrompt(opts: {
   const ratingRules: Record<string, string> = {
     "g": "clean language only. Humor may be playful, observational, or absurd without profanity.",
     "pg": "mild spice, no explicit profanity. Light innuendo allowed.",
-    "pg-13": "edgy humor allowed with mild swears (damn, hell, crap, ass). No f-bombs.",
-    "r": "explicit adult humor with strong profanity required. Must include at least one strong swear word (f***, s***, a******, bastard).",
+    "pg-13": "edgy humor allowed with mild swears (damn, hell, crap, ass). MUST include at least one mild swear.",
+    "r": "explicit adult humor with strong profanity REQUIRED. MUST include at least one strong swear word (fuck, shit, asshole, bastard, bullshit).",
   };
 
   const styleHints: Record<string, string> = {
@@ -524,13 +541,15 @@ function normalizeFirstLine(raw: string): string {
     .replace(/^\d+[\.)]\s*/, "");                  // numbered lists
 }
 
+// Enhanced validation for individual lines
 function validateLine(
   line: string, 
   rating: string, 
   insertWords: string[], 
   category: string,
   subcategory: string,
-  existingLines: string[]
+  existingLines: string[],
+  structureType: StructureType
 ): string | null {
   if (!line) return null;
 
@@ -545,6 +564,24 @@ function validateLine(
 
   // enforce ending punctuation
   if (!/[.!?]$/.test(line)) line += ".";
+
+  // CRITICAL: Enhanced R-rating enforcement - MUST contain explicit language
+  if (rating.toLowerCase() === "r") {
+    const explicitWords = ["fuck", "shit", "asshole", "bastard", "bullshit", "bitch", "damn"];
+    const hasExplicitContent = explicitWords.some(word => 
+      new RegExp(`\\b${word}`, "i").test(line)
+    );
+    if (!hasExplicitContent) {
+      console.log("R-rating validation FAILED - no explicit content:", line);
+      return null;
+    }
+  }
+
+  // Enhanced structure validation
+  if (!validateStructureType(line, structureType)) {
+    console.log("Structure validation FAILED - expected", structureType, "got:", line);
+    return null;
+  }
 
   // enforce insert words (more flexible matching for complex phrases)
   if (insertWords.length > 0) {
@@ -598,15 +635,107 @@ function validateLine(
     if (gBanned) return null;
   }
 
-  // Rating gates
+  // Rating gates with stricter enforcement
   const mild = /\b(hell|damn|crap)\b/i.test(line);
-  const explicit = /\b(fuck|shit|asshole|bastard|dick|piss|bitch)\b/i.test(line);
+  const explicit = /\b(fuck|shit|asshole|bastard|dick|piss|bitch|bullshit)\b/i.test(line);
 
   if (rating.toLowerCase() === "g" && (mild || explicit)) return null;
   if (rating.toLowerCase() === "pg" && explicit) return null;
-  // PG-13 allows mild, R allows explicit
+  if (rating.toLowerCase() === "pg-13" && !mild && explicit) return null; // PG-13 should have mild words
+  // R MUST have explicit content (enforced above)
 
   return line;
+}
+
+// Validate structure type matches expected pattern
+function validateStructureType(line: string, expectedType: StructureType): boolean {
+  const trimmed = line.trim();
+  
+  switch (expectedType) {
+    case "quip":
+      return trimmed.length <= 80 && !trimmed.includes("?");
+    case "question":
+      return trimmed.includes("?");
+    case "metaphor":
+      return /\b(like|as if|as though|is like|feels like)\b/i.test(trimmed);
+    case "observational":
+      return trimmed.length >= 80 && !trimmed.includes("?") && 
+             !/\b(like|as if|as though|is like|feels like)\b/i.test(trimmed);
+    default:
+      return true;
+  }
+}
+
+// Enhanced set-level validation
+function validateSet(
+  results: Array<{line: string, comedian: string}>, 
+  insertWords: string[], 
+  rating: string
+): boolean {
+  if (results.length < 4) return false;
+  
+  const lines = results.map(r => r.line);
+  
+  // 1. Insert word placement diversity
+  if (insertWords.length > 0) {
+    const positions = new Set<PosBucket>();
+    lines.forEach(line => {
+      const bucket = positionBucket(line, insertWords[0]);
+      positions.add(bucket);
+    });
+    if (positions.size < 2) {
+      console.log("Set validation FAILED - insufficient position variety:", Array.from(positions));
+      return false;
+    }
+  }
+
+  // 2. Structure diversity - MUST have variety
+  const structures = {
+    hasQuip: lines.some(l => l.length <= 80 && !l.includes("?")),
+    hasQuestion: lines.some(l => l.includes("?")),
+    hasMetaphor: lines.some(l => /\b(like|as if|as though|is like|feels like)\b/i.test(l)),
+    hasObservational: lines.some(l => l.length >= 80 && !l.includes("?") && 
+      !/\b(like|as if|as though|is like|feels like)\b/i.test(l))
+  };
+  
+  const structureCount = Object.values(structures).filter(Boolean).length;
+  if (structureCount < 3) {
+    console.log("Set validation FAILED - insufficient structure variety:", structures);
+    return false;
+  }
+
+  // 3. Comedian diversity - no duplicates in same set
+  const comedians = results.map(r => r.comedian);
+  const uniqueComedians = new Set(comedians);
+  if (uniqueComedians.size < Math.min(4, comedians.length)) {
+    console.log("Set validation FAILED - comedian repetition:", comedians);
+    return false;
+  }
+
+  // 4. R-rating set validation - ALL lines must have explicit content
+  if (rating.toLowerCase() === "r") {
+    const explicitWords = ["fuck", "shit", "asshole", "bastard", "bullshit", "bitch"];
+    const explicitCount = lines.filter(line => 
+      explicitWords.some(word => new RegExp(`\\b${word}`, "i").test(line))
+    ).length;
+    
+    if (explicitCount < lines.length) {
+      console.log("Set validation FAILED - R-rating requires ALL lines to have explicit content");
+      console.log("Explicit count:", explicitCount, "out of", lines.length, "lines");
+      return false;
+    }
+  }
+
+  // 5. Length variety
+  const lengths = lines.map(l => l.length);
+  const lengthVariety = Math.max(...lengths) - Math.min(...lengths);
+  if (lengthVariety < 20) {
+    console.log("Set validation FAILED - insufficient length variety:", lengthVariety);
+    return false;
+  }
+
+  console.log("Set validation PASSED - all diversity requirements met");
+  return true;
 }
 
 function escapeReg(s: string): string {
@@ -699,12 +828,11 @@ async function generateOne(opts: {
     const data = await response.json();
     const raw = (data?.choices?.[0]?.message?.content || "").trim();
     const first = normalizeFirstLine(raw);
-    let valid = validateLine(first, rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines);
+    let valid = validateLine(first, rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines, opts.structureType);
     
-    // Enhanced R-rating validation
-    if (valid && !validateRRating(valid, rating)) {
-      console.log("R-rating validation failed - no explicit content found");
-      valid = null;
+    // Enhanced R-rating validation is now handled within validateLine
+    if (!valid) {
+      console.log("Line validation failed for:", first);
     }
     
     console.log("Generated line attempt:", { 
@@ -732,7 +860,7 @@ async function generateOne(opts: {
   }
 }
 
-// Generate 4 diverse options with varied placement, structure, and topics
+// Generate 4 diverse options with comprehensive validation
 async function generateFour(body: any): Promise<Array<{line: string, comedian: string}>> {
   const insertWords = parseInsertWords(body.insertWords || body.mandatory_words || '');
   
@@ -741,12 +869,19 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
   const category = categoryParts[0] || "celebrations";
   const subcategory = body.subcategory || categoryParts[1] || "";
   
+  // Apply combo overrides before generation
+  const { tone, style, rating } = applyComboOverrides(
+    body.tone || "Humorous",
+    body.style || "Generic", 
+    body.rating || "PG"
+  );
+  
   const opts = {
     category,
     subcategory,
-    tone: body.tone || "Humorous",
-    style: body.style || "Generic", 
-    rating: body.rating || "PG",
+    tone,
+    style,
+    rating,
     insertWords,
     usedComedians: new Set<string>(),
     usedTopics: new Set<string>(),
@@ -758,64 +893,107 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
   const results: Array<{line: string, comedian: string}> = [];
   const usedBuckets = new Set<PosBucket>();
   const usedStructures = new Set<StructureType>();
-  const comedianUsage = new Map<string, string>(); // line -> comedian name
   let attempts = 0;
+  let validationAttempts = 0;
+  const maxValidationAttempts = 3;
 
-          // Reduce attempts and add progress logging
-          while (results.length < 4 && attempts < 15) {
-    try {
-      const targetBucket = pickNeededBucket(usedBuckets);
-      // Pick structure type we haven't used yet
-      const availableStructures = structureTypes.filter(s => !usedStructures.has(s));
-      const structureType = availableStructures.length > 0 
-        ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
-        : structureTypes[Math.floor(Math.random() * structureTypes.length)];
-      
-            console.log(`Attempt ${attempts + 1}/15: Trying ${structureType} with ${targetBucket} placement`);
-            
-            const lineResult = await generateOne({
-        ...opts,
-        targetBucket,
-        structureType,
-        existingLines: results.map(r => r.line)
-      });
-      
-      if (lineResult && lineResult.line && 
-          !results.some(r => r.line === lineResult.line) && 
-          !results.some(r => tooSimilar(lineResult.line, r.line))) {
+  // Enhanced generation loop with set-level validation
+  while (validationAttempts < maxValidationAttempts) {
+    results.length = 0; // Reset results for each validation attempt
+    opts.usedComedians.clear();
+    opts.usedTopics.clear();
+    usedBuckets.clear();
+    usedStructures.clear();
+    attempts = 0;
+
+    // Generate 4 lines with diversity requirements
+    while (results.length < 4 && attempts < 20) {
+      try {
+        const targetBucket = pickNeededBucket(usedBuckets);
+        // Pick structure type we haven't used yet
+        const availableStructures = structureTypes.filter(s => !usedStructures.has(s));
+        const structureType = availableStructures.length > 0 
+          ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
+          : structureTypes[Math.floor(Math.random() * structureTypes.length)];
         
-        // Check if this line achieves desired placement variety
-        if (insertWords.length > 0) {
-          const actualBucket = positionBucket(lineResult.line, insertWords[0]);
-          usedBuckets.add(actualBucket);
+        console.log(`Attempt ${attempts + 1}/20: Trying ${structureType} with ${targetBucket} placement`);
+        
+        const lineResult = await generateOne({
+          ...opts,
+          targetBucket,
+          structureType,
+          existingLines: results.map(r => r.line)
+        });
+        
+        if (lineResult && lineResult.line && 
+            !results.some(r => r.line === lineResult.line) && 
+            !results.some(r => tooSimilar(lineResult.line, r.line))) {
+          
+          // Check if this line achieves desired placement variety
+          if (insertWords.length > 0) {
+            const actualBucket = positionBucket(lineResult.line, insertWords[0]);
+            usedBuckets.add(actualBucket);
+          }
+          
+          // Track structure usage
+          usedStructures.add(structureType);
+          
+          results.push(lineResult);
+          console.log(`Generated line ${results.length}:`, lineResult.line);
         }
-        
-        // Track structure usage
-        usedStructures.add(structureType);
-        
-        results.push(lineResult);
-        console.log(`Generated line ${results.length}:`, lineResult.line);
+      } catch (e) {
+        console.error(`Generation attempt ${attempts + 1} failed:`, e);
       }
-    } catch (e) {
-      console.error(`Generation attempt ${attempts + 1} failed:`, e);
+      attempts++;
     }
-    attempts++;
+
+    // Validate the complete set
+    if (results.length >= 4 && validateSet(results, insertWords, rating)) {
+      console.log("Set validation PASSED on attempt", validationAttempts + 1);
+      break;
+    } else {
+      validationAttempts++;
+      console.log(`Set validation FAILED on attempt ${validationAttempts}. ${validationAttempts < maxValidationAttempts ? 'Retrying...' : 'Using fallback strategy.'}`);
+    }
   }
 
-  // Pad with diverse fallbacks that honor insert words and vary placement
+  // If validation failed, use fallback strategy with enforced diversity
+  if (results.length < 4 || !validateSet(results, insertWords, rating)) {
+    console.log("Using fallback strategy with enforced diversity");
+    results.length = 0;
+    
+    // Generate fallbacks that explicitly enforce requirements
+    const fallbackResults = await generateFallbackSet(opts);
+    results.push(...fallbackResults);
+  }
+
+  // Final safety check - pad if still short
   while (results.length < 4) {
     const iwText = insertWords.length > 0 ? insertWords.join(" ") : "";
-    const position = results.length % 3; // rotate positions
+    const position = results.length % 3;
     
     let fallback: string;
-    if (position === 0 && iwText) {
-      fallback = `${iwText}, but at least the Wi-Fi password is still 123456.`;
-    } else if (position === 1 && iwText) {
-      fallback = `Time to collect stories you can't tell at work, ${iwText}.`;
-    } else if (iwText) {
-      fallback = `Another adventure awaits when you realize ${iwText}.`;
+    // For R-rating, ensure fallbacks also have explicit content
+    if (rating.toLowerCase() === "r") {
+      if (position === 0 && iwText) {
+        fallback = `${iwText}, but fuck if I know why that matters.`;
+      } else if (position === 1 && iwText) {
+        fallback = `Shit gets real when you realize ${iwText}.`;
+      } else if (iwText) {
+        fallback = `Another damn adventure awaits with ${iwText}.`;
+      } else {
+        fallback = "Permission granted to be loud, joyful, and fucking ridiculous.";
+      }
     } else {
-      fallback = "Permission granted to be loud, joyful, and ridiculous.";
+      if (position === 0 && iwText) {
+        fallback = `${iwText}, but at least the Wi-Fi password is still 123456.`;
+      } else if (position === 1 && iwText) {
+        fallback = `Time to collect stories you can't tell at work, ${iwText}.`;
+      } else if (iwText) {
+        fallback = `Another adventure awaits when you realize ${iwText}.`;
+      } else {
+        fallback = "Permission granted to be loud, joyful, and ridiculous.";
+      }
     }
     
     if (!results.some(r => r.line === fallback) && 
@@ -824,7 +1002,10 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
       results.push({line: fallback, comedian: "Jerry Seinfeld"});
       console.log("Added positioned fallback:", fallback);
     } else {
-      results.push({line: "Another adventure awaits, naturally.", comedian: "Ellen DeGeneres"});
+      const basicFallback = rating.toLowerCase() === "r" ? 
+        "Another fucking adventure awaits, naturally." : 
+        "Another adventure awaits, naturally.";
+      results.push({line: basicFallback, comedian: "Ellen DeGeneres"});
     }
   }
 
@@ -843,5 +1024,33 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
   console.log("Topic diversity:", new Set(topicNouns).size, "unique topics from", topicNouns.length, "total nouns");
   console.log("Topic repetition check:", !repeatsTopicNouns(lines, insertWords) ? "PASSED" : "FAILED");
 
+  return results;
+}
+
+// Generate fallback set with enforced diversity
+async function generateFallbackSet(opts: any): Promise<Array<{line: string, comedian: string}>> {
+  const results: Array<{line: string, comedian: string}> = [];
+  const requiredStructures: StructureType[] = ["quip", "question", "metaphor", "observational"];
+  
+  for (let i = 0; i < 4; i++) {
+    const structureType = requiredStructures[i % requiredStructures.length];
+    const targetBucket: PosBucket = i === 0 ? "front" : i === 1 ? "middle" : i === 2 ? "end" : "middle";
+    
+    try {
+      const lineResult = await generateOne({
+        ...opts,
+        targetBucket,
+        structureType,
+        existingLines: results.map(r => r.line)
+      });
+      
+      if (lineResult) {
+        results.push(lineResult);
+      }
+    } catch (error) {
+      console.error(`Fallback generation failed for structure ${structureType}:`, error);
+    }
+  }
+  
   return results;
 }
