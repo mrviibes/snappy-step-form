@@ -36,6 +36,20 @@ function timeoutPromise(ms: number): Promise<never> {
   });
 }
 
+// Helper function to convert ArrayBuffer to base64 in chunks (prevents stack overflow)
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const uint8Array = new Uint8Array(buffer);
+  const chunkSize = 0x8000; // 32KB chunks
+  let binary = '';
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
 // Retry wrapper with exponential backoff
 async function withRetry<T>(
   fn: () => Promise<T>, 
@@ -341,7 +355,8 @@ serve(async (req) => {
         }
         
         const imageBuffer = await imageResponse.arrayBuffer();
-        const imageBase64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+        console.log(`Image buffer size: ${imageBuffer.byteLength} bytes`);
+        const imageBase64 = arrayBufferToBase64(imageBuffer);
         imageData = `data:image/png;base64,${imageBase64}`;
         console.log('Successfully converted image URL to base64');
       } else {
