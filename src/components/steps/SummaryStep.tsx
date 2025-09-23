@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { generateFinalPrompt } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download, RefreshCw } from "lucide-react";
+import { generateFinalPrompt, generateImage } from "@/lib/api";
 
 interface SummaryStepProps {
   data: any;
@@ -10,9 +13,12 @@ interface SummaryStepProps {
   onNext: () => void;
 }
 
-export default function SummaryStep({ data }: SummaryStepProps) {
+export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [prompts, setPrompts] = useState<{positive: string, negative: string} | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(true);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Generate prompts on mount
   useEffect(() => {
@@ -39,10 +45,14 @@ export default function SummaryStep({ data }: SummaryStepProps) {
         };
 
         const response = await generateFinalPrompt(params);
-        setPrompts({
+        const newPrompts = {
           positive: response.positivePrompt,
           negative: response.negativePrompt
-        });
+        };
+        setPrompts(newPrompts);
+        
+        // Generate image after prompts are ready
+        await generateImageFromPrompt(newPrompts.positive);
       } catch (error) {
         console.error('Error generating prompts:', error);
         setPrompts({
@@ -50,12 +60,61 @@ export default function SummaryStep({ data }: SummaryStepProps) {
           negative: 'Error generating negative prompt'
         });
       } finally {
-        setIsLoading(false);
+        setIsLoadingPrompts(false);
       }
     };
 
     generatePrompts();
   }, [data]);
+
+  const generateImageFromPrompt = async (prompt: string) => {
+    if (!prompt || prompt.includes('Error')) return;
+    
+    setIsLoadingImage(true);
+    setImageError(null);
+    
+    try {
+      const imageData = await generateImage({
+        prompt,
+        dimension: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
+        quality: 'high'
+      });
+      
+      setGeneratedImage(imageData);
+      
+      // Update form data with generated image
+      updateData({
+        generation: {
+          ...data.generation,
+          images: [imageData],
+          selectedImage: imageData,
+          isComplete: true
+        }
+      });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      setImageError(error instanceof Error ? error.message : 'Failed to generate image');
+    } finally {
+      setIsLoadingImage(false);
+    }
+  };
+
+  const handleDownloadImage = () => {
+    if (!generatedImage) return;
+    
+    const link = document.createElement('a');
+    link.href = generatedImage;
+    link.download = 'viibe-generated-image.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleRegenerateImage = () => {
+    if (prompts?.positive) {
+      generateImageFromPrompt(prompts.positive);
+    }
+  };
 
   const formatArrayValue = (value: any) => {
     if (Array.isArray(value) && value.length > 0) {
@@ -83,14 +142,87 @@ export default function SummaryStep({ data }: SummaryStepProps) {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-xl font-semibold text-foreground mb-2">
-          Summary & Generated Prompts
+          Your Generated Image
         </h2>
         <p className="text-sm text-muted-foreground">
-          Review all your choices and the final prompts
+          Generated from your choices and prompts
+        </p>
+      </div>
+
+      {/* Generated Image Section */}
+      <Card className="p-4">
+        {isLoadingImage ? (
+          <div className="space-y-3">
+            <Skeleton className="aspect-square w-full rounded-lg" />
+            <div className="text-center text-sm text-muted-foreground">
+              Generating your image...
+            </div>
+          </div>
+        ) : imageError ? (
+          <div className="text-center space-y-3">
+            <div className="text-sm text-destructive">
+              {imageError}
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRegenerateImage}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Try Again
+            </Button>
+          </div>
+        ) : generatedImage ? (
+          <div className="space-y-3">
+            <div className="relative">
+              <img 
+                src={generatedImage} 
+                alt="Generated viibe image" 
+                className="w-full rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadImage}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRegenerateImage}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Regenerate
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-sm text-muted-foreground">
+            {isLoadingPrompts ? 'Preparing to generate image...' : 'No image generated'}
+          </div>
+        )}
+      </Card>
+
+      <Separator />
+
+      {/* Summary Section */}
+      <div className="text-center">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
+          Summary & Prompts
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Review all your choices and the technical prompts
         </p>
       </div>
 
@@ -117,7 +249,7 @@ export default function SummaryStep({ data }: SummaryStepProps) {
       <div className="space-y-4">
         <h3 className="font-semibold text-foreground">Generated Prompts</h3>
         
-        {isLoading ? (
+        {isLoadingPrompts ? (
           <Card className="p-4">
             <div className="text-center text-muted-foreground">
               Generating prompts...

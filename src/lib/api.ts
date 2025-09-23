@@ -66,6 +66,20 @@ type GenerateFinalPromptResponse = {
   error: string; 
 };
 
+type GenerateImageParams = {
+  prompt: string;
+  dimension?: 'square' | 'portrait' | 'landscape';
+  quality?: 'high' | 'medium' | 'low';
+};
+
+type GenerateImageResponse = {
+  success: true;
+  imageData: string;
+} | {
+  success: false;
+  error: string;
+};
+
 // Controlled fetch with timeout and abort
 const ctlFetch = async <T>(fn: string, body: any, timeoutMs = 30000): Promise<T> => {
   const timeoutPromise = new Promise((_, reject) => 
@@ -181,6 +195,19 @@ export async function generateFinalPrompt(params: GenerateFinalPromptParams): Pr
     };
   } catch (error) {
     console.error('Final prompt generation failed:', error);
+    throw error;
+  }
+}
+
+export async function generateImage(params: GenerateImageParams): Promise<string> {
+  try {
+    const res = await ctlFetch<GenerateImageResponse>("generate-image", params, 60000); // 60s timeout for image generation
+    if (!res || !(res as any).success) {
+      throw new Error((res as any)?.error || "Image generation failed");
+    }
+    return (res as any).imageData;
+  } catch (error) {
+    console.error('Image generation failed:', error);
     throw error;
   }
 }
