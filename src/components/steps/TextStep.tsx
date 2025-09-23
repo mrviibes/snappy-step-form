@@ -57,7 +57,10 @@ export default function TextStep({
   const [showGeneration, setShowGeneration] = useState(false);
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
-  const [textOptions, setTextOptions] = useState<Array<{line: string, comedian: string}>>([]);
+  const [textOptions, setTextOptions] = useState<Array<{
+    line: string;
+    comedian: string;
+  }>>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
@@ -76,14 +79,10 @@ export default function TextStep({
         tone: data.text?.tone,
         style: data.text?.style || 'Generic',
         rating: data.text?.rating || 'PG',
-        insertWords: Array.isArray(data.text?.specificWords)
-          ? data.text?.specificWords
-          : data.text?.specificWords
-          ? [data.text?.specificWords]
-          : [],
-        comedianStyle: data.text?.comedianStyle ? { 
-          name: data.text.comedianStyle, 
-          flavor: '' 
+        insertWords: Array.isArray(data.text?.specificWords) ? data.text?.specificWords : data.text?.specificWords ? [data.text?.specificWords] : [],
+        comedianStyle: data.text?.comedianStyle ? {
+          name: data.text.comedianStyle,
+          flavor: ''
         } : null,
         userId: 'anonymous'
       });
@@ -97,12 +96,10 @@ export default function TextStep({
       } else {
         setTextOptions(safe.slice(0, 4));
       }
-
       setShowTextOptions(true);
     } catch (error) {
       console.error('Text generation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Generation failed';
-      
       let userFriendlyMessage = 'Failed to generate text options. ';
       if (errorMessage.includes('timeout') || errorMessage.includes('Request timeout')) {
         userFriendlyMessage += 'The request took too long - please try again or simplify your requirements.';
@@ -111,7 +108,6 @@ export default function TextStep({
       } else {
         userFriendlyMessage += errorMessage || 'Please try again.';
       }
-      
       setGenerationError(userFriendlyMessage);
     } finally {
       setIsGenerating(false);
@@ -173,8 +169,8 @@ export default function TextStep({
   };
   const handleSpecificWordsChoice = (hasWords: boolean) => {
     if (hasWords) {
-      setShowSpecificWordsInput(true);
-      // Keep showing the choice section but now with input
+      setShowSpecificWordsChoice(false);
+      // Show the input section (current behavior)
     } else {
       setShowSpecificWordsChoice(false);
       setShowGeneration(true); // Skip to generation step
@@ -221,8 +217,6 @@ export default function TextStep({
   };
   const handleReadyToGenerate = () => {
     setShowGeneration(true);
-    setShowSpecificWordsChoice(false);
-    setShowSpecificWordsInput(false);
   };
   const handleStyleSelect = (styleId: string) => {
     updateData({
@@ -287,7 +281,7 @@ export default function TextStep({
       text: {
         ...data.text,
         layout: layoutId,
-        isComplete: true  // Mark as complete when layout is selected
+        isComplete: true // Mark as complete when layout is selected
       }
     });
   };
@@ -373,8 +367,7 @@ export default function TextStep({
 
   // Special case: If "no-text" is selected, show simple confirmation
   if (data.text?.writingPreference === 'no-text') {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         {/* Selected Tone and Process in stacked format */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Selected Tone */}
@@ -384,10 +377,7 @@ export default function TextStep({
                 <span className="font-semibold">Tone</span> - {selectedTone?.label}
               </div>
             </div>
-            <button 
-              onClick={handleEditTone} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -399,10 +389,7 @@ export default function TextStep({
                 <span className="font-semibold">Process</span> - {selectedWritingPreference?.label}
               </div>
             </div>
-            <button 
-              onClick={handleEditWritingPreference} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
+            <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -417,8 +404,7 @@ export default function TextStep({
             You can proceed to choose your visual style.
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
 
   // Show selected preferences and specific words input
@@ -453,7 +439,6 @@ export default function TextStep({
             <button onClick={() => {
           setShowGeneration(false);
           setShowSpecificWordsChoice(true);
-          setShowSpecificWordsInput(false);
         }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
@@ -522,52 +507,21 @@ export default function TextStep({
             </div>
           </div>
 
-          {!showSpecificWordsInput ? (
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => handleSpecificWordsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-                <div className="font-semibold text-lg">Yes</div>
-              </button>
-              <button onClick={() => handleSpecificWordsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-                <div className="font-semibold text-lg">No</div>
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <Input 
-                value={tagInput} 
-                onChange={e => setTagInput(e.target.value)} 
-                onKeyDown={handleAddTag} 
-                placeholder="Enter words you want included into your final text" 
-                className="w-full py-6 min-h-[72px] text-center" 
-              />
-              
-              {/* Display tags right under input box */}
-              {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
-                  {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                      <span>{word}</span>
-                      <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
-                        ×
-                      </button>
-                    </div>)}
-                </div>}
-
-              {/* Done button - only show when there's at least one word */}
-              {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex justify-center pt-4">
-                  <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
-                    I'm Done With Putting Text
-                  </Button>
-                </div>}
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            <button onClick={() => handleSpecificWordsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+              <div className="font-semibold text-lg">Yes</div>
+            </button>
+            <button onClick={() => handleSpecificWordsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+              <div className="font-semibold text-lg">No</div>
+            </button>
+          </div>
         </div>}
 
       {/* Add Specific Words Section - only show before generation and NOT for write-myself and NOT when showing choice */}
       {!showGeneration && data.text?.writingPreference !== 'write-myself' && !showSpecificWordsChoice && <div className="space-y-4 pt-4">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">Inserted Words (optional)</h2>
-          <div className="mt-3">
-            <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
-          </div>
+          
+          
           
           {/* Text Layout Example */}
           
@@ -690,13 +644,10 @@ export default function TextStep({
                   </div>
                   
                    <div className="space-y-3">
-                     {textOptions.map((textOption, index) => (
-                       <div key={index} onClick={() => handleTextOptionSelect(index)} 
-                            className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
+                     {textOptions.map((textOption, index) => <div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
                          <p className="text-sm leading-relaxed mb-2">{textOption.line}</p>
                          <p className="text-xs text-muted-foreground font-medium">— {textOption.comedian}</p>
-                       </div>
-                     ))}
+                       </div>)}
                    </div>
                  </div>}
 
