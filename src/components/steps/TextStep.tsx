@@ -328,7 +328,7 @@ export default function TextStep({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {tones.map(tone => <button key={tone.id} onClick={() => handleToneSelect(tone.id)} className="aspect-square rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+          {tones.map(tone => <button key={tone.id} onClick={() => handleToneSelect(tone.id)} className="h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
               <div className="flex h-full flex-col items-center justify-center space-y-1">
                 <div className="font-semibold text-sm">{tone.label}</div>
                 <div className="text-xs text-muted-foreground">{tone.description}</div>
