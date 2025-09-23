@@ -170,7 +170,7 @@ export default function TextStep({
   const handleSpecificWordsChoice = (hasWords: boolean) => {
     if (hasWords) {
       setShowSpecificWordsChoice(false);
-      // Show the input section (current behavior)
+      setShowSpecificWordsInput(true);
     } else {
       setShowSpecificWordsChoice(false);
       setShowGeneration(true); // Skip to generation step
@@ -216,6 +216,7 @@ export default function TextStep({
     });
   };
   const handleReadyToGenerate = () => {
+    setShowSpecificWordsInput(false);
     setShowGeneration(true);
   };
   const handleStyleSelect = (styleId: string) => {
@@ -439,6 +440,7 @@ export default function TextStep({
             <button onClick={() => {
           setShowGeneration(false);
           setShowSpecificWordsChoice(true);
+          setShowSpecificWordsInput(false);
         }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
@@ -517,18 +519,23 @@ export default function TextStep({
           </div>
         </div>}
 
-      {/* Add Specific Words Section - only show before generation and NOT for write-myself and NOT when showing choice */}
-      {!showGeneration && data.text?.writingPreference !== 'write-myself' && !showSpecificWordsChoice && <div className="space-y-4 pt-4">
+      {/* Add Specific Words Section - only show when showSpecificWordsInput is true */}
+      {showSpecificWordsInput && <div className="space-y-4 pt-4">
         <div className="text-center">
-          
-          
-          
-          {/* Text Layout Example */}
-          
+          <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
+          <div className="mt-3">
+            <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
+          </div>
         </div>
 
         <div className="space-y-3">
-          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
+          <Input 
+            value={tagInput} 
+            onChange={e => setTagInput(e.target.value)} 
+            onKeyDown={handleAddTag} 
+            placeholder="Enter words you want included into your final text" 
+            className="w-full py-6 min-h-[72px] text-center" 
+          />
           
           {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
