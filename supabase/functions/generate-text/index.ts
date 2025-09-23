@@ -363,9 +363,22 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Enhanced prompt with ultra-clear formatting requirements
-    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes in ${payload.tone} tone.
+    // Enhanced prompt with ultra-clear formatting requirements - special handling for complex tones
+    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes in ${payload.tone} tone.`;
     
+    // Special handling for tones that tend to create complex/long text
+    if (['sentimental', 'nostalgic', 'heartfelt', 'romantic'].includes(payload.tone?.toLowerCase())) {
+      instructions += `
+
+CRITICAL FOR SENTIMENTAL TONE:
+- Keep each joke to ONE sentence only (no rambling)
+- Be heartfelt but concise (50-120 characters)
+- Avoid flowery language that creates long sentences
+- Use simple, direct emotional statements`;
+    }
+    
+    instructions += `
+
 STRICT FORMAT REQUIREMENTS:
 - Each line: ${config.lengthMin}-${config.lengthMax} characters
 - Maximum ${config.maxPunct} punctuation marks per line  
@@ -389,7 +402,7 @@ STRICT FORMAT REQUIREMENTS:
     }
     
     instructions += `\n- Rating: ${payload.rating}
-    
+
 RETURN FORMAT: Just 4 jokes, each on its own line, nothing else:`;
     
     const userPrompt = `${instructions}
@@ -578,20 +591,27 @@ Nonce: ${nonce}`;
           const errorData = JSON.parse(generationError.message.replace('insufficient_valid_lines:', ''));
           debugInfo = errorData;
           
-          // Create user-friendly message based on failure patterns
+          // Create specific user-friendly messages based on failure patterns
           const commonFailures = errorData.detailedFailures || errorData.failures || [];
           const failureReasons = commonFailures.map(f => f.reason);
           
-          if (failureReasons.includes('length_out_of_bounds')) {
-            userMessage = `Generated text was too long. Try a simpler tone or shorter ${subcategory} jokes.`;
-          } else if (failureReasons.includes('category_anchor_missing')) {
-            userMessage = `Could not create ${subcategory}-specific jokes. Try different settings or a more general category.`;
-          } else if (failureReasons.includes('forbidden_punctuation')) {
-            userMessage = `Generated text had formatting issues. Please try again.`;
-          } else if (failureReasons.includes('punct_invalid')) {
-            userMessage = `Generated text was too complex. Try a simpler tone or different category.`;
+          // Analyze specific failure patterns for better user guidance
+          if (failureReasons.some(r => r.includes('multiple_sentences'))) {
+            userMessage = `Generated text was too wordy (multiple sentences). Try "${payload.tone}" with shorter, punchier phrasing.`;
+          } else if (failureReasons.some(r => r.includes('length_out_of_bounds'))) {
+            userMessage = `Generated text exceeded 120 character limit. "${payload.tone}" tone tends to be longer - try "playful" or "witty" instead.`;
+          } else if (failureReasons.some(r => r.includes('punct_invalid'))) {
+            userMessage = `Generated text had too much punctuation (>2 marks). "${payload.tone}" tone creates complex sentences - try simpler tones.`;
+          } else if (failureReasons.some(r => r.includes('category_anchor_missing'))) {
+            userMessage = `Could not create ${subcategory}-specific content. Try a more general category or different tone.`;
+          } else if (failureReasons.some(r => r.includes('forbidden_punctuation'))) {
+            userMessage = `Generated text used forbidden punctuation (semicolons, em-dashes). Please try again.`;
+          } else if (failureReasons.some(r => r.includes('insert_not_once'))) {
+            const missingTag = failureReasons.find(r => r.includes('insert_not_once'))?.split(':')[1];
+            userMessage = `Could not naturally include "${missingTag}" in ${subcategory} context. Try different category or remove specific words.`;
           } else {
-            userMessage = `Generated ${errorData.validLines || 0} of 4 valid lines. Try adjusting tone or category settings.`;
+            const validCount = errorData.validLines || 0;
+            userMessage = `Generated ${validCount} of 4 valid lines. Main issue: ${failureReasons[0]?.replace(/_/g, ' ') || 'formatting problems'}`;
           }
         } catch (parseError) {
           console.error('Failed to parse error details:', parseError);
