@@ -62,6 +62,22 @@ const COMEDIAN_STYLES = [
   { name: "Hart", flavor: "animated physical comedy, you gonna learn today" }
 ];
 
+// Normalize category/subcategory keys like "celebrations > wedding" -> "wedding"
+function normKey(input?: string): string {
+  if (!input) return '';
+  const last = String(input).split('>').pop()!.trim().toLowerCase();
+  // Simple aliasing map if needed in future
+  const aliases: Record<string, string> = {
+    'weddings': 'wedding',
+  };
+  return aliases[last] || last;
+}
+
+function getLexiconFor(input?: string): string[] {
+  const key = normKey(input);
+  return MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
+}
+
 function validateMasterRules(line: string, scenario: any): { ok: boolean; reason?: string } {
   const text = line.trim();
   
@@ -97,21 +113,22 @@ function validateMasterRules(line: string, scenario: any): { ok: boolean; reason
   }
   
   // 4. Category anchoring
-  const subcategory = scenario.subcategory || scenario.category;
-  const lexicon = MASTER_CONFIG.lexicons[subcategory] || [];
+  const subcategoryRaw = scenario.subcategory || scenario.category;
+  const key = normKey(subcategoryRaw);
+  const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
   const hasDirectAnchor = lexicon.some(w => 
     new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
   );
   
   if (!hasDirectAnchor) {
     // Check contextual cues
-    const contextCues = {
-      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
+    const contextCues: Record<string, RegExp> = {
+      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws|rings|bouquet|vows|toast|cake)\b/i,
       birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party)\b/i,
       graduation: /\b(graduat|commencement|walk the stage)\b/i
     };
     
-    const hasContextAnchor = contextCues[subcategory]?.test(text);
+    const hasContextAnchor = contextCues[key]?.test(text);
     if (!hasContextAnchor) {
       return { ok: false, reason: "category_anchor_missing" };
     }
@@ -169,11 +186,11 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
     lengths.push(line.length);
     
     // Count direct lexicon hits
-    const subcategory = scenario.subcategory || scenario.category;
-    const lexicon = MASTER_CONFIG.lexicons[subcategory] || [];
-    if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
-      directAnchors++;
-    }
+  const key = normKey(scenario.subcategory || scenario.category);
+  const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
+  if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
+    directAnchors++;
+  }
   }
   
   if (failures.length) {
@@ -278,7 +295,7 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
 Comedian Style: ${comedian.name} – ${comedian.flavor}
 
 Examples of good ${subcategory} context integration:
-- Use keywords like: ${MASTER_CONFIG.lexicons[subcategory]?.slice(0, 5).join(', ') || 'relevant terms'}
+- Use keywords like: ${getLexiconFor(subcategory).slice(0, 5).join(', ') || 'relevant terms'}
 - Reference situations specific to ${subcategory}
 
 Generate ONE line only:`;
@@ -367,6 +384,8 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Master Rules Generation Request:', payload);
     
+    // Defaults and normalization
+    if (!payload.rating) payload.rating = 'PG';
     const nonce = generateNonce();
     const subcategory = payload.subcategory || payload.category;
     
@@ -382,7 +401,7 @@ MASTER RULES (CRITICAL - NO EXCEPTIONS):
 6. Quality: Sharp, quotable, stand-up quality humor - no greeting card fluff
 7. Variety: Vary line length and structure within each set of 4
 
-Category Keywords Available: ${MASTER_CONFIG.lexicons[subcategory]?.join(', ') || 'general'}
+Category Keywords Available: ${getLexiconFor(subcategory).join(', ') || 'general'}
 
 Rating Guidelines:
 - G: Family-safe, wholesome, playful
@@ -438,7 +457,7 @@ Nonce: ${nonce}`;
           troubleshooting: 'Try different insert words, simpler tone, or different category'
         }
       }), {
-        status: statusCode,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
