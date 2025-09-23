@@ -555,17 +555,10 @@ export default function TextStep({
                   </div>)}
               </div>}
 
-            {/* Done button - show always, will skip if no words */}
+            {/* Done button - show always, auto-generate if no words */}
             <div className="flex justify-center pt-4">
-              <Button onClick={() => {
-            if (data.text?.specificWords && data.text.specificWords.length > 0) {
-              handleReadyToGenerate();
-            } else {
-              setShowSpecificWordsChoice(false);
-              setShowGeneration(true);
-            }
-          }} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
-                {data.text?.specificWords && data.text.specificWords.length > 0 ? "Let's Generate the Final Text" : "Continue Without Specific Words"}
+              <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
+                Let's Generate the Final Text
               </Button>
             </div>
 
