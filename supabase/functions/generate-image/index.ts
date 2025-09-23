@@ -220,11 +220,10 @@ serve(async (req) => {
 
     // Use retry wrapper for the API call with 30s timeout per attempt
     const response = await withRetry(async () => {
-      const fetchPromise = fetch('https://api.ideogram.ai/generate-v3', {
+      const fetchPromise = fetch('https://api.ideogram.ai/generate', {
         method: 'POST',
         headers: {
           'Api-Key': ideogramApiKey,
-          'Authorization': `Bearer ${ideogramApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(ideogramRequestBody),
