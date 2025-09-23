@@ -2427,7 +2427,7 @@ export default function CategoryStep({
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-8">
+      <div className="relative mb-6">
         <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-cyan-400" size={24} />
         <Input 
           type="text" 
@@ -2436,6 +2436,13 @@ export default function CategoryStep({
           onChange={e => setSearchQuery(e.target.value)} 
           className="pl-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
+      </div>
+
+      {/* Manual browse text */}
+      <div className="text-center mb-8">
+        <p className="text-muted-foreground text-sm">
+          or search through the categories manually below
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
