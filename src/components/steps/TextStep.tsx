@@ -99,9 +99,19 @@ export default function TextStep({
 
       setShowTextOptions(true);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Generation failed';
-      setGenerationError(errorMessage);
       console.error('Text generation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Generation failed';
+      
+      let userFriendlyMessage = 'Failed to generate text options. ';
+      if (errorMessage.includes('timeout') || errorMessage.includes('Request timeout')) {
+        userFriendlyMessage += 'The request took too long - please try again or simplify your requirements.';
+      } else if (errorMessage.includes('validation')) {
+        userFriendlyMessage += 'Generated content didn\'t meet quality standards - please try different settings.';
+      } else {
+        userFriendlyMessage += errorMessage || 'Please try again.';
+      }
+      
+      setGenerationError(userFriendlyMessage);
     } finally {
       setIsGenerating(false);
     }

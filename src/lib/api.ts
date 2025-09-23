@@ -67,7 +67,7 @@ type GenerateFinalPromptResponse = {
 };
 
 // Controlled fetch with timeout and abort
-const ctlFetch = async <T>(fn: string, body: any, timeoutMs = 15000): Promise<T> => {
+const ctlFetch = async <T>(fn: string, body: any, timeoutMs = 30000): Promise<T> => {
   const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
   );
@@ -134,7 +134,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<A
     if (error.name !== 'AbortError') {
       try {
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-        const retryRes = await ctlFetch<GenerateTextResponse>("generate-text", payload, 10000);
+        const retryRes = await ctlFetch<GenerateTextResponse>("generate-text", payload, 20000);
         if (retryRes && (retryRes as any).success === true) {
           const retryOptions = (retryRes as any).options as Array<{line: string, comedian: string}>;
           const validated = retryOptions.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);

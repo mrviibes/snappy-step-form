@@ -378,11 +378,24 @@ function validateLine(
   // enforce ending punctuation
   if (!/[.!?]$/.test(line)) line += ".";
 
-  // enforce insert words (case-insensitive whole-words)
-  const okWords = insertWords.every(w =>
-    new RegExp(`\\b${escapeReg(w)}\\b`, "i").test(line)
-  );
-  if (!okWords) return null;
+  // enforce insert words (more flexible matching for complex phrases)
+  if (insertWords.length > 0) {
+    const okWords = insertWords.every(w => {
+      // For complex phrases, check if most words are present
+      const words = w.toLowerCase().split(/\s+/).filter(Boolean);
+      if (words.length === 1) {
+        // Single word - use strict boundary check
+        return new RegExp(`\\b${escapeReg(w)}\\b`, "i").test(line);
+      } else {
+        // Multi-word phrase - check if at least 75% of words are present
+        const foundWords = words.filter(word => 
+          new RegExp(`\\b${escapeReg(word)}\\b`, "i").test(line)
+        );
+        return foundWords.length >= Math.ceil(words.length * 0.75);
+      }
+    });
+    if (!okWords) return null;
+  }
 
   // Ban auto "Happy birthday" unless it's in insert words
   if (/^happy birthday\b/i.test(line) && !insertWords.some(w => /happy birthday/i.test(w))) {
@@ -555,8 +568,8 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
   const comedianUsage = new Map<string, string>(); // line -> comedian name
   let attempts = 0;
 
-  // Generate 4 lines with different placement buckets and structures
-  while (results.length < 4 && attempts < 25) {
+          // Reduce attempts and add progress logging
+          while (results.length < 4 && attempts < 15) {
     try {
       const targetBucket = pickNeededBucket(usedBuckets);
       // Pick structure type we haven't used yet
@@ -565,7 +578,9 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
         ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
         : structureTypes[Math.floor(Math.random() * structureTypes.length)];
       
-      const lineResult = await generateOne({
+            console.log(`Attempt ${attempts + 1}/15: Trying ${structureType} with ${targetBucket} placement`);
+            
+            const lineResult = await generateOne({
         ...opts,
         targetBucket,
         structureType,
