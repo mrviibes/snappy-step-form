@@ -456,6 +456,38 @@ async function withTimeout<T>(promise: Promise<T>, ms: number = 20000): Promise<
   ]).finally(() => clearTimeout(timer));
 }
 
+// Call OpenAI API with clean response
+async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+  if (!openaiKey) {
+    throw new Error('OpenAI API key not configured')
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.8,
+      max_tokens: 1000
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  return data.choices[0].message.content
+}
+
 // Enhanced OpenAI call with timeout and retry
 async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, maxRetries: number = 2): Promise<string> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {

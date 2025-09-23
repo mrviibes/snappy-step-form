@@ -700,7 +700,7 @@ Generate ${needToGenerate} replacement lines:`;
       
       // Continue to next attempt with more relaxed config
       console.log(`⏳ Waiting ${300 + attempt * 100}ms before retry with relaxed config...`);
-      await sleep(300 + attempt * 100);
+      await new Promise(resolve => setTimeout(resolve, 300 + attempt * 100));
       
     } catch (error) {
       console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
