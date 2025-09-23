@@ -319,6 +319,13 @@ export default function TextStep({
   // Show tone selection if no tone is selected
   if (!data.text?.tone) {
     return <div className="space-y-6">
+        {/* Category Breadcrumb - Left aligned */}
+        {data.category && data.subcategory && <div className="text-left mb-4">
+            <div className="text-sm text-muted-foreground">
+              Your selection: {data.category} &gt; {data.subcategory}
+            </div>
+          </div>}
+
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Choose Your Tone
@@ -339,6 +346,13 @@ export default function TextStep({
   // Show writing preference selection if no preference is selected
   if (!data.text?.writingPreference) {
     return <div className="space-y-6">
+        {/* Category Breadcrumb - Left aligned */}
+        {data.category && data.subcategory && <div className="text-left mb-4">
+            <div className="text-sm text-muted-foreground">
+              Your selection: {data.category} &gt; {data.subcategory}
+            </div>
+          </div>}
+
         {/* Selected Tone Display with Edit Option */}
         <div className="rounded-lg border-2 border-primary bg-card p-4">
           <div className="flex items-center justify-between">
@@ -369,6 +383,13 @@ export default function TextStep({
   // Special case: If "no-text" is selected, show simple confirmation
   if (data.text?.writingPreference === 'no-text') {
     return <div className="space-y-6">
+        {/* Category Breadcrumb - Left aligned */}
+        {data.category && data.subcategory && <div className="text-left mb-4">
+            <div className="text-sm text-muted-foreground">
+              Your selection: {data.category} &gt; {data.subcategory}
+            </div>
+          </div>}
+
         {/* Selected Tone and Process in stacked format */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Selected Tone */}
@@ -410,6 +431,13 @@ export default function TextStep({
 
   // Show selected preferences and specific words input
   return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {data.category && data.subcategory && <div className="text-left mb-4">
+          <div className="text-sm text-muted-foreground">
+            Your selection: {data.category} &gt; {data.subcategory}
+          </div>
+        </div>}
+
       {/* Selected Tone and Process in stacked format */}
       <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Tone */}
