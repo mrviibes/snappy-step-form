@@ -41,6 +41,31 @@ type GenerateVisualsParams = {
 
 type GenerateVisualsResponse = { success: true; visuals: VisualRecommendation[] } | { success: false; error: string };
 
+type GenerateFinalPromptParams = {
+  finalText: string;
+  category: string;
+  subcategory?: string;
+  subSubcategory?: string;
+  tone: string;
+  textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
+  rating: "G"|"PG"|"PG-13"|"R";
+  insertWords?: string[];
+  comedianStyle?: string;
+  visualStyle: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
+  layout: string;
+  dimension: "Square"|"Portrait"|"Landscape";
+  insertedVisuals?: string[];
+};
+
+type GenerateFinalPromptResponse = { 
+  success: true; 
+  positivePrompt: string; 
+  negativePrompt: string; 
+} | { 
+  success: false; 
+  error: string; 
+};
+
 // Controlled fetch with timeout and abort
 const ctlFetch = async <T>(fn: string, body: any, timeoutMs = 15000): Promise<T> => {
   const timeoutPromise = new Promise((_, reject) => 
@@ -140,6 +165,22 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
     return visuals.slice(0, 4);
   } catch (error) {
     console.error('Visual generation failed:', error);
+    throw error;
+  }
+}
+
+export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{positivePrompt: string, negativePrompt: string}> {
+  try {
+    const res = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
+    if (!res || (res as any).success !== true) {
+      throw new Error((res as any)?.error || "Final prompt generation failed");
+    }
+    return {
+      positivePrompt: (res as any).positivePrompt,
+      negativePrompt: (res as any).negativePrompt
+    };
+  } catch (error) {
+    console.error('Final prompt generation failed:', error);
     throw error;
   }
 }
