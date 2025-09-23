@@ -5,6 +5,168 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const CHAT_MODEL = "gpt-4o-mini";
 
+// Load the tone-style-rating matrix
+const matrixConfig = {
+  "version": "1.0",
+  "global_rules": {
+    "max_punctuation_per_line": 2,
+    "length_min": 50,
+    "length_max": 120,
+    "ban_em_dash": true,
+    "impossible_combo_overrides": [
+      { "if": {"style":"wholesome","rating":"r"}, "action":"downgrade_rating", "to":"pg" },
+      { "if": {"tone":"romantic","rating":"r","style":"wholesome"}, "action":"switch_style", "to":"sarcastic" }
+    ]
+  },
+  "ratings": {
+    "g": {
+      "forbidden_words": ["f***","s***","a**","d***","c***","bastard","sexual","explicit"],
+      "allow_innuendo": false
+    },
+    "pg": {
+      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
+      "allow_innuendo": true
+    },
+    "pg-13": {
+      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
+      "allowed_mild_swears": ["damn","hell","crap","ass"]
+    },
+    "r": {
+      "require_at_least_one_from": ["f***","s***","a**","bastard","bulls***"],
+      "forbidden_words": []
+    }
+  },
+  "comedian_pools": {
+    "CLEAN": ["Jim Gaffigan","Brian Regan","Ellen DeGeneres","Jerry Seinfeld","John Mulaney"],
+    "PG_EDGE": ["Sarah Silverman","Kevin Hart","Patton Oswalt","Ali Wong","Aziz Ansari"],
+    "PG13_SAVAGE": ["Bill Burr","Joan Rivers","Ricky Gervais","Chris Rock","Louis C.K."],
+    "R_EXPLICIT": ["George Carlin","Bill Burr","Joan Rivers","Sarah Silverman","Ricky Gervais","Louis C.K.","Ali Wong"],
+    "ROMANTIC_WARM": ["Jim Gaffigan","Ellen DeGeneres","John Mulaney"],
+    "ROMANTIC_SARCASTIC": ["Ali Wong","Sarah Silverman","Bill Burr"],
+    "WEIRD_DRY": ["Mitch Hedberg","Steven Wright","Norm Macdonald"],
+    "NERDY_STORY": ["Patton Oswalt","John Mulaney","Hasan Minhaj"]
+  },
+  "tone_style_map": {
+    "humorous": {
+      "generic":   { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" }
+    },
+    "savage": {
+      "generic":   { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"CLEAN" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" }
+    },
+    "sentimental": {
+      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    },
+    "romantic": {
+      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    },
+    "inspirational": {
+      "generic":   { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    },
+    "playful": {
+      "generic":   { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    },
+    "serious": {
+      "generic":   { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    },
+    "nostalgic": {
+      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
+      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
+      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
+      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
+    }
+  },
+  "persona_overrides": {
+    "Norm Macdonald": "Keep dry, odd, dark. Prefer short lines. Avoid flowery romance.",
+    "Mitch Hedberg": "One-liners, surreal comparisons, minimal punctuation.",
+    "Steven Wright": "Deadpan, literal absurdity, short lines.",
+    "Joan Rivers": "Sharp roasts. For PG-13 avoid f-bomb; for R allow it.",
+    "Bill Burr": "Rants. For PG-13: no f-bomb. For R: allow swearing.",
+    "Ali Wong": "Relationship bite. For R: raunchy; for PG: sanitize.",
+    "Jim Gaffigan": "Food/family warm. G/PG only.",
+    "Jerry Seinfeld": "Observational, clean cadence.",
+    "Patton Oswalt": "Nerdy, specific imagery, heartfelt or sharp.",
+    "Ricky Gervais": "Mocking, brisk. PG-13/R only.",
+    "Sarah Silverman": "Ironic taboos. For G/PG: soft; PG-13/R: sharper."
+  }
+};
+
+// Helper function to get comedian pool based on tone/style/rating
+function getComedianPool(tone: string, style: string, rating: string): string[] {
+  const toneKey = tone.toLowerCase();
+  const styleKey = style.toLowerCase();
+  const ratingKey = rating.toLowerCase();
+  
+  const poolKey = matrixConfig.tone_style_map[toneKey]?.[styleKey]?.[ratingKey];
+  if (poolKey && matrixConfig.comedian_pools[poolKey]) {
+    return matrixConfig.comedian_pools[poolKey];
+  }
+  
+  // Fallback to generic mapping
+  return matrixConfig.comedian_pools.CLEAN;
+}
+
+// Apply impossible combo overrides
+function applyComboOverrides(tone: string, style: string, rating: string): {tone: string, style: string, rating: string} {
+  let finalTone = tone;
+  let finalStyle = style;
+  let finalRating = rating;
+  
+  for (const override of matrixConfig.global_rules.impossible_combo_overrides) {
+    const conditions = override.if;
+    let matches = true;
+    
+    if (conditions.style && conditions.style.toLowerCase() !== style.toLowerCase()) matches = false;
+    if (conditions.rating && conditions.rating.toLowerCase() !== rating.toLowerCase()) matches = false;
+    if (conditions.tone && conditions.tone.toLowerCase() !== tone.toLowerCase()) matches = false;
+    
+    if (matches) {
+      if (override.action === "downgrade_rating") {
+        finalRating = override.to;
+      } else if (override.action === "switch_style") {
+        finalStyle = override.to;
+      }
+    }
+  }
+  
+  return { tone: finalTone, style: finalStyle, rating: finalRating };
+}
+
+// Enhanced validation for R-rated content
+function validateRRating(line: string, rating: string): boolean {
+  if (rating.toLowerCase() !== "r") return true;
+  
+  const ratingRules = matrixConfig.ratings.r;
+  if (ratingRules.require_at_least_one_from) {
+    const hasExplicitContent = ratingRules.require_at_least_one_from.some(word => 
+      line.toLowerCase().includes(word.replace(/\*/g, ''))
+    );
+    return hasExplicitContent;
+  }
+  
+  return true;
+}
+
 const corsHeaders = {
   "content-type": "application/json",
   "access-control-allow-origin": "*",
@@ -272,9 +434,9 @@ function buildPrompt(opts: {
 
   const ratingRules: Record<string, string> = {
     "g": "clean language only. Humor may be playful, observational, or absurd without profanity.",
-    "pg": "mild spice, no explicit profanity",
-    "pg-13": "light innuendo allowed, no explicit profanity",
-    "r": "adult humor allowed, profanity permitted",
+    "pg": "mild spice, no explicit profanity. Light innuendo allowed.",
+    "pg-13": "edgy humor allowed with mild swears (damn, hell, crap, ass). No f-bombs.",
+    "r": "explicit adult humor with strong profanity required. Must include at least one strong swear word (f***, s***, a******, bastard).",
   };
 
   const styleHints: Record<string, string> = {
@@ -473,16 +635,35 @@ async function generateOne(opts: {
   usedTopics: Set<string>;
   existingLines: string[];
 }): Promise<{line: string, comedian: string} | null> {
-  // Pick a comedian not yet used
-  const availableComedians = comedianStyles.filter(c => !opts.usedComedians.has(c.name));
-  const comedianStyle = availableComedians.length > 0 
-    ? availableComedians[Math.floor(Math.random() * availableComedians.length)]
-    : comedianStyles[Math.floor(Math.random() * comedianStyles.length)];
+  // Apply combo overrides first
+  const { tone, style, rating } = applyComboOverrides(opts.tone, opts.style, opts.rating);
   
-  opts.usedComedians.add(comedianStyle.name);
+  // Get appropriate comedian pool based on matrix
+  const comedianPool = getComedianPool(tone, style, rating);
+  
+  // Pick a comedian from the appropriate pool, avoiding already used ones
+  const availableComedians = comedianPool.filter(name => !opts.usedComedians.has(name));
+  const comedianName = availableComedians.length > 0 
+    ? availableComedians[Math.floor(Math.random() * availableComedians.length)]
+    : comedianPool[Math.floor(Math.random() * comedianPool.length)];
+  
+  opts.usedComedians.add(comedianName);
+  
+  // Create comedian style object with persona override
+  const comedianStyle = {
+    name: comedianName,
+    flavor: matrixConfig.persona_overrides[comedianName] || "Standard comedic style"
+  };
   
   const nonce = Math.random().toString(36).slice(2);
-  const { system, user } = buildPrompt({ ...opts, comedianStyle, nonce });
+  const { system, user } = buildPrompt({ 
+    ...opts, 
+    tone, 
+    style, 
+    rating, 
+    comedianStyle, 
+    nonce 
+  });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -518,7 +699,13 @@ async function generateOne(opts: {
     const data = await response.json();
     const raw = (data?.choices?.[0]?.message?.content || "").trim();
     const first = normalizeFirstLine(raw);
-    const valid = validateLine(first, opts.rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines);
+    let valid = validateLine(first, rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines);
+    
+    // Enhanced R-rating validation
+    if (valid && !validateRRating(valid, rating)) {
+      console.log("R-rating validation failed - no explicit content found");
+      valid = null;
+    }
     
     console.log("Generated line attempt:", { 
       raw, 

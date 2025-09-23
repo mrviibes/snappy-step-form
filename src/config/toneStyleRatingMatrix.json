@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "notes": "Matrix for Step-2 Text Engine. Maps Tone×Style×Rating to comedian pools and language rules. Enforces punctuation and placement.",
+  "global_rules": {
+    "max_punctuation_per_line": 2,
+    "length_min": 50,
+    "length_max": 120,
+    "ban_em_dash": true,
+    "insert_words": {
+      "must_include_each": true,
+      "adjacent_forbidden": false,
+      "placement_spread_required": true,
+      "spread_buckets": ["front", "middle", "end", "free"]
+    },
+    "structure_mix_required": ["quip_short", "rhetorical_question", "metaphor_or_simile", "observational"],
+    "cliche_bans_by_category": {
+      "celebrations>birthday": ["cake","candles","confetti","balloons"],
+      "celebrations>wedding": ["vows","roses","rings","forever"],
+      "celebrations>graduation": ["cap","gown","diploma","tassel"],
+      "sports": ["trophy","scoreboard","locker room"],
+      "holidays>christmas": ["snow","tree","santa","reindeer"]
+    },
+    "impossible_combo_overrides": [
+      { "if": {"style":"Wholesome","rating":"R"}, "action":"downgrade_rating", "to":"PG" },
+      { "if": {"tone":"Romantic","rating":"R","style":"Wholesome"}, "action":"switch_style", "to":"Sarcastic" }
+    ]
+  },
+
+  "ratings": {
+    "G": {
+      "description": "Clean, family-safe.",
+      "required_any": [],
+      "forbidden_words": ["f***","s***","a**","d***","c***","bastard","sexual","explicit"],
+      "soft_bans": ["hangover","drunk","addiction"],
+      "allow_innuendo": false
+    },
+    "PG": {
+      "description": "Light spice, playful roasts.",
+      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
+      "allow_innuendo": true
+    },
+    "PG-13": {
+      "description": "Brutal/edgy without f-bombs.",
+      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
+      "allow_innuendo": true,
+      "allowed_mild_swears": ["damn","hell","crap","ass"]
+    },
+    "R": {
+      "description": "Explicit savage. Full swearing allowed (within platform policy).",
+      "require_at_least_one_from": ["f***","s***","a**","bastard","bulls***"],
+      "forbidden_words": [],
+      "allow_innuendo": true
+    }
+  },
+
+  "comedian_pools": {
+    "CLEAN": ["Jim Gaffigan","Brian Regan","Ellen DeGeneres","Jerry Seinfeld","John Mulaney"],
+    "PG_EDGE": ["Sarah Silverman","Kevin Hart","Patton Oswalt","Ali Wong","Aziz Ansari"],
+    "PG13_SAVAGE": ["Bill Burr","Joan Rivers","Ricky Gervais","Chris Rock","Louis C.K."],
+    "R_EXPLICIT": ["George Carlin","Bill Burr","Joan Rivers","Sarah Silverman","Ricky Gervais","Louis C.K.","Ali Wong"],
+    "ROMANTIC_WARM": ["Jim Gaffigan","Ellen DeGeneres","John Mulaney"],
+    "ROMANTIC_SARCASTIC": ["Ali Wong","Sarah Silverman","Bill Burr"],
+    "WEIRD_DRY": ["Mitch Hedberg","Steven Wright","Norm Macdonald"],
+    "NERDY_STORY": ["Patton Oswalt","John Mulaney","Hasan Minhaj"]
+  },
+
+  "tone_style_map": {
+    "Humorous": {
+      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
+    },
+
+    "Savage": {
+      "Generic":   { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
+    },
+
+    "Sentimental": {
+      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+
+    "Romantic": {
+      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+
+    "Inspirational": {
+      "Generic":   { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+
+    "Playful": {
+      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+
+    "Serious": {
+      "Generic":   { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+
+    "Nostalgic": {
+      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    }
+  },
+
+  "persona_overrides": [
+    { "name":"Norm Macdonald", "tips":"Keep dry, odd, dark. Prefer short lines. Avoid flowery romance." },
+    { "name":"Mitch Hedberg",  "tips":"One-liners, surreal comparisons, minimal punctuation." },
+    { "name":"Steven Wright",  "tips":"Deadpan, literal absurdity, short lines." },
+    { "name":"Joan Rivers",    "tips":"Sharp roasts. For PG-13 avoid f-bomb; for R allow it." },
+    { "name":"Bill Burr",      "tips":"Rants. For PG-13: no f-bomb. For R: allow swearing." },
+    { "name":"Ali Wong",       "tips":"Relationship bite. For R: raunchy; for PG: sanitize." },
+    { "name":"Jim Gaffigan",   "tips":"Food/family warm. G/PG only." },
+    { "name":"Jerry Seinfeld", "tips":"Observational, clean cadence." },
+    { "name":"Patton Oswalt",  "tips":"Nerdy, specific imagery, heartfelt or sharp." },
+    { "name":"Ricky Gervais",  "tips":"Mocking, brisk. PG-13/R only." },
+    { "name":"Sarah Silverman", "tips":"Ironic taboos. For G/PG: soft; PG-13/R: sharper." }
+  ]
+}
