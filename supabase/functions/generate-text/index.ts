@@ -581,11 +581,6 @@ Generate exactly 4 lines:`;
       // Continue to next attempt with more relaxed config
       console.log(`⏳ Waiting ${300 + attempt * 100}ms before retry with relaxed config...`);
       await sleep(300 + attempt * 100);
-          }))
-        };
-        console.log(`💥 Final attempt failed. Full debug info:`, JSON.stringify(errorDetails, null, 2));
-        throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
-      }
       
     } catch (error) {
       console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
