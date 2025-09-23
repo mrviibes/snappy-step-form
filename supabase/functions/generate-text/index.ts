@@ -213,10 +213,22 @@ const WEDDING_BANS = [
   "traffic","taxes","office","email","login","password"
 ];
 
+// Birthday-specific vocabulary - words that make content feel birthday-themed
+const BIRTHDAY_LEX = [
+  "birthday","cake","candles","party","celebration","age","year","older",
+  "wishes","balloons","presents","gifts","celebrate","another year"
+];
+
+// Birthday bans - avoid overly serious or unrelated topics
+const BIRTHDAY_BANS = [
+  "funeral","death","divorce","taxes","deadline","spreadsheet",
+  "meeting","performance review","diagnosis","crisis"
+];
+
 type LineCheck = {
   text: string;
   insertWords: string[]; // e.g., ["chosen"]
-  category: "wedding";
+  category: "wedding" | "birthday" | string;
   rating: "G"|"PG"|"PG-13"|"R";
 };
 
@@ -235,14 +247,20 @@ function passesStep2Rules(l: LineCheck): boolean {
     if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
   }
 
-  // 3) must include at least one wedding keyword
-  if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-
-  // 4) ban irrelevant topics
-  if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-
-  // 5) no placeholder fallbacks
-  if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+  // 3) Category-specific vocabulary requirements
+  if (l.category.toLowerCase() === "wedding") {
+    // Wedding must include at least one wedding keyword
+    if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+    // Ban irrelevant topics for weddings
+    if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+    // No placeholder fallbacks for weddings
+    if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+  } else if (l.category.toLowerCase() === "birthday" || l.category.toLowerCase().includes("birthday")) {
+    // Birthday content should feel birthday-themed but doesn't require specific keywords
+    // Allow "friend" as it's common in birthday content
+    // Ban overly serious topics
+    if (BIRTHDAY_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+  }
 
   return true;
 }
@@ -393,11 +411,18 @@ function generateUltimateFallback(body: any): Array<{line: string, comedian: str
   const insertWords = body.insertWords || [];
   const rating = (body.rating || "pg").toLowerCase();
   const tone = (body.tone || "humorous").toLowerCase();
+  const category = (body.category || "celebrations").toLowerCase();
   
   const iwText = insertWords.length > 0 ? insertWords[0] : "friend";
   
+  // Category-specific templates
   const templates = {
-    humorous: [
+    humorous: category.includes("birthday") ? [
+      `${iwText}, you're like a fine wine - getting better with age and making everyone else tipsy!`,
+      `Is it just me, or does ${iwText} have the perfect balance of chaos and charm?`,
+      `Another year of ${iwText} existing, and somehow we're all still surprised by the shenanigans!`,
+      `${iwText} brings joy like finding extra fries at the bottom of the bag - unexpected and delightful!`
+    ] : [
       `${iwText}, you're like a fine wine - getting better with age and making everyone else tipsy!`,
       `Is it just me, or does ${iwText} have the perfect balance of chaos and charm?`,
       `Life with ${iwText} is like having Wi-Fi that actually works - rare and wonderful!`,
@@ -534,18 +559,24 @@ function parseInsertWords(input: string[] | string | undefined): string[] {
   return inputStr.split(',').map(w => w.trim()).filter(Boolean);
 }
 
-// Get category-specific ban words (now properly bans off-topic words for wedding)
+// Get category-specific ban words 
 function getCategoryBanWords(category: string, subcategory: string): string[] {  
   if (category.toLowerCase() === "wedding") {
     return WEDDING_BANS; // Ban off-topic words like Wi-Fi, pizza, Monday
   }
+  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
+    return BIRTHDAY_BANS; // Ban overly serious or unrelated topics for birthdays
+  }
   return []; // Other categories don't have specific bans yet
 }
 
-// Get category-specific requirements (now properly requires wedding lexicon)
+// Get category-specific requirements 
 function getCategoryRequirement(category: string, subcategory: string): string {
   if (category.toLowerCase() === "wedding") {
     return "CRITICAL: Must include at least one wedding word: " + WEDDING_LEX.join(", ");
+  }
+  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
+    return "Birthday requirement: Make it feel celebratory and birthday-themed. Focus on humor, aging, parties, gifts, or celebration themes. Be funny and creative!";
   }
   if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
     return "Mother's Day requirement: Include clear mother/mom references to make it feel distinctly Mother's Day themed.";
@@ -843,7 +874,17 @@ function validateCategorySpecific(line: string, category: string, subcategory: s
     }
   }
   
-  // Add other category validations as needed
+  // Birthday specific validation - much more permissive than weddings
+  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
+    // Birthday content is more flexible - just ban overly serious topics
+    const seriousBans = /\b(funeral|death|divorce|crisis|diagnosis|therapy|depression)\b/i;
+    if (seriousBans.test(line)) {
+      console.log("Birthday validation FAILED - contains overly serious content:", line);
+      return false;
+    }
+    // Allow "friend" and other common birthday words - they're perfectly valid
+  }
+  
   return true;
 }
 
@@ -910,12 +951,12 @@ function validateRating(line: string, rating: string, structureType: StructureTy
   const boltedPattern = new RegExp(`[,;:]\\s*(?:${insertWords.map(escapeReg).join("|")})\\s*[.!?]?$`, "i");
   if (boltedPattern.test(line) && insertWords.length > 0) return null;
 
-  // For wedding category, validate with Step-2 rules
-  if (category.toLowerCase() === "wedding" && insertWords.length > 0) {
+  // Apply Step-2 rules for specific categories that need strict validation
+  if ((category.toLowerCase() === "wedding" || category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday")) && insertWords.length > 0) {
     const lineCheck: LineCheck = {
       text: line,
       insertWords: insertWords,
-      category: "wedding",
+      category: category.toLowerCase(),
       rating: (rating || "G").toUpperCase() as "G"|"PG"|"PG-13"|"R"
     };
     if (!passesStep2Rules(lineCheck)) {
