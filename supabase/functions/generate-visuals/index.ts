@@ -145,91 +145,58 @@ function buildVisualPrompt(params: GenerateVisualsParams): { system: string; use
   const palette = toneToPalette[tone] || 'balanced color palette'
   const boldness = ratingToBoldness[rating] || 'moderate styling'
   
-  // Map visual taste to specific guidance
-  const tasteGuidance = {
-    balanced: "balanced composition with natural elements",
-    cinematic: "dramatic lighting, depth of field, cinematic shadows and contrast", 
-    dreamlike: "soft ethereal textures, surreal atmospheric effects",
-    action: "dynamic motion, high energy composition, bold contrasts",
-    exaggerated: "amplified features, intense colors, dramatic proportions"
-  }[visualTaste] || "balanced approach"
-  
-  // Map dimensions to layout guidance
-  const dimensionGuidance = {
-    square: "centered composition with balanced negative space",
-    landscape: "wide cinematic format with horizontal emphasis", 
-    portrait: "vertical composition with upward visual flow"
-  }[dimension] || "centered composition"
-  
   const bannedTerms = selectedStyle.banned.length > 0 
     ? `NEVER use these conflicting styles: ${selectedStyle.banned.join(', ')}`
     : ''
 
-  const system = `You are a visual concept generator that creates text-anchored visual recommendations for humorous content.
+  const system = `You are a visual concept generator creating SHORT, punchy descriptions for image generation.
 
 CRITICAL RULES:
-1. ALWAYS anchor visuals to specific words from the text: "${finalText}"
-2. Extract key nouns, verbs, and concepts from the text to create props and scenes
-3. Generate exactly 4 distinct visual interpretations:
-   - Literal interpretation (direct objects/verbs from text)
-   - Metaphorical interpretation (symbolic props related to text meaning)
-   - Cinematic interpretation (dramatic lighting/focus on text elements)
-   - Abstract interpretation (textures/patterns inspired by text concepts)
-4. Visual style MUST be: ${selectedStyle.name} - ${selectedStyle.description}
-5. ${bannedTerms}
-6. Use ${tasteGuidance} for overall mood
-7. Apply ${dimensionGuidance} for composition
-8. Never fabricate personal details (age, occupation, relationships)
-9. Each recommendation must use a different layout approach
-
-LAYOUT TYPES: ${layouts.join(', ')}
+1. Each description must be 15-35 words maximum
+2. Start with main subject/action from text: "${finalText}"
+3. Include 2-3 concrete visual elements from the text
+4. End with lighting/mood keywords
+5. Generate exactly 4 interpretations:
+   - Cinematic: Dramatic camera angle, lighting, main subject prominent
+   - Close-Up: Detailed focus on key elements/props from text
+   - Crowd Reaction: Wide scene showing context and environment
+   - Minimalist: Simple composition, essential elements only
+6. Style: ${selectedStyle.name} - ${selectedStyle.description}
+7. ${bannedTerms}
+8. Use concrete objects, avoid abstract metaphors
+9. No fabricated personal details
 
 OUTPUT FORMAT (JSON only):
 {
   "visuals": [
     {
       "visualStyle": "${selectedStyle.name}",
-      "layout": "layout-type",
-      "description": "detailed visual description anchored to text elements",
-      "props": ["specific", "elements", "from", "text"],
-      "interpretation": "literal/metaphorical/cinematic/abstract",
-      "palette": ["#color1", "#color2", "#color3"],
-      "mood": "specific mood description"
+      "layout": "layout-type", 
+      "description": "15-35 word description with subject, props, mood",
+      "props": ["concrete", "elements", "from", "text"],
+      "interpretation": "cinematic/close-up/crowd-reaction/minimalist"
     }
   ]
 }`
 
-  const user = `Create 4 visual recommendations anchored to this text:
+  const user = `TEXT: "${finalText}"
 
-TEXT: "${finalText}"
+KEY ELEMENTS: ${concepts.join(', ')}
+CATEGORY: ${category}${subcategory ? ` > ${subcategory}` : ''}
+STYLE: ${selectedStyle.name} | TONE: ${tone} | RATING: ${rating}
 
-EXTRACTED ELEMENTS:
-- Key Nouns: ${nouns.join(', ') || 'none identified'}
-- Action Verbs: ${verbs.join(', ') || 'none identified'} 
-- Visual Concepts: ${concepts.join(', ') || 'general themes'}
-- Insert Words: ${insertWords.join(', ') || 'none'}
-- Custom Visuals: ${customVisuals.join(', ') || 'none'}
+Create 4 SHORT visual descriptions (15-35 words each):
 
-CONTEXT:
-- Category: ${category}${subcategory ? ` > ${subcategory}` : ''}${subSubcategory ? ` > ${subSubcategory}` : ''}
-- Tone: ${tone} (use ${palette})
-- Text Style: ${textStyle}
-- Rating: ${rating} (apply ${boldness})
-- Visual Taste: ${visualTaste} (${tasteGuidance})
-- Dimension: ${dimension} (${dimensionGuidance})
+1. CINEMATIC: Dramatic shot of main subject with ${selectedStyle.name.toLowerCase()} lighting, focus on: ${concepts.slice(0, 2).join(', ')}
+2. CLOSE-UP: Detailed view of key props/elements from text: ${concepts.slice(0, 3).join(', ')}  
+3. CROWD REACTION: Wide scene showing full context, ${category} setting, people reacting
+4. MINIMALIST: Simple ${selectedStyle.name.toLowerCase()} composition, essential elements only: ${concepts.slice(0, 2).join(', ')}
 
-REQUIREMENTS:
-1. Literal: Use direct objects/verbs from the text (e.g., if text mentions "impression", show fingerprints, footprints, dents)
-2. Metaphorical: Create symbolic representations of text meaning
-3. Cinematic: Apply dramatic ${selectedStyle.name.toLowerCase()} lighting to text elements
-4. Abstract: Transform text concepts into textures/patterns while staying ${selectedStyle.name.toLowerCase()}
-
-Each visual must:
-- Reference specific words from: ${concepts.join(', ')}
-- Use ${selectedStyle.name} style language only
-- Apply ${palette} color approach
-- Follow ${dimensionGuidance} composition
-- Enhance the ${tone} mood of the text`
+Each must:
+- Use words from the original text
+- Be concrete and specific
+- Include lighting/mood
+- Stay under 35 words`
 
   return { system, user }
 }
@@ -238,27 +205,36 @@ Each visual must:
 function validateVisualRec(rec: any, expectedStyle: string, textConcepts: string[]): VisualRecommendation | null {
   if (!rec || typeof rec !== 'object') return null
   
-  const { visualStyle, layout, description, props = [], interpretation, palette = [], mood } = rec
+  const { visualStyle, layout, description, props = [], interpretation } = rec
   
   // Validate required fields
-  if (!visualStyle || !layout || !description) return null
-  if (typeof description !== 'string' || description.length < 20) return null
+  if (!visualStyle || !layout || !description || !interpretation) return null
+  if (typeof description !== 'string') return null
+  
+  // Validate description length (15-40 words)
+  const wordCount = description.trim().split(/\s+/).length
+  if (wordCount < 15 || wordCount > 40) {
+    console.log(`Visual rejected: ${wordCount} words (need 15-40). Description: ${description.substring(0, 50)}`)
+    return null
+  }
+  
+  // Validate layout exists
   if (!layouts.includes(layout)) return null
   
   // Validate visual style matches expected
   if (visualStyle !== expectedStyle) return null
   
-  // Validate props if provided
-  if (props && !Array.isArray(props)) return null
+  // Validate interpretation type
+  const validInterpretations = ['cinematic', 'close-up', 'crowd-reaction', 'minimalist']
+  if (!validInterpretations.includes(interpretation)) return null
   
-  // Check if description is anchored to text concepts
+  // Check if description is anchored to text concepts (more lenient)
   const lowercaseDesc = description.toLowerCase()
-  const hasTextAnchor = textConcepts.some(concept => 
-    lowercaseDesc.includes(concept.toLowerCase()) || 
-    concept.toLowerCase().length > 3 && lowercaseDesc.includes(concept.toLowerCase().slice(0, -1))
+  const hasTextAnchor = textConcepts.length === 0 || textConcepts.some(concept => 
+    concept.length > 2 && lowercaseDesc.includes(concept.toLowerCase().substring(0, Math.min(4, concept.length)))
   )
   
-  if (!hasTextAnchor && textConcepts.length > 0) {
+  if (!hasTextAnchor) {
     console.log(`Visual rejected: no text anchoring. Concepts: ${textConcepts.join(', ')}, Description: ${description.substring(0, 50)}`)
     return null
   }
@@ -267,10 +243,8 @@ function validateVisualRec(rec: any, expectedStyle: string, textConcepts: string
     visualStyle,
     layout,
     description: description.trim(),
-    props: Array.isArray(props) ? props.filter(p => typeof p === 'string') : [],
-    interpretation,
-    palette: Array.isArray(palette) ? palette : [],
-    mood
+    props: Array.isArray(props) ? props.filter(p => typeof p === 'string').slice(0, 5) : [],
+    interpretation
   }
 }
 
@@ -398,12 +372,14 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   const fallbackLayouts = layouts.slice(0, 4)
   const { concepts: fallbackConcepts } = extractVisualConcepts(params.finalText)
   
+  const interpretations = ['cinematic', 'close-up', 'crowd-reaction', 'minimalist']
+  
   return fallbackLayouts.map((layout, index) => ({
     visualStyle: expectedStyle,
     layout,
-    description: `${expectedStyle} style ${layout.replace('-', ' ')} featuring ${fallbackConcepts[index] || 'the main concept'} from "${params.finalText.substring(0, 30)}..."`,
+    description: `${interpretations[index].replace('-', ' ')} shot featuring ${fallbackConcepts[0] || 'main subject'}, ${expectedStyle.toLowerCase()} style, ${params.tone.toLowerCase()} mood, focused lighting`,
     props: fallbackConcepts.slice(0, 3),
-    interpretation: ['literal', 'metaphorical', 'cinematic', 'abstract'][index] || 'literal'
+    interpretation: interpretations[index]
   }))
 }
 
