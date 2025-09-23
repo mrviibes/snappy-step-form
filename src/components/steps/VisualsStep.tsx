@@ -6,12 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
 import { Sparkles, Loader2 } from "lucide-react";
-import autoImage from "@/assets/visual-style-auto.jpg";
-import generalImage from "@/assets/visual-style-general.jpg";
-import realisticImage from "@/assets/visual-style-realistic.jpg";
-import designImage from "@/assets/visual-style-design.jpg";
-import renderImage from "@/assets/visual-style-3d-render.jpg";
-import animeImage from "@/assets/visual-style-anime.jpg";
+import autoImage from "@/assets/visual-style-auto-new.jpg";
+import generalImage from "@/assets/visual-style-general-new.jpg";
+import realisticImage from "@/assets/visual-style-realistic-new.jpg";
+import designImage from "@/assets/visual-style-design-new.jpg";
+import renderImage from "@/assets/visual-style-3d-new.jpg";
+import animeImage from "@/assets/visual-style-anime-new.jpg";
 
 interface VisualsStepProps {
   data: any;
