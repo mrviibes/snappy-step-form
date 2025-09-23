@@ -203,18 +203,15 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Compact Style Summary - More prominent Edit button */}
+      {/* Compact Style Summary - Consistent with other edit sections */}
       {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              
-              <div>
-                <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
-                <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
-              </div>
+            <div>
+              <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
+              <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
             </div>
             <button onClick={() => setEditingStyle(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Change Style
+              Edit
             </button>
           </div>
         </Card>}

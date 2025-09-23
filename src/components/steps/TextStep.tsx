@@ -367,12 +367,12 @@ export default function TextStep({
         </div>}
 
         {/* Selected Tone Display with Edit Option */}
-        <div className="rounded-lg border-2 border-primary bg-card p-4">
+        <div className="rounded-lg border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-foreground">
               <span className="font-semibold">Tone</span> - {selectedTone?.label}
             </div>
-            <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -419,13 +419,13 @@ export default function TextStep({
         </div>}
 
         {/* Selected Tone and Rating Display with Edit Options */}
-        <div className="rounded-lg border-2 border-primary bg-card overflow-hidden">
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Selected Tone */}
           <div className="flex items-center justify-between p-4">
             <div className="text-sm text-foreground">
               <span className="font-semibold">Tone</span> - {selectedTone?.label}
             </div>
-            <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -435,7 +435,7 @@ export default function TextStep({
             <div className="text-sm text-foreground">
               <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
             </div>
-            <button onClick={() => handleRatingSelect("")} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button onClick={() => handleRatingSelect("")} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -558,7 +558,7 @@ export default function TextStep({
             <button onClick={() => {
           setShowTextOptions(false);
           setSelectedTextOption(null);
-        }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>}
@@ -583,7 +583,7 @@ export default function TextStep({
             setSelectedTextOption(null);
             setShowLayoutOptions(false);
           }
-        }} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>}
@@ -598,7 +598,7 @@ export default function TextStep({
             ...data.text,
             layout: ''
           }
-        })} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+        })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>}
