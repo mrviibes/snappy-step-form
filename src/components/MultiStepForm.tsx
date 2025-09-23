@@ -101,9 +101,8 @@ export default function MultiStepForm() {
       case 3:
         // Different completion requirements based on visual option
         const basicRequirements = !!formData.visuals.style && !!formData.visuals.option && !!formData.visuals.dimension;
-        
         if (!basicRequirements) return false;
-        
+
         // Additional requirements based on option type
         if (formData.visuals.option === 'design-myself') {
           return !!formData.visuals.customVisualDescription;
@@ -122,7 +121,7 @@ export default function MultiStepForm() {
       <div className="mx-auto max-w-md">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Your Viibe</h1>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">Create Viibe - Category</h1>
           
         </div>
 
@@ -141,28 +140,16 @@ export default function MultiStepForm() {
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
           <div className="mx-auto max-w-md flex justify-between gap-4">
             {/* Back Button */}
-            {currentStep > 1 && (
-              <Button 
-                variant="outline" 
-                onClick={prevStep}
-                className="flex items-center gap-2"
-              >
+            {currentStep > 1 && <Button variant="outline" onClick={prevStep} className="flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Back
-              </Button>
-            )}
+              </Button>}
 
             {/* Next Button - hide on final step */}
-            {currentStep < steps.length && (
-              <Button 
-                onClick={nextStep} 
-                disabled={!isStepCompleted(currentStep)} 
-                className="bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover ml-auto"
-              >
+            {currentStep < steps.length && <Button onClick={nextStep} disabled={!isStepCompleted(currentStep)} className="bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover ml-auto">
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+              </Button>}
           </div>
         </div>
       </div>
