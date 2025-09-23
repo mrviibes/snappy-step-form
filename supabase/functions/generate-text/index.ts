@@ -511,6 +511,17 @@ function getCategoryBanWords(category: string, subcategory: string): string[] {
          categoryBanWords.default;
 }
 
+// Get category-specific requirements
+function getCategoryRequirement(category: string, subcategory: string): string {
+  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
+    return "Mother's Day requirement: Include clear mother/mom references to make it feel distinctly Mother's Day themed.";
+  }
+  if (subcategory?.toLowerCase() === "fathers-day" || subcategory?.toLowerCase() === "father's day") {
+    return "Father's Day requirement: Include clear father/dad references to make it feel distinctly Father's Day themed.";
+  }
+  return `${category} requirement: Make it feel distinctly related to ${category}.`;
+}
+
 // Get random style examples
 function getStyleExamples(style: string, rating: string = "pg"): string[] {
   const styleKey = style.toLowerCase();
@@ -523,13 +534,26 @@ function getStyleExamples(style: string, rating: string = "pg"): string[] {
   return styleExamples[styleKey] || styleExamples.generic;
 }
 
-// Detect position bucket for insert word placement
+// Detect position bucket for insert word placement with better accuracy
 function positionBucket(line: string, token: string): PosBucket {
+  if (!token) return "middle";
+  
   const words = line.toLowerCase().split(/\W+/).filter(Boolean);
-  const idx = words.findIndex(w => token.toLowerCase().includes(w) || w.includes(token.toLowerCase()));
-  if (idx === -1) return "middle"; // fallback
+  let tokenIndex = -1;
+  
+  // Find the token (handle partial matches for phrases)
+  for (let i = 0; i < words.length; i++) {
+    if (words[i].includes(token.toLowerCase()) || token.toLowerCase().includes(words[i])) {
+      tokenIndex = i;
+      break;
+    }
+  }
+  
+  if (tokenIndex === -1) return "none"; // token not found
+  
   const n = words.length;
-  const ratio = (idx + 1) / n;
+  const ratio = (tokenIndex + 1) / n;
+  
   if (ratio <= 0.33) return "front";
   if (ratio >= 0.67) return "end";
   return "middle";
@@ -642,18 +666,20 @@ Hard rules:
 - End with ., !, or ?.
 
 Insert Words policy:
-- Include all Insert Words naturally in the sentence.
-- Vary placement: sometimes early, sometimes mid-sentence, sometimes late.
-- It's allowed to split multi-word phrases across the sentence only if it reads naturally.  
-- Do NOT always place Insert Words at the end.
+- Include all Insert Words EXACTLY as provided in the sentence.
+- If an Insert Word is a multi-word phrase (e.g., "amazing mom"), keep the phrase completely intact.
+- Vary placement across the set: aim for front, middle, end, and free placement diversity.
+- Do NOT always place Insert Words at the start or end.
 - Do NOT repeat Insert Words more than once unless it improves flow.
 - NEVER use em dashes (—) - use commas, periods, or ellipses instead.
-- Maximum 2 punctuation marks total (excluding apostrophes in contractions).
+- MAXIMUM 2 punctuation marks total per line (excluding apostrophes in contractions).
 
 Structure requirement: ${structureHint}
 
+Category requirement: ${getCategoryRequirement(category, subcategory)}
+
 Diversity rules:
-- Vary sentence shape: one short quip, one rhetorical question, one playful metaphor, one observational line.
+- Vary sentence shape: one short quip, one rhetorical question, one gentle metaphor, one observational line.
 - Avoid category clichés (${banWords.join(', ')}) unless they are in Insert Words.
 - Do not invent personal details (age, jobs, diagnoses) unless in Insert Words.
 - Keep family-friendly for rating = G.
@@ -714,6 +740,76 @@ function validateLine(
 
   const len = [...line].length;
   if (len < 50 || len > 120) return null;
+
+  // Strict punctuation count (max 2, excluding apostrophes in contractions)
+  const punctCount = (line.match(/[.,!?;:]/g) || []).length;
+  if (punctCount > 2) return null;
+
+  // No em dashes
+  if (/\u2014/.test(line)) return null;
+
+  // Validate insert words with phrase integrity
+  if (!validateInsertWords(line, insertWords)) return null;
+
+  // Category-specific validation
+  if (!validateCategorySpecific(line, category, subcategory, insertWords)) return null;
+
+  // Rating validation
+  if (!validateRating(line, rating)) {
+    console.log(`${rating.toUpperCase()}-rating validation FAILED - no explicit content:`, line);
+    return null;
+  }
+
+  // Structure validation
+  if (!validateStructure(line, structureType)) return null;
+
+  // Avoid similarity with existing lines
+  if (existingLines.some(existing => tooSimilar(line, existing))) return null;
+
+  return line;
+}
+
+// Validate insert words with phrase integrity
+function validateInsertWords(line: string, insertWords: string[]): boolean {
+  if (!insertWords || insertWords.length === 0) return true;
+  
+  for (const insertWord of insertWords) {
+    if (insertWord.includes(" ")) {
+      // Multi-word phrase - must appear intact
+      const regex = new RegExp(`\\b${insertWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (!regex.test(line)) {
+        console.log(`Insert phrase validation FAILED - phrase "${insertWord}" not found intact in:`, line);
+        return false;
+      }
+    } else {
+      // Single word
+      const regex = new RegExp(`\\b${insertWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (!regex.test(line)) {
+        console.log(`Insert word validation FAILED - word "${insertWord}" not found in:`, line);
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Category-specific validation
+function validateCategorySpecific(line: string, category: string, subcategory: string, insertWords: string[]): boolean {
+  // Mother's Day specific validation
+  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
+    const motherCues = /\b(mom|mother('|)s day|amazing mom|mother)\b/i;
+    const hasMotherCue = motherCues.test(line);
+    const hasInsertMom = insertWords.some(w => /mom|mother/i.test(w));
+    
+    if (!hasMotherCue && !hasInsertMom) {
+      console.log("Mother's Day validation FAILED - no mother/mom cue:", line);
+      return false;
+    }
+  }
+  
+  // Add other category validations as needed
+  return true;
+}
 
   if (/\u2014/.test(line)) return null; // no em dash
 
@@ -825,26 +921,31 @@ function validateStructureType(line: string, expectedType: StructureType): boole
   }
 }
 
-// Enhanced set-level validation
+// Enhanced set-level validation with position spreading
 function validateSet(
   results: Array<{line: string, comedian: string}>, 
   insertWords: string[], 
-  rating: string
+  rating: string,
+  category: string,
+  subcategory: string
 ): boolean {
   if (results.length < 4) return false;
   
   const lines = results.map(r => r.line);
   
-  // 1. Insert word placement diversity
+  // 1. Insert word placement diversity (for single words)
   if (insertWords.length > 0) {
-    const positions = new Set<PosBucket>();
-    lines.forEach(line => {
-      const bucket = positionBucket(line, insertWords[0]);
-      positions.add(bucket);
-    });
-    if (positions.size < 2) {
-      console.log("Set validation FAILED - insufficient position variety:", Array.from(positions));
-      return false;
+    const singleWords = insertWords.filter(w => !w.includes(" "));
+    if (singleWords.length > 0) {
+      const positions = new Set<PosBucket>();
+      lines.forEach(line => {
+        const bucket = positionBucket(line, singleWords[0]);
+        if (bucket !== "none") positions.add(bucket);
+      });
+      if (positions.size < 3) {
+        console.log("Set validation FAILED - insufficient position variety:", Array.from(positions));
+        return false;
+      }
     }
   }
 
@@ -891,6 +992,16 @@ function validateSet(
   if (lengthVariety < 20) {
     console.log("Set validation FAILED - insufficient length variety:", lengthVariety);
     return false;
+  }
+
+  // 6. Category-specific set validation
+  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
+    const hasMotherCue = lines.some(line => /\b(mom|mother('|)s day|amazing mom|mother)\b/i.test(line));
+    const hasInsertMom = insertWords.some(w => /mom|mother/i.test(w));
+    if (!hasMotherCue && !hasInsertMom) {
+      console.log("Set validation FAILED - Mother's Day requires at least one mom/mother cue");
+      return false;
+    }
   }
 
   console.log("Set validation PASSED - all diversity requirements met");
@@ -1107,7 +1218,7 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
     }
 
     // Validate the complete set
-    if (results.length >= 4 && validateSet(results, insertWords, rating)) {
+    if (results.length >= 4 && validateSet(results, insertWords, rating, category, subcategory)) {
       console.log("Set validation PASSED on attempt", validationAttempts + 1);
       break;
     } else {
