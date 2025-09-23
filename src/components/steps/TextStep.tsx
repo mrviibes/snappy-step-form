@@ -73,8 +73,13 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      // Prepare insert words for generation
+      // Ensure insert words are provided for specific categories
       const insertWords = Array.isArray(data.text?.specificWords) ? data.text?.specificWords : data.text?.specificWords ? [data.text?.specificWords] : [];
+      
+      // For wedding category, require at least one insert word
+      if (data.subcategory === 'wedding' && (!insertWords || insertWords.length === 0)) {
+        throw new Error('Please enter at least one specific word for wedding celebrations (e.g., "chosen", "beloved", "partner")');
+      }
       
       const options = await generateTextOptions({
         category: data.category || 'celebrations',
