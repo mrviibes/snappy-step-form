@@ -532,9 +532,7 @@ export default function TextStep({
       {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
           <div className="text-center min-h-[120px] flex flex-col justify-start">
             <h2 className="text-xl font-semibold text-foreground">Any words like names etc. to include?</h2>
-            <div className="mt-3">
-              <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
-            </div>
+            
           </div>
 
           <div className="grid grid-cols-2 gap-4">
