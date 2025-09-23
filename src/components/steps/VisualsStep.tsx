@@ -347,9 +347,9 @@ export default function VisualsStep({
                   handleStyleChange("");
                   setShowDimensions(false);
                 }}
-                className="text-xs"
+                className="text-xs text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50"
               >
-                Change
+                Edit
               </Button>
             </div>
           </Card>
@@ -436,9 +436,9 @@ export default function VisualsStep({
                   setShowDimensions(false);
                   updateData({ visuals: { style: "", dimension: "" } });
                 }}
-                className="text-xs"
+                className="text-xs text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50"
               >
-                Change
+                Edit
               </Button>
             </div>
           </Card>
