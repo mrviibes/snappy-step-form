@@ -684,19 +684,7 @@ export default function TextStep({
                            </h3>
                          </div>
                        </Card>)}
-                   </div>
-                   </div>}
-     
-                {/* Next Button - Show when text step is complete */}
-                {data.text?.isComplete && (
-                  <div className="mt-6 text-center">
-                    <Button 
-                      onClick={onNext}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-lg font-medium transition-colors min-w-[120px]"
-                    >
-                      Next
-                    </Button>
                   </div>
-                )}
+                  </div>}
      </div>;
 }
