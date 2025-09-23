@@ -12,11 +12,13 @@ import realisticImage from "@/assets/visual-style-realistic-new.jpg";
 import designImage from "@/assets/visual-style-design-new.jpg";
 import renderImage from "@/assets/visual-style-3d-new.jpg";
 import animeImage from "@/assets/visual-style-anime-new.jpg";
+
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
+
 const visualStyles = [{
   id: "realistic",
   title: "Realistic",
@@ -48,6 +50,7 @@ const visualStyles = [{
   description: "Japanese cartoon",
   preview: animeImage
 }];
+
 const visualOptions = [{
   id: "ai-assist",
   title: "AI Visuals Assist",
@@ -61,6 +64,7 @@ const visualOptions = [{
   title: "Don't Want Visuals",
   fullTitle: "Option 3 - Don't Want Visuals"
 }];
+
 const visualTasteOptions = [{
   id: "balanced",
   label: "Balanced (default)"
@@ -77,6 +81,7 @@ const visualTasteOptions = [{
   id: "exaggerated",
   label: "Exaggerated (extreme)"
 }];
+
 export default function VisualsStep({
   data,
   updateData
@@ -89,6 +94,7 @@ export default function VisualsStep({
   const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
+
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -99,6 +105,7 @@ export default function VisualsStep({
     // Immediately show dimensions after style selection
     setShowDimensions(true);
   };
+
   const handleVisualOptionChange = (optionId: string) => {
     updateData({
       visuals: {
@@ -113,6 +120,7 @@ export default function VisualsStep({
       setShowSpecificVisualsChoice(false);
     }
   };
+
   const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
     if (hasVisuals) {
       setShowSpecificVisualsChoice(false);
@@ -122,6 +130,7 @@ export default function VisualsStep({
       setShowVisualGeneration(true); // Skip to generation step
     }
   };
+
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const currentVisuals = data.visuals?.customVisuals || [];
@@ -141,6 +150,7 @@ export default function VisualsStep({
       }
     }
   };
+
   const handleRemoveTag = (visualToRemove: string) => {
     const currentVisuals = data.visuals?.customVisuals || [];
     updateData({
@@ -150,6 +160,7 @@ export default function VisualsStep({
       }
     });
   };
+
   const handleReadyToGenerate = () => {
     console.log("handleReadyToGenerate called, current state:", {
       showVisualGeneration,
@@ -158,6 +169,7 @@ export default function VisualsStep({
     setShowVisualGeneration(true);
     console.log("Set showVisualGeneration to true");
   };
+
   const handleVisualTasteChange = (tasteId: string) => {
     updateData({
       visuals: {
@@ -168,11 +180,13 @@ export default function VisualsStep({
     // Automatically show visual options when style is selected
     setShowVisualOptions(true);
   };
+
   const handleGenerateVisuals = async () => {
     if (!data.text?.generatedText && !data.text?.customText) {
       console.error("No text available for visual generation");
       return;
     }
+
     setIsGeneratingVisuals(true);
     try {
       const finalText = data.text.generatedText || data.text.customText;
@@ -190,6 +204,7 @@ export default function VisualsStep({
         customVisuals: data.visuals?.customVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
+
       console.log("Generating visuals with params:", params);
       const visuals = await generateVisualOptions(params);
       setGeneratedVisuals(visuals);
@@ -204,6 +219,7 @@ export default function VisualsStep({
       setIsGeneratingVisuals(false);
     }
   };
+
   const handleVisualOptionSelect = (optionIndex: number) => {
     setSelectedVisualOption(optionIndex);
     const selectedVisual = generatedVisuals.length > 0 ? generatedVisuals[optionIndex] : null;
@@ -217,6 +233,7 @@ export default function VisualsStep({
     setShowVisualOptions(false);
     setShowDimensions(true);
   };
+
   const handleDimensionSelect = (dimensionId: string) => {
     updateData({
       visuals: {
@@ -226,6 +243,7 @@ export default function VisualsStep({
     });
     setShowDimensions(false);
   };
+
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const selectedOption = visualOptions.find(option => option.id === data.visuals?.option);
   const hasSelectedStyle = !!data.visuals?.style;
@@ -234,7 +252,13 @@ export default function VisualsStep({
   const isComplete = hasSelectedStyle && hasSelectedDimension && hasSelectedOption;
 
   // Sample visual options (filler content)
-  const visualOptionsSamples = ["Visual concept with vibrant colors and dynamic composition featuring modern elements and creative typography.", "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.", "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.", "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."];
+  const visualOptionsSamples = [
+    "Visual concept with vibrant colors and dynamic composition featuring modern elements and creative typography.",
+    "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.",
+    "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.",
+    "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."
+  ];
+
   const dimensionOptions = [{
     id: "square",
     title: "Square",
@@ -252,6 +276,7 @@ export default function VisualsStep({
     title: "Custom",
     description: "Define your own dimensions"
   }];
+
   return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
       {data.category && data.subcategory && <div className="text-left mb-4">
@@ -404,70 +429,75 @@ export default function VisualsStep({
           </div>
         </>}
 
-      {/* Complete Summary and Remaining Flow */}
-      {(isComplete || hasSelectedStyle && hasSelectedDimension) && <div className="space-y-4">
-          {/* Style and Dimension Summary - Always show when both are selected */}
-          {hasSelectedStyle && hasSelectedDimension && <>
-            <Card className="border-2 border-primary bg-accent p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-foreground">
-                      Style - {selectedStyle?.title}
-                    </div>
+      {/* Step 4: AI Assist Flow and Completion - only when all options are selected */}
+      {hasSelectedStyle && hasSelectedDimension && hasSelectedOption && <>
+          {/* Selected Style and Dimension Summary - Always show when all are selected */}
+          <Card className="border-2 border-primary bg-accent p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground">
+                    Style - {selectedStyle?.title}
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                handleStyleChange("");
-                setShowDimensions(false);
-                updateData({
-                  visuals: {
-                    style: "",
-                    dimension: ""
-                  }
-                });
-              }} className="text-xs text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50">
-                    Edit
-                  </Button>
                 </div>
-                
-                <div className="h-px bg-border"></div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium text-foreground">Dimension - </span>
-                    <span className="text-sm text-foreground">
-                      {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
-                    </span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                setShowDimensions(true);
-                updateData({
-                  visuals: {
-                    ...data.visuals,
-                    dimension: ""
-                  }
+                <Button variant="ghost" size="sm" onClick={() => {
+              handleStyleChange("");
+              setShowDimensions(false);
+              updateData({
+                visuals: {
+                  style: "",
+                  dimension: ""
+                }
+              });
+            }} className="text-xs text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50">
+                  Edit
+                </Button>
+              </div>
+              
+              <div className="h-px bg-border"></div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">Dimension - </span>
+                  <span className="text-sm text-foreground">
+                    {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => {
+              setShowDimensions(true);
+              updateData({
+                visuals: {
+                  ...data.visuals,
+                  dimension: ""
+                }
                 });
               }} className="text-xs text-cyan-500">
-                    Edit
-                  </Button>
-                </div>
+                  Edit
+                </Button>
               </div>
-            </Card>
 
-            {/* Visual Options - Show when no option selected yet */}
-            {!hasSelectedOption && <>
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Choose your visual process
-                </h2>
+              <div className="h-px bg-border"></div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-foreground">Process - </span>
+                  <span className="text-sm text-foreground">
+                    {selectedOption?.title}
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => {
+              updateData({
+                visuals: {
+                  ...data.visuals,
+                  option: ""
+                }
+              });
+            }} className="text-xs text-cyan-500">
+                  Edit
+                </Button>
               </div>
-              <div className="space-y-3">
-                {visualOptions.map(option => <Button key={option.id} variant={data.visuals?.option === option.id ? "default" : "outline"} className={cn("w-full h-12 text-sm font-medium transition-all duration-300", data.visuals?.option === option.id ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" : "hover:bg-accent border-border")} onClick={() => handleVisualOptionChange(option.id)}>
-                    {option.fullTitle}
-                  </Button>)}
-              </div>
-            </>}
-          </>}
+            </div>
+          </Card>
 
           {/* All the remaining sections for AI Assist flow */}
           {data.visuals?.option === "ai-assist" && <>
@@ -551,6 +581,6 @@ export default function VisualsStep({
                 </div>}
 
             </>}
-        </div>}
+        </>}
     </div>;
 }
