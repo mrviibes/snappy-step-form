@@ -389,25 +389,32 @@ export default function VisualsStep({
         <>
           {/* Selected Style and Dimension Summary */}
           <Card className="border-2 border-primary bg-accent p-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <img 
+                src={selectedStyle?.preview} 
+                alt={selectedStyle?.title}
+                className="w-12 h-12 rounded object-cover"
+              />
+              <div className="flex-1">
                 <div className="text-sm">
-                  <span className="font-medium">Style:</span> {selectedStyle?.title} | 
-                  <span className="font-medium ml-1">Dimension:</span> {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.title}
+                  <span className="font-medium">Style:</span> {selectedStyle?.title}
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    handleStyleChange("");
-                    setShowDimensions(false);
-                    updateData({ visuals: { style: "", dimension: "" } });
-                  }}
-                  className="text-xs"
-                >
-                  Edit
-                </Button>
+                <div className="text-xs text-muted-foreground">
+                  {selectedStyle?.description} | {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.title}
+                </div>
               </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  handleStyleChange("");
+                  setShowDimensions(false);
+                  updateData({ visuals: { style: "", dimension: "" } });
+                }}
+                className="text-xs"
+              >
+                Change
+              </Button>
             </div>
           </Card>
 
