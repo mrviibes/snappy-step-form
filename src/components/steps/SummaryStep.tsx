@@ -83,7 +83,7 @@ export default function SummaryStep({ data }: SummaryStepProps) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="text-center">
         <h2 className="text-xl font-semibold text-foreground mb-2">
