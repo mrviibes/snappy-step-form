@@ -467,18 +467,31 @@ export default function VisualsStep({
       {/* Complete Summary and Remaining Flow */}
       {(isComplete || (hasSelectedStyle && hasSelectedDimension)) && (
         <div className="space-y-4">
-          <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
+          <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4 rounded-lg">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium text-foreground">Style - </span>
-                  <span className="text-sm text-foreground">{selectedStyle?.title}</span>
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    <img 
+                      src={selectedStyle?.preview} 
+                      alt={selectedStyle?.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">
+                      Style: {selectedStyle?.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {selectedStyle?.description}
+                    </div>
+                  </div>
                 </div>
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => updateData({ visuals: { style: "", option: "", dimension: "" } })}
-                  className="text-xs text-cyan-500"
+                  className="text-sm text-cyan-500 hover:text-cyan-600"
                 >
                   Edit
                 </Button>
