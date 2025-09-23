@@ -128,11 +128,12 @@ export default function VisualsStep({
       }
     });
 
-    // If "AI Visuals Assist" is selected, show the specific visuals dialog
+    // If "AI Visuals Assist" is selected, skip dialog and go directly to generation
     if (optionId === 'ai-assist') {
-      setShowSpecificVisualsDialog(true);
+      setShowSpecificVisualsDialog(false);
       setShowSpecificVisualsChoice(false);
       setShowCustomVisualInput(false);
+      setShowVisualGeneration(true); // Go directly to visual generation
     } else if (optionId === 'design-myself') {
       // If "Design Visuals Myself" is selected, show custom input
       setShowCustomVisualInput(true);
