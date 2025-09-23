@@ -261,7 +261,7 @@ export default function VisualsStep({
         </div>}
 
       {/* Text Summary from Step 2 */}
-      <div className="text-center mb-6">
+      <div className="text-left mb-6">
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold">Your text: </span>
           <span>
