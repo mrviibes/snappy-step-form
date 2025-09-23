@@ -128,12 +128,13 @@ export default function VisualsStep({
       }
     });
 
-    // If "AI Visuals Assist" is selected, skip dialog and go directly to generation
+    // If "AI Visuals Assist" is selected, show inline question (no popup)
     if (optionId === 'ai-assist') {
       setShowSpecificVisualsDialog(false);
-      setShowSpecificVisualsChoice(false);
+      setShowSpecificVisualsChoice(true);
       setShowCustomVisualInput(false);
-      setShowVisualGeneration(true); // Go directly to visual generation
+      setShowSpecificVisualsInput(false);
+      setShowVisualGeneration(false);
     } else if (optionId === 'design-myself') {
       // If "Design Visuals Myself" is selected, show custom input
       setShowCustomVisualInput(true);
