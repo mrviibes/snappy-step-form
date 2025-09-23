@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { getTones, getStyles, getRatings, getComedianStyles } from '@/config/aiRules';
+import { getTones, getRatings, getComedianStyles } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
 import memeTextImage from "@/assets/meme-layout.jpg";
@@ -35,10 +35,6 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-const styleOptions = getStyles().map(style => ({
-  id: style.id,
-  label: `${style.name} (${style.tag})`
-}));
 const ratingOptions = getRatings().map(rating => ({
   id: rating.id,
   label: `${rating.name} (${rating.tag})`
@@ -84,7 +80,6 @@ export default function TextStep({
         category: data.category || 'celebrations',
         subcategory: data.subcategory,
         tone: data.text?.tone,
-        style: data.text?.style || 'Generic',
         rating: data.text?.rating || 'PG',
         insertWords,
         comedianStyle: data.text?.comedianStyle ? {
@@ -225,14 +220,6 @@ export default function TextStep({
   const handleReadyToGenerate = () => {
     setShowSpecificWordsInput(false);
     setShowGeneration(true);
-  };
-  const handleStyleSelect = (styleId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        style: styleId
-      }
-    });
   };
   const handleRatingSelect = (ratingId: string) => {
     updateData({
@@ -481,10 +468,10 @@ export default function TextStep({
             </button>
           </div>}
 
-        {/* Style and Rating Summary - only show after text generation */}
+        {/* Rating Summary - only show after text generation */}
         {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-sm text-foreground">
-              <span className="font-semibold">Style</span> - {styleOptions.find(s => s.id === data.text?.style)?.label.split(' (')[0] || 'Generic'} | <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
+              <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
             </div>
             <button onClick={() => {
           setShowTextOptions(false);
@@ -555,23 +542,8 @@ export default function TextStep({
               </div>}
           </div>
 
-          {/* Style and Rating Selection */}
-          <div className="grid grid-cols-2 gap-4 pt-4">
-            {/* Style Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Style</label>
-              <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
-                <SelectTrigger className="w-full min-h-[44px]">
-                  <SelectValue placeholder="Generic (plain)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
-                      {style.label}
-                    </SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            
+          {/* Rating Selection */}
+          <div className="grid grid-cols-1 gap-4 pt-4">
             {/* Rating Dropdown */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Rating</label>
@@ -663,23 +635,8 @@ export default function TextStep({
         {/* Generation Section */}
         {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
             <div className="space-y-4">
-              {/* Style and Rating - Keep on same row */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Style Dropdown */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Style</label>
-                  <Select onValueChange={handleStyleSelect} value={data.text?.style || ""}>
-                    <SelectTrigger className="w-full min-h-[44px]">
-                      <SelectValue placeholder="Generic (plain)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {styleOptions.map(style => <SelectItem key={style.id} value={style.id}>
-                          {style.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
+              {/* Rating Selection */}
+              <div className="grid grid-cols-1 gap-4">
                 {/* Rating Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Rating</label>

@@ -5,7 +5,7 @@ type GenerateTextParams = {
   category: string;            // "celebrations" or "celebrations > birthday"
   subcategory?: string;        // optional if you use flat category path above
   tone: string;                // Humorous, Savage, ...
-  style: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
+  style?: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];      // prefer array over CSV
   comedianStyle?: { name: string; flavor: string } | null;
