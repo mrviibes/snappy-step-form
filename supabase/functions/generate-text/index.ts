@@ -483,8 +483,80 @@ ${getRatingGuidance(rating, tone)}
 Return each line on a separate line with no numbering or formatting.`
 }
 
+// Get comedian pool based on tone and rating (rating always overrides tone)
+function getComedianPool(tone: string, rating: string, style: string = 'Generic'): string[] {
+  // Load the tone-style-rating matrix
+  const toneStyleMap = {
+    "Humorous": {
+      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
+    },
+    "Savage": {
+      "Generic":   { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
+    },
+    "Playful": {
+      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+    "Sentimental": {
+      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+    "Romantic": {
+      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    },
+    "Serious": {
+      "Generic":   { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
+      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
+      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
+      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
+    }
+  };
+
+  const comedianPools = {
+    "CLEAN": ["Jim Gaffigan","Brian Regan","Ellen DeGeneres","Jerry Seinfeld","John Mulaney"],
+    "PG_EDGE": ["Sarah Silverman","Kevin Hart","Patton Oswalt","Ali Wong","Aziz Ansari"],
+    "PG13_SAVAGE": ["Bill Burr","Joan Rivers","Ricky Gervais","Chris Rock","Louis C.K."],
+    "R_EXPLICIT": ["George Carlin","Bill Burr","Joan Rivers","Sarah Silverman","Ricky Gervais","Louis C.K.","Ali Wong"],
+    "ROMANTIC_WARM": ["Jim Gaffigan","Ellen DeGeneres","John Mulaney"],
+    "ROMANTIC_SARCASTIC": ["Ali Wong","Sarah Silverman","Bill Burr"],
+    "WEIRD_DRY": ["Mitch Hedberg","Steven Wright","Norm Macdonald"],
+    "NERDY_STORY": ["Patton Oswalt","John Mulaney","Hasan Minhaj"]
+  };
+
+  // Get the pool key based on tone, style, and rating
+  const toneMap = toneStyleMap[tone] || toneStyleMap["Playful"];
+  const styleMap = toneMap[style] || toneMap["Generic"];
+  const poolKey = styleMap[rating] || styleMap["PG"];
+  
+  return comedianPools[poolKey] || comedianPools["CLEAN"];
+}
+
+// Enhanced rating enforcement guidance - rating ALWAYS overrides tone
+function getRatingGuidance(rating: string, tone: string): string {
+  const guidance = {
+    'G': `Family-safe, wholesome humor. NO swearing or edge content. Even if tone is "${tone}", keep it clean and gentle.`,
+    'PG': `Light sarcasm and irony allowed. Gentle roasting OK. Words like "hell" or "damn" permitted. Tone "${tone}" must stay within PG bounds.`,
+    'PG-13': `Edgy sarcasm, sharper wit allowed. Mild swears permitted (hell, damn, crap). Tone "${tone}" can be more aggressive but no F-bombs.`,
+    'R': `SAVAGE and EXPLICIT required. Must include strong language (fuck, shit, asshole, bastard). Raw, unfiltered comedy. At least 2 lines should have profanity. Tone "${tone}" can be fully unleashed.`
+  };
+  return `RATING ${rating} OVERRIDES ALL: ${guidance[rating] || guidance['PG']}`;
+}
+
 // Rating enforcement guidance with enhanced R-level requirements
-function getRatingGuidance(rating: string): string {
+function getRatingGuidance_Legacy(rating: string): string {
   const guidance = {
     'G': 'Family-safe, wholesome humor. No swearing or edge.',
     'PG': 'Light sarcasm and irony. Gentle roasting. Words like "hell" or "damn" allowed.',
@@ -501,8 +573,172 @@ function buildToneSpecificSeed(tone: string, subcategory: string, config: any, i
   
   return seedTemplate(subcategory, config, insertWords, rating, tone)
 }
+
+// Generate exactly 4 valid lines with detailed debugging
+async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
+  const timeoutMs = 25000; // 25 second hard timeout
+  const startTime = Date.now();
+  
+  // Retry ladder with progressive relaxation
+  const retryConfigs = [
+    { lengthMin: 50, lengthMax: 120, maxPunct: 2 }, // Strict
+    { lengthMin: 45, lengthMax: 125, maxPunct: 2 }, // Slightly relaxed
+    { lengthMin: 40, lengthMax: 130, maxPunct: 3 }  // More relaxed
+  ];
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    // Check timeout
+    if (Date.now() - startTime > timeoutMs) {
+      throw new Error('generation_timeout_exceeded');
+    }
+    
+    console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
+    const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
     // Use tone-specific seed template for strict one-sentence enforcement
+    const instructions = buildToneSpecificSeed(
+      payload.tone || 'playful',
+      subcategory, 
+      config,
+      payload.insertWords || [],
+      payload.rating || 'PG'
+    );
+    
+    // Add category context for better anchoring
+    const contextWords = getLexiconFor(subcategory);
+    const contextHint = contextWords.length > 0 
+      ? `\nUse ${subcategory} words like: ${contextWords.slice(0, 4).join(', ')}`
+      : '';
+      
+    const userPrompt = `${instructions}${contextHint}
+
+EXAMPLES of valid single-sentence ${subcategory} lines:
+${subcategory === 'birthday' ? 
+  `The cake had so many candles the smoke alarm joined the party.
+The balloons popped faster than my birthday wish left my lips.
+Another year older means another year of pretending to like cake.
+The frosting survived longer than my diet did at this party.` :
+subcategory === 'wedding' ? 
+  `The cake toppled before vows ended but everyone called it tradition.
+Uncle Bob hit the dance floor like it was a second wedding vow.
+The bouquet sailed farther than the bride ever planned to throw.
+The DJ shouted toast time and half the guests raised cake instead.` :
+  `Generate ${subcategory}-specific one-sentence lines that are punchy and contextual.`}
+
+Generate exactly 4 lines:`;
+
+    try {
+      const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+      
+      // Use robust parsing and cleanup
+      const cleanedLines = parseAndCleanLines(rawResponse);
+      
+      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing`);
+      console.log(`🧹 Sample cleaned lines:`, cleanedLines.slice(0, 2).map(l => `"${l.substring(0, 60)}..."`));
+      
+      if (cleanedLines.length < 4) {
+        console.log(`❌ Only got ${cleanedLines.length} clean lines, need 4. Retrying...`);
+        continue;
+      }
+      
+      // Take first 4 lines and validate each with tone-specific validation
+      const lines = cleanedLines.slice(0, 4);
+      const candidates = [];
+      const detailedFailures = [];
+      
+      // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
+      const comedianPool = getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic');
+      const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
+      
+      for (let i = 0; i < 4; i++) {
+        const line = lines[i];
+        
+        // Enhanced validation with tone-specific parameters
+        const validation = debugValidateLine(line, {
+          insertWords: payload.insertWords || [],
+          lengthMin: config.lengthMin,
+          lengthMax: config.lengthMax,
+          maxPunct: config.maxPunct,
+          subcategory,
+          tone: payload.tone
+        });
+        
+        if (validation.ok) {
+          candidates.push({
+            line: line,
+            comedian: selectedComedians[i] || selectedComedians[0] // Always use a comedian, never "AI Assist"
+          });
+          console.log(`✅ Line ${i+1} PASSED (${payload.tone}): "${line.substring(0, 60)}..."`);
+        } else {
+          detailedFailures.push({
+            index: i,
+            line: line.substring(0, 80) + '...',
+            reason: validation.reason,
+            details: validation.details,
+            fullLine: line,
+            tone: payload.tone
+          });
+          console.log(`❌ Line ${i+1} FAILED (${validation.reason}) for ${payload.tone} tone: "${line.substring(0, 60)}..."`);
+          if (validation.details) {
+            console.log(`   Details:`, validation.details);
+          }
+        }
+      }
+      
+      console.log(`📊 Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines using ${payload.tone} tone`);
+      
+      // Success condition: exactly 4 valid lines
+      if (candidates.length === 4) {
+        console.log(`🎉 All lines passed validation for ${payload.tone} tone! Returning 4 valid lines.`);
+        return candidates;
+      }
+      
+      // If this is our last attempt, provide tone-specific guidance
+      if (attempt === maxRetries - 1) {
+        const toneAdvice = {
+          'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
+          'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
+          'romantic': 'Try "witty" or "playful" tone for less wordy output',
+          'playful': 'Try "witty" or "dry" tone for more structured humor'
+        };
+        
+        const suggestion = toneAdvice[payload.tone?.toLowerCase()] || 'Try a different tone like "playful" or "witty"';
+        
+        const errorDetails = {
+          validLines: candidates.length,
+          totalRequested: 4,
+          tone: payload.tone,
+          suggestion,
+          detailedFailures
+        };
+        
+        console.log(`💥 Final attempt failed for ${payload.tone} tone. Suggestion: ${suggestion}`);
+        console.log(`🔍 Full debug info:`, JSON.stringify(errorDetails, null, 2));
+        
+        throw new Error(`validation_failed:${JSON.stringify(errorDetails)}`);
+      }
+      
+      // Continue to next attempt with more relaxed config
+      console.log(`⏳ Waiting ${300 + attempt * 100}ms before retry with relaxed config...`);
+      await new Promise(resolve => setTimeout(resolve, 300 + attempt * 100));
+      
+    } catch (error) {
+      console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
+      if (attempt === maxRetries - 1) {
+        throw error;
+      }
+    }
+    
+    // Wait before retry with jitter
+    if (attempt < maxRetries - 1) {
+      const delay = 1000 + Math.random() * 2000; // 1-3 second jitter
+      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
+}
     const instructions = buildToneSpecificSeed(
       payload.tone || 'playful',
       subcategory, 
