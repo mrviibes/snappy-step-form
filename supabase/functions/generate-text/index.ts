@@ -647,7 +647,9 @@ Generate exactly 4 lines:`;
       const detailedFailures = [];
       
       // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
-      const comedianPool = getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic');
+      const comedianPool = (typeof getComedianPool === 'function') 
+        ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
+        : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
       const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
       
       for (let i = 0; i < 4; i++) {
@@ -804,7 +806,9 @@ Generate exactly 4 lines:`;
       const detailedFailures = [];
       
       // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
-      const comedianPool = getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic');
+      const comedianPool = (typeof getComedianPool === 'function')
+        ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
+        : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
       const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
       
       for (let i = 0; i < 4; i++) {
@@ -1003,17 +1007,22 @@ serve(async (req) => {
     const subcategory = payload.subcategory || payload.category;
     
     // Enhanced system prompt with RATING OVERRIDES TONE emphasis
+    const safeTone = payload.tone || 'Playful';
+    const safeRating = payload.rating || 'PG';
+    const comedianName = (typeof getComedianPool === 'function' 
+      ? (getComedianPool(safeTone, safeRating)[0] || 'a top stand-up comedian')
+      : 'a top stand-up comedian');
     const systemPrompt = `You are a master comedy writer following strict Step-2 Text Generation Rules.
 
 MASTER RULES (CRITICAL - NO EXCEPTIONS):
 1. Structure: Exactly ONE sentence, 50-120 characters total
 2. Insert Tags: If provided, use each tag ONCE per line with natural inflections (plurls, past tense OK)
 3. Category Anchoring (LOOSENED): Each line must relate to ${subcategory} using direct keywords OR cultural cues. At batch level, at least 2 of 4 lines should contain direct category keywords.
-4. RATING ALWAYS OVERRIDES TONE: ${payload.rating} rating limits supersede ${payload.tone} tone preferences
+4. RATING ALWAYS OVERRIDES TONE: ${safeRating} rating limits supersede ${safeTone} tone preferences
 5. Punctuation: Max 2 marks per line. NO em dashes (—), semicolons (;), or ellipses (…)
 6. Quality: Sharp, quotable, stand-up quality humor - no greeting card fluff
 7. Variety: Vary line length and structure within each set of 4
-8. Comedian Persona: Write in the voice of ${getComedianPool(payload.tone || 'Playful', payload.rating || 'PG')[0]} - NEVER generic "AI Assist" style
+8. Comedian Persona: Write in the voice of ${comedianName} - NEVER generic "AI Assist" style
 
 Category Keywords Available: ${getLexiconFor(subcategory).join(', ') || 'general'}
 Cultural Context: ${subcategory} celebrations, traditions, emotions, and experiences
