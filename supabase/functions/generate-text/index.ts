@@ -212,6 +212,26 @@ function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?:
     };
   }
   
+  // OPTIONAL: Check insert words only if they exist
+  if (Array.isArray(scenario.insertWords) && scenario.insertWords.length > 0) {
+    for (const tag of scenario.insertWords) {
+      const base = tag.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = tag.includes(" ") 
+        ? base.replace(/\s+/g, "\\s+")
+        : `${base}(?:s|es|ed|ing)?`;
+      const re = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "i");
+      const reAll = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "ig");
+      
+      if (!re.test(text) || ((text.match(reAll) || []).length !== 1)) {
+        return { 
+          ok: false, 
+          reason: `insert_not_once:${tag}`, 
+          details: { tag, text: text.substring(0, 50) + "..." }
+        };
+      }
+    }
+  }
+  
   return { ok: true };
 }
 
@@ -317,7 +337,7 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Enhanced prompt with clearer formatting requirements
+    // Enhanced prompt with clearer formatting requirements - insertWords now optional
     let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Each line must be between ${config.lengthMin}-${config.lengthMax} characters. Use at most ${config.maxPunct} punctuation marks per line. No semicolons, em dashes, or ellipses allowed.`;
     
     // Add specific context requirements
@@ -326,7 +346,8 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
       instructions += ` Each joke must include ${subcategory} context using words like: ${contextWords.slice(0, 6).join(', ')}.`;
     }
     
-    if (payload.insertWords?.length > 0) {
+    // OPTIONAL: Only add insert word requirements if they exist
+    if (Array.isArray(payload.insertWords) && payload.insertWords.length > 0) {
       const insertTag = payload.insertWords[0];
       instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated.`;
     }
@@ -469,8 +490,9 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Master Rules Generation Request:', payload);
     
-    // Defaults and normalization
+    // Defaults and normalization - make insertWords optional
     if (!payload.rating) payload.rating = 'PG';
+    if (!payload.insertWords) payload.insertWords = []; // Default to empty array
     const nonce = generateNonce();
     const subcategory = payload.subcategory || payload.category;
     
