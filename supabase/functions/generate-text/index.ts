@@ -230,29 +230,56 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
-// Retry generation with better prompting for failed lines
-async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, retries = 3): Promise<Array<{line: string, comedian: string}>> {
+// Retry generation with timeout protection and retry ladder
+async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
   const comedians = pickComedians(4);
+  const timeoutMs = 25000; // 25 second hard timeout
+  const startTime = Date.now();
   
-  for (let attempt = 0; attempt < retries; attempt++) {
+  // Retry ladder with progressive relaxation
+  const retryConfigs = [
+    { candidates: 8, lengthMin: 50, lengthMax: 120, maxPunct: 2 }, // Strict
+    { candidates: 12, lengthMin: 45, lengthMax: 125, maxPunct: 2 }, // Slightly relaxed
+    { candidates: 16, lengthMin: 40, lengthMax: 130, maxPunct: 3 }  // More relaxed
+  ];
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    // Check timeout
+    if (Date.now() - startTime > timeoutMs) {
+      throw new Error('generation_timeout_exceeded');
+    }
+    
     console.log(`Generation attempt ${attempt + 1}:`);
+    const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     const candidates = [];
     const validationErrors = [];
     
-    // Generate more candidates per attempt
-    for (let i = 0; i < 16; i++) {
-      const comedian = comedians[i % comedians.length];
-      
-      // Better insert tag prompting
-      let insertTagInstructions = '';
-      if (payload.insertWords?.length > 0) {
-        const insertTag = payload.insertWords[0]; // Use first tag
-        insertTagInstructions = `Include the name "${insertTag}" exactly once in natural phrasing. Do not repeat or omit the name.`;
+    // Generate candidates with timeout protection
+    for (let i = 0; i < config.candidates; i++) {
+      if (Date.now() - startTime > timeoutMs) {
+        console.log('Timeout during candidate generation');
+        break;
       }
       
-      const userPrompt = `Write 1 ${payload.rating}-rated ${subcategory} joke. Tone: ${payload.tone}. Keep it 50-120 characters. Exactly one sentence. At most two punctuation marks. No em dashes, semicolons, or ellipses. ${insertTagInstructions} Tie to ${subcategory} context by keyword or situation.
+      const comedian = comedians[i % comedians.length];
+      
+      // Improved insert tag prompting
+      let instructions = `Write 1 ${payload.rating}-rated ${subcategory} joke. Tone: ${payload.tone}. Keep it ${config.lengthMin}-${config.lengthMax} characters. Exactly one sentence. At most ${config.maxPunct} punctuation marks. No em dashes, semicolons, or ellipses.`;
+      
+      if (payload.insertWords?.length > 0) {
+        const insertTag = payload.insertWords[0];
+        instructions += ` Include the name "${insertTag}" exactly once anywhere in the line, naturally integrated. Do not duplicate or skip the name.`;
+      }
+      
+      instructions += ` Tie each joke to ${subcategory} context by keyword or situation.`;
+      
+      const userPrompt = `${instructions}
 
 Comedian Style: ${comedian.name} – ${comedian.flavor}
+
+Examples of good ${subcategory} context integration:
+- Use keywords like: ${MASTER_CONFIG.lexicons[subcategory]?.slice(0, 5).join(', ') || 'relevant terms'}
+- Reference situations specific to ${subcategory}
 
 Generate ONE line only:`;
 
@@ -260,17 +287,29 @@ Generate ONE line only:`;
         const rawResponse = await callOpenAI(systemPrompt, userPrompt);
         const cleaned = rawResponse.split('\n')[0].trim().replace(/^["']|["']$/g, '');
         
-        // Validate with master rules
-        const validation = validateMasterRules(cleaned, payload);
-        if (validation.ok && cleaned.length >= 50 && cleaned.length <= 120) {
-          candidates.push({
-            line: cleaned,
-            comedian: comedian.name
-          });
+        // Progressive validation - use config params
+        const isValidLength = cleaned.length >= config.lengthMin && cleaned.length <= config.lengthMax;
+        const punctCount = (cleaned.match(/[.!?,:"]/g) || []).length;
+        const isValidPunct = punctCount <= config.maxPunct;
+        
+        if (isValidLength && isValidPunct) {
+          const validation = validateMasterRules(cleaned, payload);
+          if (validation.ok) {
+            candidates.push({
+              line: cleaned,
+              comedian: comedian.name
+            });
+          } else {
+            validationErrors.push({
+              line: cleaned,
+              reason: validation.reason,
+              length: cleaned.length
+            });
+          }
         } else {
           validationErrors.push({
             line: cleaned,
-            reason: validation.reason || 'length_invalid',
+            reason: !isValidLength ? 'length_invalid' : 'punct_invalid',
             length: cleaned.length
           });
         }
@@ -279,10 +318,10 @@ Generate ONE line only:`;
       }
     }
     
-    console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid candidates out of 16`);
+    console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid candidates out of ${config.candidates}`);
     
+    // Return partial success if we have at least some valid lines
     if (candidates.length >= 4) {
-      // Select best 4 with variety
       const selected = candidates.slice(0, 4);
       const batchValidation = validateBatch(selected.map(c => c.line), payload);
       
@@ -291,27 +330,38 @@ Generate ONE line only:`;
       } else {
         console.log(`Batch validation failed:`, batchValidation.details);
       }
+    } else if (attempt === maxRetries - 1 && candidates.length > 0) {
+      // On final attempt, return what we have if it's something
+      console.log(`Final attempt: returning ${candidates.length} partial candidates`);
+      return candidates.slice(0, Math.min(4, candidates.length));
     }
     
-    // Log why this attempt failed
+    // Log detailed errors for debugging
     if (validationErrors.length > 0) {
-      const errorSummary = validationErrors.slice(0, 3).map(e => `"${e.line.substring(0, 30)}..." (${e.reason}, len:${e.length})`);
+      const errorSummary = validationErrors.slice(0, 3).map(e => 
+        `"${e.line.substring(0, 30)}..." (${e.reason}, len:${e.length})`
+      );
       console.log(`Validation errors sample:`, errorSummary);
     }
     
-    // Wait before retry
-    if (attempt < retries - 1) {
-      await new Promise(r => setTimeout(r, 250 + Math.random() * 350));
+    // Wait before retry with jitter
+    if (attempt < maxRetries - 1) {
+      await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
     }
   }
   
-  throw new Error(`no_valid_lines_after_${retries}_retries`);
+  throw new Error(`no_valid_lines_after_${maxRetries}_retries`);
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Add request timeout protection
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('request_timeout')), 30000); // 30 second total timeout
+  });
 
   try {
     const payload = await req.json();
@@ -346,8 +396,11 @@ OUTPUT: Only the joke line, nothing else.
 Nonce: ${nonce}`;
 
     try {
-      // Use retry logic with better error reporting
-      const validLines = await generateValidBatch(systemPrompt, payload, subcategory, nonce);
+      // Race between generation and timeout
+      const validLines = await Promise.race([
+        generateValidBatch(systemPrompt, payload, subcategory, nonce),
+        timeoutPromise
+      ]);
       
       return new Response(JSON.stringify({
         success: true,
@@ -359,20 +412,33 @@ Nonce: ${nonce}`;
     } catch (generationError) {
       console.error('Generation failed after all retries:', generationError);
       
-      // Return detailed error for debugging
+      // Provide user-friendly error messages
+      let userMessage = 'Text generation failed';
+      let statusCode = 422;
+      
+      if (generationError.message === 'request_timeout' || generationError.message === 'generation_timeout_exceeded') {
+        userMessage = 'Generation timed out. Try again with simpler requirements or different insert words.';
+        statusCode = 408;
+      } else if (generationError.message.includes('no_valid_lines')) {
+        userMessage = 'Could not generate valid text with current requirements. Try changing the tone, rating, or insert words.';
+      } else if (generationError.message.includes('category_anchor_missing')) {
+        userMessage = `Unable to create ${subcategory} jokes with current settings. Try different insert words or tone.`;
+      }
+      
       return new Response(JSON.stringify({
         success: false,
-        error: `Text generation failed: ${generationError.message}`,
+        error: userMessage,
         details: {
           category: payload.category,
           subcategory: subcategory,
           tone: payload.tone,
           rating: payload.rating,
           insertWords: payload.insertWords,
-          reason: generationError.message
+          reason: generationError.message,
+          troubleshooting: 'Try different insert words, simpler tone, or different category'
         }
       }), {
-        status: 422,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -381,7 +447,8 @@ Nonce: ${nonce}`;
     console.error('Master Rules Generation Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: `System error: ${error.message}`
+      error: 'System error occurred. Please try again.',
+      details: { reason: error.message }
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
