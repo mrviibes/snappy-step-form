@@ -6,7 +6,7 @@ import StepIndicator from "./StepIndicator";
 import CategoryStep from "./steps/CategoryStep";
 import TextStep from "./steps/TextStep";
 import VisualsStep from "./steps/VisualsStep";
-import GenerationStep from "./steps/GenerationStep";
+import SummaryStep from "./steps/SummaryStep";
 interface FormData {
   category: string;
   subcategory: string;
@@ -51,8 +51,8 @@ const steps = [{
   component: VisualsStep
 }, {
   id: 4,
-  title: "Generate",
-  component: GenerationStep
+  title: "Summary",
+  component: SummaryStep
 }];
 export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -112,8 +112,8 @@ export default function MultiStepForm() {
         // For ai-assist and no-visuals, basic requirements are enough
         return true;
       case 4:
-        // Step 4 is generation - it auto-completes when images are generated
-        return !!formData.generation?.isComplete;
+        // Step 4 is summary - always complete once reached
+        return true;
       default:
         return false;
     }
