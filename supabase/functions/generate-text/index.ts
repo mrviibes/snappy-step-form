@@ -202,79 +202,203 @@ const corsHeaders = {
 // Position buckets for insert word placement tracking
 type PosBucket = "front" | "middle" | "end";
 
-// Category-specific required vocabulary and banned off-topic words
-const WEDDING_LEX = [
-  "wedding","vows","rings","I do","altar","partner","bride","groom",
-  "dance floor","reception","bouquet","toast","DJ","cake","forever"
-];
+// Comprehensive Subcategory Lexicon System
+interface SubcategoryLexicon {
+  must: string[];      // At least one MUST appear in every line
+  optional: string[];  // Good for variety but not required
+  banned: string[];    // Reject line if these appear
+}
 
-const WEDDING_BANS = [
-  "wifi","wi-fi","pizza","monday","spreadsheet","deadline","zoom",
-  "traffic","taxes","office","email","login","password"
-];
-
-// Birthday-specific vocabulary - words that make content feel birthday-themed
-const BIRTHDAY_LEX = [
-  "birthday","cake","candles","party","celebration","age","year","older",
-  "wishes","balloons","presents","gifts","celebrate","another year"
-];
-
-// Birthday bans - avoid overly serious or unrelated topics
-const BIRTHDAY_BANS = [
-  "funeral","death","divorce","taxes","deadline","spreadsheet",
-  "meeting","performance review","diagnosis","crisis"
-];
+// Master lexicon table for all subcategories
+const SUBCATEGORY_LEXICON: Record<string, SubcategoryLexicon> = {
+  // 🎉 CELEBRATIONS
+  "engagement": {
+    must: ["ring", "proposal", "fiancé", "fiancée", "diamond", "forever", "yes", "question", "chosen", "engaged"],
+    optional: ["knees", "sparkle", "promise", "partner", "proposal", "popped"],
+    banned: ["wifi", "pizza", "monday", "spreadsheet", "taxes", "office", "meeting"]
+  },
+  "wedding": {
+    must: ["wedding", "vows", "altar", "bride", "groom", "rings", "forever", "dance floor", "reception", "bouquet", "cake", "married"],
+    optional: ["toast", "DJ", "honeymoon", "aisle", "partner", "ceremony", "I do"],
+    banned: ["wifi", "pizza", "monday", "office", "password", "spreadsheet"]
+  },
+  "birthday": {
+    must: ["birthday", "cake", "candles", "party", "age", "balloons", "wish", "celebrate", "year", "older"],
+    optional: ["gift", "frosting", "sprinkles", "blow out", "presents"],
+    banned: ["monday", "taxes", "wifi", "spreadsheet", "meeting", "funeral", "death", "divorce"]
+  },
+  "anniversary": {
+    must: ["anniversary", "years", "forever", "love", "together", "partner", "celebrate"],
+    optional: ["roses", "dinner", "milestone", "memory", "journey"],
+    banned: ["pizza", "monday", "wifi", "homework", "taxes"]
+  },
+  "graduation": {
+    must: ["graduation", "cap", "gown", "diploma", "degree", "tassel", "graduate", "achieved"],
+    optional: ["stage", "future", "proud", "ceremony", "accomplishment"],
+    banned: ["monday", "wifi", "pizza", "meeting", "taxes"]
+  },
+  "baby-shower": {
+    must: ["baby", "shower", "crib", "diaper", "bottle", "stroller", "little", "tiny"],
+    optional: ["new life", "precious", "bundle", "nursery"],
+    banned: ["taxes", "wifi", "pizza", "meeting", "office"]
+  },
+  
+  // 🏆 SPORTS
+  "sports": {
+    must: ["game", "score", "fans", "team", "trophy", "coach", "season", "field", "play"],
+    optional: ["stadium", "ref", "whistle", "jersey", "victory"],
+    banned: ["monday", "wifi", "spreadsheet", "office", "taxes"]
+  },
+  "soccer": {
+    must: ["goal", "kick", "field", "match", "cup", "referee", "soccer", "football"],
+    optional: ["stadium", "fans", "halftime", "penalty"],
+    banned: ["pizza", "wifi", "monday", "office"]
+  },
+  "basketball": {
+    must: ["court", "hoop", "basket", "dribble", "dunk", "season", "playoffs", "basketball"],
+    optional: ["ref", "buzzer", "fans", "three-pointer"],
+    banned: ["taxes", "wifi", "monday", "spreadsheet"]
+  },
+  "baseball": {
+    must: ["bat", "ball", "base", "home run", "inning", "pitcher", "stadium", "baseball"],
+    optional: ["fans", "glove", "strike", "diamond"],
+    banned: ["pizza", "wifi", "monday", "office"]
+  },
+  "hockey": {
+    must: ["puck", "ice", "stick", "net", "rink", "goalie", "season", "hockey"],
+    optional: ["fans", "slapshot", "hat trick", "penalty"],
+    banned: ["wifi", "pizza", "monday", "taxes"]
+  },
+  
+  // 💼 DAILY LIFE
+  "work": {
+    must: ["meeting", "boss", "deadline", "office", "email", "calendar", "slides", "work"],
+    optional: ["coffee", "desk", "break room", "presentation"],
+    banned: ["wedding", "vows", "ring", "birthday", "cake"]
+  },
+  "school": {
+    must: ["class", "teacher", "homework", "exam", "book", "test", "subject", "school"],
+    optional: ["study", "project", "grade", "student"],
+    banned: ["taxes", "vows", "wedding", "office"]
+  },
+  "family": {
+    must: ["family", "mom", "dad", "kids", "home", "together", "parents"],
+    optional: ["uncle", "cousin", "dinner", "siblings"],
+    banned: ["wifi", "office", "meeting", "spreadsheet"]
+  },
+  
+  // 🎬 POP CULTURE
+  "movies": {
+    must: ["movie", "film", "screen", "popcorn", "theater", "cinema"],
+    optional: ["blockbuster", "premiere", "trailer", "actor"],
+    banned: ["wedding", "vows", "cake", "office"]
+  },
+  "music": {
+    must: ["song", "band", "concert", "stage", "lyrics", "music"],
+    optional: ["album", "playlist", "artist", "melody"],
+    banned: ["wifi", "taxes", "monday", "spreadsheet"]
+  },
+  "tv": {
+    must: ["show", "series", "binge", "episode", "television", "TV"],
+    optional: ["remote", "channel", "streaming", "character"],
+    banned: ["cake", "wedding", "office", "meeting"]
+  }
+};
 
 type LineCheck = {
   text: string;
   insertWords: string[]; // e.g., ["chosen"]
   category: "wedding" | "birthday" | string;
+  subcategory?: string; // Added for enhanced lexicon validation
   rating: "G"|"PG"|"PG-13"|"R";
 };
 
-function passesStep2Rules(l: LineCheck): boolean {
+// Enhanced Step 2 Rules with comprehensive lexicon enforcement
+function passesStep2Rules(l: LineCheck & { subcategory?: string }): boolean {
   const t = l.text.trim();
 
-  // 1) one sentence, 50–120 chars
+  // 1) Basic format rules - one sentence, 50–120 chars
   if (t.length < 50 || t.length > 120) return false;
   if ((t.match(/[.!?]/g) || []).length > 2) return false;         // ≤2 punctuation marks total
   if (/[–—]/.test(t)) return false;                               // no en/em dash
 
-  // 2) insert words exactly once each
+  // 2) Insert words exactly once each - STRICT
   for (const w of l.insertWords) {
     const re = new RegExp(`\\b${w}\\b`, "i");
     if (!re.test(t)) return false;
     if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
   }
 
-  // 3) NO PLACEHOLDER FALLBACKS - fail fast instead of using "friend"
-  if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+  // 3) NO PLACEHOLDER FALLBACKS - fail fast instead of using "friend", "wifi", etc.
+  if (/\b(friend|NAME|USER|wifi|wi-fi|pizza)\b/i.test(t)) return false;
 
-  // 4) Category-specific vocabulary requirements - STRICT
-  if (l.category.toLowerCase() === "wedding") {
-    // Wedding must include at least one wedding keyword
-    if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-    // Ban irrelevant topics for weddings
-    if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-  } else if (l.category.toLowerCase() === "birthday" || l.category.toLowerCase().includes("birthday")) {
-    // Birthday content MUST include birthday-specific vocabulary
-    if (!BIRTHDAY_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-    // Ban overly serious topics
-    if (BIRTHDAY_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-  } else if (l.category.toLowerCase() === "work") {
-    // Work categories need work-related vocabulary
-    const WORK_LEX = ["meeting","boss","deadline","office","email","calendar","slides","presentation","team","project"];
-    if (!WORK_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
-  } else if (l.category.toLowerCase() === "sports") {
-    // Sports categories need sports vocabulary
-    const SPORTS_LEX = ["game","score","fans","stadium","coach","ref","trophy","season","team","player","match"];
-    if (!SPORTS_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+  // 4) COMPREHENSIVE SUBCATEGORY LEXICON ENFORCEMENT
+  const subcategory = (l.subcategory || l.category || "").toLowerCase().replace(/[^a-z]/g, "-");
+  const lexicon = getSubcategoryLexicon(subcategory, l.category);
+  
+  if (lexicon) {
+    // MUST include at least one required keyword
+    if (!lexicon.must.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) {
+      console.log(`LEXICON FAIL: Missing required word from [${lexicon.must.join(', ')}] in: "${t}"`);
+      return false;
+    }
+    
+    // MUST NOT include any banned words (unless they're in insert words)
+    const insertedWords = new Set(l.insertWords.map(w => w.toLowerCase()));
+    const hasBannedWord = lexicon.banned.some(b => {
+      if (insertedWords.has(b)) return false; // Allow if explicitly inserted
+      return new RegExp(`\\b${b}\\b`, "i").test(t);
+    });
+    if (hasBannedWord) {
+      console.log(`LEXICON FAIL: Contains banned word in: "${t}"`);
+      return false;
+    }
   }
 
   // 5) Rating validation
   if (l.rating.toLowerCase() === "g" && /\b(damn|hell)\b/i.test(t)) return false;
 
   return true;
+}
+
+// Get subcategory lexicon with fallback logic
+function getSubcategoryLexicon(subcategory: string, category: string): SubcategoryLexicon | null {
+  // Try direct subcategory match first
+  if (SUBCATEGORY_LEXICON[subcategory]) {
+    return SUBCATEGORY_LEXICON[subcategory];
+  }
+  
+  // Try category-specific mappings
+  const categoryKey = category?.toLowerCase() || "";
+  
+  // Handle birthday variations
+  if (subcategory.includes("birthday") || categoryKey.includes("birthday")) {
+    return SUBCATEGORY_LEXICON["birthday"];
+  }
+  
+  // Handle wedding variations  
+  if (subcategory.includes("wedding") || categoryKey.includes("wedding")) {
+    return SUBCATEGORY_LEXICON["wedding"];
+  }
+  
+  // Handle engagement variations
+  if (subcategory.includes("engagement") || categoryKey.includes("engagement")) {
+    return SUBCATEGORY_LEXICON["engagement"];
+  }
+  
+  // Handle sports variations
+  if (subcategory.includes("sport") || categoryKey.includes("sport")) {
+    return SUBCATEGORY_LEXICON["sports"];
+  }
+  
+  // Try partial matches for known subcategories
+  for (const [key, lexicon] of Object.entries(SUBCATEGORY_LEXICON)) {
+    if (subcategory.includes(key) || key.includes(subcategory)) {
+      return lexicon;
+    }
+  }
+  
+  return null;
 }
 
 // Diverse topic seed nouns to avoid repetition
@@ -366,17 +490,23 @@ function withTimeout<T>(promise: Promise<T>, ms: number, name = "operation"): Pr
   ]);
 }
 
-// Sanitize insert words to avoid model confusion - NO FALLBACKS
+// Sanitize insert words to avoid model confusion - STRICT NO FALLBACKS
 function sanitizeInsertWords(words: string[]): string[] {
+  if (!words || words.length === 0) {
+    throw new Error("Insert words are required - no fallbacks allowed");
+  }
+  
   const sanitized = words.filter(word => {
     const w = word.toLowerCase().trim();
-    // Filter out problematic words that confuse the model
-    return w.length >= 3 && !['test', 'example', 'sample', 'friend', 'name', 'user'].includes(w);
+    // Filter out problematic words and all generic fallbacks
+    return w.length >= 2 && 
+           !['test', 'example', 'sample', 'friend', 'name', 'user', 'wifi', 'wi-fi', 'pizza'].includes(w) &&
+           !/^(user|name|friend|test)\d*$/i.test(w); // Block numbered variants
   });
   
-  // CRITICAL: FAIL FAST - no fallbacks to "friend" or placeholder words
+  // CRITICAL: FAIL FAST - no fallbacks to "friend", "wifi", or any placeholder words
   if (sanitized.length === 0) {
-    throw new Error("Valid insert_words required for Step-2 - no fallbacks allowed");
+    throw new Error("Valid insert_words required - no generic fallbacks allowed. Received: " + JSON.stringify(words));
   }
   
   return sanitized;
@@ -418,44 +548,54 @@ async function generateWithFallback(body: any): Promise<Array<{line: string, com
   return generateUltimateFallback(requestBody);
 }
 
-// Generate ultimate fallback when all else fails
+// Generate ultimate fallback when all else fails - NO GENERIC WORDS
 function generateUltimateFallback(body: any): Array<{line: string, comedian: string}> {
   const insertWords = body.insertWords || [];
   const rating = (body.rating || "pg").toLowerCase();
   const tone = (body.tone || "humorous").toLowerCase();
   const category = (body.category || "celebrations").toLowerCase();
+  const subcategory = (body.subcategory || "").toLowerCase();
   
-  const iwText = insertWords.length > 0 ? insertWords[0] : "friend";
+  // CRITICAL: NO "friend" fallback - use actual insert words or fail gracefully
+  if (insertWords.length === 0) {
+    throw new Error("Cannot generate fallback without insert words - no generic placeholders allowed");
+  }
   
-  // Category-specific templates
+  const iwText = insertWords[0];
+  
+  // Get subcategory-specific vocabulary for authentic fallbacks
+  const lexicon = getSubcategoryLexicon(subcategory, category);
+  const contextWord = lexicon ? lexicon.must[Math.floor(Math.random() * lexicon.must.length)] : "celebration";
+  
+  // Subcategory-specific authentic templates - NO Wi-Fi, pizza, etc.
   const templates = {
-    humorous: category.includes("birthday") ? [
-      `${iwText}, you're like a fine wine - getting better with age and making everyone else tipsy!`,
-      `Is it just me, or does ${iwText} have the perfect balance of chaos and charm?`,
-      `Another year of ${iwText} existing, and somehow we're all still surprised by the shenanigans!`,
-      `${iwText} brings joy like finding extra fries at the bottom of the bag - unexpected and delightful!`
+    humorous: lexicon ? [
+      `${iwText} brings joy like discovering the perfect ${contextWord} playlist exists.`,
+      `Is it just me, or does ${iwText} make every ${contextWord} feel like a victory lap?`,
+      `Another ${contextWord} with ${iwText}, and somehow the universe makes more sense.`,
+      `${iwText} turns ordinary moments into the kind of ${contextWord} stories worth telling.`
     ] : [
-      `${iwText}, you're like a fine wine - getting better with age and making everyone else tipsy!`,
-      `Is it just me, or does ${iwText} have the perfect balance of chaos and charm?`,
-      `Life with ${iwText} is like having Wi-Fi that actually works - rare and wonderful!`,
-      `${iwText} brings joy like a surprise pizza delivery on a Monday!`
+      `${iwText} brings light to every celebration and warmth to every gathering.`,
+      `Is it just me, or does ${iwText} make everything feel like a perfect moment?`,
+      `Another celebration with ${iwText}, and life feels exactly as it should.`,
+      `${iwText} turns ordinary days into the kind of memories worth keeping.`
     ],
     sentimental: [
-      `${iwText}, you bring light to every room you enter and warmth to every heart you touch.`,
-      `In a world full of ordinary, ${iwText} shines as something truly extraordinary.`,
-      `${iwText}, your kindness creates ripples of joy that reach farther than you know.`,
-      `The world is brighter because ${iwText} is in it, spreading love and laughter.`
+      `${iwText}, you bring grace to every ${contextWord} and meaning to every moment.`,
+      `In a world of fleeting things, ${iwText} creates lasting joy and genuine connection.`,
+      `${iwText}, your presence turns every ${contextWord} into something truly special.`,
+      `The world celebrates a little brighter because ${iwText} is part of the story.`
     ],
     savage: rating === "r" ? [
-      `${iwText}, you're so fucking awesome that even your haters have to respect the game!`,
-      `Is ${iwText} perfect? Hell no, but they're real as shit and that's what matters!`,
-      `${iwText} doesn't need anyone's approval - they're too busy being a badass!`,
-      `Life's too short for fake people, thankfully ${iwText} keeps it 100% real!`
+      `${iwText}, you're so fucking genuine that even skeptics believe in magic again.`,
+      `Is ${iwText} perfect? Hell no, but they're real as fuck and that's pure gold.`,
+      `${iwText} doesn't need validation - they're too busy being authentically badass.`,
+      `Life's too short for bullshit, thankfully ${iwText} keeps every moment honest.`
     ] : [
-      `${iwText}, you're so incredible that even your critics have to admit you're amazing!`,
-      `Is ${iwText} perfect? No, but they're authentic and that's what really matters!`,
-      `${iwText} doesn't need validation - they're too busy being genuinely awesome!`,
-      `Life's too short for fake friends, thankfully ${iwText} keeps it completely real!`
+      `${iwText}, you're so authentic that even cynics remember what joy feels like.`,
+      `Is ${iwText} perfect? No, but they're genuine and that's worth celebrating.`,
+      `${iwText} doesn't need anyone's approval - they're too busy being wonderfully themselves.`,
+      `Life's too precious for pretense, thankfully ${iwText} keeps every moment real.`
     ]
   };
   
@@ -463,7 +603,7 @@ function generateUltimateFallback(body: any): Array<{line: string, comedian: str
   const comedians = ["Ellen DeGeneres", "Jerry Seinfeld", "John Mulaney", "Sarah Silverman"];
   
   return selectedTemplates.slice(0, 4).map((line, index) => ({
-    line,
+    line: line.substring(0, 120), // Ensure length compliance
     comedian: comedians[index] || "Ellen DeGeneres"
   }));
 }
@@ -571,32 +711,36 @@ function parseInsertWords(input: string[] | string | undefined): string[] {
   return inputStr.split(',').map(w => w.trim()).filter(Boolean);
 }
 
-// Get category-specific ban words 
-function getCategoryBanWords(category: string, subcategory: string): string[] {  
-  if (category.toLowerCase() === "wedding") {
-    return WEDDING_BANS; // Ban off-topic words like Wi-Fi, pizza, Monday
+// Get subcategory-specific ban words using comprehensive lexicon
+function getCategoryBanWords(category: string, subcategory: string): string[] {
+  const lexicon = getSubcategoryLexicon((subcategory || "").toLowerCase().replace(/[^a-z]/g, "-"), category);
+  if (lexicon) {
+    return lexicon.banned;
   }
-  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
-    return BIRTHDAY_BANS; // Ban overly serious or unrelated topics for birthdays
-  }
-  return []; // Other categories don't have specific bans yet
+  
+  // Fallback to general banned words for unknown categories
+  return ["wifi", "wi-fi", "pizza", "monday", "spreadsheet", "taxes", "meeting"];
 }
 
-// Get category-specific requirements 
+// Get comprehensive subcategory requirements using lexicon system
 function getCategoryRequirement(category: string, subcategory: string): string {
-  if (category.toLowerCase() === "wedding") {
-    return "CRITICAL: Must include at least one wedding word: " + WEDDING_LEX.join(", ");
+  const subcategoryKey = (subcategory || "").toLowerCase().replace(/[^a-z]/g, "-");
+  const lexicon = getSubcategoryLexicon(subcategoryKey, category);
+  
+  if (lexicon) {
+    const mustWords = lexicon.must.slice(0, 8).join(", "); // Show first 8 must-have words
+    return `CRITICAL: Must include at least one of these ${subcategory || category} words: ${mustWords}. This ensures the content feels authentically ${subcategory || category}-themed.`;
   }
-  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
-    return "Birthday requirement: Make it feel celebratory and birthday-themed. Focus on humor, aging, parties, gifts, or celebration themes. Be funny and creative!";
+  
+  // Specific fallbacks for known categories
+  if (subcategory?.toLowerCase().includes("mothers-day") || subcategory?.toLowerCase().includes("mother")) {
+    return "Mother's Day requirement: Include clear mother/mom references to make it distinctly Mother's Day themed.";
   }
-  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
-    return "Mother's Day requirement: Include clear mother/mom references to make it feel distinctly Mother's Day themed.";
+  if (subcategory?.toLowerCase().includes("fathers-day") || subcategory?.toLowerCase().includes("father")) {
+    return "Father's Day requirement: Include clear father/dad references to make it distinctly Father's Day themed.";
   }
-  if (subcategory?.toLowerCase() === "fathers-day" || subcategory?.toLowerCase() === "father's day") {
-    return "Father's Day requirement: Include clear father/dad references to make it feel distinctly Father's Day themed.";
-  }
-  return `${category} requirement: Make it feel distinctly related to ${category}.`;
+  
+  return `${subcategory || category} requirement: Make it feel distinctly and authentically related to ${subcategory || category}. Use specific vocabulary that clearly belongs to this context.`;
 }
 
 // Get random style examples
@@ -828,7 +972,7 @@ function validateLine(
   // Validate insert words with phrase integrity
   if (!validateInsertWords(line, insertWords)) return null;
 
-  // Category-specific validation
+  // Category-specific validation with comprehensive lexicon
   if (!validateCategorySpecific(line, category, subcategory, insertWords)) return null;
 
   // Rating validation
@@ -872,10 +1016,40 @@ function validateInsertWords(line: string, insertWords: string[]): boolean {
   return true;
 }
 
-// Category-specific validation
+// Enhanced category-specific validation using comprehensive lexicon
 function validateCategorySpecific(line: string, category: string, subcategory: string, insertWords: string[]): boolean {
-  // Mother's Day specific validation
-  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
+  const subcategoryKey = (subcategory || "").toLowerCase().replace(/[^a-z]/g, "-");
+  const lexicon = getSubcategoryLexicon(subcategoryKey, category);
+  
+  if (lexicon) {
+    // Check for required vocabulary (must have at least one)
+    const hasMustWord = lexicon.must.some(word => 
+      new RegExp(`\\b${word}\\b`, "i").test(line)
+    );
+    
+    if (!hasMustWord) {
+      console.log(`Category validation FAILED - missing required ${subcategory || category} vocabulary:`, line);
+      console.log("Required words:", lexicon.must.slice(0, 5).join(", "));
+      return false;
+    }
+    
+    // Check for banned words (unless they're explicitly in insert words)
+    const insertedWords = new Set(insertWords.map(w => w.toLowerCase()));
+    const hasBannedWord = lexicon.banned.some(bannedWord => {
+      if (insertedWords.has(bannedWord.toLowerCase())) return false; // Allow if explicitly inserted
+      return new RegExp(`\\b${bannedWord}\\b`, "i").test(line);
+    });
+    
+    if (hasBannedWord) {
+      console.log(`Category validation FAILED - contains banned off-topic word for ${subcategory || category}:`, line);
+      return false;
+    }
+    
+    return true;
+  }
+  
+  // Legacy validation for known categories without lexicon
+  if (subcategory?.toLowerCase().includes("mothers-day") || subcategory?.toLowerCase().includes("mother")) {
     const motherCues = /\b(mom|mother('|)s day|amazing mom|mother)\b/i;
     const hasMotherCue = motherCues.test(line);
     const hasInsertMom = insertWords.some(w => /mom|mother/i.test(w));
@@ -886,15 +1060,11 @@ function validateCategorySpecific(line: string, category: string, subcategory: s
     }
   }
   
-  // Birthday specific validation - much more permissive than weddings
-  if (category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday") || subcategory?.toLowerCase() === "birthday") {
-    // Birthday content is more flexible - just ban overly serious topics
-    const seriousBans = /\b(funeral|death|divorce|crisis|diagnosis|therapy|depression)\b/i;
-    if (seriousBans.test(line)) {
-      console.log("Birthday validation FAILED - contains overly serious content:", line);
-      return false;
-    }
-    // Allow "friend" and other common birthday words - they're perfectly valid
+  // General banned words for unknown categories - no generic fallbacks
+  const genericBans = /\b(wifi|wi-fi|pizza|monday|spreadsheet|taxes|friend|NAME|USER)\b/i;
+  if (genericBans.test(line)) {
+    console.log("Generic validation FAILED - contains generic fallback word:", line);
+    return false;
   }
   
   return true;
@@ -963,15 +1133,17 @@ function validateRating(line: string, rating: string, structureType: StructureTy
   const boltedPattern = new RegExp(`[,;:]\\s*(?:${insertWords.map(escapeReg).join("|")})\\s*[.!?]?$`, "i");
   if (boltedPattern.test(line) && insertWords.length > 0) return null;
 
-  // Apply Step-2 rules for specific categories that need strict validation
-  if ((category.toLowerCase() === "wedding" || category.toLowerCase() === "birthday" || category.toLowerCase().includes("birthday")) && insertWords.length > 0) {
-    const lineCheck: LineCheck = {
+  // Apply comprehensive Step-2 rules for ALL categories with lexicon validation
+  if (insertWords.length > 0) {
+    const lineCheck: LineCheck & { subcategory?: string } = {
       text: line,
       insertWords: insertWords,
       category: category.toLowerCase(),
+      subcategory: subcategory,
       rating: (rating || "G").toUpperCase() as "G"|"PG"|"PG-13"|"R"
     };
     if (!passesStep2Rules(lineCheck)) {
+      console.log("Step-2 validation FAILED for:", line);
       return null;
     }
   }
@@ -1341,45 +1513,59 @@ async function generateFour(body: any): Promise<Array<{line: string, comedian: s
     results.push(...fallbackResults);
   }
 
-  // Final safety check - pad if still short
+    // Enhanced safety check with subcategory-aware fallbacks - NO GENERIC WORDS
   while (results.length < 4) {
-    const iwText = insertWords.length > 0 ? insertWords.join(" ") : "";
-    const position = results.length % 3;
-    
-    let fallback: string;
-    // For R-rating, ensure fallbacks also have explicit content
-    if (rating.toLowerCase() === "r") {
-      if (position === 0 && iwText) {
-        fallback = `${iwText}, but fuck if I know why that matters.`;
-      } else if (position === 1 && iwText) {
-        fallback = `Shit gets real when you realize ${iwText}.`;
-      } else if (iwText) {
-        fallback = `Another damn adventure awaits with ${iwText}.`;
-      } else {
-        fallback = "Permission granted to be loud, joyful, and fucking ridiculous.";
-      }
-    } else {
-      if (position === 0 && iwText) {
-        fallback = `${iwText}, but at least the Wi-Fi password is still 123456.`;
-      } else if (position === 1 && iwText) {
-        fallback = `Time to collect stories you can't tell at work, ${iwText}.`;
-      } else if (iwText) {
-        fallback = `Another adventure awaits when you realize ${iwText}.`;
-      } else {
-        fallback = "Permission granted to be loud, joyful, and ridiculous.";
-      }
+    if (insertWords.length === 0) {
+      console.error("Cannot generate more fallbacks without insert words - failing gracefully");
+      break;
     }
     
+    const iwText = insertWords[0];
+    const lexicon = getSubcategoryLexicon((subcategory || "").toLowerCase().replace(/[^a-z]/g, "-"), category);
+    const contextWord = lexicon ? lexicon.must[Math.floor(Math.random() * lexicon.must.length)] : "moment";
+    const position = results.length % 4;
+    
+    let fallback: string;
+    
+    // Create authentic fallbacks using subcategory vocabulary - NO Wi-Fi, pizza, etc.
+    if (rating.toLowerCase() === "r") {
+      const rFallbacks = [
+        `${iwText} makes every damn ${contextWord} worth celebrating, no bullshit.`,
+        `Fuck yes, ${iwText} brings authenticity to every ${contextWord}.`,
+        `${iwText}, you're real as hell and that's exactly what this ${contextWord} needs.`,
+        `Another ${contextWord} with ${iwText}, and life feels genuinely fucking perfect.`
+      ];
+      fallback = rFallbacks[position] || rFallbacks[0];
+    } else {
+      const cleanFallbacks = [
+        `${iwText} brings genuine joy to every ${contextWord} and moment.`,
+        `Time to celebrate the perfect ${contextWord} with ${iwText} by your side.`,
+        `${iwText}, your presence turns every ${contextWord} into something special.`,
+        `Another ${contextWord} with ${iwText}, and everything feels exactly right.`
+      ];
+      fallback = cleanFallbacks[position] || cleanFallbacks[0];
+    }
+    
+    // Ensure fallback meets length requirements and isn't duplicate
     if (!results.some(r => r.line === fallback) && 
         fallback.length >= 50 && 
-        fallback.length <= 120) {
+        fallback.length <= 120 &&
+        !/(wifi|wi-fi|pizza|monday|spreadsheet|friend)/i.test(fallback)) {
       results.push({line: fallback, comedian: "Jerry Seinfeld"});
-      console.log("Added positioned fallback:", fallback);
+      console.log("Added authentic positioned fallback:", fallback);
     } else {
+      // Last resort - but still no generic words
       const basicFallback = rating.toLowerCase() === "r" ? 
-        "Another fucking adventure awaits, naturally." : 
-        "Another adventure awaits, naturally.";
-      results.push({line: basicFallback, comedian: "Ellen DeGeneres"});
+        `${iwText} makes life authentically fucking awesome.` : 
+        `${iwText} makes every moment genuinely special.`;
+      
+      if (basicFallback.length <= 120) {
+        results.push({line: basicFallback, comedian: "Ellen DeGeneres"});
+      } else {
+        // If we can't create a valid fallback, break to avoid infinite loop
+        console.error("Cannot create valid fallback - breaking safety loop");
+        break;
+      }
     }
   }
 
