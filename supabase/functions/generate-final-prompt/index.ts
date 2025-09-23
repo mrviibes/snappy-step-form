@@ -122,31 +122,37 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     }
   };
 
-  // Layout positioning guides with exact constraints
-  const layoutGuides: Record<string, {description: string, constraints: string}> = {
+  // Layout positioning guides with mandatory instructions and exact constraints
+  const layoutGuides: Record<string, {description: string, constraints: string, mandatoryInstruction: string}> = {
     "meme-text": {
       description: "bold text overlays at top and bottom of image",
-      constraints: "text_overlay_max_fraction: 0.25, top_bottom_text_layout, bold_readable_font"
+      constraints: "Layout: top and bottom text banners, text_overlay_max_fraction: 0.25, bold_readable_font",
+      mandatoryInstruction: "Render exact overlay text in bold banners at the top and bottom of the image"
     },
     "lower-banner": {
       description: "clean text banner at bottom of image", 
-      constraints: "text_overlay_max_fraction: 0.20, bottom_banner_layout, clean_typography"
+      constraints: "Layout: lower third banner, text_overlay_max_fraction: 0.20, clean_typography",
+      mandatoryInstruction: "Render exact overlay text in a lower third banner at the bottom of the image"
     },
     "side-bar": {
       description: "elegant text sidebar on left or right side",
-      constraints: "text_overlay_max_fraction: 0.25, side_panel_layout, vertical_text_option"
+      constraints: "Layout: side panel overlay, text_overlay_max_fraction: 0.25, vertical_text_option",
+      mandatoryInstruction: "Render exact overlay text in an elegant sidebar panel on the left or right side"
     },
     "badge-callout": {
       description: "text in decorative badge or callout bubble",
-      constraints: "text_overlay_max_fraction: 0.15, badge_design, decorative_frame"
+      constraints: "Layout: decorative badge overlay, text_overlay_max_fraction: 0.15, badge_design, decorative_frame",
+      mandatoryInstruction: "Render exact overlay text in a decorative badge or callout bubble"
     },
     "subtle-caption": {
       description: "subtle text overlay integrated naturally into scene",
-      constraints: "text_overlay_max_fraction: 0.20, natural_integration, subtle_placement"
+      constraints: "Layout: natural integration caption, text_overlay_max_fraction: 0.20, subtle_placement",
+      mandatoryInstruction: "Render exact overlay text as a subtle caption naturally integrated into the scene"
     },
     "negative-space": {
       description: "text placed strategically in empty/negative space areas",
-      constraints: "text_overlay_max_fraction: 0.25, negative_space_placement, smart_positioning"
+      constraints: "Layout: strategic negative space placement, text_overlay_max_fraction: 0.25, smart_positioning",
+      mandatoryInstruction: "Render exact overlay text strategically placed in empty/negative space areas"
     }
   };
 
@@ -172,31 +178,46 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const dimensionSpec = dimensionSpecs[dimension.toLowerCase()] || dimensionSpecs["square"];
   const visualElements = insertedVisuals.length > 0 ? insertedVisuals.join(', ') : '';
 
-  // Generate 4 distinct templates
+  // Enhanced negative prompt elements for text safety
+  const textNegatives = [
+    "extra text", "watermarks", "spelling errors", "duplicate text", 
+    "missing text", "misplaced text", "distorted font", "unreadable text",
+    "text artifacts", "garbled text", "partial text", "cut-off text"
+  ];
+
+  // Generate 4 distinct templates with front-loaded text instructions
   const templates: PromptTemplate[] = [
     {
       name: "Cinematic",
       description: "Dramatic, movie-like composition with professional lighting",
-      positive: `${dimensionSpec}, cinematic composition, ${styleGuide.positive.join(', ')}, dramatic lighting, professional quality, ${layoutGuide.description} showing "${finalText}", ${toneGuide.mood} atmosphere, ${visualElements ? `include ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, no_duplicate_text: true, high production value`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, amateur quality, poor lighting, cluttered composition, extra text, watermarks, spelling errors, duplicate text, low resolution`
+      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
+—
+${dimensionSpec}, cinematic composition, ${styleGuide.positive.join(', ')}, dramatic lighting, professional quality, ${toneGuide.mood} atmosphere, ${visualElements ? `include ${visualElements},` : ''} high production value, movie-like quality, professional cinematography`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, amateur quality, poor lighting, cluttered composition, low resolution, unprofessional`
     },
     {
       name: "Close-up",
       description: "Intimate, detailed focus on key elements with shallow depth",
-      positive: `${dimensionSpec}, close-up detailed composition, ${styleGuide.positive.join(', ')}, shallow depth of field, focus on main subject, ${layoutGuide.description} with "${finalText}", ${toneGuide.mood} mood, ${visualElements ? `featuring ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, macro detail, intimate perspective`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, wide angle, busy background, distracted focus, extra text, watermarks, spelling errors, blurry details, poor focus`
+      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
+—
+${dimensionSpec}, close-up detailed composition, ${styleGuide.positive.join(', ')}, shallow depth of field, focus on main subject, ${toneGuide.mood} mood, ${visualElements ? `featuring ${visualElements},` : ''} macro detail, intimate perspective, sharp focus, detailed textures`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, wide angle, busy background, distracted focus, blurry details, poor focus, out of focus`
     },
     {
-      name: "Crowd Reaction",
+      name: "Crowd Reaction", 
       description: "Dynamic scene showing people or environment reacting to the message",
-      positive: `${dimensionSpec}, dynamic crowd scene, ${styleGuide.positive.join(', ')}, people reacting, energetic atmosphere, ${layoutGuide.description} displaying "${finalText}", ${toneGuide.mood} energy, ${visualElements ? `with ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, social interaction, lively scene`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, static scene, lonely, empty, antisocial, extra text, watermarks, spelling errors, boring composition, lifeless`
+      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
+—
+${dimensionSpec}, dynamic crowd scene, ${styleGuide.positive.join(', ')}, people reacting, energetic atmosphere, ${toneGuide.mood} energy, ${visualElements ? `with ${visualElements},` : ''} social interaction, lively scene, group dynamics, engaging composition`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, static scene, lonely, empty, antisocial, boring composition, lifeless, dull atmosphere`
     },
     {
       name: "Minimalist",
-      description: "Clean, simple design focusing on essential elements only",
-      positive: `${dimensionSpec}, minimalist composition, ${styleGuide.positive.join(', ')}, clean simple design, plenty of white space, ${layoutGuide.description} featuring "${finalText}", ${toneGuide.mood} simplicity, ${visualElements ? `minimal ${visualElements},` : ''} ${layoutGuide.constraints}, spelling_strict: true, elegant simplicity, uncluttered`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, cluttered, busy, complex, overwhelming, extra text, watermarks, spelling errors, chaotic, too many elements`
+      description: "Clean, simple design focusing on essential elements only", 
+      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use clean, readable typography. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
+—
+${dimensionSpec}, minimalist composition, ${styleGuide.positive.join(', ')}, clean simple design, plenty of white space, ${toneGuide.mood} simplicity, ${visualElements ? `minimal ${visualElements},` : ''} elegant simplicity, uncluttered, balanced composition, modern aesthetics`,
+      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, cluttered, busy, complex, overwhelming, chaotic, too many elements, messy layout`
     }
   ];
 
