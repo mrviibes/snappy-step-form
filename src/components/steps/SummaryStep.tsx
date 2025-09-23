@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -27,10 +27,22 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  
+  // Request token to prevent concurrent generations and late responses
+  const currentRequestRef = useRef<string | null>(null);
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate templates on mount and auto-generate with first template
+  // Only depend on core data fields, not the entire data object to avoid infinite loops
   useEffect(() => {
+    // Prevent concurrent template generation
+    if (templates.length > 0) return;
+    
     const generateTemplates = async () => {
+      const requestToken = Date.now().toString();
+      currentRequestRef.current = requestToken;
+      
       try {
         // Build the final prompt parameters from all collected data
         const finalText = data.text?.generatedText || data.text?.customText || '';
@@ -53,30 +65,63 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         console.log('Generating templates with params:', params);
         const response = await generateFinalPrompt(params);
         
+        // Check if this request is still current
+        if (currentRequestRef.current !== requestToken) {
+          console.log('Template request was superseded, ignoring response');
+          return;
+        }
+        
         if (response.templates && response.templates.length > 0) {
           setTemplates(response.templates);
           // Auto-select and generate with first template (Cinematic)
           const firstTemplate = response.templates[0];
           setSelectedTemplate(firstTemplate);
-          generateImageFromTemplate(firstTemplate);
+          generateImageFromTemplate(firstTemplate, requestToken);
         } else {
           throw new Error('No templates returned from API');
         }
       } catch (error) {
-        console.error('Error generating templates:', error);
-        setImageError(`Template generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        if (currentRequestRef.current === requestToken) {
+          console.error('Error generating templates:', error);
+          setImageError(`Template generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       } finally {
-        setIsLoadingTemplates(false);
+        if (currentRequestRef.current === requestToken) {
+          setIsLoadingTemplates(false);
+        }
       }
     };
 
     generateTemplates();
-  }, [data]);
+  }, [data.category, data.subcategory, data.text?.generatedText, data.text?.customText, data.text?.tone, data.text?.style, data.text?.layout, data.text?.rating, data.visuals?.style, data.visuals?.dimension]);
 
-  const generateImageFromTemplate = async (template: PromptTemplate) => {
+  const generateImageFromTemplate = async (template: PromptTemplate, requestToken?: string) => {
+    const currentToken = requestToken || Date.now().toString();
+    currentRequestRef.current = currentToken;
+    
+    // Clear any existing timeouts
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+    
     setIsLoadingImage(true);
     setImageError(null);
     setGeneratedImage(null);
+    
+    // Safety timeout - 75 seconds maximum
+    safetyTimeoutRef.current = setTimeout(() => {
+      if (currentRequestRef.current === currentToken) {
+        console.log('Safety timeout reached, stopping image generation');
+        setIsLoadingImage(false);
+        setImageError('Image generation timed out after 75 seconds. Please try again.');
+        currentRequestRef.current = null;
+      }
+    }, 75000);
     
     try {
       console.log('Generating image with template:', template.name);
@@ -87,8 +132,24 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         quality: 'high'
       });
       
-      if ('imageData' in response) {
+      // Check if this request is still current
+      if (currentRequestRef.current !== currentToken) {
+        console.log('Image generation request was superseded, ignoring response');
+        return;
+      }
+      
+      // Handle successful response with explicit success check
+      if (response.success === false) {
+        throw new Error(response.error || 'Image generation failed');
+      }
+      
+      if ('imageData' in response && response.imageData) {
         // Sync response - image is ready immediately
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+        
         setGeneratedImage(response.imageData);
         updateData({
           generation: {
@@ -100,29 +161,57 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           }
         });
         setIsLoadingImage(false);
-      } else if ('jobId' in response) {
+        currentRequestRef.current = null;
+      } else if ('jobId' in response && response.jobId) {
         // Async response - need to poll for completion
         console.log('Polling for image completion, job ID:', response.jobId);
-        pollForImageCompletion(response.jobId, response.provider, template);
+        pollForImageCompletion(response.jobId, response.provider, template, currentToken);
+      } else {
+        throw new Error('Invalid response format from image generation API');
       }
     } catch (error) {
-      console.error('Error generating image:', error);
-      setImageError(error instanceof Error ? error.message : 'Failed to generate image');
-      setIsLoadingImage(false);
+      if (currentRequestRef.current === currentToken) {
+        console.error('Error generating image:', error);
+        setImageError(error instanceof Error ? error.message : 'Failed to generate image');
+        setIsLoadingImage(false);
+        currentRequestRef.current = null;
+        
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+      }
     }
   };
 
-  const pollForImageCompletion = async (jobId: string, provider: 'ideogram' | 'openai', template: PromptTemplate) => {
+  const pollForImageCompletion = async (jobId: string, provider: 'ideogram' | 'openai', template: PromptTemplate, requestToken: string) => {
     const maxAttempts = 20; // Max 20 attempts (up to 1 minute)
     let attempts = 0;
     
     const poll = async () => {
+      // Check if this request is still current
+      if (currentRequestRef.current !== requestToken) {
+        console.log('Polling request was superseded, stopping');
+        return;
+      }
+      
       attempts++;
       try {
         const { pollImageStatus } = await import('@/lib/api');
         const status = await pollImageStatus(jobId, provider);
         
+        // Check again if this request is still current
+        if (currentRequestRef.current !== requestToken) {
+          console.log('Polling response received for superseded request, ignoring');
+          return;
+        }
+        
         if (status.status === 'completed' && status.imageData) {
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+          
           setGeneratedImage(status.imageData);
           updateData({
             generation: {
@@ -134,32 +223,66 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             }
           });
           setIsLoadingImage(false);
+          currentRequestRef.current = null;
         } else if (status.status === 'failed') {
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+          
           setImageError(status.error || 'Image generation failed');
           setIsLoadingImage(false);
+          currentRequestRef.current = null;
         } else if (status.status === 'pending' && attempts < maxAttempts) {
           // Continue polling
-          setTimeout(poll, 3000); // Poll every 3 seconds
+          pollingTimeoutRef.current = setTimeout(poll, 3000); // Poll every 3 seconds
         } else {
           // Max attempts reached
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+          
           setImageError('Image generation timed out. Please try again.');
           setIsLoadingImage(false);
+          currentRequestRef.current = null;
         }
       } catch (error) {
-        console.error('Error polling image status:', error);
-        setImageError('Failed to check image generation status');
-        setIsLoadingImage(false);
+        if (currentRequestRef.current === requestToken) {
+          console.error('Error polling image status:', error);
+          setImageError('Failed to check image generation status');
+          setIsLoadingImage(false);
+          currentRequestRef.current = null;
+          
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+        }
       }
     };
     
     // Start polling after 2 seconds
-    setTimeout(poll, 2000);
+    pollingTimeoutRef.current = setTimeout(poll, 2000);
   };
 
   const handleTemplateSelect = (template: PromptTemplate) => {
     setSelectedTemplate(template);
     generateImageFromTemplate(template);
   };
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+      }
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+      currentRequestRef.current = null;
+    };
+  }, []);
 
   const handleDownloadImage = () => {
     if (!generatedImage) return;
