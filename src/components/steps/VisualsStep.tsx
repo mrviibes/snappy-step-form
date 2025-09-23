@@ -686,51 +686,6 @@ export default function VisualsStep({
                 </div>
               )}
 
-              {/* Visual Options */}
-              {showVisualOptions && (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <h2 className="text-xl font-semibold text-foreground">
-                      Choose your visual:
-                    </h2>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {(generatedVisuals.length > 0 ? generatedVisuals : visualOptionsSamples).map((visual, index) => (
-                      <Card 
-                        key={index}
-                        className={cn(
-                          "p-4 cursor-pointer transition-all duration-200 border-2",
-                          selectedVisualOption === index 
-                            ? "border-primary bg-accent" 
-                            : "border-border hover:border-primary/50"
-                        )}
-                        onClick={() => handleVisualOptionSelect(index)}
-                      >
-                        {generatedVisuals.length > 0 ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
-                                {visual.visualStyle}
-                              </span>
-                              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
-                                {visual.layout.replace('-', ' ')}
-                              </span>
-                            </div>
-                            <p className="text-sm text-foreground leading-relaxed">
-                              {visual.description}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-foreground leading-relaxed">
-                            {visual}
-                          </p>
-                        )}
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
