@@ -247,17 +247,16 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
-// Retry generation with timeout protection and retry ladder
+// Generate exactly 4 valid lines or return structured error
 async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
-  const comedians = pickComedians(4);
   const timeoutMs = 25000; // 25 second hard timeout
   const startTime = Date.now();
   
   // Retry ladder with progressive relaxation
   const retryConfigs = [
-    { candidates: 8, lengthMin: 50, lengthMax: 120, maxPunct: 2 }, // Strict
-    { candidates: 12, lengthMin: 45, lengthMax: 125, maxPunct: 2 }, // Slightly relaxed
-    { candidates: 16, lengthMin: 40, lengthMax: 130, maxPunct: 3 }  // More relaxed
+    { lengthMin: 50, lengthMax: 120, maxPunct: 2 }, // Strict
+    { lengthMin: 45, lengthMax: 125, maxPunct: 2 }, // Slightly relaxed
+    { lengthMin: 40, lengthMax: 130, maxPunct: 3 }  // More relaxed
   ];
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -266,108 +265,118 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
       throw new Error('generation_timeout_exceeded');
     }
     
-    console.log(`Generation attempt ${attempt + 1}:`);
+    console.log(`Generation attempt ${attempt + 1}: Requesting exactly 4 lines`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
-    const candidates = [];
-    const validationErrors = [];
     
-    // Generate candidates with timeout protection
-    for (let i = 0; i < config.candidates; i++) {
-      if (Date.now() - startTime > timeoutMs) {
-        console.log('Timeout during candidate generation');
-        break;
+    // Build comprehensive prompt for 4 lines at once
+    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Tone: ${payload.tone}. Rating: ${payload.rating}. Each line ${config.lengthMin}-${config.lengthMax} characters. At most ${config.maxPunct} punctuation marks per line. No em dashes, semicolons, or ellipses.`;
+    
+    if (payload.insertWords?.length > 0) {
+      const insertTag = payload.insertWords[0];
+      instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated. Do not duplicate or skip the name in any line.`;
+    }
+    
+    instructions += ` Each line must clearly tie to ${subcategory} context using keywords or situations. Return exactly 4 lines, one per line, no numbering or bullets.`;
+    
+    const userPrompt = `${instructions}
+
+Context keywords: ${getLexiconFor(subcategory).slice(0, 8).join(', ') || 'relevant terms'}
+
+Generate exactly 4 lines:`;
+
+    try {
+      const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+      const lines = rawResponse.split(/\r?\n/).map(s => s.trim().replace(/^["']|["']$/g, '').replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
+      
+      console.log(`Raw response gave ${lines.length} lines`);
+      
+      if (lines.length < 4) {
+        console.log(`Only got ${lines.length} lines, retrying...`);
+        continue;
       }
       
-      const comedian = comedians[i % comedians.length];
+      // Take first 4 lines and validate each
+      const candidates = [];
+      const failures = [];
+      const comedians = pickComedians(4);
       
-      // Improved insert tag prompting
-      let instructions = `Write 1 ${payload.rating}-rated ${subcategory} joke. Tone: ${payload.tone}. Keep it ${config.lengthMin}-${config.lengthMax} characters. Exactly one sentence. At most ${config.maxPunct} punctuation marks. No em dashes, semicolons, or ellipses.`;
-      
-      if (payload.insertWords?.length > 0) {
-        const insertTag = payload.insertWords[0];
-        instructions += ` Include the name "${insertTag}" exactly once anywhere in the line, naturally integrated. Do not duplicate or skip the name.`;
-      }
-      
-      instructions += ` Tie each joke to ${subcategory} context by keyword or situation.`;
-      
-      const userPrompt = `${instructions}
-
-Comedian Style: ${comedian.name} – ${comedian.flavor}
-
-Examples of good ${subcategory} context integration:
-- Use keywords like: ${getLexiconFor(subcategory).slice(0, 5).join(', ') || 'relevant terms'}
-- Reference situations specific to ${subcategory}
-
-Generate ONE line only:`;
-
-      try {
-        const rawResponse = await callOpenAI(systemPrompt, userPrompt);
-        const cleaned = rawResponse.split('\n')[0].trim().replace(/^["']|["']$/g, '');
+      for (let i = 0; i < 4; i++) {
+        const line = lines[i];
+        const comedian = comedians[i];
         
-        // Progressive validation - use config params
-        const isValidLength = cleaned.length >= config.lengthMin && cleaned.length <= config.lengthMax;
-        const punctCount = (cleaned.match(/[.!?,:"]/g) || []).length;
+        // Progressive validation
+        const isValidLength = line.length >= config.lengthMin && line.length <= config.lengthMax;
+        const punctCount = (line.match(/[.!?,:"]/g) || []).length;
         const isValidPunct = punctCount <= config.maxPunct;
         
         if (isValidLength && isValidPunct) {
-          const validation = validateMasterRules(cleaned, payload);
+          const validation = validateMasterRules(line, payload);
           if (validation.ok) {
             candidates.push({
-              line: cleaned,
+              line: line,
               comedian: comedian.name
             });
           } else {
-            validationErrors.push({
-              line: cleaned,
+            failures.push({
+              index: i,
+              line: line.substring(0, 50) + '...',
               reason: validation.reason,
-              length: cleaned.length
+              length: line.length
             });
           }
         } else {
-          validationErrors.push({
-            line: cleaned,
+          failures.push({
+            index: i,
+            line: line.substring(0, 50) + '...',
             reason: !isValidLength ? 'length_invalid' : 'punct_invalid',
-            length: cleaned.length
+            length: line.length
           });
         }
-      } catch (error) {
-        console.error(`Generation ${i} failed:`, error);
       }
-    }
-    
-    console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid candidates out of ${config.candidates}`);
-    
-    // Return partial success if we have at least some valid lines
-    if (candidates.length >= 4) {
-      const selected = candidates.slice(0, 4);
-      const batchValidation = validateBatch(selected.map(c => c.line), payload);
       
-      if (batchValidation.ok) {
-        return selected;
-      } else {
-        console.log(`Batch validation failed:`, batchValidation.details);
+      console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines`);
+      
+      // If we have exactly 4 valid lines, check batch validation
+      if (candidates.length === 4) {
+        const batchValidation = validateBatch(candidates.map(c => c.line), payload);
+        
+        if (batchValidation.ok) {
+          return candidates;
+        } else {
+          console.log(`Batch validation failed:`, batchValidation.details);
+        }
       }
-    } else if (attempt === maxRetries - 1 && candidates.length > 0) {
-      // On final attempt, return what we have if it's something
-      console.log(`Final attempt: returning ${candidates.length} partial candidates`);
-      return candidates.slice(0, Math.min(4, candidates.length));
-    }
-    
-    // Log detailed errors for debugging
-    if (validationErrors.length > 0) {
-      const errorSummary = validationErrors.slice(0, 3).map(e => 
-        `"${e.line.substring(0, 30)}..." (${e.reason}, len:${e.length})`
-      );
-      console.log(`Validation errors sample:`, errorSummary);
+      
+      // Log failures for debugging
+      if (failures.length > 0) {
+        console.log(`Validation failures:`, failures);
+      }
+      
+      // If this is our last attempt and we have at least 1 valid line, throw detailed error
+      if (attempt === maxRetries - 1) {
+        const errorDetails = {
+          validLines: candidates.length,
+          totalRequested: 4,
+          failures: failures,
+          lastAttemptConfig: config
+        };
+        throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
+      }
+      
+    } catch (error) {
+      console.error(`Generation attempt ${attempt + 1} failed:`, error);
+      if (attempt === maxRetries - 1) {
+        throw error;
+      }
     }
     
     // Wait before retry with jitter
     if (attempt < maxRetries - 1) {
-      await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
     }
   }
   
-  throw new Error(`no_valid_lines_after_${maxRetries}_retries`);
+  throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
 }
 
 serve(async (req) => {
