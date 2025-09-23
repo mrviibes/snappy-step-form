@@ -406,7 +406,68 @@ export default function VisualsStep({
 
       {/* Complete Summary and Remaining Flow */}
       {(isComplete || hasSelectedStyle && hasSelectedDimension) && <div className="space-y-4">
-          
+          {/* Style and Dimension Summary - Always show when both are selected */}
+          {hasSelectedStyle && hasSelectedDimension && <>
+            <Card className="border-2 border-primary bg-accent p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-foreground">
+                      Style - {selectedStyle?.title}
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                handleStyleChange("");
+                setShowDimensions(false);
+                updateData({
+                  visuals: {
+                    style: "",
+                    dimension: ""
+                  }
+                });
+              }} className="text-xs text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50">
+                    Edit
+                  </Button>
+                </div>
+                
+                <div className="h-px bg-border"></div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Dimension - </span>
+                    <span className="text-sm text-foreground">
+                      {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                setShowDimensions(true);
+                updateData({
+                  visuals: {
+                    ...data.visuals,
+                    dimension: ""
+                  }
+                });
+              }} className="text-xs text-cyan-500">
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Visual Options - Show when no option selected yet */}
+            {!hasSelectedOption && <>
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Choose your visual process
+                </h2>
+              </div>
+              <div className="space-y-3">
+                {visualOptions.map(option => <Button key={option.id} variant={data.visuals?.option === option.id ? "default" : "outline"} className={cn("w-full h-12 text-sm font-medium transition-all duration-300", data.visuals?.option === option.id ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" : "hover:bg-accent border-border")} onClick={() => handleVisualOptionChange(option.id)}>
+                    {option.fullTitle}
+                  </Button>)}
+              </div>
+            </>}
+          </>}
 
           {/* All the remaining sections for AI Assist flow */}
           {data.visuals?.option === "ai-assist" && <>
