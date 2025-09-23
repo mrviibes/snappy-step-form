@@ -628,33 +628,6 @@ export default function TextStep({
               </div>}
           </div>
 
-          {/* Rating Selection */}
-          <div className="space-y-3 pt-4">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                Choose Your Rating
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {ratingOptions.map(rating => (
-                <button 
-                  key={rating.id} 
-                  onClick={() => handleRatingSelect(rating.id)} 
-                  className={cn(
-                    "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-                    data.text?.rating === rating.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-                  )}
-                >
-                  <div className="flex h-full flex-col items-center justify-center space-y-1">
-                    <div className="font-semibold text-sm">{rating.name}</div>
-                    <div className="text-xs text-muted-foreground">{rating.description}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Generate Button */}
           <div className="w-full">
