@@ -540,9 +540,7 @@ export default function TextStep({
           {/* Specific Words Section */}
           <div className="space-y-3">
             <h3 className="text-lg font-semibold text-foreground">Optional - any specific words?</h3>
-            <div className="text-sm text-muted-foreground">
-              e.g., names, congrats etc. and hit return
-            </div>
+            
             
             <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
             
