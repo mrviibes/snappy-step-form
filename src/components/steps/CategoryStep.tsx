@@ -2287,6 +2287,17 @@ export default function CategoryStep({
   const [subcategorySearchQuery, setSubcategorySearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
+  // Smart search with auto-navigation to subcategories
+  const getSubcategoryMatches = (goal: any, searchLower: string) => {
+    return goal.subcategories.filter((subcategory: any) => {
+      const subcategoryLower = subcategory.title.toLowerCase();
+      // Check for exact matches, partial matches, and word matches
+      return subcategoryLower.includes(searchLower) ||
+             subcategoryLower.split(' ').some((word: string) => word.startsWith(searchLower)) ||
+             subcategoryLower.replace('-', ' ').includes(searchLower);
+    });
+  };
+
   const filteredGoals = fitnessGoals.filter(goal => {
     const searchLower = searchQuery.toLowerCase();
     
@@ -2295,16 +2306,59 @@ export default function CategoryStep({
                                goal.description.toLowerCase().includes(searchLower);
     
     // Match any subcategory title with more flexible matching
-    const matchesSubcategory = goal.subcategories.some(subcategory => {
-      const subcategoryLower = subcategory.title.toLowerCase();
-      // Check for exact matches, partial matches, and word matches
-      return subcategoryLower.includes(searchLower) ||
-             subcategoryLower.split(' ').some(word => word.startsWith(searchLower)) ||
-             subcategoryLower.replace('-', ' ').includes(searchLower);
-    });
+    const subcategoryMatches = getSubcategoryMatches(goal, searchLower);
+    const matchesSubcategory = subcategoryMatches.length > 0;
     
     return matchesMainCategory || matchesSubcategory;
   });
+
+  // Auto-navigation logic: if search has strong subcategory matches but weak main category matches
+  const shouldAutoNavigate = searchQuery.length > 2 && !showingSubcategories && !selectedCategory;
+  
+  if (shouldAutoNavigate) {
+    // Find categories with strong subcategory matches
+    const categoriesWithMatches = fitnessGoals.map(goal => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesMainCategory = goal.title.toLowerCase().includes(searchLower) || 
+                                 goal.description.toLowerCase().includes(searchLower);
+      const subcategoryMatches = getSubcategoryMatches(goal, searchLower);
+      
+      // Check for exact subcategory matches (high confidence)
+      const hasExactMatch = subcategoryMatches.some((sub: any) => 
+        sub.title.toLowerCase() === searchLower ||
+        sub.title.toLowerCase().replace('-', ' ') === searchLower
+      );
+      
+      // Check for strong partial matches (medium confidence)  
+      const hasStrongMatch = subcategoryMatches.some((sub: any) => 
+        sub.title.toLowerCase().startsWith(searchLower) && searchLower.length >= 4
+      );
+      
+      return {
+        goal,
+        subcategoryMatches,
+        hasExactMatch,
+        hasStrongMatch,
+        matchesMainCategory,
+        confidence: hasExactMatch ? 3 : hasStrongMatch ? 2 : subcategoryMatches.length > 0 ? 1 : 0
+      };
+    }).filter(item => item.confidence > 0);
+    
+    // Auto-navigate if we have a high-confidence match that doesn't strongly match the main category
+    const bestMatch = categoriesWithMatches
+      .filter(item => !item.matchesMainCategory && item.confidence >= 2)
+      .sort((a, b) => b.confidence - a.confidence)[0];
+    
+    if (bestMatch) {
+      // Auto-navigate to subcategories
+      setTimeout(() => {
+        setSelectedCategory(bestMatch.goal.id);
+        setShowingSubcategories(true);
+        setSubcategorySearchQuery(searchQuery);
+        setSearchQuery("");
+      }, 100);
+    }
+  }
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
   const filteredSubcategories = selectedCategoryData ? selectedCategoryData.subcategories.filter(subcategory => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
   
