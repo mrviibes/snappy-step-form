@@ -461,7 +461,7 @@ export default function TextStep({
         </div>
         
         {/* Inserted Words Section - show after choosing yes for AI assist */}
-        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && <div className="flex items-center justify-between p-4 border-t border-border">
+        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && <div className="flex items-center justify-between p-4 border-t border-b border-border">
             <div className="text-sm text-foreground">
               <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'chosen'}
             </div>
