@@ -467,18 +467,44 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Inserted Words Section - show after choosing yes for AI assist */}
-        {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && <div className="flex items-center justify-between p-4 border-t border-b border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
+        {/* Specific Words Section - show for AI assist */}
+        {data.text?.writingPreference === 'ai-assist' && <div className="p-4 border-t border-border">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-foreground font-semibold">Optional - any specific words?</div>
+              </div>
+              
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="e.g., names, congrats etc. and hit return"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                  className="w-full"
+                />
+                
+                {/* Show existing tags */}
+                {data.text?.specificWords && data.text.specificWords.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {data.text.specificWords.map((word, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm"
+                      >
+                        {word}
+                        <button
+                          onClick={() => handleRemoveTag(word)}
+                          className="text-muted-foreground hover:text-foreground ml-1"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <button onClick={() => {
-          setShowGeneration(false);
-          setShowSpecificWordsChoice(true);
-          setShowSpecificWordsInput(false);
-        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
           </div>}
 
         {/* Style and Rating Summary - only show after text generation */}
