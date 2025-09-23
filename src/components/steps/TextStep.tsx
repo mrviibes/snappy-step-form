@@ -539,7 +539,7 @@ export default function TextStep({
       {data.text?.writingPreference === 'ai-assist' && <div className="space-y-6 pt-4">
           {/* Specific Words Section */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-foreground">Optional - any specific words?</h3>
+            <h3 className="text-lg font-semibold text-foreground">Any specific words?</h3>
             
             
             <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
