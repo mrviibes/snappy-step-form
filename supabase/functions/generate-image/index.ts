@@ -181,7 +181,7 @@ serve(async (req) => {
       const fetchPromise = fetch('https://api.ideogram.ai/generate', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${ideogramApiKey}`,
+          'Api-Key': ideogramApiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(ideogramRequestBody),
