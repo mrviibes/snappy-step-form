@@ -239,8 +239,14 @@ const styleExamples: Record<string, string[]> = {
   "weird": [
     "May your age unlock secret Wi-Fi and suspiciously wise raccoons.",
     "Another orbit, Jesse, and your shadow now demands a manager.",
-    "May your neighbor's WiFi always disconnect mid-Zoom call.",
-    "Here's to surviving another year without the microwave judging you."
+    "Congrats on graduating from the University of Procrastination and Existential Dread.",
+    "May your future be as bright as a disco ball operated by confused penguins."
+  ],
+  "weird_r": [
+    "Congrats Jesse, you party like a raccoon who just discovered fucking fireworks.",
+    "May your diploma be as useful as a shit-flavored lollipop in a candy store.",
+    "Another year of Jesse's existence, and even the Wi-Fi router is questioning this bullshit.",
+    "Congrats on your degree, now you can professionally explain why you're broke as fuck."
   ],
   "wholesome": [
     "Here's to inside jokes and unflattering photos we still love.",
@@ -506,8 +512,14 @@ function getCategoryBanWords(category: string, subcategory: string): string[] {
 }
 
 // Get random style examples
-function getStyleExamples(style: string): string[] {
+function getStyleExamples(style: string, rating: string = "pg"): string[] {
   const styleKey = style.toLowerCase();
+  
+  // Use explicit examples for R-rated weird content
+  if (styleKey === "weird" && rating.toLowerCase() === "r") {
+    return styleExamples["weird_r"] || styleExamples["weird"];
+  }
+  
   return styleExamples[styleKey] || styleExamples.generic;
 }
 
@@ -595,20 +607,20 @@ function buildPrompt(opts: {
     "g": "clean language only. Humor may be playful, observational, or absurd without profanity.",
     "pg": "mild spice, no explicit profanity. Light innuendo allowed.",
     "pg-13": "edgy humor allowed with mild swears (damn, hell, crap, ass). MUST include at least one mild swear.",
-    "r": "explicit adult humor with strong profanity REQUIRED. MUST include at least one strong swear word (fuck, shit, asshole, bastard, bullshit).",
+    "r": "EXPLICIT adult humor with STRONG profanity REQUIRED. You MUST include at least one strong swear word (fuck, shit, asshole, bastard, bullshit). This is not negotiable for R-rated content. Be bold and edgy.",
   };
 
   const styleHints: Record<string, string> = {
     "sarcastic": "ironic bite, eye roll",
     "wholesome": "warm, kind, uplifting", 
-    "weird": "absurd, surreal, unexpected imagery",
+    "weird": "ABSURD, surreal, completely unexpected imagery. Think raccoons, aliens, Wi-Fi routers with feelings, talking microwaves. Be gloriously strange.",
     "savage": "brutally honest, cutting, no-holds-barred",
     "generic": "neutral, straightforward phrasing"
   };
 
   // Get category-specific ban words and style examples
   const banWords = getCategoryBanWords(category, subcategory);
-  const examples = getStyleExamples(style);
+  const examples = getStyleExamples(style, rating);
   // Pick 2 random examples
   const shuffled = [...examples].sort(() => Math.random() - 0.5);
   const selectedExamples = shuffled.slice(0, 2);
@@ -650,6 +662,9 @@ ${suggestTopics.length > 0 ? `- Consider these fresh topics: ${suggestTopics.joi
 
 Rating: ${rating} — ${ratingRule}
 ${rating.toLowerCase() === 'g' ? '- For G rating: forbid crisis, panic, anxiety, hangover, divorce, midlife themes.' : ''}
+${rating.toLowerCase() === 'r' ? '- For R rating: You MUST be explicit and edgy. Include strong profanity (fuck, shit, asshole, bastard, bullshit). This is REQUIRED.' : ''}
+
+${rating.toLowerCase() === 'r' ? 'CRITICAL FOR R RATING: Your line will be REJECTED if it does not contain explicit profanity. Be bold, edgy, and use strong swear words.' : ''}
 
 Output exactly the sentence. No preface or commentary.
 Nonce: ${nonce}`.trim();
@@ -665,6 +680,8 @@ Comedian style: ${comedianStyle.name} – ${comedianStyle.flavor}
 
 Structure: ${structureHint}
 Placement hint: ${bucketHint} (Keep it natural; do not force awkward phrasing.)
+
+${rating.toLowerCase() === 'r' ? 'REMEMBER: R-rating requires explicit profanity. Use fuck, shit, asshole, bastard, or bullshit. Your response will be rejected if too clean.' : ''}
 
 Style examples (do not copy, just the vibe):
 - "${selectedExamples[0]}"
