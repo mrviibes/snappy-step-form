@@ -366,10 +366,15 @@ export default function VisualsStep({
                 key={dimension.id} 
                 className={cn(
                   "cursor-pointer text-center transition-all duration-300 ease-spring hover:shadow-card-hover hover:scale-105", 
-                  "border-2 bg-gradient-card p-4", 
+                  "border-2 bg-gradient-card p-4 flex flex-col justify-center", 
                   {
                     "border-primary shadow-primary bg-accent": data.visuals?.dimension === dimension.id,
-                    "border-border": data.visuals?.dimension !== dimension.id
+                    "border-border": data.visuals?.dimension !== dimension.id,
+                    // Different aspect ratios for visual representation
+                    "aspect-square": dimension.id === "square",
+                    "aspect-[16/9]": dimension.id === "landscape", 
+                    "aspect-[9/16]": dimension.id === "portrait",
+                    "aspect-[4/3] border-dashed": dimension.id === "custom"
                   }
                 )} 
                 onClick={() => handleDimensionSelect(dimension.id)}
