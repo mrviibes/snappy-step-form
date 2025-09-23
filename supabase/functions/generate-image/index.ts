@@ -191,9 +191,9 @@ serve(async (req) => {
 
     // Map quality to Ideogram model
     const modelMap: Record<string, string> = {
-      high: 'V_2_TURBO',
-      medium: 'V_2',
-      low: 'V_1_TURBO'
+      high: 'V_3',
+      medium: 'V_3',
+      low: 'V_3_TURBO'
     };
 
     console.log('Generating image with Ideogram:', { 
