@@ -3,9 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, X, ChevronDown } from "lucide-react";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
 import realisticImage from "@/assets/visual-style-realistic-new.jpg";
@@ -76,6 +77,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
+  const [selectedStyleFilter, setSelectedStyleFilter] = useState<string>("Cinematic");
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -332,9 +334,34 @@ export default function VisualsStep({
       {/* Visual Selection */}
       {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && <>
           <div className="text-center mb-6 pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              Choose your visual concept
-            </h2>
+            <div className="flex items-center justify-center gap-4 mb-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2 bg-background border-2 border-border hover:border-primary/50 hover:bg-accent z-50"
+                  >
+                    {selectedStyleFilter}
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-background border-2 border-border shadow-lg z-50">
+                  {["Cinematic", "Close-up", "Crowd Reaction", "Minimalist", "Exaggerated Proportions", "Goofy Absurd"].map((style) => (
+                    <DropdownMenuItem 
+                      key={style}
+                      onClick={() => setSelectedStyleFilter(style)}
+                      className="hover:bg-accent cursor-pointer"
+                    >
+                      {style}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <h2 className="text-xl font-semibold text-foreground">
+                Choose your visual concept
+              </h2>
+            </div>
             <p className="text-sm text-muted-foreground">
               Select one of these AI-generated recommendations:
             </p>
