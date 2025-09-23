@@ -73,13 +73,21 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     try {
+      // Ensure insert words are provided for specific categories
+      const insertWords = Array.isArray(data.text?.specificWords) ? data.text?.specificWords : data.text?.specificWords ? [data.text?.specificWords] : [];
+      
+      // For wedding category, require at least one insert word
+      if (data.subcategory === 'wedding' && (!insertWords || insertWords.length === 0)) {
+        throw new Error('Please enter at least one specific word for wedding celebrations (e.g., "chosen", "beloved", "partner")');
+      }
+      
       const options = await generateTextOptions({
         category: data.category || 'celebrations',
         subcategory: data.subcategory,
         tone: data.text?.tone,
         style: data.text?.style || 'Generic',
         rating: data.text?.rating || 'PG',
-        insertWords: Array.isArray(data.text?.specificWords) ? data.text?.specificWords : data.text?.specificWords ? [data.text?.specificWords] : [],
+        insertWords,
         comedianStyle: data.text?.comedianStyle ? {
           name: data.text.comedianStyle,
           flavor: ''
@@ -463,7 +471,7 @@ export default function TextStep({
         {/* Inserted Words Section - show after choosing yes for AI assist */}
         {data.text?.writingPreference === 'ai-assist' && !showSpecificWordsChoice && <div className="flex items-center justify-between p-4 border-t border-b border-border">
             <div className="text-sm text-foreground">
-              <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : 'chosen'}
+              <span className="font-semibold">Inserted Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
             </div>
             <button onClick={() => {
           setShowGeneration(false);
