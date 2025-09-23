@@ -248,9 +248,11 @@ export default function VisualsStep({
       {/* Compact Dimension Summary */}
       {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Dimension - </span>
-              <span className="text-sm text-primary font-medium capitalize">{data.visuals?.dimension}</span>
+            <div>
+              <div className="text-sm font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
+              <div className="text-xs text-muted-foreground">
+                {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.description}
+              </div>
             </div>
             <button onClick={() => setEditingDimension(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
