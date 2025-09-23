@@ -402,16 +402,27 @@ export default function VisualsStep({
         </>
       )}
 
-      {/* Completion State */}
+      {/* Completion State - Compact Summary */}
       {isComplete && (
-        <div className="text-center py-8">
-          <div className="text-lg font-semibold text-foreground mb-2">
-            ✓ Visuals step completed!
+        <Card className="cursor-pointer border-2 border-primary bg-accent/50 p-4" 
+              onClick={() => updateData({ visuals: { ...data.visuals, isComplete: false } })}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-primary rounded-full" />
+              <div className="text-left">
+                <div className="text-sm font-medium text-foreground">
+                  Style: {selectedStyle?.title} • Dimension: {data.visuals?.dimension}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Visual Concept {(data.visuals?.selectedVisualOption ?? 0) + 1} selected
+                </div>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs">
+              Edit
+            </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Your visual concept has been selected and saved.
-          </p>
-        </div>
+        </Card>
       )}
     </div>;
 }
