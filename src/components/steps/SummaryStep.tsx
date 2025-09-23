@@ -80,31 +80,79 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     
     try {
       console.log('Generating image with template:', template.name);
-      const imageData = await generateImage({
+      const response = await generateImage({
         prompt: template.positive,
         negativePrompt: template.negative,
         dimension: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high'
       });
       
-      setGeneratedImage(imageData);
-      
-      // Update form data with generated image
-      updateData({
-        generation: {
-          ...data.generation,
-          images: [imageData],
-          selectedImage: imageData,
-          selectedTemplate: template,
-          isComplete: true
-        }
-      });
+      if ('imageData' in response) {
+        // Sync response - image is ready immediately
+        setGeneratedImage(response.imageData);
+        updateData({
+          generation: {
+            ...data.generation,
+            images: [response.imageData],
+            selectedImage: response.imageData,
+            selectedTemplate: template,
+            isComplete: true
+          }
+        });
+      } else if ('jobId' in response) {
+        // Async response - need to poll for completion
+        console.log('Polling for image completion, job ID:', response.jobId);
+        pollForImageCompletion(response.jobId, response.provider, template);
+      }
     } catch (error) {
       console.error('Error generating image:', error);
       setImageError(error instanceof Error ? error.message : 'Failed to generate image');
-    } finally {
       setIsLoadingImage(false);
     }
+  };
+
+  const pollForImageCompletion = async (jobId: string, provider: 'ideogram' | 'openai', template: PromptTemplate) => {
+    const maxAttempts = 20; // Max 20 attempts (up to 1 minute)
+    let attempts = 0;
+    
+    const poll = async () => {
+      attempts++;
+      try {
+        const { pollImageStatus } = await import('@/lib/api');
+        const status = await pollImageStatus(jobId, provider);
+        
+        if (status.status === 'completed' && status.imageData) {
+          setGeneratedImage(status.imageData);
+          updateData({
+            generation: {
+              ...data.generation,
+              images: [status.imageData],
+              selectedImage: status.imageData,
+              selectedTemplate: template,
+              isComplete: true
+            }
+          });
+          setIsLoadingImage(false);
+        } else if (status.status === 'failed') {
+          setImageError(status.error || 'Image generation failed');
+          setIsLoadingImage(false);
+        } else if (status.status === 'pending' && attempts < maxAttempts) {
+          // Continue polling
+          setTimeout(poll, 3000); // Poll every 3 seconds
+        } else {
+          // Max attempts reached
+          setImageError('Image generation timed out. Please try again.');
+          setIsLoadingImage(false);
+        }
+      } catch (error) {
+        console.error('Error polling image status:', error);
+        setImageError('Failed to check image generation status');
+        setIsLoadingImage(false);
+      }
+    };
+    
+    // Start polling after 2 seconds
+    setTimeout(poll, 2000);
   };
 
   const handleTemplateSelect = (template: PromptTemplate) => {

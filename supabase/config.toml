@@ -19,3 +19,6 @@ verify_jwt = false
 
 [functions.generate-viibe-text]
 verify_jwt = false
+
+[functions.poll-image-status]
+verify_jwt = false

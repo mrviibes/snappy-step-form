@@ -81,6 +81,11 @@ type GenerateImageResponse = {
   success: true;
   imageData: string;
 } | {
+  success: true;
+  jobId: string;
+  status: 'pending';
+  provider: 'ideogram' | 'openai';
+} | {
   success: false;
   error: string;
 };
@@ -205,18 +210,38 @@ export async function generateFinalPrompt(params: GenerateFinalPromptParams): Pr
 }
 
 // Generate image using Ideogram V3
-export async function generateImage(params: GenerateImageParams): Promise<string> {
+export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResponse> {
   try {
-    const res = await ctlFetch<GenerateImageResponse>("generate-image", params, 120000); // 2 minutes timeout for Ideogram
-    if (!res || !(res as any).success) {
-      const errorMsg = (res as any)?.error || "Image generation failed";
-      const statusInfo = (res as any)?.status ? ` (Status: ${(res as any).status})` : '';
-      const details = (res as any)?.details ? ` Details: ${(res as any).details}` : '';
-      throw new Error(`${errorMsg}${statusInfo}${details}`);
-    }
-    return (res as any).imageData;
+    const response = await ctlFetch<GenerateImageResponse>("generate-image", params, 60000);
+    return response;
   } catch (error) {
-    console.error('Image generation failed:', error);
-    throw error;
+    console.error('Error generating image:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate image');
+  }
+}
+
+export async function pollImageStatus(jobId: string, provider: 'ideogram' | 'openai'): Promise<{
+  success: boolean;
+  status: 'pending' | 'completed' | 'failed';
+  imageData?: string;
+  error?: string;
+  progress?: number;
+}> {
+  try {
+    const response = await ctlFetch<{
+      success: boolean;
+      status: 'pending' | 'completed' | 'failed';
+      imageData?: string;
+      error?: string;
+      progress?: number;
+    }>("poll-image-status", { jobId, provider }, 15000);
+    return response;
+  } catch (error) {
+    console.error('Error polling image status:', error);
+    return {
+      success: false,
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Failed to poll image status'
+    };
   }
 }

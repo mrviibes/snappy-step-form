@@ -292,6 +292,32 @@ serve(async (req) => {
     let data: any;
     try {
       data = await response.json();
+      console.log('Ideogram API response received, checking structure...');
+      console.log('Response data keys:', Object.keys(data || {}));
+      
+      // Check if this is an async job response
+      if (data.job_id || data.id) {
+        const jobId = data.job_id || data.id;
+        console.log(`Ideogram returned job ID: ${jobId}`);
+        
+        return jsonResponse({
+          success: true,
+          jobId,
+          status: 'pending',
+          provider: 'ideogram'
+        });
+      }
+      
+      // Legacy sync response handling
+      if (data.data && Array.isArray(data.data)) {
+        console.log(`Ideogram response structure: { hasData: true, dataType: "array", dataLength: ${data.data.length} }`);
+      } else {
+        console.log('Ideogram response structure:', {
+          hasData: !!data.data,
+          dataType: typeof data.data,
+          keys: Object.keys(data)
+        });
+      }
     } catch (error) {
       console.error('Failed to parse Ideogram response as JSON:', error);
       return jsonResponse({
