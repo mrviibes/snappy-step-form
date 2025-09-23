@@ -465,7 +465,7 @@ export default function VisualsStep({
       )}
 
       {/* Complete Summary and Remaining Flow */}
-      {isComplete && (
+      {(isComplete || (hasSelectedStyle && hasSelectedDimension)) && (
         <div className="space-y-4">
           <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4">
             <div className="space-y-3">
@@ -484,52 +484,60 @@ export default function VisualsStep({
                 </Button>
               </div>
               
-              <div className="h-px bg-border"></div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium text-foreground">Dimension - </span>
-                  <span className="text-sm text-foreground">
-                    {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
-                  </span>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    setShowDimensions(true);
-                    updateData({
-                      visuals: {
-                        ...data.visuals,
-                        dimension: ""
-                      }
-                    });
-                  }}
-                  className="text-xs text-cyan-500"
-                >
-                  Edit
-                </Button>
-              </div>
+              {hasSelectedDimension && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Dimension - </span>
+                      <span className="text-sm text-foreground">
+                        {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
+                      </span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowDimensions(true);
+                        updateData({
+                          visuals: {
+                            ...data.visuals,
+                            dimension: ""
+                          }
+                        });
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
 
-              <div className="h-px bg-border"></div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium text-foreground">Process - </span>
-                  <span className="text-sm text-foreground">{selectedOption?.title}</span>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    updateData({ visuals: { ...data.visuals, option: "" } });
-                    setShowSpecificVisualsChoice(false);
-                  }}
-                  className="text-xs text-cyan-500"
-                >
-                  Edit
-                </Button>
-              </div>
+              {hasSelectedOption && (
+                <>
+                  <div className="h-px bg-border"></div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Process - </span>
+                      <span className="text-sm text-foreground">{selectedOption?.title}</span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        updateData({ visuals: { ...data.visuals, option: "" } });
+                        setShowSpecificVisualsChoice(false);
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
 
               {/* Inserted Visuals Section - show after choosing yes for AI assist */}
               {data.visuals?.option === 'ai-assist' && !showSpecificVisualsChoice && (
