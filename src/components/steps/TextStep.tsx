@@ -354,7 +354,7 @@ export default function TextStep({
         {/* Writing Preference Selection */}
         <div className="text-center pt-4">
           <h2 className="mb-4 text-xl font-semibold text-foreground">
-            Choose Your Writing Preference
+            Choose Your Writing Process
           </h2>
         </div>
 
