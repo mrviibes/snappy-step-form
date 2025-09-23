@@ -189,11 +189,18 @@ serve(async (req) => {
       landscape: 'ASPECT_16_9'
     };
 
-    // Map quality to Ideogram model
+    // Map quality to Ideogram model (v3)
     const modelMap: Record<string, string> = {
       high: 'V_3',
       medium: 'V_3',
       low: 'V_3_TURBO'
+    };
+
+    // Legacy models for fallback to /generate JSON
+    const legacyModelMap: Record<string, string> = {
+      high: 'V_2',
+      medium: 'V_2',
+      low: 'V_2_TURBO'
     };
 
     console.log('Generating image with Ideogram:', { 
@@ -247,7 +254,7 @@ serve(async (req) => {
     if (!response.ok) {
       const ideogramRequestBody = {
         image_request: {
-          model: modelMap[quality],
+          model: legacyModelMap[quality],
           prompt: prompt.trim(),
           negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
           aspect_ratio: aspectRatioMap[dimension],
