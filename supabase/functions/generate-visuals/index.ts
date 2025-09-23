@@ -673,6 +673,9 @@ function createFallbackVisuals(params: GenerateVisualsParams, expectedStyle: str
     }
   })
 }
+
+// Enhanced visual generation with 6-mode validation
+async function generateVisualRecommendations(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
   const { system, user } = buildVisualPrompt(params)
   const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
   const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
@@ -687,7 +690,7 @@ function createFallbackVisuals(params: GenerateVisualsParams, expectedStyle: str
     attempts++
     
     try {
-      const rawResponse = await callOpenAI(system, user)
+      const rawResponse = await callOpenAIWithTimeout(system, user)
       console.log(`Visual generation attempt ${attempts}:`, rawResponse.substring(0, 300))
       
       // Parse JSON response
