@@ -257,7 +257,7 @@ export default function VisualsStep({
       {data.category && data.subcategory && (
         <div className="text-left mb-4">
           <div className="text-sm text-muted-foreground">
-            {data.category} &gt; {data.subcategory}
+            Your selection: {data.category} &gt; {data.subcategory}
           </div>
         </div>
       )}
