@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, ArrowRight } from "lucide-react";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
 import realisticImage from "@/assets/visual-style-realistic-new.jpg";
@@ -97,6 +98,7 @@ export default function VisualsStep({
   const [showSpecificVisualsInput, setShowSpecificVisualsInput] = useState(false);
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -127,6 +129,9 @@ export default function VisualsStep({
   };
 
   const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
+    // Clear any previous errors
+    setError(null);
+    
     setShowSpecificVisualsDialog(false);
     if (hasVisuals) {
       setShowSpecificVisualsInput(true);
@@ -187,14 +192,32 @@ export default function VisualsStep({
   };
 
   const handleGenerateVisuals = async () => {
+    console.log("=== Visual Generation Debug ===");
+    console.log("Current data structure:", {
+      text: data.text,
+      hasGeneratedText: !!data.text?.generatedText,
+      hasCustomText: !!data.text?.customText,
+      textComplete: data.text?.isComplete
+    });
+
+    // Check if we have any text available
     if (!data.text?.generatedText && !data.text?.customText) {
       console.error("No text available for visual generation");
+      
+      // Show error state instead of silent failure
+      setError("Please complete Step 2 (Text) first before generating visuals.");
+      setShowVisualGeneration(false);
       return;
     }
 
+    // Clear any previous errors
+    setError(null);
     setIsGeneratingVisuals(true);
+    
     try {
       const finalText = data.text.generatedText || data.text.customText;
+      console.log("Using text for generation:", finalText);
+      
       const params = {
         finalText,
         category: data.category || "",
@@ -212,12 +235,15 @@ export default function VisualsStep({
 
       console.log("Generating visuals with params:", params);
       const visuals = await generateVisualOptions(params);
+      console.log("Generated visuals success:", visuals);
+      
       setGeneratedVisuals(visuals);
       setShowVisualOptions(true);
-      console.log("Generated visuals:", visuals);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
-      // Fallback to sample visuals if generation fails
+      setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Still show options but with empty generated visuals
       setGeneratedVisuals([]);
       setShowVisualOptions(true);
     } finally {
@@ -574,14 +600,34 @@ export default function VisualsStep({
                     </Select>
                   </div>
 
+                  {/* Error Display */}
+                  {error && (
+                    <Alert className="border-destructive bg-destructive/10">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-destructive">
+                        {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Generate Visuals Button */}
                   <div className="w-full space-y-3">
                     <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
                       {isGeneratingVisuals ? <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generating...
-                        </> : 'Generate Visuals'}
+                          Generating visuals...
+                        </> : <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate Visuals
+                        </>}
                     </Button>
+                    
+                    {/* Debug Info - remove in production */}
+                    <div className="text-xs text-muted-foreground text-center">
+                      Text available: {!!data.text?.generatedText || !!data.text?.customText ? '✓' : '✗'} |
+                      Has generated: {!!data.text?.generatedText ? '✓' : '✗'} |
+                      Has custom: {!!data.text?.customText ? '✓' : '✗'}
+                    </div>
                   </div>
                 </div>}
 
