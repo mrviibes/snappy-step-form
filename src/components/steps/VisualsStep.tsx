@@ -78,12 +78,33 @@ export default function VisualsStep({
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
+  const [currentSubStep, setCurrentSubStep] = useState(1); // 1: style, 2: dimensions, 3: generate, 4: select
 
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
         ...data.visuals,
         style: styleId
+      }
+    });
+  };
+
+  const handleContinueToNextSubStep = () => {
+    setCurrentSubStep(prev => prev + 1);
+  };
+
+  const handleBackToPreviousSubStep = () => {
+    setCurrentSubStep(prev => prev - 1);
+  };
+
+  const resetToStyleSelection = () => {
+    setCurrentSubStep(1);
+    setGeneratedVisuals([]);
+    setSelectedVisualOption(null);
+    updateData({
+      visuals: {
+        ...data.visuals,
+        isComplete: false
       }
     });
   };
@@ -203,41 +224,75 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Step 1: Visual Style Selection - Always Visible */}
-      <div className="text-center">
-        <h2 className="mb-2 text-xl font-semibold text-foreground">
-          Choose your visual style
-        </h2>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        {visualStyles.map(style => (
-          <Card 
-            key={style.id} 
-            className={cn(
-              "cursor-pointer transition-all duration-200 overflow-hidden border-2",
-              data.visuals?.style === style.id 
-                ? "border-primary bg-accent" 
-                : "border-border hover:border-primary/50"
-            )} 
-            onClick={() => handleStyleChange(style.id)}
-          >
-            <div className="aspect-video relative">
-              <img src={style.preview} alt={style.title} className="w-full h-full object-cover" />
+      {/* Progress Indicator */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4].map((step) => (
+            <div key={step} className="flex items-center">
+              <div className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium",
+                step <= currentSubStep ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              )}>
+                {step}
+              </div>
+              {step < 4 && (
+                <div className={cn(
+                  "w-8 h-0.5 mx-1",
+                  step < currentSubStep ? "bg-primary" : "bg-muted"
+                )} />
+              )}
             </div>
-            <div className="p-3">
-              <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
-              <p className="text-xs text-muted-foreground">{style.description}</p>
-            </div>
-          </Card>
-        ))}
+          ))}
+        </div>
       </div>
 
+      {/* Step 1: Visual Style Selection */}
+      {currentSubStep >= 1 && (
+        <>
+          <div className="text-center">
+            <h2 className="mb-2 text-xl font-semibold text-foreground">
+              Step 1: Choose your visual style
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {visualStyles.map(style => (
+              <Card 
+                key={style.id} 
+                className={cn(
+                  "cursor-pointer transition-all duration-200 overflow-hidden border-2",
+                  data.visuals?.style === style.id 
+                    ? "border-primary bg-accent" 
+                    : "border-border hover:border-primary/50"
+                )} 
+                onClick={() => handleStyleChange(style.id)}
+              >
+                <div className="aspect-video relative">
+                  <img src={style.preview} alt={style.title} className="w-full h-full object-cover" />
+                </div>
+                <div className="p-3">
+                  <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
+                  <p className="text-xs text-muted-foreground">{style.description}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+          
+          {hasSelectedStyle && currentSubStep === 1 && (
+            <div className="pt-4 text-center">
+              <Button onClick={handleContinueToNextSubStep} className="w-full">
+                Continue to Dimensions
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Step 2: Dimensions Selection */}
-      {hasSelectedStyle && (
+      {currentSubStep >= 2 && hasSelectedStyle && (
         <>
           <div className="text-center pt-6 pb-2">
             <h2 className="text-xl font-semibold text-foreground">
-              Choose your dimensions
+              Step 2: Choose your dimensions
             </h2>
           </div>
           
@@ -269,12 +324,29 @@ export default function VisualsStep({
               </Card>
             ))}
           </div>
+
+          {hasSelectedDimension && currentSubStep === 2 && (
+            <div className="pt-4 flex gap-3">
+              <Button variant="outline" onClick={handleBackToPreviousSubStep} className="flex-1">
+                Back
+              </Button>
+              <Button onClick={handleContinueToNextSubStep} className="flex-1">
+                Continue to Generate
+              </Button>
+            </div>
+          )}
         </>
       )}
 
       {/* Step 3: Visual Tags and Generate */}
-      {showGenerateButton && !showVisualOptions && !isComplete && (
+      {currentSubStep >= 3 && showGenerateButton && !showVisualOptions && !isComplete && (
         <>
+          <div className="text-center pt-6 pb-2">
+            <h2 className="text-xl font-semibold text-foreground">
+              Step 3: Generate AI Visuals
+            </h2>
+          </div>
+          
           {/* Optional Visual Tags */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -324,33 +396,41 @@ export default function VisualsStep({
               </Alert>
             )}
             
-            <Button 
-              onClick={handleGenerateVisuals}
-              disabled={isGeneratingVisuals}
-              className="w-full h-12 text-base font-medium"
-            >
-              {isGeneratingVisuals ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating 4 AI visuals...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate 4 AI Visual Recommendations
-                </>
-              )}
-            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBackToPreviousSubStep} className="flex-1">
+                Back
+              </Button>
+              <Button 
+                onClick={() => {
+                  handleGenerateVisuals();
+                  setCurrentSubStep(4);
+                }}
+                disabled={isGeneratingVisuals}
+                className="flex-1 h-12 text-base font-medium"
+              >
+                {isGeneratingVisuals ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate 4 AI Visuals
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </>
       )}
 
       {/* Step 4: Visual Selection */}
-      {showVisualOptions && !isComplete && (
+      {currentSubStep >= 4 && (showVisualOptions || isGeneratingVisuals) && !isComplete && (
         <>
-          <div className="text-center mb-6">
+          <div className="text-center mb-6 pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              Choose your visual concept
+              Step 4: Choose your visual concept
             </h2>
             <p className="text-sm text-muted-foreground">
               Select one of these AI-generated recommendations:
@@ -386,6 +466,13 @@ export default function VisualsStep({
                 </Card>
               ))}
             </div>
+          ) : isGeneratingVisuals ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <div className="text-muted-foreground">
+                Generating your visual recommendations...
+              </div>
+            </div>
           ) : (
             <div className="text-center py-8">
               <div className="text-muted-foreground mb-4">
@@ -393,9 +480,24 @@ export default function VisualsStep({
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => setGeneratedVisuals([])}
+                onClick={() => {
+                  setGeneratedVisuals([]);
+                  setCurrentSubStep(3);
+                }}
               >
                 Try Again
+              </Button>
+            </div>
+          )}
+
+          {generatedVisuals.length > 0 && (
+            <div className="pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setCurrentSubStep(3)} 
+                className="w-full"
+              >
+                Generate Different Options
               </Button>
             </div>
           )}
@@ -405,7 +507,7 @@ export default function VisualsStep({
       {/* Completion State - Compact Summary */}
       {isComplete && (
         <Card className="cursor-pointer border-2 border-primary bg-accent/50 p-4" 
-              onClick={() => updateData({ visuals: { ...data.visuals, isComplete: false } })}>
+              onClick={() => resetToStyleSelection()}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-primary rounded-full" />
