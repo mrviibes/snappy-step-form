@@ -12,7 +12,7 @@ type GenerateTextParams = {
   userId?: string;
 };
 
-type GenerateTextResponse = { success: true; options: string[] } | { success: false; error: string };
+type GenerateTextResponse = { success: true; options: Array<{line: string, comedian: string}> } | { success: false; error: string };
 
 export interface VisualRecommendation {
   visualStyle: string
@@ -66,7 +66,7 @@ export async function checkServerHealth(): Promise<boolean> {
   }
 }
 
-export async function generateTextOptions(params: GenerateTextParams): Promise<string[]> {
+export async function generateTextOptions(params: GenerateTextParams): Promise<Array<{line: string, comedian: string}>> {
   // Normalize insertWords to array
   const insertWords = Array.isArray(params.insertWords)
     ? params.insertWords.filter(Boolean)
@@ -92,13 +92,13 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<s
       const msg = (res as any)?.error || "Generation failed";
       throw new Error(msg);
     }
-    const options = (res as any).options as string[];
+    const options = (res as any).options as Array<{line: string, comedian: string}>;
     if (!Array.isArray(options) || options.length === 0) {
       throw new Error("No options returned");
     }
     
     // Client-side guard: ensure basic validation
-    const validated = options.filter(s => s && s.length >= 50 && s.length <= 120);
+    const validated = options.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
     if (validated.length === 0) {
       throw new Error("All generated options failed validation");
     }
@@ -111,8 +111,8 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<s
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
         const retryRes = await ctlFetch<GenerateTextResponse>("generate-text", payload, 10000);
         if (retryRes && (retryRes as any).success === true) {
-          const retryOptions = (retryRes as any).options as string[];
-          const validated = retryOptions.filter(s => s && s.length >= 50 && s.length <= 120);
+          const retryOptions = (retryRes as any).options as Array<{line: string, comedian: string}>;
+          const validated = retryOptions.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
           if (validated.length > 0) {
             return validated.slice(0, 4);
           }

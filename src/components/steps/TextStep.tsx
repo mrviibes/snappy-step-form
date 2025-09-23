@@ -57,7 +57,7 @@ export default function TextStep({
   const [showGeneration, setShowGeneration] = useState(false);
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
-  const [textOptions, setTextOptions] = useState<string[]>([]);
+  const [textOptions, setTextOptions] = useState<Array<{line: string, comedian: string}>>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
@@ -88,7 +88,7 @@ export default function TextStep({
       });
 
       // Client-side guard: ensure 50–120 chars
-      const safe = options.filter(s => s && s.length >= 50 && s.length <= 120);
+      const safe = options.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
       if (safe.length < 4) {
         // Pad with existing safe options or show what we have
         const finalOptions = safe.length > 0 ? safe : options.slice(0, 4);
@@ -242,7 +242,7 @@ export default function TextStep({
       text: {
         ...data.text,
         selectedOption: optionIndex,
-        generatedText: textOptions[optionIndex]
+        generatedText: textOptions[optionIndex]?.line || ''
       }
     });
   };
@@ -411,7 +411,7 @@ export default function TextStep({
         {/* Selected Text Summary - only show after text selection or saved custom text */}
         {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-sm text-foreground">
-              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption].substring(0, 20) + '...'}
+              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption]?.line?.substring(0, 20) + '...'}
             </div>
             <button onClick={() => {
           if (data.text?.writingPreference === 'write-myself') {
@@ -596,10 +596,14 @@ export default function TextStep({
                     </button>
                   </div>
                   
-                  <div className="space-y-3">
-                    {textOptions.map((text, index) => <div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
-                        <p className="text-sm leading-relaxed">{text}</p>
-                      </div>)}
+                   <div className="space-y-3">
+                     {textOptions.map((textOption, index) => (
+                       <div key={index} onClick={() => handleTextOptionSelect(index)} 
+                            className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
+                         <p className="text-sm leading-relaxed mb-2">{textOption.line}</p>
+                         <p className="text-xs text-muted-foreground font-medium">— {textOption.comedian}</p>
+                       </div>
+                     ))}
                    </div>
                  </div>}
 

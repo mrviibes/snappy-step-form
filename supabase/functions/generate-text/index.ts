@@ -453,7 +453,7 @@ async function generateOne(opts: {
   structureType: StructureType;
   usedTopics: Set<string>;
   existingLines: string[];
-}) {
+}): Promise<{line: string, comedian: string} | null> {
   // Pick a comedian not yet used
   const availableComedians = comedianStyles.filter(c => !opts.usedComedians.has(c.name));
   const comedianStyle = availableComedians.length > 0 
@@ -516,9 +516,10 @@ async function generateOne(opts: {
     if (valid) {
       const topicNouns = extractTopicNouns(valid, opts.insertWords);
       topicNouns.forEach(noun => opts.usedTopics.add(noun));
+      return {line: valid, comedian: comedianStyle.name};
     }
     
-    return valid;
+    return null;
   } catch (e) {
     clearTimeout(timer);
     throw e;
@@ -526,7 +527,7 @@ async function generateOne(opts: {
 }
 
 // Generate 4 diverse options with varied placement, structure, and topics
-async function generateFour(body: any): Promise<string[]> {
+async function generateFour(body: any): Promise<Array<{line: string, comedian: string}>> {
   const insertWords = parseInsertWords(body.insertWords || body.mandatory_words || '');
   
   // Extract category and subcategory from the body
@@ -548,13 +549,14 @@ async function generateFour(body: any): Promise<string[]> {
 
   console.log("Generating with options:", opts);
 
-  const lines: string[] = [];
+  const results: Array<{line: string, comedian: string}> = [];
   const usedBuckets = new Set<PosBucket>();
   const usedStructures = new Set<StructureType>();
+  const comedianUsage = new Map<string, string>(); // line -> comedian name
   let attempts = 0;
 
   // Generate 4 lines with different placement buckets and structures
-  while (lines.length < 4 && attempts < 25) {
+  while (results.length < 4 && attempts < 25) {
     try {
       const targetBucket = pickNeededBucket(usedBuckets);
       // Pick structure type we haven't used yet
@@ -563,28 +565,28 @@ async function generateFour(body: any): Promise<string[]> {
         ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
         : structureTypes[Math.floor(Math.random() * structureTypes.length)];
       
-      const line = await generateOne({
+      const lineResult = await generateOne({
         ...opts,
         targetBucket,
         structureType,
-        existingLines: lines
+        existingLines: results.map(r => r.line)
       });
       
-      if (line && 
-          !lines.includes(line) && 
-          !lines.some(existing => tooSimilar(line, existing))) {
+      if (lineResult && lineResult.line && 
+          !results.some(r => r.line === lineResult.line) && 
+          !results.some(r => tooSimilar(lineResult.line, r.line))) {
         
         // Check if this line achieves desired placement variety
         if (insertWords.length > 0) {
-          const actualBucket = positionBucket(line, insertWords[0]);
+          const actualBucket = positionBucket(lineResult.line, insertWords[0]);
           usedBuckets.add(actualBucket);
         }
         
         // Track structure usage
         usedStructures.add(structureType);
         
-        lines.push(line);
-        console.log(`Generated line ${lines.length}:`, line);
+        results.push(lineResult);
+        console.log(`Generated line ${results.length}:`, lineResult.line);
       }
     } catch (e) {
       console.error(`Generation attempt ${attempts + 1} failed:`, e);
@@ -593,9 +595,9 @@ async function generateFour(body: any): Promise<string[]> {
   }
 
   // Pad with diverse fallbacks that honor insert words and vary placement
-  while (lines.length < 4) {
+  while (results.length < 4) {
     const iwText = insertWords.length > 0 ? insertWords.join(" ") : "";
-    const position = lines.length % 3; // rotate positions
+    const position = results.length % 3; // rotate positions
     
     let fallback: string;
     if (position === 0 && iwText) {
@@ -608,17 +610,18 @@ async function generateFour(body: any): Promise<string[]> {
       fallback = "Permission granted to be loud, joyful, and ridiculous.";
     }
     
-    if (!lines.includes(fallback) && 
+    if (!results.some(r => r.line === fallback) && 
         fallback.length >= 50 && 
         fallback.length <= 120) {
-      lines.push(fallback);
+      results.push({line: fallback, comedian: "Jerry Seinfeld"});
       console.log("Added positioned fallback:", fallback);
     } else {
-      lines.push("Another adventure awaits, naturally.");
+      results.push({line: "Another adventure awaits, naturally.", comedian: "Ellen DeGeneres"});
     }
   }
 
   // Log final variety stats
+  const lines = results.map(r => r.line);
   const lengths = lines.map(l => l.length);
   const buckets = insertWords.length > 0 ? 
     lines.map(l => positionBucket(l, insertWords[0])) : [];
@@ -632,5 +635,5 @@ async function generateFour(body: any): Promise<string[]> {
   console.log("Topic diversity:", new Set(topicNouns).size, "unique topics from", topicNouns.length, "total nouns");
   console.log("Topic repetition check:", !repeatsTopicNouns(lines, insertWords) ? "PASSED" : "FAILED");
 
-  return lines;
+  return results;
 }
