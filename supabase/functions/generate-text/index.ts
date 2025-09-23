@@ -272,7 +272,7 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const validation = validateMasterRules(line, scenario);
+    const validation = debugValidateLine(line, scenario);
     
     if (!validation.ok) {
       failures.push({ index: i, reason: validation.reason });
@@ -365,13 +365,28 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     
 // =============== TONE-SPECIFIC SEED TEMPLATES ===============
 
+// Enhanced insert word instruction builder
+function buildInsertWordInstruction(insertWords: string[]): string {
+  if (!insertWords || insertWords.length === 0) return '';
+  
+  if (insertWords.length === 1) {
+    return `Include "${insertWords[0]}" exactly once per line in natural phrasing.`;
+  }
+  
+  if (insertWords.length === 2) {
+    return `Include both "${insertWords[0]}" and "${insertWords[1]}" exactly once per line in natural phrasing. Each line must contain both words.`;
+  }
+  
+  return `Include all these words exactly once per line in natural phrasing: ${insertWords.map(w => `"${w}"`).join(', ')}. Each line must contain all the specified words.`;
+}
+
 const TONE_SEED_TEMPLATES = {
   'playful': (subcategory: string, config: any, insertWords: string[], rating: string) => `
 Write 4 playful one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, concise and punchy.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -380,7 +395,7 @@ Write 4 romantic one-sentence lines for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, heartfelt but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -390,7 +405,7 @@ Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly 
 CRITICAL: No rambling, no flowery language that creates long sentences.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Use simple, direct emotional statements tied to ${subcategory} context.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -399,7 +414,7 @@ Write 4 nostalgic one-sentence lines for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, reflective but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with memories or reflections.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -408,7 +423,7 @@ Write 4 sarcastic one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, witty but punchy.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with ironic humor.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -417,7 +432,7 @@ Write 4 witty one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, clever but concise.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with smart wordplay.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`,
 
@@ -426,7 +441,7 @@ Write 4 dry humor one-sentence jokes for a ${subcategory} celebration.
 Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, deadpan but tight.
 Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
 Tie each line clearly to ${subcategory} context with understated humor.
-${insertWords.length > 0 ? `Include "${insertWords[0]}" exactly once per line in natural phrasing.` : ''}
+${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
 Return each line on a separate line with no numbering or formatting.`
 }
@@ -544,6 +559,72 @@ Generate exactly 4 lines:`;
       if (candidates.length === 4) {
         console.log(`🎉 All lines passed validation for ${payload.tone} tone! Returning 4 valid lines.`);
         return candidates;
+      }
+      
+      // RETRY LOGIC: If we have partial success (2-3 valid lines), try regenerating just the failed ones
+      if (candidates.length >= 2 && attempt < maxRetries - 1) {
+        console.log(`🔄 Partial success: ${candidates.length}/4 lines valid. Trying to regenerate failed lines...`);
+        
+        const failedIndices = detailedFailures.map(f => f.index);
+        const needToGenerate = 4 - candidates.length;
+        
+        try {
+          // Generate replacement lines with more specific prompting
+          const retryPrompt = `${instructions}
+
+CRITICAL: Previous attempt produced some valid lines but others failed. 
+Generate exactly ${needToGenerate} more lines that avoid these common failures:
+${detailedFailures.map(f => `- ${f.reason}: "${f.line}"`).join('\n')}
+
+Focus on:
+- Exactly one sentence per line
+- ${config.lengthMin}-${config.lengthMax} characters
+- Maximum ${config.maxPunct} punctuation marks
+- Clear ${subcategory} context
+${payload.insertWords?.length > 0 ? `- Include ALL these words exactly once per line: ${payload.insertWords.join(', ')}` : ''}
+
+Generate ${needToGenerate} replacement lines:`;
+
+          const retryResponse = await callOpenAI(systemPrompt, retryPrompt);
+          const retryLines = parseAndCleanLines(retryResponse);
+          
+          console.log(`🔧 Retry generated ${retryLines.length} replacement lines`);
+          
+          // Validate retry lines
+          let retrySuccesses = 0;
+          for (let i = 0; i < Math.min(retryLines.length, needToGenerate); i++) {
+            const line = retryLines[i];
+            const validation = debugValidateLine(line, {
+              insertWords: payload.insertWords || [],
+              lengthMin: config.lengthMin,
+              lengthMax: config.lengthMax,
+              maxPunct: config.maxPunct,
+              subcategory,
+              tone: payload.tone
+            });
+            
+            if (validation.ok) {
+              candidates.push({
+                line: line,
+                comedian: comedians[failedIndices[retrySuccesses]]?.name || 'Retry'
+              });
+              retrySuccesses++;
+              console.log(`✅ Retry line ${i+1} PASSED: "${line.substring(0, 60)}..."`);
+              
+              // Check if we now have 4 valid lines
+              if (candidates.length === 4) {
+                console.log(`🎉 Retry successful! Now have 4 valid lines.`);
+                return candidates;
+              }
+            } else {
+              console.log(`❌ Retry line ${i+1} FAILED (${validation.reason}): "${line.substring(0, 60)}..."`);
+            }
+          }
+          
+          console.log(`📊 After retry: ${candidates.length}/4 lines valid (gained ${retrySuccesses})`);
+        } catch (retryError) {
+          console.log(`💥 Retry generation failed:`, retryError.message);
+        }
       }
       
       // If this is our last attempt, provide tone-specific guidance
