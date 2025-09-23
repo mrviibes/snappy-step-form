@@ -2287,78 +2287,73 @@ export default function CategoryStep({
   const [subcategorySearchQuery, setSubcategorySearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
-  // Smart search with auto-navigation to subcategories
-  const getSubcategoryMatches = (goal: any, searchLower: string) => {
-    return goal.subcategories.filter((subcategory: any) => {
-      const subcategoryLower = subcategory.title.toLowerCase();
-      // Check for exact matches, partial matches, and word matches
-      return subcategoryLower.includes(searchLower) ||
-             subcategoryLower.split(' ').some((word: string) => word.startsWith(searchLower)) ||
-             subcategoryLower.replace('-', ' ').includes(searchLower);
+  // Create flattened search results for direct subcategory selection
+  const getSearchResults = () => {
+    if (!searchQuery || searchQuery.length === 0) return [];
+    
+    const searchLower = searchQuery.toLowerCase();
+    const results: Array<{
+      categoryId: string;
+      categoryTitle: string;
+      subcategoryId: string;
+      subcategoryTitle: string;
+      categoryColor: string;
+    }> = [];
+
+    fitnessGoals.forEach(goal => {
+      // Check subcategories for matches
+      goal.subcategories.forEach((subcategory: any) => {
+        const subcategoryLower = subcategory.title.toLowerCase();
+        const matches = subcategoryLower.includes(searchLower) ||
+                       subcategoryLower.split(' ').some((word: string) => word.startsWith(searchLower)) ||
+                       subcategoryLower.replace('-', ' ').includes(searchLower);
+        
+        if (matches) {
+          results.push({
+            categoryId: goal.id,
+            categoryTitle: goal.title,
+            subcategoryId: subcategory.id,
+            subcategoryTitle: subcategory.title,
+            categoryColor: getCategoryColor(goal.title)
+          });
+        }
+      });
+    });
+
+    // Sort results by relevance (exact matches first, then partial matches)
+    return results.sort((a, b) => {
+      const aExact = a.subcategoryTitle.toLowerCase() === searchLower;
+      const bExact = b.subcategoryTitle.toLowerCase() === searchLower;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      return a.subcategoryTitle.localeCompare(b.subcategoryTitle);
     });
   };
 
-  const filteredGoals = fitnessGoals.filter(goal => {
-    const searchLower = searchQuery.toLowerCase();
-    
-    // Match main category title or description
-    const matchesMainCategory = goal.title.toLowerCase().includes(searchLower) || 
-                               goal.description.toLowerCase().includes(searchLower);
-    
-    // Match any subcategory title with more flexible matching
-    const subcategoryMatches = getSubcategoryMatches(goal, searchLower);
-    const matchesSubcategory = subcategoryMatches.length > 0;
-    
-    return matchesMainCategory || matchesSubcategory;
-  });
+  // Get category color for badges
+  const getCategoryColor = (categoryTitle: string) => {
+    const colors = {
+      'Celebrations': 'bg-pink-500',
+      'Daily Life': 'bg-blue-500', 
+      'Sports': 'bg-green-500',
+      'Work & Career': 'bg-purple-500',
+      'Entertainment': 'bg-orange-500',
+      'Random & Fun': 'bg-yellow-500'
+    };
+    return colors[categoryTitle as keyof typeof colors] || 'bg-gray-500';
+  };
 
-  // Auto-navigation logic: if search has strong subcategory matches but weak main category matches
-  const shouldAutoNavigate = searchQuery.length > 2 && !showingSubcategories && !selectedCategory;
-  
-  if (shouldAutoNavigate) {
-    // Find categories with strong subcategory matches
-    const categoriesWithMatches = fitnessGoals.map(goal => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesMainCategory = goal.title.toLowerCase().includes(searchLower) || 
-                                 goal.description.toLowerCase().includes(searchLower);
-      const subcategoryMatches = getSubcategoryMatches(goal, searchLower);
-      
-      // Check for exact subcategory matches (high confidence)
-      const hasExactMatch = subcategoryMatches.some((sub: any) => 
-        sub.title.toLowerCase() === searchLower ||
-        sub.title.toLowerCase().replace('-', ' ') === searchLower
-      );
-      
-      // Check for strong partial matches (medium confidence)  
-      const hasStrongMatch = subcategoryMatches.some((sub: any) => 
-        sub.title.toLowerCase().startsWith(searchLower) && searchLower.length >= 4
-      );
-      
-      return {
-        goal,
-        subcategoryMatches,
-        hasExactMatch,
-        hasStrongMatch,
-        matchesMainCategory,
-        confidence: hasExactMatch ? 3 : hasStrongMatch ? 2 : subcategoryMatches.length > 0 ? 1 : 0
-      };
-    }).filter(item => item.confidence > 0);
-    
-    // Auto-navigate if we have a high-confidence match that doesn't strongly match the main category
-    const bestMatch = categoriesWithMatches
-      .filter(item => !item.matchesMainCategory && item.confidence >= 2)
-      .sort((a, b) => b.confidence - a.confidence)[0];
-    
-    if (bestMatch) {
-      // Auto-navigate to subcategories
-      setTimeout(() => {
-        setSelectedCategory(bestMatch.goal.id);
-        setShowingSubcategories(true);
-        setSubcategorySearchQuery(searchQuery);
-        setSearchQuery("");
-      }, 100);
-    }
-  }
+  const searchResults = getSearchResults();
+
+  // Handle direct subcategory selection from search results
+  const handleDirectSubcategorySelection = (categoryId: string, subcategoryId: string) => {
+    updateData({
+      category: categoryId,
+      subcategory: subcategoryId
+    });
+  };
+
+  const filteredGoals = searchQuery.length === 0 ? fitnessGoals : [];
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
   const filteredSubcategories = selectedCategoryData ? selectedCategoryData.subcategories.filter(subcategory => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
   
@@ -2509,34 +2504,76 @@ export default function CategoryStep({
         />
       </div>
 
-      {/* Manual browse text */}
-      <div className="text-center mb-8">
-        <p className="text-muted-foreground text-sm">
-          or search through the categories manually below
-        </p>
-      </div>
+      {/* Search Results View */}
+      {searchQuery.length > 0 ? (
+        <div className="space-y-4">
+          {searchResults.length > 0 ? (
+            <>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Specific Topics</h3>
+              <div className="space-y-2">
+                {searchResults.map((result, index) => (
+                  <Card
+                    key={`${result.categoryId}-${result.subcategoryId}-${index}`}
+                    className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg"
+                    onClick={() => handleDirectSubcategorySelection(result.categoryId, result.subcategoryId)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={cn(
+                          "px-2 py-1 rounded-md text-xs font-medium text-white",
+                          result.categoryColor
+                        )}>
+                          {result.categoryTitle}
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {result.subcategoryTitle}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground text-sm">→</div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              <p>No specific topics found for "{searchQuery}"</p>
+              <p className="text-xs mt-2">Try a different search term or browse categories below</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Manual browse text */}
+          <div className="text-center mb-8">
+            <p className="text-muted-foreground text-sm">
+              or search through the categories manually below
+            </p>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
-        "border-primary shadow-primary bg-accent": data.category === goal.id,
-        "border-border": data.category !== goal.id
-      })} onClick={() => handleCategorySelection(goal.id)}>
-            {goal.image ? <>
-                <div className="w-full h-24 overflow-hidden">
-                  <img src={goal.image} alt={goal.title} className="w-full h-full object-cover" />
-                </div>
-                <div className="p-3 pt-2">
-                  <h3 className="text-sm font-medium text-foreground">
-                    {goal.title}
-                  </h3>
-                </div>
-              </> : <div className="p-3">
-                <div className="mb-2 text-2xl">{goal.icon}</div>
-                <h3 className="text-sm font-medium text-foreground">
-                  {goal.title}
-                </h3>
-              </div>}
-          </Card>)}
-      </div>
+          <div className="grid grid-cols-2 gap-3">
+            {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+            "border-primary shadow-primary bg-accent": data.category === goal.id,
+            "border-border": data.category !== goal.id
+          })} onClick={() => handleCategorySelection(goal.id)}>
+                {goal.image ? <>
+                    <div className="w-full h-24 overflow-hidden">
+                      <img src={goal.image} alt={goal.title} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="p-3 pt-2">
+                      <h3 className="text-sm font-medium text-foreground">
+                        {goal.title}
+                      </h3>
+                    </div>
+                  </> : <div className="p-3">
+                    <div className="mb-2 text-2xl">{goal.icon}</div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      {goal.title}
+                    </h3>
+                  </div>}
+              </Card>)}
+          </div>
+        </>
+      )}
     </div>;
 }
