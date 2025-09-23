@@ -391,6 +391,11 @@ export default function VisualsStep({
 
           {/* Visual Options */}
           <div className="pt-4">
+            <div className="text-center mb-4">
+              <h2 className="text-xl font-semibold text-foreground">
+                Choose your visual process
+              </h2>
+            </div>
             <div className="space-y-3">
               {visualOptions.map(option => <Button key={option.id} variant={data.visuals?.option === option.id ? "default" : "outline"} className={cn("w-full h-12 text-sm font-medium transition-all duration-300", data.visuals?.option === option.id ? "bg-cyan-400 hover:bg-cyan-500 text-white border-cyan-400" : "hover:bg-accent border-border")} onClick={() => handleVisualOptionChange(option.id)}>
                   {option.fullTitle}
