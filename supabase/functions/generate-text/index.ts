@@ -314,6 +314,8 @@ Insert Words policy:
 - It's allowed to split multi-word phrases across the sentence only if it reads naturally.  
 - Do NOT always place Insert Words at the end.
 - Do NOT repeat Insert Words more than once unless it improves flow.
+- NEVER use em dashes (—) - use commas, periods, or ellipses instead.
+- Maximum 2 punctuation marks total (excluding apostrophes in contractions).
 
 Structure requirement: ${structureHint}
 
@@ -374,6 +376,10 @@ function validateLine(
   if (len < 50 || len > 120) return null;
 
   if (/\u2014/.test(line)) return null; // no em dash
+
+  // Check max 2 punctuation marks (excluding apostrophes in contractions)
+  const punctuationCount = (line.match(/[.!?,:;()]/g) || []).length;
+  if (punctuationCount > 2) return null;
 
   // enforce ending punctuation
   if (!/[.!?]$/.test(line)) line += ".";
