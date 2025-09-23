@@ -755,13 +755,15 @@ function validateLine(
   if (!validateCategorySpecific(line, category, subcategory, insertWords)) return null;
 
   // Rating validation
-  if (!validateRating(line, rating)) {
-    console.log(`${rating.toUpperCase()}-rating validation FAILED - no explicit content:`, line);
+  const validatedLine = validateRating(line, rating, structureType, insertWords, category, subcategory, existingLines);
+  if (!validatedLine) {
+    console.log(`${rating.toUpperCase()}-rating validation FAILED:`, line);
     return null;
   }
+  line = validatedLine; // Use the potentially modified line (e.g., added punctuation)
 
-  // Structure validation
-  if (!validateStructure(line, structureType)) return null;
+  // Structure validation - now handled within validateRating
+  // if (!validateStructure(line, structureType)) return null;
 
   // Avoid similarity with existing lines
   if (existingLines.some(existing => tooSimilar(line, existing))) return null;
@@ -811,6 +813,8 @@ function validateCategorySpecific(line: string, category: string, subcategory: s
   return true;
 }
 
+// Rating validation function
+function validateRating(line: string, rating: string, structureType: StructureType, insertWords: string[], category: string, subcategory: string, existingLines: string[]): string | null {
   if (/\u2014/.test(line)) return null; // no em dash
 
   // Check max 2 punctuation marks (excluding apostrophes in contractions)
