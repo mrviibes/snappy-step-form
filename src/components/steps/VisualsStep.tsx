@@ -190,11 +190,6 @@ export default function VisualsStep({
         });
       }
       setTagInput('');
-
-      // Automatically proceed to generation step when they add their first visual
-      if (!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) {
-        setShowVisualGeneration(true);
-      }
     }
   };
 
@@ -208,13 +203,16 @@ export default function VisualsStep({
     });
   };
 
-  const handleReadyToGenerate = () => {
-    console.log("handleReadyToGenerate called, current state:", {
-      showVisualGeneration,
-      customVisuals: data.visuals?.customVisuals
+  const handleFinishAiAssist = () => {
+    setShowSpecificVisualsChoice(false);
+    setShowSpecificVisualsInput(false);
+    setShowAiAssistComplete(true);
+    updateData({
+      visuals: {
+        ...data.visuals,
+        aiAssistComplete: true
+      }
     });
-    setShowVisualGeneration(true);
-    console.log("Set showVisualGeneration to true");
   };
 
   const handleVisualTasteChange = (tasteId: string) => {
@@ -643,22 +641,56 @@ export default function VisualsStep({
                   <div className="space-y-3">
                     <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter visuals you want included into your final image" className="w-full py-6 min-h-[72px] text-center" />
                     
-                    {/* Display visual tags */}
-                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && <div className="flex flex-wrap gap-2">
-                        {data.visuals.customVisuals.map((visual: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                            <span>{visual}</span>
-                            <button onClick={() => handleRemoveTag(visual)} className="text-muted-foreground hover:text-foreground transition-colors">
-                              ×
-                            </button>
-                          </div>)}
-                      </div>}
+                    {/* Enhanced visual feedback when tags are added */}
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-center space-x-2 text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <span className="font-medium">
+                            {data.visuals.customVisuals.length} visual{data.visuals.customVisuals.length !== 1 ? 's' : ''} saved
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {data.visuals.customVisuals.map((visual: string, index: number) => (
+                            <div key={index} className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                              <span className="text-xs font-medium text-primary">{visual}</span>
+                              <button 
+                                onClick={() => handleRemoveTag(visual)}
+                                className="text-primary/60 hover:text-primary text-xs font-bold leading-none"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Ready button if no visuals added yet */}
-                    {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && <div className="text-center">
-                        <button onClick={handleReadyToGenerate} className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-medium transition-colors border-2 border-primary shadow-md hover:shadow-lg">
+                    {/* Done Adding Visuals Button - show when they have tags or want to finish */}
+                    {(data.visuals?.customVisuals && data.visuals.customVisuals.length > 0) && (
+                      <div className="text-center mt-4">
+                        <Button 
+                          onClick={handleFinishAiAssist}
+                          className="bg-gradient-primary text-white px-8 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
+                        >
+                          Done Adding Visuals
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* No Specific Visuals Button - show when no visuals added yet */}
+                    {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
+                      <div className="text-center">
+                        <Button 
+                          onClick={handleFinishAiAssist}
+                          variant="outline"
+                          className="px-6 py-3 rounded-lg font-medium transition-colors"
+                        >
                           I don't want any specific visuals
-                        </button>
-                      </div>}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>}
 
