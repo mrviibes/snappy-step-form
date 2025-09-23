@@ -78,89 +78,88 @@ function getLexiconFor(input?: string): string[] {
   return MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
 }
 
-function validateMasterRules(line: string, scenario: any): { ok: boolean; reason?: string } {
+// Debug validator with detailed reasons
+function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?: string; details?: any } {
   const text = line.trim();
   
-  // 1. Length check
-  if (text.length < MASTER_CONFIG.length_min || text.length > MASTER_CONFIG.length_max) {
-    return { ok: false, reason: "length_out_of_bounds" };
-  }
+  // Detailed validation with specific failure reasons
+  const validation = {
+    length: text.length >= 50 && text.length <= 120,
+    lengthActual: text.length,
+    punctuation: (text.match(/[.!?,:"]/g) || []).length <= 2,
+    punctuationCount: (text.match(/[.!?,:"]/g) || []).length,
+    forbiddenPunct: !(/[;…]|(?:^|[^.])\.\.(?:[^.]|$)|[–—]/.test(text)),
+    forbiddenFound: text.match(/[;…–—]/) || text.match(/(?:^|[^.])\.\.(?:[^.]|$)/),
+    placeholder: !/\b(NAME|USER|PLACEHOLDER|friend)\b/i.test(text),
+    placeholderFound: text.match(/\b(NAME|USER|PLACEHOLDER|friend)\b/i),
+    categoryAnchor: false,
+    sentences: text.split(/[.!?]+/).filter(s => s.trim()).length === 1
+  };
   
-  // 2. Punctuation checks
-  const punctCount = (text.match(/[.!?,:"]/g) || []).length;
-  if (punctCount > MASTER_CONFIG.max_punctuation_per_line) {
-    return { ok: false, reason: "too_much_punctuation" };
-  }
-  
-  if (MASTER_CONFIG.forbidden_punctuation.test(text)) {
-    return { ok: false, reason: "forbidden_punctuation" };
-  }
-  
-  // 3. Insert tag validation (once each, flexible)
-  if (scenario.insertWords?.length) {
-    for (const tag of scenario.insertWords) {
-      const base = tag.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = tag.includes(" ") 
-        ? base.replace(/\s+/g, "\\s+")
-        : `${base}(?:s|es|ed|ing)?`;
-      const re = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "i");
-      const reAll = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "ig");
-      
-      if (!re.test(text) || ((text.match(reAll) || []).length !== 1)) {
-        return { ok: false, reason: `insert_not_once:${tag}` };
-      }
-    }
-  }
-  
-  // 4. Category anchoring
-  const subcategoryRaw = scenario.subcategory || scenario.category;
-  const key = normKey(subcategoryRaw);
+  // Category anchoring check
+  const key = normKey(scenario.subcategory || scenario.category);
   const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
-  const hasDirectAnchor = lexicon.some(w => 
+  validation.categoryAnchor = lexicon.some(w => 
     new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
   );
   
-  if (!hasDirectAnchor) {
-    // Check contextual cues
+  // If no direct anchor, check contextual cues
+  if (!validation.categoryAnchor) {
     const contextCues: Record<string, RegExp> = {
-      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws|rings|bouquet|vows|toast|cake)\b/i,
-      birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party)\b/i,
-      graduation: /\b(graduat|commencement|walk the stage)\b/i
+      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
+      birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party|age|years old)\b/i,
+      graduation: /\b(graduat|commencement|walk the stage|diploma|degree)\b/i
     };
-    
-    const hasContextAnchor = contextCues[key]?.test(text);
-    if (!hasContextAnchor) {
-      return { ok: false, reason: "category_anchor_missing" };
-    }
+    validation.categoryAnchor = contextCues[key]?.test(text) || false;
   }
   
-  // 5. Rating compliance
-  if (SLURS.test(text)) return { ok: false, reason: "slur_violation" };
-  
-  switch (scenario.rating?.toUpperCase()) {
-    case "G":
-      if (SWEARS_MILD.test(text) || SWEARS_STRONG.test(text)) {
-        return { ok: false, reason: "rating_violation_G" };
-      }
-      break;
-    case "PG":
-      if (SWEARS_STRONG.test(text)) {
-        return { ok: false, reason: "rating_violation_PG" };
-      }
-      break;
-    case "PG-13":
-      if (SWEARS_STRONG.test(text)) {
-        return { ok: false, reason: "rating_violation_PG13" };
-      }
-      break;
-    case "R":
-      // R allows strong language, just no slurs
-      break;
+  // Return first failure found
+  if (!validation.length) {
+    return { 
+      ok: false, 
+      reason: "length_out_of_bounds", 
+      details: { actual: validation.lengthActual, expected: "50-120", text: text.substring(0, 50) + "..." }
+    };
   }
   
-  // 6. Basic cleanliness
-  if (/\b(NAME|USER|PLACEHOLDER|friend)\b/i.test(text)) {
-    return { ok: false, reason: "placeholder_leak" };
+  if (!validation.punctuation) {
+    return { 
+      ok: false, 
+      reason: "punct_invalid", 
+      details: { actual: validation.punctuationCount, expected: "≤2", text: text.substring(0, 50) + "..." }
+    };
+  }
+  
+  if (!validation.forbiddenPunct) {
+    return { 
+      ok: false, 
+      reason: "forbidden_punctuation", 
+      details: { found: validation.forbiddenFound?.[0], text: text.substring(0, 50) + "..." }
+    };
+  }
+  
+  if (!validation.placeholder) {
+    return { 
+      ok: false, 
+      reason: "placeholder_leak", 
+      details: { found: validation.placeholderFound?.[0], text: text.substring(0, 50) + "..." }
+    };
+  }
+  
+  if (!validation.categoryAnchor) {
+    return { 
+      ok: false, 
+      reason: "category_anchor_missing", 
+      details: { category: key, lexicon: lexicon.slice(0, 5), text: text.substring(0, 50) + "..." }
+    };
+  }
+  
+  if (!validation.sentences) {
+    return { 
+      ok: false, 
+      reason: "multiple_sentences", 
+      details: { text: text.substring(0, 50) + "..." }
+    };
   }
   
   return { ok: true };
@@ -247,7 +246,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
-// Generate exactly 4 valid lines or return structured error
+// Generate exactly 4 valid lines with detailed debugging
 async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
   const timeoutMs = 25000; // 25 second hard timeout
   const startTime = Date.now();
@@ -265,22 +264,35 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
       throw new Error('generation_timeout_exceeded');
     }
     
-    console.log(`Generation attempt ${attempt + 1}: Requesting exactly 4 lines`);
+    console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Build comprehensive prompt for 4 lines at once
-    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Tone: ${payload.tone}. Rating: ${payload.rating}. Each line ${config.lengthMin}-${config.lengthMax} characters. At most ${config.maxPunct} punctuation marks per line. No em dashes, semicolons, or ellipses.`;
+    // Enhanced prompt with clearer requirements
+    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Each line must be between ${config.lengthMin}-${config.lengthMax} characters. Use at most ${config.maxPunct} punctuation marks per line. No semicolons, em dashes, or ellipses allowed.`;
+    
+    // Add specific context requirements
+    const contextWords = getLexiconFor(subcategory);
+    if (contextWords.length > 0) {
+      instructions += ` Each joke must include ${subcategory} context using words like: ${contextWords.slice(0, 6).join(', ')}.`;
+    }
     
     if (payload.insertWords?.length > 0) {
       const insertTag = payload.insertWords[0];
-      instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated. Do not duplicate or skip the name in any line.`;
+      instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated.`;
     }
     
-    instructions += ` Each line must clearly tie to ${subcategory} context using keywords or situations. Return exactly 4 lines, one per line, no numbering or bullets.`;
+    instructions += ` Tone: ${payload.tone}. Rating: ${payload.rating}. Return exactly 4 lines, one per line, no numbering.`;
     
     const userPrompt = `${instructions}
 
-Context keywords: ${getLexiconFor(subcategory).slice(0, 8).join(', ') || 'relevant terms'}
+Examples of valid ${subcategory} jokes:
+${subcategory === 'birthday' ? 
+  `- "The cake had so many candles the smoke alarm joined the party."
+- "Nothing says birthday like frosting on your face before noon."
+- "Balloons popped faster than my birthday wish left my lips."
+- "The party peaked when grandma stole the first slice of cake."` :
+  `- Use specific ${subcategory} words and situations
+- Keep jokes short, punchy, and contextually relevant`}
 
 Generate exactly 4 lines:`;
 
@@ -288,83 +300,83 @@ Generate exactly 4 lines:`;
       const rawResponse = await callOpenAI(systemPrompt, userPrompt);
       const lines = rawResponse.split(/\r?\n/).map(s => s.trim().replace(/^["']|["']$/g, '').replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
       
-      console.log(`Raw response gave ${lines.length} lines`);
+      console.log(`📝 Raw response gave ${lines.length} lines`);
       
       if (lines.length < 4) {
-        console.log(`Only got ${lines.length} lines, retrying...`);
+        console.log(`❌ Only got ${lines.length} lines, need 4. Retrying...`);
         continue;
       }
       
-      // Take first 4 lines and validate each
+      // Validate each line with detailed feedback
       const candidates = [];
-      const failures = [];
+      const detailedFailures = [];
       const comedians = pickComedians(4);
       
       for (let i = 0; i < 4; i++) {
         const line = lines[i];
         const comedian = comedians[i];
         
-        // Progressive validation
-        const isValidLength = line.length >= config.lengthMin && line.length <= config.lengthMax;
-        const punctCount = (line.match(/[.!?,:"]/g) || []).length;
-        const isValidPunct = punctCount <= config.maxPunct;
+        const validation = debugValidateLine(line, payload);
         
-        if (isValidLength && isValidPunct) {
-          const validation = validateMasterRules(line, payload);
-          if (validation.ok) {
-            candidates.push({
-              line: line,
-              comedian: comedian.name
-            });
-          } else {
-            failures.push({
-              index: i,
-              line: line.substring(0, 50) + '...',
-              reason: validation.reason,
-              length: line.length
-            });
-          }
-        } else {
-          failures.push({
-            index: i,
-            line: line.substring(0, 50) + '...',
-            reason: !isValidLength ? 'length_invalid' : 'punct_invalid',
-            length: line.length
+        if (validation.ok) {
+          candidates.push({
+            line: line,
+            comedian: comedian.name
           });
+          console.log(`✅ Line ${i+1} PASSED: "${line.substring(0, 60)}..."`);
+        } else {
+          detailedFailures.push({
+            index: i,
+            line: line.substring(0, 80) + '...',
+            reason: validation.reason,
+            details: validation.details,
+            fullLine: line
+          });
+          console.log(`❌ Line ${i+1} FAILED (${validation.reason}): "${line.substring(0, 60)}..."`);
+          if (validation.details) {
+            console.log(`   Details:`, validation.details);
+          }
         }
       }
       
-      console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines`);
+      console.log(`📊 Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines`);
       
       // If we have exactly 4 valid lines, check batch validation
       if (candidates.length === 4) {
         const batchValidation = validateBatch(candidates.map(c => c.line), payload);
         
         if (batchValidation.ok) {
+          console.log(`🎉 Batch validation PASSED! Returning 4 valid lines.`);
           return candidates;
         } else {
-          console.log(`Batch validation failed:`, batchValidation.details);
+          console.log(`❌ Batch validation failed:`, batchValidation.details);
+          detailedFailures.push({
+            index: -1,
+            reason: 'batch_validation_failed',
+            details: batchValidation.details
+          });
         }
       }
       
-      // Log failures for debugging
-      if (failures.length > 0) {
-        console.log(`Validation failures:`, failures);
-      }
-      
-      // If this is our last attempt and we have at least 1 valid line, throw detailed error
+      // If this is our last attempt, provide detailed error information
       if (attempt === maxRetries - 1) {
         const errorDetails = {
           validLines: candidates.length,
           totalRequested: 4,
-          failures: failures,
-          lastAttemptConfig: config
+          detailedFailures,
+          lastAttemptConfig: config,
+          allLines: lines.map((line, i) => ({
+            index: i,
+            line: line.substring(0, 100) + (line.length > 100 ? '...' : ''),
+            length: line.length
+          }))
         };
+        console.log(`💥 Final attempt failed. Full debug info:`, JSON.stringify(errorDetails, null, 2));
         throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
       }
       
     } catch (error) {
-      console.error(`Generation attempt ${attempt + 1} failed:`, error);
+      console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
       if (attempt === maxRetries - 1) {
         throw error;
       }
@@ -372,7 +384,9 @@ Generate exactly 4 lines:`;
     
     // Wait before retry with jitter
     if (attempt < maxRetries - 1) {
-      await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+      const delay = 300 + Math.random() * 500;
+      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
+      await new Promise(r => setTimeout(r, delay));
     }
   }
   
@@ -438,19 +452,41 @@ Nonce: ${nonce}`;
       });
       
     } catch (generationError) {
-      console.error('Generation failed after all retries:', generationError);
+      console.error('🚨 Generation failed after all retries:', generationError);
       
-      // Provide user-friendly error messages
+      // Parse detailed error information if available
       let userMessage = 'Text generation failed';
       let statusCode = 422;
+      let debugInfo = null;
       
-      if (generationError.message === 'request_timeout' || generationError.message === 'generation_timeout_exceeded') {
-        userMessage = 'Generation timed out. Try again with simpler requirements or different insert words.';
+      if (generationError.message.includes('insufficient_valid_lines:')) {
+        try {
+          const errorData = JSON.parse(generationError.message.replace('insufficient_valid_lines:', ''));
+          debugInfo = errorData;
+          
+          // Create user-friendly message based on failure patterns
+          const commonFailures = errorData.detailedFailures || errorData.failures || [];
+          const failureReasons = commonFailures.map(f => f.reason);
+          
+          if (failureReasons.includes('length_out_of_bounds')) {
+            userMessage = `Generated text was too long. Try a simpler tone or shorter ${subcategory} jokes.`;
+          } else if (failureReasons.includes('category_anchor_missing')) {
+            userMessage = `Could not create ${subcategory}-specific jokes. Try different settings or a more general category.`;
+          } else if (failureReasons.includes('forbidden_punctuation')) {
+            userMessage = `Generated text had formatting issues. Please try again.`;
+          } else if (failureReasons.includes('punct_invalid')) {
+            userMessage = `Generated text was too complex. Try a simpler tone or different category.`;
+          } else {
+            userMessage = `Generated ${errorData.validLines || 0} of 4 valid lines. Try adjusting tone or category settings.`;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error details:', parseError);
+        }
+      } else if (generationError.message === 'request_timeout' || generationError.message === 'generation_timeout_exceeded') {
+        userMessage = 'Generation timed out. Try again with simpler requirements.';
         statusCode = 408;
-      } else if (generationError.message.includes('no_valid_lines')) {
-        userMessage = 'Could not generate valid text with current requirements. Try changing the tone, rating, or insert words.';
-      } else if (generationError.message.includes('category_anchor_missing')) {
-        userMessage = `Unable to create ${subcategory} jokes with current settings. Try different insert words or tone.`;
+      } else if (generationError.message.includes('no_valid_batch')) {
+        userMessage = 'Could not generate valid jokes with current settings. Try different tone, rating, or category.';
       }
       
       return new Response(JSON.stringify({
@@ -462,11 +498,12 @@ Nonce: ${nonce}`;
           tone: payload.tone,
           rating: payload.rating,
           insertWords: payload.insertWords,
-          reason: generationError.message,
-          troubleshooting: 'Try different insert words, simpler tone, or different category'
+          reason: generationError.message.split(':')[0], // Remove JSON details for user
+          troubleshooting: 'Try different settings: simpler tone, different category, or no insert words',
+          debugInfo: debugInfo // Include detailed debug info for development
         }
       }), {
-        status: 200,
+        status: 200, // Always return 200 for structured error responses
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
