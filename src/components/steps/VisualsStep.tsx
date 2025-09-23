@@ -202,7 +202,7 @@ export default function VisualsStep({
       </div>
 
       {/* Compact Style Summary - More prominent Edit button */}
-      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-accent/20 border-2 border-primary/20">
+      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-6 rounded border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
@@ -213,9 +213,9 @@ export default function VisualsStep({
                 <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setEditingStyle(true)} className="h-8 px-4 text-sm font-medium">
+            <button onClick={() => setEditingStyle(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Change Style
-            </Button>
+            </button>
           </div>
         </Card>}
 
@@ -246,15 +246,15 @@ export default function VisualsStep({
         </>}
 
       {/* Compact Dimension Summary */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-3 bg-accent/20">
+      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Dimension - </span>
               <span className="text-sm text-primary font-medium capitalize">{data.visuals?.dimension}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setEditingDimension(true)} className="h-7 px-3 text-xs">
+            <button onClick={() => setEditingDimension(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
-            </Button>
+            </button>
           </div>
         </Card>}
 
