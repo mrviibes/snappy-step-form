@@ -20,6 +20,11 @@ interface VisualsStepProps {
 }
 
 const visualStyles = [{
+  id: "realistic",
+  title: "Realistic",
+  description: "True photo",
+  preview: realisticImage
+}, {
   id: "auto",
   title: "Auto",
   description: "Smart default",
@@ -29,11 +34,6 @@ const visualStyles = [{
   title: "General",
   description: "Clean standard",
   preview: generalImage
-}, {
-  id: "realistic",
-  title: "Realistic",
-  description: "True photo",
-  preview: realisticImage
 }, {
   id: "design",
   title: "Design",
