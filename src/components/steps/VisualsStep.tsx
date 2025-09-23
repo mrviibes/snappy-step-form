@@ -203,59 +203,39 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Step 1: Visual Style Selection */}
-      {!hasSelectedStyle && (
-        <>
-          <div className="text-center">
-            <h2 className="mb-2 text-xl font-semibold text-foreground">
-              Choose your visual style
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {visualStyles.map(style => (
-              <Card 
-                key={style.id} 
-                className={cn(
-                  "cursor-pointer transition-all duration-200 overflow-hidden border-2",
-                  data.visuals?.style === style.id 
-                    ? "border-primary bg-accent" 
-                    : "border-border hover:border-primary/50"
-                )} 
-                onClick={() => handleStyleChange(style.id)}
-              >
-                <div className="aspect-video relative">
-                  <img src={style.preview} alt={style.title} className="w-full h-full object-cover" />
-                </div>
-                <div className="p-3">
-                  <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
-                  <p className="text-xs text-muted-foreground">{style.description}</p>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Step 2: Dimensions Selection */}
-      {hasSelectedStyle && !hasSelectedDimension && (
-        <>
-          <Card className="border-2 border-primary bg-accent p-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-foreground">
-                Style - {selectedStyle?.title}
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => handleStyleChange("")}
-                className="text-xs text-primary hover:text-primary/90"
-              >
-                Edit
-              </Button>
+      {/* Step 1: Visual Style Selection - Always Visible */}
+      <div className="text-center">
+        <h2 className="mb-2 text-xl font-semibold text-foreground">
+          Choose your visual style
+        </h2>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {visualStyles.map(style => (
+          <Card 
+            key={style.id} 
+            className={cn(
+              "cursor-pointer transition-all duration-200 overflow-hidden border-2",
+              data.visuals?.style === style.id 
+                ? "border-primary bg-accent" 
+                : "border-border hover:border-primary/50"
+            )} 
+            onClick={() => handleStyleChange(style.id)}
+          >
+            <div className="aspect-video relative">
+              <img src={style.preview} alt={style.title} className="w-full h-full object-cover" />
+            </div>
+            <div className="p-3">
+              <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
+              <p className="text-xs text-muted-foreground">{style.description}</p>
             </div>
           </Card>
+        ))}
+      </div>
 
-          <div className="text-center pt-4 pb-2">
+      {/* Step 2: Dimensions Selection */}
+      {hasSelectedStyle && (
+        <>
+          <div className="text-center pt-6 pb-2">
             <h2 className="text-xl font-semibold text-foreground">
               Choose your dimensions
             </h2>
@@ -292,41 +272,9 @@ export default function VisualsStep({
         </>
       )}
 
-      {/* Step 3: Visual Tags and Generate (after dimensions selected) */}
+      {/* Step 3: Visual Tags and Generate */}
       {showGenerateButton && !showVisualOptions && !isComplete && (
         <>
-          <Card className="border-2 border-primary bg-accent p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-foreground">
-                  Style - {selectedStyle?.title}
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => handleStyleChange("")}
-                  className="text-xs text-primary hover:text-primary/90"
-                >
-                  Edit
-                </Button>
-              </div>
-              <div className="h-px bg-border"></div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-foreground">
-                  Dimension - {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.title}
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => handleDimensionSelect("")}
-                  className="text-xs text-primary hover:text-primary/90"
-                >
-                  Edit
-                </Button>
-              </div>
-            </div>
-          </Card>
-
           {/* Optional Visual Tags */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
