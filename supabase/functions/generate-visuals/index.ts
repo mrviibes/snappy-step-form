@@ -493,6 +493,9 @@ async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, max
   
   throw new Error('All visual generation attempts failed');
 }
+
+// Call OpenAI API with timeout and retry logic
+async function callOpenAIWithTimeout(systemPrompt: string, userPrompt: string): Promise<string> {
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
   if (!openaiKey) {
     throw new Error('OpenAI API key not configured')
