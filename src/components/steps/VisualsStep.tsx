@@ -168,6 +168,7 @@ export default function VisualsStep({
     updateData({
       visuals: {
         ...data.visuals,
+        option: `visual-concept-${optionIndex + 1}`,
         selectedVisualOption: optionIndex,
         selectedVisualRecommendation: selectedVisual,
         isComplete: true
