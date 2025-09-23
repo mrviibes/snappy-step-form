@@ -558,7 +558,7 @@ export default function TextStep({
           </div>
 
           {/* Style and Rating Selection */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 pt-4">
             {/* Style Dropdown */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Style</label>
