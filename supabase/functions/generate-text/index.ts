@@ -202,24 +202,54 @@ const corsHeaders = {
 // Position buckets for insert word placement tracking
 type PosBucket = "front" | "middle" | "end";
 
-// Category-specific ban words to avoid clichés
-const categoryBanWords: Record<string, string[]> = {
-  "birthday": ["cake", "candles", "confetti", "balloons", "party hat"],
-  "wedding": ["vows", "roses", "rings", "forever", "altar", "dress"],
-  "graduation": ["cap", "gown", "diploma", "ceremony", "tassel"],
-  "engagement": ["ring", "proposal", "diamond", "forever", "knee"],
-  "baby-shower": ["stork", "bundle", "diapers", "bottles", "bassinet"],
-  "retirement": ["gold watch", "pension", "rocking chair", "golf", "sunset"],
-  "anniversary": ["years together", "milestone", "celebration", "love"],
-  "new-job": ["briefcase", "office", "desk", "promotion", "career"],
-  "house-warming": ["keys", "home", "address", "mortgage", "moving"],
-  "sports": ["trophy", "victory", "scoreboard", "championship", "winner"],
-  "default": ["celebration", "special day", "milestone", "achievement"]
+// Category-specific required vocabulary and banned off-topic words
+const WEDDING_LEX = [
+  "wedding","vows","rings","I do","altar","partner","bride","groom",
+  "dance floor","reception","bouquet","toast","DJ","cake","forever"
+];
+
+const WEDDING_BANS = [
+  "wifi","wi-fi","pizza","monday","spreadsheet","deadline","zoom",
+  "traffic","taxes","office","email","login","password"
+];
+
+type LineCheck = {
+  text: string;
+  insertWords: string[]; // e.g., ["chosen"]
+  category: "wedding";
+  rating: "G"|"PG"|"PG-13"|"R";
 };
+
+function passesStep2Rules(l: LineCheck): boolean {
+  const t = l.text.trim();
+
+  // 1) one sentence, 50–120 chars
+  if (t.length < 50 || t.length > 120) return false;
+  if ((t.match(/[.!?]/g) || []).length > 2) return false;         // ≤2 punctuation marks total
+  if (/[–—]/.test(t)) return false;                               // no en/em dash
+
+  // 2) insert words exactly once each
+  for (const w of l.insertWords) {
+    const re = new RegExp(`\\b${w}\\b`, "i");
+    if (!re.test(t)) return false;
+    if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
+  }
+
+  // 3) must include at least one wedding keyword
+  if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+
+  // 4) ban irrelevant topics
+  if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+
+  // 5) no placeholder fallbacks
+  if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+
+  return true;
+}
 
 // Diverse topic seed nouns to avoid repetition
 const topicSeeds = [
-  "playlist", "balloons", "Wi-Fi", "snacks", "candles", "karaoke", 
+  "playlist", "balloons", "snacks", "candles", "karaoke", 
   "leaf blower", "group chat", "speakers", "coffee", "microwave",
   "smoke alarm", "doorbell", "garage", "lawn mower", "thermostat"
 ];
@@ -237,7 +267,7 @@ const styleExamples: Record<string, string[]> = {
     "Congrats on surviving another year without Googling your own symptoms."
   ],
   "weird": [
-    "May your age unlock secret Wi-Fi and suspiciously wise raccoons.",
+    "May your age unlock secret playlists and suspiciously wise raccoons.",
     "Another orbit, Jesse, and your shadow now demands a manager.",
     "Congrats on graduating from the University of Procrastination and Existential Dread.",
     "May your future be as bright as a disco ball operated by confused penguins."
@@ -245,7 +275,7 @@ const styleExamples: Record<string, string[]> = {
   "weird_r": [
     "Congrats Jesse, you party like a raccoon who just discovered fucking fireworks.",
     "May your diploma be as useful as a shit-flavored lollipop in a candy store.",
-    "Another year of Jesse's existence, and even the Wi-Fi router is questioning this bullshit.",
+    "Another year of Jesse's existence, and even the coffee maker is questioning this bullshit.",
     "Congrats on your degree, now you can professionally explain why you're broke as fuck."
   ],
   "wholesome": [
@@ -256,7 +286,7 @@ const styleExamples: Record<string, string[]> = {
   ],
   "generic": [
     "Jesse, the playlist still slaps, but man you are old and somehow trending.",
-    "Another orbit completed and, man you are old, Jesse still forgets Wi-Fi passwords.",
+    "Another orbit completed and, man you are old, Jesse still forgets passwords.",
     "The group chat voted you most likely to nap mid-party, man you are old Jesse.",
     "Stories age like milk, Jesse — and so do you."
   ]
@@ -314,9 +344,9 @@ function sanitizeInsertWords(words: string[]): string[] {
     return w.length >= 3 && !['test', 'example', 'sample'].includes(w);
   });
   
-  // If all words were filtered out, return a safe default
+  // CRITICAL: Don't fallback if insert_words is required for Step-2
   if (sanitized.length === 0 && words.length > 0) {
-    return ['friend']; // Safe fallback
+    throw new Error("insert_words required for Step-2");
   }
   
   return sanitized;
@@ -504,15 +534,19 @@ function parseInsertWords(input: string[] | string | undefined): string[] {
   return inputStr.split(',').map(w => w.trim()).filter(Boolean);
 }
 
-// Get category-specific ban words
-function getCategoryBanWords(category: string, subcategory: string): string[] {
-  return categoryBanWords[subcategory] || 
-         categoryBanWords[category] || 
-         categoryBanWords.default;
+// Get category-specific ban words (now properly bans off-topic words for wedding)
+function getCategoryBanWords(category: string, subcategory: string): string[] {  
+  if (category.toLowerCase() === "wedding") {
+    return WEDDING_BANS; // Ban off-topic words like Wi-Fi, pizza, Monday
+  }
+  return []; // Other categories don't have specific bans yet
 }
 
-// Get category-specific requirements
+// Get category-specific requirements (now properly requires wedding lexicon)
 function getCategoryRequirement(category: string, subcategory: string): string {
+  if (category.toLowerCase() === "wedding") {
+    return "CRITICAL: Must include at least one wedding word: " + WEDDING_LEX.join(", ");
+  }
   if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
     return "Mother's Day requirement: Include clear mother/mom references to make it feel distinctly Mother's Day themed.";
   }
@@ -876,7 +910,20 @@ function validateRating(line: string, rating: string, structureType: StructureTy
   const boltedPattern = new RegExp(`[,;:]\\s*(?:${insertWords.map(escapeReg).join("|")})\\s*[.!?]?$`, "i");
   if (boltedPattern.test(line) && insertWords.length > 0) return null;
 
-  // Ban category clichés unless they're in insert words
+  // For wedding category, validate with Step-2 rules
+  if (category.toLowerCase() === "wedding" && insertWords.length > 0) {
+    const lineCheck: LineCheck = {
+      text: line,
+      insertWords: insertWords,
+      category: "wedding",
+      rating: (rating || "G").toUpperCase() as "G"|"PG"|"PG-13"|"R"
+    };
+    if (!passesStep2Rules(lineCheck)) {
+      return null;
+    }
+  }
+  
+  // Ban off-topic words for relevant categories
   const banWords = getCategoryBanWords(category, subcategory);
   const insertedSet = new Set(insertWords.map(x => x.toLowerCase()));
   if (banWords.some(b => line.toLowerCase().includes(b) && !insertedSet.has(b))) {

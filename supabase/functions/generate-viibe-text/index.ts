@@ -34,16 +34,27 @@ const TOPIC_SEEDS_BY_CATEGORY = {
 
 // Fallback general seeds for unlisted categories
 const GENERAL_TOPIC_SEEDS = [
-  "neighbors", "Wi-Fi", "thermostat", "raccoons", "parking meter",
+  "neighbors", "thermostat", "raccoons", "parking meter",
   "elevator", "leaf blower", "night shift", "robot vacuum", "playlist",
   "leftovers", "inbox", "lawn flamingo", "group chat", "souvenir mug",
   "houseplant", "delivery driver", "smoke alarm", "self-checkout", "weather app"
 ];
 
-// Category-specific ban lists (clichés to avoid unless in insert words)
+// Wedding-specific lexicon and bans (proper approach)
+const WEDDING_LEX = [
+  "wedding","vows","rings","I do","altar","partner","bride","groom",
+  "dance floor","reception","bouquet","toast","DJ","cake","forever"
+];
+
+const WEDDING_BANS = [
+  "wifi","wi-fi","pizza","monday","spreadsheet","deadline","zoom",
+  "traffic","taxes","office","email","login","password"
+];
+
+// Category-specific ban lists (off-topic words to avoid)
 const CATEGORY_BAN_LISTS = {
-  birthday: ["cake", "candles", "party", "celebrate", "wish", "blow", "frosting"],
-  wedding: ["dress", "rings", "altar", "vows", "forever", "dance", "bouquet"],
+  birthday: [], // No specific bans for birthday yet
+  wedding: WEDDING_BANS, // Ban off-topic words like Wi-Fi, pizza, Monday
   sports: ["winner", "champion", "team", "victory", "score", "game", "field"],
   cooking: ["recipe", "ingredients", "delicious", "taste", "flavor", "kitchen"],
   technology: ["computer", "internet", "digital", "online", "click", "download"]
@@ -86,7 +97,52 @@ function getBanList(category: string): string[] {
   return CATEGORY_BAN_LISTS[categoryKey] || [];
 }
 
+type LineCheck = {
+  text: string;
+  insertWords: string[];
+  category: "wedding";
+  rating: "G"|"PG"|"PG-13"|"R";
+};
+
+function passesStep2Rules(l: LineCheck): boolean {
+  const t = l.text.trim();
+
+  // 1) one sentence, 50–120 chars
+  if (t.length < 50 || t.length > 120) return false;
+  if ((t.match(/[.!?]/g) || []).length > 2) return false;         // ≤2 punctuation marks total
+  if (/[–—]/.test(t)) return false;                               // no en/em dash
+
+  // 2) insert words exactly once each
+  for (const w of l.insertWords) {
+    const re = new RegExp(`\\b${w}\\b`, "i");
+    if (!re.test(t)) return false;
+    if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
+  }
+
+  // 3) must include at least one wedding keyword
+  if (!WEDDING_LEX.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+
+  // 4) ban irrelevant topics
+  if (WEDDING_BANS.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) return false;
+
+  // 5) no placeholder fallbacks
+  if (/\b(friend|NAME|USER)\b/i.test(t)) return false;
+
+  return true;
+}
+
 function validateLine(line: string, payload: any): boolean {
+  // For wedding category, use Step-2 rules validation
+  if (payload.category?.toLowerCase() === "wedding" && payload.insertWords?.length > 0) {
+    const lineCheck: LineCheck = {
+      text: line,
+      insertWords: payload.insertWords,
+      category: "wedding",
+      rating: (payload.rating || "G").toUpperCase() as "G"|"PG"|"PG-13"|"R"
+    };
+    if (!passesStep2Rules(lineCheck)) return false;
+  }
+  
   // Length check
   if (line.length < 50 || line.length > 120) return false;
   
