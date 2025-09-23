@@ -204,36 +204,72 @@ serve(async (req) => {
       model: modelMap[quality]
     });
 
-    const ideogramRequestBody = {
-      image_request: {
-        model: modelMap[quality],
-        prompt: prompt.trim(),
-        negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
-        aspect_ratio: aspectRatioMap[dimension],
-        magic_prompt_option: "ON",
-        seed: Math.floor(Math.random() * 1000000),
-        style_type: "AUTO"
-      }
+    // First try Ideogram V3 (multipart form) endpoint
+    const resolutionMap: Record<string, string> = {
+      square: '1024x1024',
+      landscape: '1536x1024',
+      portrait: '1024x1536'
+    };
+    const speedMap: Record<string, string> = {
+      high: 'QUALITY',
+      medium: 'DEFAULT',
+      low: 'TURBO'
     };
 
-    console.log('Sending request to Ideogram API...');
+    let response: Response;
 
-    // Use retry wrapper for the API call with 30s timeout per attempt
-    const response = await withRetry(async () => {
-      const fetchPromise = fetch('https://api.ideogram.ai/generate', {
-        method: 'POST',
-        headers: {
-          'Api-Key': ideogramApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(ideogramRequestBody),
-      });
+    try {
+      console.log('Sending request to Ideogram API (v3 multipart)...');
+      const form = new FormData();
+      form.append('prompt', prompt.trim());
+      if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
+      form.append('resolution', resolutionMap[dimension]);
+      form.append('rendering_speed', speedMap[quality]);
+      form.append('magic_prompt', 'AUTO');
+      form.append('style_type', 'AUTO');
+      form.append('num_images', '1');
 
-      return await Promise.race([
-        fetchPromise,
-        timeoutPromise(30000) // 30 second timeout per attempt
-      ]);
-    }, 3, 2000); // 3 retries, 2s base delay
+      response = await withRetry(async () => {
+        const fetchPromise = fetch('https://api.ideogram.ai/generate-v3', {
+          method: 'POST',
+          headers: { 'Api-Key': ideogramApiKey },
+          body: form,
+        });
+        return await Promise.race([fetchPromise, timeoutPromise(30000)]);
+      }, 3, 2000);
+    } catch (e) {
+      console.warn('V3 request failed before response, will fall back to legacy:', e instanceof Error ? e.message : e);
+      // Create a dummy non-ok Response-like object to force legacy fallback
+      response = new Response(null, { status: 599, statusText: 'V3 prefetch failed' });
+    }
+
+    // If V3 failed or returned non-2xx, fall back to legacy JSON endpoint
+    if (!response.ok) {
+      const ideogramRequestBody = {
+        image_request: {
+          model: modelMap[quality],
+          prompt: prompt.trim(),
+          negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
+          aspect_ratio: aspectRatioMap[dimension],
+          magic_prompt_option: "ON",
+          seed: Math.floor(Math.random() * 1000000),
+          style_type: "AUTO"
+        }
+      };
+
+      console.log('V3 non-OK (status ' + response.status + '). Falling back to legacy /generate JSON...');
+      response = await withRetry(async () => {
+        const fetchPromise = fetch('https://api.ideogram.ai/generate', {
+          method: 'POST',
+          headers: {
+            'Api-Key': ideogramApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(ideogramRequestBody),
+        });
+        return await Promise.race([fetchPromise, timeoutPromise(30000)]);
+      }, 3, 2000);
+    }
 
     console.log(`Ideogram API response status: ${response.status}`);
 
