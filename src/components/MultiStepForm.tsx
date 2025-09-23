@@ -6,7 +6,7 @@ import StepIndicator from "./StepIndicator";
 import CategoryStep from "./steps/CategoryStep";
 import TextStep from "./steps/TextStep";
 import VisualsStep from "./steps/VisualsStep";
-import VibeStep from "./steps/VibeStep";
+import GenerationStep from "./steps/GenerationStep";
 interface FormData {
   category: string;
   subcategory: string;
@@ -30,9 +30,11 @@ interface FormData {
     dimension?: string;
     customVisualDescription?: string;
   };
-  vibe: {
-    intensity: string;
-    personality: string;
+  generation?: {
+    prompts?: any;
+    images?: any[];
+    selectedImage?: string;
+    isComplete?: boolean;
   };
 }
 const steps = [{
@@ -49,8 +51,8 @@ const steps = [{
   component: VisualsStep
 }, {
   id: 4,
-  title: "Your Vibe",
-  component: VibeStep
+  title: "Generate",
+  component: GenerationStep
 }];
 export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -64,10 +66,6 @@ export default function MultiStepForm() {
     visuals: {
       style: "",
       option: ""
-    },
-    vibe: {
-      intensity: "",
-      personality: ""
     }
   });
   const updateFormData = (stepData: Partial<FormData>) => {
@@ -114,7 +112,8 @@ export default function MultiStepForm() {
         // For ai-assist and no-visuals, basic requirements are enough
         return true;
       case 4:
-        return !!formData.vibe.intensity && !!formData.vibe.personality;
+        // Step 4 is generation - it auto-completes when images are generated
+        return !!formData.generation?.isComplete;
       default:
         return false;
     }

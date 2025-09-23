@@ -172,7 +172,7 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
 export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{positivePrompt: string, negativePrompt: string}> {
   try {
     const res = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
-    if (!res || (res as any).success !== true) {
+    if (!res || !(res as any).success) {
       throw new Error((res as any)?.error || "Final prompt generation failed");
     }
     return {
