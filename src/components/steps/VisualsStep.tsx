@@ -3,6 +3,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
@@ -49,6 +56,16 @@ const visualStyles = [{
   description: "Japanese cartoon",
   preview: animeImage
 }];
+
+const customVisualStyles = [
+  { value: "cinematic", label: "Cinematic – Wide" },
+  { value: "closeup", label: "Close-up – Detail" },
+  { value: "crowd", label: "Crowd Reaction – Group" },
+  { value: "minimalist", label: "Minimalist – Simple" },
+  { value: "exaggerated", label: "Exaggerated Proportions – Exaggerated" },
+  { value: "goofy", label: "Goofy Absurd – Goofy" }
+];
+
 const dimensionOptions = [{
   id: "square",
   title: "Square",
@@ -77,6 +94,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
+  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
   
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -307,8 +325,8 @@ export default function VisualsStep({
               </div>}
           </div>
 
-          {/* Generate Button */}
-          <div className="pt-4">
+          {/* Generate Section with Dropdown */}
+          <div className="pt-4 space-y-4">
             {error && <Alert className="mb-4 border-destructive bg-destructive/10">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-destructive">
@@ -316,15 +334,35 @@ export default function VisualsStep({
                 </AlertDescription>
               </Alert>}
             
-            <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
-              {isGeneratingVisuals ? <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </> : <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate 4 AI Visuals
-                </>}
-            </Button>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Visual Style
+                </label>
+                <Select value={selectedCustomVisualStyle} onValueChange={setSelectedCustomVisualStyle}>
+                  <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-50">
+                    <SelectValue placeholder="Choose a visual style" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border shadow-lg z-50">
+                    {customVisualStyles.map((style) => (
+                      <SelectItem key={style.value} value={style.value} className="hover:bg-accent">
+                        {style.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="flex-1 h-12 text-base font-medium">
+                {isGeneratingVisuals ? <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </> : <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate 4 AI Visuals
+                  </>}
+              </Button>
+            </div>
           </div>
         </>}
 
