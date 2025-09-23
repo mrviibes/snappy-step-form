@@ -96,7 +96,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
-  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
+  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("cinematic");
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
