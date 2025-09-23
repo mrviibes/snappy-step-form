@@ -97,7 +97,7 @@ export default function SummaryStep({ data }: SummaryStepProps) {
       {/* Values Table */}
       <Card className="p-4">
         <h3 className="font-semibold text-sm mb-4 text-foreground">Your Choices</h3>
-        <div className="space-y-3">
+        <div className="space-y-1">
           {summaryData.map((item, index) => (
             <div key={index} className="flex justify-between items-start gap-4 text-sm">
               <span className="font-medium text-muted-foreground min-w-0 flex-shrink-0">
