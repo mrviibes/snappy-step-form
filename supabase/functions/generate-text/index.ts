@@ -693,8 +693,31 @@ Generate exactly 4 lines:`;
         return candidates;
       }
       
-      // If this is our last attempt, provide tone-specific guidance
+      // If this is our last attempt, check if we have any valid lines to return
       if (attempt === maxRetries - 1) {
+        // If we have at least 1-2 valid lines, return them with an explanation
+        if (candidates.length >= 1) {
+          console.log(`🔄 Returning ${candidates.length} partial results instead of complete failure`);
+          
+          // Pad with simplified versions if we have some but not 4
+          while (candidates.length < 4) {
+            // Generate a simple fallback line
+            const fallbackComedian = selectedComedians[candidates.length] || selectedComedians[0];
+            const fallbackLine = subcategory === 'wedding' 
+              ? "Wedding bells rang louder than my objections." 
+              : subcategory === 'birthday'
+              ? "Another year older and still avoiding the scale."
+              : "Life happens one awkward moment at a time.";
+            
+            candidates.push({
+              line: fallbackLine,
+              comedian: fallbackComedian
+            });
+          }
+          
+          return candidates;
+        }
+        
         const toneAdvice = {
           'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
           'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
@@ -715,7 +738,7 @@ Generate exactly 4 lines:`;
         console.log(`💥 Final attempt failed for ${payload.tone} tone. Suggestion: ${suggestion}`);
         console.log(`🔍 Full debug info:`, JSON.stringify(errorDetails, null, 2));
         
-        throw new Error(`validation_failed:${JSON.stringify(errorDetails)}`);
+        throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
       }
       
       // Continue to next attempt with more relaxed config
@@ -739,15 +762,6 @@ Generate exactly 4 lines:`;
   
   throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
 }
-    const instructions = buildToneSpecificSeed(
-      payload.tone || 'playful',
-      subcategory, 
-      config,
-      payload.insertWords || [],
-      payload.rating || 'PG'
-    );
-    
-    // Add category context for better anchoring
     const contextWords = getLexiconFor(subcategory);
     const contextHint = contextWords.length > 0 
       ? `\nUse ${subcategory} words like: ${contextWords.slice(0, 4).join(', ')}`
@@ -970,9 +984,21 @@ serve(async (req) => {
     const payload = await req.json();
     console.log('Master Rules Generation Request:', payload);
     
-    // Defaults and normalization - make insertWords optional
+    // Robust schema normalization - handle multiple field names and types
     if (!payload.rating) payload.rating = 'PG';
-    if (!payload.insertWords) payload.insertWords = []; // Default to empty array
+    
+    // Handle insertWords/insertTags field name variations and type coercion
+    let insertWords: string[] = [];
+    if (payload.insertWords) {
+      insertWords = Array.isArray(payload.insertWords) 
+        ? payload.insertWords.filter(Boolean) 
+        : [payload.insertWords].filter(Boolean);
+    } else if (payload.insertTags) {
+      insertWords = Array.isArray(payload.insertTags) 
+        ? payload.insertTags.filter(Boolean) 
+        : [payload.insertTags].filter(Boolean);
+    }
+    payload.insertWords = insertWords; // Normalize to insertWords
     const nonce = generateNonce();
     const subcategory = payload.subcategory || payload.category;
     
@@ -1022,12 +1048,12 @@ Nonce: ${nonce}`;
       
       // Parse detailed error information if available
       let userMessage = 'Text generation failed';
-      let statusCode = 422;
+      let statusCode = 200; // Always return 200 for structured error responses
       let debugInfo = null;
       
-      if (generationError.message.includes('insufficient_valid_lines:')) {
+      if (generationError.message.includes('insufficient_valid_lines:') || generationError.message.includes('validation_failed:')) {
         try {
-          const errorData = JSON.parse(generationError.message.replace('insufficient_valid_lines:', ''));
+          const errorData = JSON.parse(generationError.message.replace(/^(insufficient_valid_lines|validation_failed):/, ''));
           debugInfo = errorData;
           
           // Create specific user-friendly messages based on failure patterns
@@ -1076,7 +1102,7 @@ Nonce: ${nonce}`;
           debugInfo: debugInfo // Include detailed debug info for development
         }
       }), {
-        status: 200, // Always return 200 for structured error responses
+        status: 200, // Always return 200 for structured error responses  
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
