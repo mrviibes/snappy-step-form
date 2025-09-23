@@ -11,10 +11,6 @@ const MODELS = [
 ] as const;
 
 // CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Load the tone-style-rating matrix
 const matrixConfig = {
