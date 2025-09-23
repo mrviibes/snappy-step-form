@@ -78,7 +78,57 @@ function getLexiconFor(input?: string): string[] {
   return MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
 }
 
-// Debug validator with detailed reasons
+// Robust text cleanup function to handle common model formatting quirks
+function robustCleanup(rawText: string): string {
+  let cleaned = rawText.trim();
+  
+  // Remove common prefixes: numbers, bullets, quotes
+  cleaned = cleaned.replace(/^\s*[\d+\-\*•]\s*[\.\)\-]?\s*/, ''); // "1. ", "- ", "* ", etc.
+  cleaned = cleaned.replace(/^["'"'`]/, ''); // Opening quotes
+  cleaned = cleaned.replace(/["'"'`]$/, ''); // Closing quotes
+  
+  // Remove markdown formatting
+  cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1'); // **bold**
+  cleaned = cleaned.replace(/\*(.*?)\*/g, '$1'); // *italic*
+  cleaned = cleaned.replace(/__(.*?)__/g, '$1'); // __underline__
+  cleaned = cleaned.replace(/`(.*?)`/g, '$1'); // `code`
+  
+  // Remove common prefixes that models add
+  cleaned = cleaned.replace(/^(Here's|Here is|Line \d+:|Joke \d+:)\s*/i, '');
+  cleaned = cleaned.replace(/^(Wedding joke|Birthday joke|Celebration joke):\s*/i, '');
+  
+  // Clean up extra punctuation at start/end
+  cleaned = cleaned.replace(/^[,;:\-\s]+/, '');
+  cleaned = cleaned.replace(/[,;:\-\s]+$/, '');
+  
+  // Normalize whitespace
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+// Enhanced line parsing with robust cleanup
+function parseAndCleanLines(rawResponse: string): string[] {
+  // First split by lines
+  let lines = rawResponse.split(/\r?\n/);
+  
+  // If we didn't get enough lines, try splitting by other patterns
+  if (lines.length < 4) {
+    // Try splitting by numbered patterns like "1.", "2.", etc.
+    const numberedSplit = rawResponse.split(/(?=\d+[\.\)])/);
+    if (numberedSplit.length >= 4) {
+      lines = numberedSplit;
+    }
+  }
+  
+  // Clean each line and filter out empty ones
+  const cleanedLines = lines
+    .map(line => robustCleanup(line))
+    .filter(line => line.length > 0)
+    .filter(line => line.length >= 20); // Must be substantial content
+  
+  return cleanedLines;
+}
 function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?: string; details?: any } {
   const text = line.trim();
   
@@ -267,7 +317,7 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Enhanced prompt with clearer requirements
+    // Enhanced prompt with clearer formatting requirements
     let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Each line must be between ${config.lengthMin}-${config.lengthMax} characters. Use at most ${config.maxPunct} punctuation marks per line. No semicolons, em dashes, or ellipses allowed.`;
     
     // Add specific context requirements
@@ -281,33 +331,45 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
       instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated.`;
     }
     
-    instructions += ` Tone: ${payload.tone}. Rating: ${payload.rating}. Return exactly 4 lines, one per line, no numbering.`;
+    instructions += ` Tone: ${payload.tone}. Rating: ${payload.rating}.
+    
+CRITICAL FORMATTING RULES:
+- Return exactly 4 lines
+- One joke per line
+- No numbers, bullets, or markdown
+- No quotes around jokes
+- No extra text or explanations
+- Just the jokes, separated by line breaks`;
     
     const userPrompt = `${instructions}
 
 Examples of valid ${subcategory} jokes:
 ${subcategory === 'birthday' ? 
-  `- "The cake had so many candles the smoke alarm joined the party."
-- "Nothing says birthday like frosting on your face before noon."
-- "Balloons popped faster than my birthday wish left my lips."
-- "The party peaked when grandma stole the first slice of cake."` :
-  `- Use specific ${subcategory} words and situations
-- Keep jokes short, punchy, and contextually relevant`}
+  `The cake had so many candles the smoke alarm joined the party.
+Nothing says birthday like frosting on your face before noon.
+Balloons popped faster than my birthday wish left my lips.
+The party peaked when grandma stole the first slice of cake.` :
+  `Use specific ${subcategory} words and situations
+Keep jokes short, punchy, and contextually relevant`}
 
 Generate exactly 4 lines:`;
 
     try {
       const rawResponse = await callOpenAI(systemPrompt, userPrompt);
-      const lines = rawResponse.split(/\r?\n/).map(s => s.trim().replace(/^["']|["']$/g, '').replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
       
-      console.log(`📝 Raw response gave ${lines.length} lines`);
+      // Use robust parsing and cleanup
+      const cleanedLines = parseAndCleanLines(rawResponse);
       
-      if (lines.length < 4) {
-        console.log(`❌ Only got ${lines.length} lines, need 4. Retrying...`);
+      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing`);
+      console.log(`🧹 Sample cleaned lines:`, cleanedLines.slice(0, 2).map(l => `"${l.substring(0, 60)}..."`));
+      
+      if (cleanedLines.length < 4) {
+        console.log(`❌ Only got ${cleanedLines.length} clean lines, need 4. Retrying...`);
         continue;
       }
       
-      // Validate each line with detailed feedback
+      // Take first 4 lines and validate each
+      const lines = cleanedLines.slice(0, 4);
       const candidates = [];
       const detailedFailures = [];
       const comedians = pickComedians(4);
