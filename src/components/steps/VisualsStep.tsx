@@ -155,13 +155,13 @@ export default function VisualsStep({
     setError(null);
     
     setShowSpecificVisualsDialog(false);
-    setShowSpecificVisualsChoice(false);
     
     if (hasVisuals) {
+      // Keep showing the choice section but switch to input mode
       setShowSpecificVisualsInput(true);
-      // Show the input section
     } else {
       // For "No", go directly to completion
+      setShowSpecificVisualsChoice(false);
       setShowAiAssistComplete(true);
       updateData({
         visuals: {
@@ -583,14 +583,57 @@ export default function VisualsStep({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <button onClick={() => handleSpecificVisualsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-                      <div className="font-semibold text-lg">Yes</div>
-                    </button>
-                    <button onClick={() => handleSpecificVisualsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-                      <div className="font-semibold text-lg">No</div>
-                    </button>
-                  </div>
+                  {!showSpecificVisualsInput ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <button onClick={() => handleSpecificVisualsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+                        <div className="font-semibold text-lg">Yes</div>
+                      </button>
+                      <button onClick={() => handleSpecificVisualsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+                        <div className="font-semibold text-lg">No</div>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Type a visual and press Enter" className="w-full py-3 text-center" />
+                      
+                      {/* Display visual tags */}
+                      {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && <div className="flex flex-wrap gap-2">
+                          {data.visuals.customVisuals.map((visual: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                              <span>{visual}</span>
+                              <button onClick={() => handleRemoveTag(visual)} className="text-muted-foreground hover:text-foreground transition-colors">
+                                ×
+                              </button>
+                            </div>)}
+                        </div>}
+
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowSpecificVisualsInput(false);
+                          }}
+                          className="flex-1"
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setShowSpecificVisualsChoice(false);
+                            setShowAiAssistComplete(true);
+                            updateData({
+                              visuals: {
+                                ...data.visuals,
+                                aiAssistComplete: true
+                              }
+                            });
+                          }}
+                          className="flex-1 bg-primary hover:bg-primary/90"
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>}
 
               {/* Custom Visuals Input */}
