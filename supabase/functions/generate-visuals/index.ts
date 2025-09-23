@@ -289,6 +289,9 @@ Each 20-30 words, ${selectedStyle.name.toLowerCase()} style.`
 
   return { system, user }
 }
+
+// Enhanced visual prompt builder with comprehensive context
+function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
   const { 
     finalText, 
     category, 
