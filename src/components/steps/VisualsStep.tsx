@@ -183,9 +183,9 @@ export default function VisualsStep({
   return <div className="space-y-6">
       {/* Category Breadcrumb */}
       {data.category && data.subcategory && (
-        <div className="text-left mb-4">
+        <div className="text-left mb-2">
           <div className="text-sm text-muted-foreground">
-            Your selection: {data.category} &gt; {data.subcategory}
+            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
         </div>
       )}
