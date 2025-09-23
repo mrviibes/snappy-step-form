@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import CategoryStep from "./steps/CategoryStep";
 import TextStep from "./steps/TextStep";
@@ -119,10 +118,6 @@ export default function MultiStepForm() {
     }
   };
   const CurrentStepComponent = steps[currentStep - 1].component;
-  const handleSubmit = () => {
-    console.log("Form completed!", formData);
-    // Handle form submission here
-  };
   return <div className="min-h-screen bg-background p-4">
       <div className="mx-auto max-w-md">
         {/* Header */}
@@ -157,17 +152,8 @@ export default function MultiStepForm() {
               </Button>
             )}
 
-            {/* Next/Complete Button */}
-            {currentStep === steps.length ? (
-              <Button 
-                onClick={handleSubmit} 
-                disabled={!isStepCompleted(currentStep)} 
-                className="bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover ml-auto"
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Complete
-              </Button>
-            ) : (
+            {/* Next Button - hide on final step */}
+            {currentStep < steps.length && (
               <Button 
                 onClick={nextStep} 
                 disabled={!isStepCompleted(currentStep)} 
