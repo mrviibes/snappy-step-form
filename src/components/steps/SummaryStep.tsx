@@ -99,6 +99,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             isComplete: true
           }
         });
+        setIsLoadingImage(false);
       } else if ('jobId' in response) {
         // Async response - need to poll for completion
         console.log('Polling for image completion, job ID:', response.jobId);
