@@ -99,6 +99,8 @@ export default function VisualsStep({
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customVisualDescription, setCustomVisualDescription] = useState('');
+  const [showCustomVisualInput, setShowCustomVisualInput] = useState(false);
 
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -112,12 +114,17 @@ export default function VisualsStep({
   };
 
   const handleVisualOptionChange = (optionId: string) => {
+    // Clear any previous errors when switching options
+    setError(null);
+    
     updateData({
       visuals: {
         ...data.visuals,
         option: optionId,
         // Auto-set balanced as default when AI assist is selected
-        visualTaste: optionId === 'ai-assist' ? 'balanced' : data.visuals?.visualTaste
+        visualTaste: optionId === 'ai-assist' ? 'balanced' : data.visuals?.visualTaste,
+        // Clear any previous custom description if switching away from design-myself
+        customVisualDescription: optionId === 'design-myself' ? data.visuals?.customVisualDescription || '' : undefined
       }
     });
 
@@ -125,6 +132,18 @@ export default function VisualsStep({
     if (optionId === 'ai-assist') {
       setShowSpecificVisualsDialog(true);
       setShowSpecificVisualsChoice(false);
+      setShowCustomVisualInput(false);
+    } else if (optionId === 'design-myself') {
+      // If "Design Visuals Myself" is selected, show custom input
+      setShowCustomVisualInput(true);
+      setShowSpecificVisualsDialog(false);
+      setShowSpecificVisualsChoice(false);
+      setCustomVisualDescription(data.visuals?.customVisualDescription || '');
+    } else {
+      // For "no-visuals" option, hide all dialogs
+      setShowSpecificVisualsDialog(false);
+      setShowSpecificVisualsChoice(false);
+      setShowCustomVisualInput(false);
     }
   };
 
@@ -139,6 +158,17 @@ export default function VisualsStep({
     } else {
       setShowVisualGeneration(true); // Skip to generation step
     }
+  };
+
+  const handleSaveCustomVisualDescription = () => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        customVisualDescription: customVisualDescription.trim()
+      }
+    });
+    setShowCustomVisualInput(false);
+    // Proceed to completion since we now have all required data
   };
 
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -632,6 +662,129 @@ export default function VisualsStep({
                 </div>}
 
             </>}
+
+          {/* Design Visuals Myself Flow */}
+          {data.visuals?.option === "design-myself" && <>
+            {showCustomVisualInput && (
+              <div className="space-y-4 pt-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Describe your visual
+                  </h2>
+                  <div className="mt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Describe what you want your visual to look like (max 100 characters)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="relative">
+                    <textarea
+                      value={customVisualDescription}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 100) {
+                          setCustomVisualDescription(e.target.value);
+                        }
+                      }}
+                      placeholder="e.g., A sunset over mountains with golden light..."
+                      className="w-full p-4 border-2 border-border rounded-lg resize-none h-24 text-sm focus:outline-none focus:border-primary transition-colors"
+                      maxLength={100}
+                    />
+                    <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                      {customVisualDescription.length}/100
+                    </div>
+                  </div>
+
+                  {error && (
+                    <Alert className="border-destructive bg-destructive/10">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-destructive">
+                        {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCustomVisualInput(false);
+                        updateData({
+                          visuals: {
+                            ...data.visuals,
+                            option: ""
+                          }
+                        });
+                      }}
+                      className="flex-1"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleSaveCustomVisualDescription}
+                      disabled={customVisualDescription.trim().length === 0}
+                      className="flex-1 bg-primary hover:bg-primary/90"
+                    >
+                      Save & Continue
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!showCustomVisualInput && data.visuals?.customVisualDescription && (
+              <div className="space-y-4 pt-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-semibold text-foreground mb-4">
+                    Ready to complete!
+                  </h2>
+                </div>
+                
+                <Card className="p-4 border-2 border-primary bg-accent">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-foreground mb-1">
+                        Your Visual Description:
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        "{data.visuals.customVisualDescription}"
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowCustomVisualInput(true);
+                        setCustomVisualDescription(data.visuals?.customVisualDescription || '');
+                      }}
+                      className="text-xs text-cyan-500"
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </Card>
+
+                <div className="text-center">
+                  <Button
+                    onClick={() => {
+                      // Mark as complete and proceed
+                      updateData({
+                        visuals: {
+                          ...data.visuals,
+                          isComplete: true
+                        }
+                      });
+                    }}
+                    className="w-full bg-primary hover:bg-primary/90 py-3"
+                  >
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                    Complete Visuals Step
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>}
         </>}
 
       {/* Specific Visuals Dialog */}

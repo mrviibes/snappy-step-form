@@ -28,6 +28,7 @@ interface FormData {
     option: string;
     customVisuals?: string;
     dimension?: string;
+    customVisualDescription?: string;
   };
   vibe: {
     intensity: string;
@@ -101,7 +102,17 @@ export default function MultiStepForm() {
         // For "ai-assist" - need tone, preference, generated text, and layout
         return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.generatedText && !!formData.text.layout;
       case 3:
-        return !!formData.visuals.style && !!formData.visuals.option && !!formData.visuals.dimension;
+        // Different completion requirements based on visual option
+        const basicRequirements = !!formData.visuals.style && !!formData.visuals.option && !!formData.visuals.dimension;
+        
+        if (!basicRequirements) return false;
+        
+        // Additional requirements based on option type
+        if (formData.visuals.option === 'design-myself') {
+          return !!formData.visuals.customVisualDescription;
+        }
+        // For ai-assist and no-visuals, basic requirements are enough
+        return true;
       case 4:
         return !!formData.vibe.intensity && !!formData.vibe.personality;
       default:
