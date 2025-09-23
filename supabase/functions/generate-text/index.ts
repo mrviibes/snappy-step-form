@@ -107,23 +107,49 @@ function robustCleanup(rawText: string): string {
   return cleaned;
 }
 
-// Enhanced line parsing with robust cleanup
+// Enhanced line parsing with robust cleanup - now handles all common formatting issues
 function parseAndCleanLines(rawResponse: string): string[] {
-  // First split by lines
+  // Step 1: Multiple splitting strategies
   let lines = rawResponse.split(/\r?\n/);
   
-  // If we didn't get enough lines, try splitting by other patterns
+  // If we didn't get enough lines, try other splitting patterns
   if (lines.length < 4) {
     // Try splitting by numbered patterns like "1.", "2.", etc.
     const numberedSplit = rawResponse.split(/(?=\d+[\.\)])/);
     if (numberedSplit.length >= 4) {
       lines = numberedSplit;
     }
+    
+    // Try splitting by bullet points or dashes
+    if (lines.length < 4) {
+      const bulletSplit = rawResponse.split(/(?=[-•*]\s)/);
+      if (bulletSplit.length >= 4) {
+        lines = bulletSplit;
+      }
+    }
   }
   
-  // Clean each line and filter out empty ones
+  // Step 2: Enhanced cleanup for each line
   const cleanedLines = lines
-    .map(line => robustCleanup(line))
+    .map(line => {
+      let cleaned = line.trim();
+      if (!cleaned) return '';
+      
+      // Remove list markers (numbers, bullets, dashes)
+      cleaned = cleaned.replace(/^\s*[-*•]\s*/, '');
+      cleaned = cleaned.replace(/^\s*\d+[.)\]:]\s*/, '');
+      
+      // Remove surrounding quotes
+      cleaned = cleaned.replace(/^["""'''`](.+)["""'''`]$/, '$1');
+      
+      // Remove markdown formatting
+      cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1'); // bold
+      cleaned = cleaned.replace(/\*(.*?)\*/g, '$1'); // italic
+      cleaned = cleaned.replace(/`(.*?)`/g, '$1'); // code
+      
+      // Apply robust cleanup
+      return robustCleanup(cleaned);
+    })
     .filter(line => line.length > 0)
     .filter(line => line.length >= 20); // Must be substantial content
   
@@ -337,30 +363,34 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-    // Enhanced prompt with clearer formatting requirements - insertWords now optional
-    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes. Each line must be between ${config.lengthMin}-${config.lengthMax} characters. Use at most ${config.maxPunct} punctuation marks per line. No semicolons, em dashes, or ellipses allowed.`;
+    // Enhanced prompt with ultra-clear formatting requirements
+    let instructions = `Write exactly 4 one-sentence ${subcategory} jokes in ${payload.tone} tone.
     
-    // Add specific context requirements
+STRICT FORMAT REQUIREMENTS:
+- Each line: ${config.lengthMin}-${config.lengthMax} characters
+- Maximum ${config.maxPunct} punctuation marks per line  
+- NO semicolons, em dashes, or ellipses
+- NO numbered lists (1., 2., etc.)
+- NO bullet points (-, *, •)
+- NO markdown formatting (**bold**, *italic*)
+- NO quotes around jokes ("joke")
+- NO extra text or explanations`;
+    
+    // Add context requirements
     const contextWords = getLexiconFor(subcategory);
     if (contextWords.length > 0) {
-      instructions += ` Each joke must include ${subcategory} context using words like: ${contextWords.slice(0, 6).join(', ')}.`;
+      instructions += `\n- Must reference ${subcategory} using words like: ${contextWords.slice(0, 4).join(', ')}`;
     }
     
     // OPTIONAL: Only add insert word requirements if they exist
     if (Array.isArray(payload.insertWords) && payload.insertWords.length > 0) {
       const insertTag = payload.insertWords[0];
-      instructions += ` Include the name "${insertTag}" exactly once per line, naturally integrated.`;
+      instructions += `\n- Include "${insertTag}" exactly once per line, naturally`;
     }
     
-    instructions += ` Tone: ${payload.tone}. Rating: ${payload.rating}.
+    instructions += `\n- Rating: ${payload.rating}
     
-CRITICAL FORMATTING RULES:
-- Return exactly 4 lines
-- One joke per line
-- No numbers, bullets, or markdown
-- No quotes around jokes
-- No extra text or explanations
-- Just the jokes, separated by line breaks`;
+RETURN FORMAT: Just 4 jokes, each on its own line, nothing else:`;
     
     const userPrompt = `${instructions}
 
