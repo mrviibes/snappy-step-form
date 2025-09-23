@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw, Zap } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
 
 interface SummaryStepProps {
@@ -214,9 +214,18 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       <Card className="p-4">
         {isLoadingImage ? (
           <div className="space-y-3">
-            <Skeleton className="aspect-square w-full rounded-lg" />
-            <div className="text-center text-sm text-muted-foreground">
-              Generating your image with Ideogram V3...
+            <div className="relative aspect-square w-full rounded-lg bg-muted flex items-center justify-center">
+              {/* Loading animation with icon */}
+              <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                <div className="relative">
+                  <Zap className="h-12 w-12 animate-pulse" />
+                  <div className="absolute -inset-2 border-2 border-primary/20 rounded-full animate-ping" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">Generating your image...</p>
+                  <p className="text-xs opacity-70">Using Ideogram V3</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : imageError ? (
