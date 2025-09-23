@@ -246,8 +246,40 @@ export default function VisualsStep({
         </div>
       </div>
 
+      {/* Selection Summary */}
+      {currentSubStep > 1 && (
+        <Card className="p-4 bg-accent/20">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              {hasSelectedStyle && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Style:</span> 
+                  <span className="text-primary">{selectedStyle?.title}</span>
+                  {currentSubStep > 2 && (
+                    <Button variant="ghost" size="sm" onClick={() => setCurrentSubStep(1)} className="h-6 px-2 text-xs">
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              )}
+              {hasSelectedDimension && currentSubStep > 2 && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Dimension:</span> 
+                  <span className="text-primary">{data.visuals?.dimension}</span>
+                  {currentSubStep > 3 && (
+                    <Button variant="ghost" size="sm" onClick={() => setCurrentSubStep(2)} className="h-6 px-2 text-xs">
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Step 1: Visual Style Selection */}
-      {currentSubStep >= 1 && (
+      {currentSubStep === 1 && (
         <>
           <div className="text-center">
             <h2 className="mb-2 text-xl font-semibold text-foreground">
@@ -288,7 +320,7 @@ export default function VisualsStep({
       )}
 
       {/* Step 2: Dimensions Selection */}
-      {currentSubStep >= 2 && hasSelectedStyle && (
+      {currentSubStep === 2 && hasSelectedStyle && (
         <>
           <div className="text-center pt-6 pb-2">
             <h2 className="text-xl font-semibold text-foreground">
@@ -339,7 +371,7 @@ export default function VisualsStep({
       )}
 
       {/* Step 3: Visual Tags and Generate */}
-      {currentSubStep >= 3 && showGenerateButton && !showVisualOptions && !isComplete && (
+      {currentSubStep === 3 && showGenerateButton && !showVisualOptions && !isComplete && (
         <>
           <div className="text-center pt-6 pb-2">
             <h2 className="text-xl font-semibold text-foreground">
@@ -426,7 +458,7 @@ export default function VisualsStep({
       )}
 
       {/* Step 4: Visual Selection */}
-      {currentSubStep >= 4 && (showVisualOptions || isGeneratingVisuals) && !isComplete && (
+      {currentSubStep === 4 && (showVisualOptions || isGeneratingVisuals) && !isComplete && (
         <>
           <div className="text-center mb-6 pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-2">
