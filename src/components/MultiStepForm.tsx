@@ -145,12 +145,7 @@ export default function MultiStepForm() {
 
         {/* Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4">
-          <div className="mx-auto max-w-md flex justify-between gap-4">
-            <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} className="flex-1 transition-all duration-300 ease-smooth">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-
+          <div className="mx-auto max-w-md flex justify-center">
             {currentStep === steps.length ? <Button onClick={handleSubmit} disabled={!isStepCompleted(currentStep)} className="flex-1 bg-gradient-primary shadow-primary transition-all duration-300 ease-spring hover:shadow-card-hover">
                 <Check className="mr-2 h-4 w-4" />
                 Complete
