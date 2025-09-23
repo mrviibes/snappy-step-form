@@ -62,6 +62,34 @@ async function withRetry<T>(
   throw lastError;
 }
 
+// Fallback: Try OpenAI gpt-image-1 if Ideogram fails
+async function tryOpenAIImage(prompt: string, negativePrompt: string | undefined, dimension: 'square' | 'portrait' | 'landscape') {
+  try {
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) return null;
+    const sizeMap: Record<string, string> = { square: '1024x1024', landscape: '1536x1024', portrait: '1024x1536' };
+    const size = sizeMap[dimension] || '1024x1024';
+    const combinedPrompt = negativePrompt ? `${prompt}\n\nNegative prompt: ${negativePrompt}` : prompt;
+    const resp = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-image-1', prompt: combinedPrompt, size })
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error('OpenAI image fallback failed:', resp.status, t);
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) return null;
+    return `data:image/png;base64,${b64}`;
+  } catch (e) {
+    console.error('OpenAI image fallback exception:', e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -168,9 +196,9 @@ serve(async (req) => {
         prompt: prompt.trim(),
         negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
         aspect_ratio: aspectRatioMap[dimension],
-        magic_prompt_option: "ON", // Enhance prompts automatically
-        seed: Math.floor(Math.random() * 1000000), // Random seed for variety
-        style_type: "AUTO" // Let Ideogram choose appropriate style
+        magic_prompt_option: "ON",
+        seed: Math.floor(Math.random() * 1000000),
+        style_type: "AUTO"
       }
     };
 
@@ -182,6 +210,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Api-Key': ideogramApiKey,
+          'Authorization': `Bearer ${ideogramApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(ideogramRequestBody),
@@ -208,6 +237,13 @@ serve(async (req) => {
         statusText: response.statusText,
         errorData: errorData.substring(0, 500)
       });
+      
+      // Try OpenAI fallback before failing
+      const fallbackImage = await tryOpenAIImage(prompt, negativePrompt, dimension);
+      if (fallbackImage) {
+        console.log('Fallback succeeded with OpenAI gpt-image-1');
+        return jsonResponse({ success: true, imageData: fallbackImage });
+      }
       
       // Map specific error codes to user-friendly messages
       let userMessage = '';
