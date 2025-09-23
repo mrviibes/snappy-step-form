@@ -65,6 +65,7 @@ export type Database = {
           subcategory: string | null
           text_style: string
           tone: string
+          user_id: string | null
           visual_style: string
         }
         Insert: {
@@ -78,6 +79,7 @@ export type Database = {
           subcategory?: string | null
           text_style: string
           tone: string
+          user_id?: string | null
           visual_style: string
         }
         Update: {
@@ -91,6 +93,7 @@ export type Database = {
           subcategory?: string | null
           text_style?: string
           tone?: string
+          user_id?: string | null
           visual_style?: string
         }
         Relationships: []

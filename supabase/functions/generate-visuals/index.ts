@@ -527,7 +527,7 @@ async function callOpenAIWithTimeout(systemPrompt: string, userPrompt: string): 
 }
 
 // Save to visual history
-async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any) {
+async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any, userId?: string) {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -547,6 +547,7 @@ async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any
       custom_visuals: payload.customVisuals || [],
       dimension: payload.dimension || 'square',
       generated_visuals: visuals,
+      user_id: userId, // Add user_id for proper RLS
       created_at: new Date().toISOString()
     })
   } catch (error) {
@@ -809,6 +810,25 @@ serve(async (req) => {
   try {
     const params = await req.json() as GenerateVisualsParams
     
+    // Extract user ID from request for RLS compliance
+    const authHeader = req.headers.get('authorization')
+    let userId: string | undefined
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7)
+        // Create a temporary supabase client to get user from token
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        )
+        const { data: { user } } = await supabase.auth.getUser(token)
+        userId = user?.id
+      } catch (error) {
+        console.log('Could not extract user ID from token:', error)
+      }
+    }
+    
     // Validate required parameters
     if (!params.finalText || !params.visualStyle) {
       throw new Error('finalText and visualStyle are required')
@@ -818,8 +838,8 @@ serve(async (req) => {
     
     const visuals = await generateVisuals(params)
     
-    // Save to history
-    await saveToVisualHistory(visuals, params)
+    // Save to history with user ID for proper RLS
+    await saveToVisualHistory(visuals, params, userId)
     
     const response: GenerateVisualsResponse = {
       success: true,
