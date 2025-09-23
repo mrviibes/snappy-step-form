@@ -368,6 +368,56 @@ export default function TextStep({
       </div>;
   }
 
+  // Special case: If "no-text" is selected, show simple confirmation
+  if (data.text?.writingPreference === 'no-text') {
+    return (
+      <div className="space-y-6">
+        {/* Selected Tone and Process in stacked format */}
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Selected Tone */}
+          <div className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Tone</span> - {selectedTone?.label}
+              </div>
+            </div>
+            <button 
+              onClick={handleEditTone} 
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+
+          {/* Selected Writing Preference */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="space-y-1">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Process</span> - {selectedWritingPreference?.label}
+              </div>
+            </div>
+            <button 
+              onClick={handleEditWritingPreference} 
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Confirmation Message */}
+        <div className="text-center p-8">
+          <div className="text-lg font-medium text-foreground mb-2">
+            Perfect! No text will be added to your design.
+          </div>
+          <div className="text-sm text-muted-foreground">
+            You can proceed to choose your visual style.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show selected preferences and specific words input
   return <div className="space-y-6">
       {/* Selected Tone and Process in stacked format */}

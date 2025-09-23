@@ -15,6 +15,13 @@ interface FormData {
     writingPreference: string;
     layout?: string;
     customText?: string;
+    generatedText?: string;
+    specificWords?: string[];
+    selectedOption?: number;
+    comedianStyle?: string;
+    style?: string;
+    rating?: string;
+    isComplete?: boolean;
   };
   visuals: {
     style: string;
@@ -83,10 +90,16 @@ export default function MultiStepForm() {
       case 1:
         return !!formData.category && !!formData.subcategory;
       case 2:
+        // Special case for "no-text" - only need tone and writing preference
+        if (formData.text.writingPreference === 'no-text') {
+          return !!formData.text.tone && !!formData.text.writingPreference;
+        }
+        // For "write-myself" - need tone, preference, custom text, and layout
         if (formData.text.writingPreference === 'write-myself') {
           return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.customText && !!formData.text.layout;
         }
-        return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.layout;
+        // For "ai-assist" - need tone, preference, generated text, and layout
+        return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.generatedText && !!formData.text.layout;
       case 3:
         return !!formData.visuals.style && !!formData.visuals.option && !!formData.visuals.dimension;
       case 4:
