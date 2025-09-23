@@ -502,7 +502,7 @@ export default function TextStep({
 
       {/* Add Specific Words Choice Section - only show for AI Assist */}
       {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
-          <div className="text-center">
+          <div className="text-center min-h-[120px] flex flex-col justify-start">
             <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
             <div className="mt-3">
               <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
@@ -521,7 +521,7 @@ export default function TextStep({
 
       {/* Add Specific Words Section - only show when showSpecificWordsInput is true */}
       {showSpecificWordsInput && <div className="space-y-4 pt-4">
-        <div className="text-center">
+        <div className="text-center min-h-[120px] flex flex-col justify-start">
           <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
           <div className="mt-3">
             <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
