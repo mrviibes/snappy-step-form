@@ -252,8 +252,43 @@ function extractVisualElements(text: string, category: string, insertWords: stri
   }
 }
 
-// Build Step-3 visual concept prompts using the 6-mode system
-function buildVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
+// Simplified visual prompt for faster generation
+function buildSimplifiedVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
+  const { finalText, category, subcategory, visualStyle, rating } = params
+  
+  const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
+  const { allProps } = extractVisualElements(finalText, category, params.insertWords)
+  
+  // Get only the most important props (max 3)
+  const keyProps = allProps.slice(0, 3)
+  const propList = keyProps.length > 0 ? keyProps.join(', ') : 'birthday elements'
+  
+  const system = `Create 6 SHORT visual descriptions for image generation (20-30 words each).
+
+CRITICAL RULES:
+- Text: "${finalText}"
+- Style: ${selectedStyle.name} 
+- Props: ${propList}
+- Each description must be completely different
+- Use exactly these 6 modes: cinematic, close-up, crowd-reaction, minimalist, exaggerated-proportions, goofy-absurd
+
+FORMAT: JSON with "visuals" array containing objects with "description", "interpretation", "layout", "visualStyle", "props".
+
+Keep descriptions simple and concrete - avoid complex lighting descriptions.`
+
+  const user = `Generate 6 visual concepts for: "${finalText}"
+
+1. CINEMATIC: Wide shot of ${propList}, ${category} setting
+2. CLOSE-UP: Detail view of ${keyProps[0] || 'main element'}, shallow focus  
+3. CROWD REACTION: People reacting to ${keyProps[0] || 'scene'}, group expressions
+4. MINIMALIST: Simple ${keyProps[0] || 'element'} on clean background
+5. EXAGGERATED PROPORTIONS: Oversized ${keyProps[0] || 'elements'}, cartoon proportions
+6. GOOFY ABSURD: Silly ${propList} arrangement, maximum comedy
+
+Each 20-30 words, ${selectedStyle.name.toLowerCase()} style.`
+
+  return { system, user }
+}
   const { 
     finalText, 
     category, 
@@ -405,8 +440,56 @@ function validateVisualRec(rec: any, expectedStyle: string, textProps: string[])
   }
 }
 
-// Call OpenAI API
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+// =============== TIMEOUT & RETRY SYSTEM ===============
+
+// Timeout wrapper to prevent hanging requests
+async function withTimeout<T>(promise: Promise<T>, ms: number = 20000): Promise<T> {
+  let timer: NodeJS.Timeout;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout_exceeded')), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+// Enhanced OpenAI call with timeout and retry
+async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, maxRetries: number = 2): Promise<string> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`🎯 Visual API attempt ${attempt + 1}/${maxRetries}`);
+      
+      const result = await withTimeout(callOpenAI(systemPrompt, userPrompt), 18000); // 18s timeout
+      
+      if (result && result.trim().length > 10) {
+        console.log(`✅ Visual API succeeded on attempt ${attempt + 1}`);
+        return result;
+      }
+      
+      throw new Error('Empty or invalid response from API');
+      
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries - 1;
+      const errorMessage = error.message;
+      
+      console.log(`❌ Visual API attempt ${attempt + 1} failed: ${errorMessage}`);
+      
+      if (isLastAttempt) {
+        if (errorMessage === 'timeout_exceeded') {
+          throw new Error('Visual generation timed out after multiple attempts');
+        }
+        throw error;
+      }
+      
+      // Wait before retry with jitter
+      const delay = 300 + Math.random() * 500 + (attempt * 1000);
+      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('All visual generation attempts failed');
+}
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
   if (!openaiKey) {
     throw new Error('OpenAI API key not configured')
@@ -465,8 +548,125 @@ async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any
   }
 }
 
-// Enhanced visual generation with 6-mode system
+// Enhanced visual generation with timeout and retry
 async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
+  console.log('🎨 Starting visual generation with timeout protection...');
+  console.log('📝 Input params:', { text: params.finalText.substring(0, 50) + '...', style: params.visualStyle, category: params.category });
+  
+  const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
+  const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
+  
+  try {
+    // Use simplified prompt for faster generation
+    const { system, user } = buildSimplifiedVisualPrompt(params)
+    
+    // Call OpenAI with timeout and retry
+    const rawResponse = await callOpenAIWithRetry(system, user, 2)
+    console.log(`🎯 Got response:`, rawResponse.substring(0, 200) + '...')
+    
+    // Parse JSON response with error handling
+    let parsed
+    try {
+      // Extract and clean JSON
+      let jsonText = rawResponse.trim()
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        jsonText = jsonMatch[0]
+      }
+      
+      // Clean common JSON issues
+      jsonText = jsonText.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}')
+      parsed = JSON.parse(jsonText)
+      
+    } catch (parseError) {
+      console.error('❌ JSON parse failed:', parseError.message)
+      console.log('📄 Raw response:', rawResponse.substring(0, 500))
+      throw new Error('Invalid JSON response from visual generation API')
+    }
+    
+    // Validate and process visuals
+    if (!parsed.visuals || !Array.isArray(parsed.visuals)) {
+      throw new Error('Response missing visuals array')
+    }
+    
+    console.log(`🔍 Processing ${parsed.visuals.length} visual candidates...`)
+    
+    const validVisuals: VisualRecommendation[] = []
+    const usedInterpretations = new Set<string>()
+    
+    // Process each visual with relaxed validation for speed
+    for (const [index, rec] of parsed.visuals.entries()) {
+      try {
+        const validated = validateVisualRec(rec, expectedStyle, allProps)
+        if (validated && !usedInterpretations.has(validated.interpretation)) {
+          validVisuals.push(validated)
+          usedInterpretations.add(validated.interpretation)
+          console.log(`✅ Visual ${index + 1}: ${validated.interpretation} - "${validated.description.substring(0, 40)}..."`)
+        } else {
+          console.log(`❌ Visual ${index + 1} rejected: ${validated ? 'duplicate mode' : 'invalid format'}`)
+        }
+      } catch (validationError) {
+        console.log(`❌ Visual ${index + 1} validation failed:`, validationError.message)
+      }
+    }
+    
+    // Return results (even if not perfect 6)
+    if (validVisuals.length >= 4) {
+      console.log(`🎉 Generated ${validVisuals.length} valid visuals with modes: [${[...usedInterpretations].join(', ')}]`)
+      return validVisuals.slice(0, 6)
+    }
+    
+    throw new Error(`Only generated ${validVisuals.length} valid visuals, need at least 4`)
+    
+  } catch (error) {
+    console.error('💥 Visual generation failed:', error.message)
+    
+    // Return fast fallback visuals to prevent timeout
+    console.log('🚨 Using emergency fallback visuals...')
+    return createFallbackVisuals(params, expectedStyle, allProps)
+  }
+}
+
+// Fast fallback visual generation
+function createFallbackVisuals(params: GenerateVisualsParams, expectedStyle: string, props: string[]): VisualRecommendation[] {
+  const modes = ['cinematic', 'close-up', 'crowd-reaction', 'minimalist', 'exaggerated-proportions', 'goofy-absurd']
+  const primaryProp = props[0] || params.category || 'celebration'
+  const moodKeywords = TONE_TO_MOOD[params.tone] || 'cheerful mood'
+  
+  return modes.slice(0, 6).map((mode, index) => {
+    let description = ''
+    
+    switch (mode) {
+      case 'cinematic':
+        description = `Wide ${expectedStyle.toLowerCase()} shot of ${primaryProp} celebration, dramatic lighting, full scene visible, ${moodKeywords}`
+        break
+      case 'close-up': 
+        description = `Detailed ${expectedStyle.toLowerCase()} close-up of ${primaryProp}, shallow focus, intimate view, warm lighting`
+        break
+      case 'crowd-reaction':
+        description = `Group celebrating ${primaryProp} moment, people smiling and reacting, ${expectedStyle.toLowerCase()} style, joyful expressions`
+        break
+      case 'minimalist':
+        description = `Simple ${expectedStyle.toLowerCase()} composition of ${primaryProp}, clean background, minimal elements, elegant lighting`
+        break
+      case 'exaggerated-proportions':
+        description = `Oversized ${primaryProp} with cartoon proportions, ${expectedStyle.toLowerCase()} style, visual comedy through scale`
+        break
+      case 'goofy-absurd':
+        description = `Silly ${primaryProp} arrangement, maximum comedy chaos, ${expectedStyle.toLowerCase()} style, pure absurd energy`
+        break
+    }
+    
+    return {
+      visualStyle: expectedStyle,
+      layout: layouts[index % layouts.length],
+      description,
+      props: props.slice(0, 3),
+      interpretation: mode,
+      mood: moodKeywords
+    }
+  })
+}
   const { system, user } = buildVisualPrompt(params)
   const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
   const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
@@ -624,20 +824,36 @@ serve(async (req) => {
       JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-    
   } catch (error) {
     console.error('Visual generation error:', error)
     
-    const response: GenerateVisualsResponse = {
-      success: false,
-      visuals: [],
-      model: 'gpt-4o-mini',
-      error: error.message
+    // Enhanced error handling for better user feedback
+    let userMessage = 'Visual generation failed'
+    let statusCode = 500
+    
+    if (error.message.includes('timeout') || error.message.includes('Visual generation timed out')) {
+      userMessage = 'Visual generation timed out. The AI service is taking too long to respond. Please try again.'
+      statusCode = 408
+    } else if (error.message.includes('Invalid JSON') || error.message.includes('JSON parse')) {
+      userMessage = 'Visual generation returned invalid data. Please try again with different settings.'
+      statusCode = 422
+    } else if (error.message.includes('Only generated')) {
+      userMessage = 'Could not generate enough visual variations. Try simpler text or different style.'
+      statusCode = 422
     }
     
     return new Response(
-      JSON.stringify(response),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        visuals: [],
+        model: 'gpt-4o-mini',
+        error: userMessage,
+        troubleshooting: 'Try: simpler text, different visual style, or retry in a moment'
+      }),
+      { 
+        status: statusCode, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     )
   }
 })
