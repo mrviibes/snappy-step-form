@@ -743,6 +743,86 @@ export default function VisualsStep({
                   </div>
                 </div>}
 
+              {/* Generated Visual Recommendations Display */}
+              {showVisualOptions && (
+                <div className="space-y-4 pt-4">
+                  <div className="text-center">
+                    <h2 className="text-xl font-semibold text-foreground mb-4">
+                      Choose your visual concept
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Select one of these AI-generated visual recommendations:
+                    </p>
+                  </div>
+
+                  {generatedVisuals.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {generatedVisuals.map((visual, index) => (
+                        <Card 
+                          key={index}
+                          className={cn(
+                            "cursor-pointer transition-all duration-200 border-2 p-4",
+                            selectedVisualOption === index 
+                              ? "border-primary bg-accent" 
+                              : "border-border hover:border-primary/50"
+                          )}
+                          onClick={() => handleVisualOptionSelect(index)}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold text-sm text-foreground">
+                                Visual Concept {index + 1}
+                              </h3>
+                              {selectedVisualOption === index && (
+                                <div className="w-2 h-2 bg-primary rounded-full" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground text-left">
+                              {visual.description || visual.interpretation || `Visual recommendation ${index + 1}`}
+                            </p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-muted-foreground">
+                        No visual recommendations generated. Please try again.
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowVisualOptions(false)} 
+                        className="mt-4"
+                      >
+                        Go Back
+                      </Button>
+                    </div>
+                  )}
+
+                  {generatedVisuals.length > 0 && selectedVisualOption !== null && (
+                    <div className="text-center">
+                      <Button
+                        onClick={() => {
+                          setShowVisualOptions(false);
+                          setShowAiAssistComplete(true);
+                          updateData({
+                            visuals: {
+                              ...data.visuals,
+                              selectedVisualRecommendation: generatedVisuals[selectedVisualOption],
+                              aiAssistComplete: true
+                            }
+                          });
+                        }}
+                        className="w-full bg-primary hover:bg-primary/90 py-3"
+                      >
+                        Continue with Selected Visual
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </>}
 
           {/* Design Visuals Myself Flow */}
