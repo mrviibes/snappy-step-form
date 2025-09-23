@@ -14,13 +14,11 @@ import realisticImage from "@/assets/visual-style-realistic-new.jpg";
 import designImage from "@/assets/visual-style-design-new.jpg";
 import renderImage from "@/assets/visual-style-3d-new.jpg";
 import animeImage from "@/assets/visual-style-anime-new.jpg";
-
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
-
 const visualStyles = [{
   id: "realistic",
   title: "Realistic",
@@ -52,7 +50,6 @@ const visualStyles = [{
   description: "Japanese cartoon",
   preview: animeImage
 }];
-
 const visualOptions = [{
   id: "ai-assist",
   title: "AI Visuals Assist",
@@ -66,7 +63,6 @@ const visualOptions = [{
   title: "Don't Want Visuals",
   fullTitle: "Option 3 - Don't Want Visuals"
 }];
-
 const visualTasteOptions = [{
   id: "balanced",
   label: "Balanced (default)"
@@ -83,7 +79,6 @@ const visualTasteOptions = [{
   id: "exaggerated",
   label: "Exaggerated (extreme)"
 }];
-
 export default function VisualsStep({
   data,
   updateData
@@ -94,7 +89,6 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [showDimensions, setShowDimensions] = useState(false);
   const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
-  
   const [showSpecificVisualsInput, setShowSpecificVisualsInput] = useState(false);
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
@@ -102,7 +96,6 @@ export default function VisualsStep({
   const [customVisualDescription, setCustomVisualDescription] = useState('');
   const [showCustomVisualInput, setShowCustomVisualInput] = useState(false);
   const [showAiAssistComplete, setShowAiAssistComplete] = useState(false);
-
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -113,11 +106,9 @@ export default function VisualsStep({
     // Immediately show dimensions after style selection
     setShowDimensions(true);
   };
-
   const handleVisualOptionChange = (optionId: string) => {
     // Clear any previous errors when switching options
     setError(null);
-    
     updateData({
       visuals: {
         ...data.visuals,
@@ -146,11 +137,9 @@ export default function VisualsStep({
       setShowCustomVisualInput(false);
     }
   };
-
   const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
     // Clear any previous errors
     setError(null);
-    
     if (hasVisuals) {
       // Keep showing the choice section but switch to input mode
       setShowSpecificVisualsInput(true);
@@ -166,7 +155,6 @@ export default function VisualsStep({
       });
     }
   };
-
   const handleSaveCustomVisualDescription = () => {
     updateData({
       visuals: {
@@ -177,7 +165,6 @@ export default function VisualsStep({
     setShowCustomVisualInput(false);
     // Proceed to completion since we now have all required data
   };
-
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const currentVisuals = data.visuals?.customVisuals || [];
@@ -192,7 +179,6 @@ export default function VisualsStep({
       setTagInput('');
     }
   };
-
   const handleRemoveTag = (visualToRemove: string) => {
     const currentVisuals = data.visuals?.customVisuals || [];
     updateData({
@@ -202,7 +188,6 @@ export default function VisualsStep({
       }
     });
   };
-
   const handleFinishAiAssist = () => {
     setShowSpecificVisualsChoice(false);
     setShowSpecificVisualsInput(false);
@@ -214,7 +199,6 @@ export default function VisualsStep({
       }
     });
   };
-
   const handleVisualTasteChange = (tasteId: string) => {
     updateData({
       visuals: {
@@ -225,7 +209,6 @@ export default function VisualsStep({
     // Automatically show visual options when style is selected
     setShowVisualOptions(true);
   };
-
   const handleGenerateVisuals = async () => {
     console.log("=== Visual Generation Debug ===");
     console.log("Current data structure:", {
@@ -238,7 +221,7 @@ export default function VisualsStep({
     // Check if we have any text available
     if (!data.text?.generatedText && !data.text?.customText) {
       console.error("No text available for visual generation");
-      
+
       // Show error state instead of silent failure
       setError("Please complete Step 2 (Text) first before generating visuals.");
       setShowVisualGeneration(false);
@@ -248,11 +231,9 @@ export default function VisualsStep({
     // Clear any previous errors
     setError(null);
     setIsGeneratingVisuals(true);
-    
     try {
       const finalText = data.text.generatedText || data.text.customText;
       console.log("Using text for generation:", finalText);
-      
       const params = {
         finalText,
         category: data.category || "",
@@ -267,17 +248,15 @@ export default function VisualsStep({
         customVisuals: data.visuals?.customVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
-
       console.log("Generating visuals with params:", params);
       const visuals = await generateVisualOptions(params);
       console.log("Generated visuals success:", visuals);
-      
       setGeneratedVisuals(visuals);
       setShowVisualOptions(true);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
       setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
+
       // Still show options but with empty generated visuals
       setGeneratedVisuals([]);
       setShowVisualOptions(true);
@@ -285,7 +264,6 @@ export default function VisualsStep({
       setIsGeneratingVisuals(false);
     }
   };
-
   const handleVisualOptionSelect = (optionIndex: number) => {
     setSelectedVisualOption(optionIndex);
     const selectedVisual = generatedVisuals.length > 0 ? generatedVisuals[optionIndex] : null;
@@ -299,7 +277,6 @@ export default function VisualsStep({
     setShowVisualOptions(false);
     setShowDimensions(true);
   };
-
   const handleDimensionSelect = (dimensionId: string) => {
     updateData({
       visuals: {
@@ -309,7 +286,6 @@ export default function VisualsStep({
     });
     setShowDimensions(false);
   };
-
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const selectedOption = visualOptions.find(option => option.id === data.visuals?.option);
   const hasSelectedStyle = !!data.visuals?.style;
@@ -318,13 +294,7 @@ export default function VisualsStep({
   const isComplete = hasSelectedStyle && hasSelectedDimension && hasSelectedOption;
 
   // Sample visual options (filler content)
-  const visualOptionsSamples = [
-    "Visual concept with vibrant colors and dynamic composition featuring modern elements and creative typography.",
-    "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.",
-    "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.",
-    "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."
-  ];
-
+  const visualOptionsSamples = ["Visual concept with vibrant colors and dynamic composition featuring modern elements and creative typography.", "Minimalist design approach with clean lines, balanced negative space and subtle color palette for elegant presentation.", "Bold and energetic visual style with striking contrasts, dramatic lighting and eye-catching graphic elements.", "Artistic and creative interpretation with unique textures, organic shapes and harmonious color combinations."];
   const dimensionOptions = [{
     id: "square",
     title: "Square",
@@ -342,7 +312,6 @@ export default function VisualsStep({
     title: "Custom",
     description: "Define your own dimensions"
   }];
-
   return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
       {data.category && data.subcategory && <div className="text-left mb-4">
@@ -536,8 +505,8 @@ export default function VisualsStep({
                   ...data.visuals,
                   dimension: ""
                 }
-                });
-              }} className="text-xs text-cyan-500">
+              });
+            }} className="text-xs text-cyan-500">
                   Edit
                 </Button>
               </div>
@@ -570,23 +539,20 @@ export default function VisualsStep({
               {/* Specific Visuals Choice Section */}
               {showSpecificVisualsChoice && <div className="space-y-4 pt-4">
                   <div className="text-center">
-                    <h2 className="text-xl font-semibold text-foreground">Do you have any specific visuals you want included?</h2>
+                    <h2 className="text-xl font-semibold text-foreground">Any specific visuals?</h2>
                     <div className="mt-3">
                       <p className="text-sm text-muted-foreground text-center">eg. Dogs, Mountains, Cars, etc.</p>
                     </div>
                   </div>
 
-                  {!showSpecificVisualsInput ? (
-                    <div className="grid grid-cols-2 gap-4">
+                  {!showSpecificVisualsInput ? <div className="grid grid-cols-2 gap-4">
                       <button onClick={() => handleSpecificVisualsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
                         <div className="font-semibold text-lg">Yes</div>
                       </button>
                       <button onClick={() => handleSpecificVisualsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
                         <div className="font-semibold text-lg">No</div>
                       </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
+                    </div> : <div className="space-y-3">
                       <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Type a visual and press Enter" className="w-full py-3 text-center" />
                       
                       {/* Display visual tags */}
@@ -600,33 +566,21 @@ export default function VisualsStep({
                         </div>}
 
                       <div className="flex gap-3">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setShowSpecificVisualsInput(false);
-                          }}
-                          className="flex-1"
-                        >
-                          Back
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setShowSpecificVisualsChoice(false);
-                            setShowAiAssistComplete(true);
-                            updateData({
-                              visuals: {
-                                ...data.visuals,
-                                aiAssistComplete: true
-                              }
-                            });
-                          }}
-                          className="flex-1 bg-primary hover:bg-primary/90"
-                        >
+                        
+                        <Button onClick={() => {
+                setShowSpecificVisualsChoice(false);
+                setShowAiAssistComplete(true);
+                updateData({
+                  visuals: {
+                    ...data.visuals,
+                    aiAssistComplete: true
+                  }
+                });
+              }} className="flex-1 bg-primary hover:bg-primary/90">
                           Continue
                         </Button>
                       </div>
-                    </div>
-                  )}
+                    </div>}
                 </div>}
 
               {/* Custom Visuals Input */}
@@ -642,8 +596,7 @@ export default function VisualsStep({
                     <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter visuals you want included into your final image" className="w-full py-6 min-h-[72px] text-center" />
                     
                     {/* Enhanced visual feedback when tags are added */}
-                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-                      <div className="space-y-3">
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && <div className="space-y-3">
                         <div className="flex items-center justify-center space-x-2 text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                           <span className="font-medium">
@@ -651,46 +604,29 @@ export default function VisualsStep({
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-2 justify-center">
-                          {data.visuals.customVisuals.map((visual: string, index: number) => (
-                            <div key={index} className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                          {data.visuals.customVisuals.map((visual: string, index: number) => <div key={index} className="flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                               <span className="text-xs font-medium text-primary">{visual}</span>
-                              <button 
-                                onClick={() => handleRemoveTag(visual)}
-                                className="text-primary/60 hover:text-primary text-xs font-bold leading-none"
-                              >
+                              <button onClick={() => handleRemoveTag(visual)} className="text-primary/60 hover:text-primary text-xs font-bold leading-none">
                                 ×
                               </button>
-                            </div>
-                          ))}
+                            </div>)}
                         </div>
-                      </div>
-                    )}
+                      </div>}
 
                     {/* Done Adding Visuals Button - show when they have tags or want to finish */}
-                    {(data.visuals?.customVisuals && data.visuals.customVisuals.length > 0) && (
-                      <div className="text-center mt-4">
-                        <Button 
-                          onClick={handleFinishAiAssist}
-                          className="bg-gradient-primary text-white px-8 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
-                        >
+                    {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && <div className="text-center mt-4">
+                        <Button onClick={handleFinishAiAssist} className="bg-gradient-primary text-white px-8 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl">
                           Done Adding Visuals
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                      </div>
-                    )}
+                      </div>}
 
                     {/* No Specific Visuals Button - show when no visuals added yet */}
-                    {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && (
-                      <div className="text-center">
-                        <Button 
-                          onClick={handleFinishAiAssist}
-                          variant="outline"
-                          className="px-6 py-3 rounded-lg font-medium transition-colors"
-                        >
+                    {(!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0) && <div className="text-center">
+                        <Button onClick={handleFinishAiAssist} variant="outline" className="px-6 py-3 rounded-lg font-medium transition-colors">
                           I don't want any specific visuals
                         </Button>
-                      </div>
-                    )}
+                      </div>}
                   </div>
                 </div>}
 
@@ -713,14 +649,12 @@ export default function VisualsStep({
                   </div>
 
                   {/* Error Display */}
-                  {error && (
-                    <Alert className="border-destructive bg-destructive/10">
+                  {error && <Alert className="border-destructive bg-destructive/10">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-destructive">
                         {error}
                       </AlertDescription>
-                    </Alert>
-                  )}
+                    </Alert>}
 
                   {/* Generate Visuals Button */}
                   <div className="w-full space-y-3">
@@ -744,8 +678,7 @@ export default function VisualsStep({
                 </div>}
 
               {/* Generated Visual Recommendations Display */}
-              {showVisualOptions && (
-                <div className="space-y-4 pt-4">
+              {showVisualOptions && <div className="space-y-4 pt-4">
                   <div className="text-center">
                     <h2 className="text-xl font-semibold text-foreground mb-4">
                       Choose your visual concept
@@ -755,80 +688,52 @@ export default function VisualsStep({
                     </p>
                   </div>
 
-                  {generatedVisuals.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {generatedVisuals.map((visual, index) => (
-                        <Card 
-                          key={index}
-                          className={cn(
-                            "cursor-pointer transition-all duration-200 border-2 p-4",
-                            selectedVisualOption === index 
-                              ? "border-primary bg-accent" 
-                              : "border-border hover:border-primary/50"
-                          )}
-                          onClick={() => handleVisualOptionSelect(index)}
-                        >
+                  {generatedVisuals.length > 0 ? <div className="grid grid-cols-1 gap-4">
+                      {generatedVisuals.map((visual, index) => <Card key={index} className={cn("cursor-pointer transition-all duration-200 border-2 p-4", selectedVisualOption === index ? "border-primary bg-accent" : "border-border hover:border-primary/50")} onClick={() => handleVisualOptionSelect(index)}>
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <h3 className="font-semibold text-sm text-foreground">
                                 Visual Concept {index + 1}
                               </h3>
-                              {selectedVisualOption === index && (
-                                <div className="w-2 h-2 bg-primary rounded-full" />
-                              )}
+                              {selectedVisualOption === index && <div className="w-2 h-2 bg-primary rounded-full" />}
                             </div>
                             <p className="text-xs text-muted-foreground text-left">
                               {visual.description || visual.interpretation || `Visual recommendation ${index + 1}`}
                             </p>
                           </div>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
+                        </Card>)}
+                    </div> : <div className="text-center py-8">
                       <div className="text-muted-foreground">
                         No visual recommendations generated. Please try again.
                       </div>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setShowVisualOptions(false)} 
-                        className="mt-4"
-                      >
+                      <Button variant="outline" onClick={() => setShowVisualOptions(false)} className="mt-4">
                         Go Back
                       </Button>
-                    </div>
-                  )}
+                    </div>}
 
-                  {generatedVisuals.length > 0 && selectedVisualOption !== null && (
-                    <div className="text-center">
-                      <Button
-                        onClick={() => {
-                          setShowVisualOptions(false);
-                          setShowAiAssistComplete(true);
-                          updateData({
-                            visuals: {
-                              ...data.visuals,
-                              selectedVisualRecommendation: generatedVisuals[selectedVisualOption],
-                              aiAssistComplete: true
-                            }
-                          });
-                        }}
-                        className="w-full bg-primary hover:bg-primary/90 py-3"
-                      >
+                  {generatedVisuals.length > 0 && selectedVisualOption !== null && <div className="text-center">
+                      <Button onClick={() => {
+              setShowVisualOptions(false);
+              setShowAiAssistComplete(true);
+              updateData({
+                visuals: {
+                  ...data.visuals,
+                  selectedVisualRecommendation: generatedVisuals[selectedVisualOption],
+                  aiAssistComplete: true
+                }
+              });
+            }} className="w-full bg-primary hover:bg-primary/90 py-3">
                         Continue with Selected Visual
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    </div>}
+                </div>}
 
             </>}
 
           {/* Design Visuals Myself Flow */}
           {data.visuals?.option === "design-myself" && <>
-            {showCustomVisualInput && (
-              <div className="space-y-4 pt-4">
+            {showCustomVisualInput && <div className="space-y-4 pt-4">
                 <div className="text-center">
                   <h2 className="text-xl font-semibold text-foreground">
                     Describe your visual
@@ -842,61 +747,43 @@ export default function VisualsStep({
 
                 <div className="space-y-3">
                   <div className="relative">
-                    <textarea
-                      value={customVisualDescription}
-                      onChange={(e) => {
-                        if (e.target.value.length <= 100) {
-                          setCustomVisualDescription(e.target.value);
-                        }
-                      }}
-                      placeholder="e.g., A sunset over mountains with golden light..."
-                      className="w-full p-4 border-2 border-border rounded-lg resize-none h-24 text-sm focus:outline-none focus:border-primary transition-colors"
-                      maxLength={100}
-                    />
+                    <textarea value={customVisualDescription} onChange={e => {
+                if (e.target.value.length <= 100) {
+                  setCustomVisualDescription(e.target.value);
+                }
+              }} placeholder="e.g., A sunset over mountains with golden light..." className="w-full p-4 border-2 border-border rounded-lg resize-none h-24 text-sm focus:outline-none focus:border-primary transition-colors" maxLength={100} />
                     <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
                       {customVisualDescription.length}/100
                     </div>
                   </div>
 
-                  {error && (
-                    <Alert className="border-destructive bg-destructive/10">
+                  {error && <Alert className="border-destructive bg-destructive/10">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-destructive">
                         {error}
                       </AlertDescription>
-                    </Alert>
-                  )}
+                    </Alert>}
 
                   <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowCustomVisualInput(false);
-                        updateData({
-                          visuals: {
-                            ...data.visuals,
-                            option: ""
-                          }
-                        });
-                      }}
-                      className="flex-1"
-                    >
+                    <Button variant="outline" onClick={() => {
+                setShowCustomVisualInput(false);
+                updateData({
+                  visuals: {
+                    ...data.visuals,
+                    option: ""
+                  }
+                });
+              }} className="flex-1">
                       Back
                     </Button>
-                    <Button
-                      onClick={handleSaveCustomVisualDescription}
-                      disabled={customVisualDescription.trim().length === 0}
-                      className="flex-1 bg-primary hover:bg-primary/90"
-                    >
+                    <Button onClick={handleSaveCustomVisualDescription} disabled={customVisualDescription.trim().length === 0} className="flex-1 bg-primary hover:bg-primary/90">
                       Save & Continue
                     </Button>
                   </div>
                 </div>
-              </div>
-            )}
+              </div>}
 
-            {!showCustomVisualInput && data.visuals?.customVisualDescription && (
-              <div className="space-y-4 pt-4">
+            {!showCustomVisualInput && data.visuals?.customVisualDescription && <div className="space-y-4 pt-4">
                 <div className="text-center">
                   <h2 className="text-xl font-semibold text-foreground mb-4">
                     Ready to complete!
@@ -913,44 +800,34 @@ export default function VisualsStep({
                         "{data.visuals.customVisualDescription}"
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setShowCustomVisualInput(true);
-                        setCustomVisualDescription(data.visuals?.customVisualDescription || '');
-                      }}
-                      className="text-xs text-cyan-500"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => {
+                setShowCustomVisualInput(true);
+                setCustomVisualDescription(data.visuals?.customVisualDescription || '');
+              }} className="text-xs text-cyan-500">
                       Edit
                     </Button>
                   </div>
                 </Card>
 
                 <div className="text-center">
-                  <Button
-                    onClick={() => {
-                      // Mark as complete and proceed
-                      updateData({
-                        visuals: {
-                          ...data.visuals,
-                          isComplete: true
-                        }
-                      });
-                    }}
-                    className="w-full bg-primary hover:bg-primary/90 py-3"
-                  >
+                  <Button onClick={() => {
+              // Mark as complete and proceed
+              updateData({
+                visuals: {
+                  ...data.visuals,
+                  isComplete: true
+                }
+              });
+            }} className="w-full bg-primary hover:bg-primary/90 py-3">
                     <ArrowRight className="w-4 h-4 mr-2" />
                     Complete Visuals Step
                   </Button>
                 </div>
-              </div>
-            )}
+              </div>}
           </>}
 
           {/* AI Assist Completion */}
-          {data.visuals?.option === "ai-assist" && showAiAssistComplete && (
-            <div className="space-y-4 pt-4">
+          {data.visuals?.option === "ai-assist" && showAiAssistComplete && <div className="space-y-4 pt-4">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-foreground mb-4">
                   Ready to complete!
@@ -964,45 +841,33 @@ export default function VisualsStep({
                       Your Visual Process:
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      AI Visuals Assist {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 
-                        ? `with custom visuals: ${data.visuals.customVisuals.join(', ')}`
-                        : 'without specific visuals'
-                      }
+                      AI Visuals Assist {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? `with custom visuals: ${data.visuals.customVisuals.join(', ')}` : 'without specific visuals'}
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => {
-                      setShowAiAssistComplete(false);
-                      setShowSpecificVisualsChoice(true);
-                    }}
-                    className="text-xs text-cyan-500"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => {
+              setShowAiAssistComplete(false);
+              setShowSpecificVisualsChoice(true);
+            }} className="text-xs text-cyan-500">
                     Edit
                   </Button>
                 </div>
               </Card>
 
               <div className="text-center">
-                <Button
-                  onClick={() => {
-                    // Mark as complete and proceed
-                    updateData({
-                      visuals: {
-                        ...data.visuals,
-                        isComplete: true
-                      }
-                    });
-                  }}
-                  className="w-full bg-primary hover:bg-primary/90 py-3"
-                >
+                <Button onClick={() => {
+            // Mark as complete and proceed
+            updateData({
+              visuals: {
+                ...data.visuals,
+                isComplete: true
+              }
+            });
+          }} className="w-full bg-primary hover:bg-primary/90 py-3">
                   <ArrowRight className="w-4 h-4 mr-2" />
                   Complete Visuals Step
                 </Button>
               </div>
-            </div>
-          )}
+            </div>}
         </>}
 
     </div>;
