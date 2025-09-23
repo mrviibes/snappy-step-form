@@ -340,7 +340,7 @@ export default function VisualsStep({
                 
                 <Select value={selectedCustomVisualStyle} onValueChange={setSelectedCustomVisualStyle}>
                   <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-50">
-                    <SelectValue placeholder="Choose a visual style" />
+                    <SelectValue placeholder="Visual Style" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border border-border shadow-lg z-50">
                     {customVisualStyles.map(style => <SelectItem key={style.value} value={style.value} className="hover:bg-accent">
