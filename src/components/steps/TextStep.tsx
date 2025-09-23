@@ -531,7 +531,7 @@ export default function TextStep({
       {/* Add Specific Words Choice Section - only show for AI Assist */}
       {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
           <div className="text-center min-h-[120px] flex flex-col justify-start">
-            <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
+            <h2 className="text-xl font-semibold text-foreground">Any words like names etc. to include?</h2>
             <div className="mt-3">
               <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
             </div>
@@ -557,13 +557,7 @@ export default function TextStep({
         </div>
 
         <div className="space-y-3">
-          <Input 
-            value={tagInput} 
-            onChange={e => setTagInput(e.target.value)} 
-            onKeyDown={handleAddTag} 
-            placeholder="Enter words you want included into your final text" 
-            className="w-full py-6 min-h-[72px] text-center" 
-          />
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
           
           {/* Display tags right under input box */}
           {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
