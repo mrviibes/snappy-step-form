@@ -110,7 +110,9 @@ export default function VisualsStep({
     updateData({
       visuals: {
         ...data.visuals,
-        option: optionId
+        option: optionId,
+        // Auto-set balanced as default when AI assist is selected
+        visualTaste: optionId === 'ai-assist' ? 'balanced' : data.visuals?.visualTaste
       }
     });
 
@@ -551,13 +553,13 @@ export default function VisualsStep({
                   </div>
                 </div>}
 
-              {/* Style Selection */}
-              {showVisualGeneration && !showVisualOptions && !data.visuals?.visualTaste && <div className="space-y-4">
+              {/* Style Selection and Generate Button - show together */}
+              {showVisualGeneration && !showVisualOptions && <div className="space-y-4">
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-foreground">
                       Style
                     </label>
-                    <Select value={data.visuals?.visualTaste || ""} onValueChange={handleVisualTasteChange}>
+                    <Select value={data.visuals?.visualTaste || "balanced"} onValueChange={handleVisualTasteChange}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose style" />
                       </SelectTrigger>
@@ -568,16 +570,16 @@ export default function VisualsStep({
                       </SelectContent>
                     </Select>
                   </div>
-                </div>}
 
-              {/* Generate Visuals Button */}
-              {showVisualGeneration && !showVisualOptions && data.visuals?.visualTaste && <div className="w-full space-y-3">
-                  <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
-                    {isGeneratingVisuals ? <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </> : 'Generate Visuals'}
-                  </Button>
+                  {/* Generate Visuals Button */}
+                  <div className="w-full space-y-3">
+                    <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
+                      {isGeneratingVisuals ? <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </> : 'Generate Visuals'}
+                    </Button>
+                  </div>
                 </div>}
 
             </>}
