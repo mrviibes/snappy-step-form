@@ -28,7 +28,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  // Generate templates on mount
+  // Generate templates on mount and auto-generate with first template
   useEffect(() => {
     const generateTemplates = async () => {
       try {
@@ -55,8 +55,10 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         
         if (response.templates && response.templates.length > 0) {
           setTemplates(response.templates);
-          // Auto-select first template
-          setSelectedTemplate(response.templates[0]);
+          // Auto-select and generate with first template (Cinematic)
+          const firstTemplate = response.templates[0];
+          setSelectedTemplate(firstTemplate);
+          generateImageFromTemplate(firstTemplate);
         } else {
           throw new Error('No templates returned from API');
         }
@@ -217,55 +219,10 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           </div>
         ) : (
           <div className="text-center text-sm text-muted-foreground">
-            {isLoadingTemplates ? 'Loading templates...' : 'Select a template below to generate your image'}
+            {isLoadingTemplates ? 'Loading templates...' : 'Image will generate automatically with Cinematic style'}
           </div>
         )}
       </Card>
-
-      <Separator />
-
-      {/* Template Selection */}
-      <div className="space-y-4">
-        <h3 className="font-semibold text-foreground">Choose Your Style Template</h3>
-        
-        {isLoadingTemplates ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-3 w-full mb-2" />
-                <Skeleton className="h-3 w-3/4" />
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {templates.map((template, index) => (
-              <Card 
-                key={index} 
-                className={`p-4 cursor-pointer border-2 transition-all ${
-                  selectedTemplate?.name === template.name 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => handleTemplateSelect(template)}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant={selectedTemplate?.name === template.name ? "default" : "secondary"}>
-                    {template.name}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {template.description}
-                </p>
-                <div className="text-xs text-muted-foreground">
-                  Click to generate with this style
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
       <Separator />
 
