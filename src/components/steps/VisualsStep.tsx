@@ -201,29 +201,27 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Compact Style Summary - More prominent Edit button */}
+      {/* Compact Style Summary - Match reference styling */}
       {hasSelectedStyle && !editingStyle && (
-        <Card className="p-4 bg-accent/20 border-2 border-primary/20">
-          <div className="flex items-center justify-between">
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+          <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-6 rounded border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
-                <img src={selectedStyle?.preview} alt="" className="w-full h-full object-cover rounded-sm" />
+              <div className="w-12 h-8 rounded border overflow-hidden">
+                <img src={selectedStyle?.preview} alt="" className="w-full h-full object-cover" />
               </div>
               <div>
                 <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
                 <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <button 
               onClick={() => setEditingStyle(true)} 
-              className="h-8 px-4 text-sm font-medium"
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
             >
               Change Style
-            </Button>
+            </button>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Visual Style Selection - Always show first, more prominent */}
@@ -267,18 +265,22 @@ export default function VisualsStep({
         </>
       )}
 
-      {/* Compact Dimension Summary */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-3 bg-accent/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Dimension - </span>
-              <span className="text-sm text-primary font-medium capitalize">{data.visuals?.dimension}</span>
+      {/* Compact Dimension Summary - Match reference styling */}
+      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && 
+        <div className="rounded-lg border-2 border-border bg-card">
+          <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Dimension</span> - <span className="text-primary capitalize">{data.visuals?.dimension}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setEditingDimension(true)} className="h-7 px-3 text-xs">
+            <button 
+              onClick={() => setEditingDimension(true)} 
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            >
               Edit
-            </Button>
+            </button>
           </div>
-        </Card>}
+        </div>
+      }
 
       {/* Dimensions Selection */}
       {hasSelectedStyle && !editingStyle && (!hasSelectedDimension || editingDimension) && <>
