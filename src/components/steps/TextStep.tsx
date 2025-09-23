@@ -360,8 +360,8 @@ export default function TextStep({
       </div>;
   }
 
-  // Show writing preference selection if no preference is selected
-  if (!data.text?.writingPreference) {
+  // Show rating selection if tone is selected but no rating is selected
+  if (data.text?.tone && !data.text?.rating) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
       {data.category && data.subcategory && <div className="text-left mb-2">
@@ -377,6 +377,69 @@ export default function TextStep({
               <span className="font-semibold">Tone</span> - {selectedTone?.label}
             </div>
             <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Rating Selection */}
+        <div className="space-y-3 pt-4">
+          <div className="text-center">
+            <h2 className="mb-2 text-xl font-semibold text-foreground">
+              Choose Your Rating
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {ratingOptions.map(rating => (
+              <button 
+                key={rating.id} 
+                onClick={() => handleRatingSelect(rating.id)} 
+                className={cn(
+                  "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                  data.text?.rating === rating.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                )}
+              >
+                <div className="flex h-full flex-col items-center justify-center space-y-1">
+                  <div className="font-semibold text-sm">{rating.name}</div>
+                  <div className="text-xs text-muted-foreground">{rating.description}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>;
+  }
+
+  // Show writing preference selection if no preference is selected
+  if (!data.text?.writingPreference) {
+    return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {data.category && data.subcategory && <div className="text-left mb-2">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
+          </div>
+        </div>}
+
+        {/* Selected Tone and Rating Display with Edit Options */}
+        <div className="rounded-lg border-2 border-primary bg-card overflow-hidden">
+          {/* Selected Tone */}
+          <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Tone</span> - {selectedTone?.label}
+            </div>
+            <button onClick={handleEditTone} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Selected Rating */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
+            </div>
+            <button onClick={() => handleRatingSelect("")} className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
