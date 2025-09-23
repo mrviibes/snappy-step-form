@@ -2287,7 +2287,16 @@ export default function CategoryStep({
   const [subcategorySearchQuery, setSubcategorySearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
-  const filteredGoals = fitnessGoals.filter(goal => goal.title.toLowerCase().includes(searchQuery.toLowerCase()) || goal.description.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredGoals = fitnessGoals.filter(goal => {
+    const matchesMainCategory = goal.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                               goal.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesSubcategory = goal.subcategories.some(subcategory => 
+      subcategory.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    return matchesMainCategory || matchesSubcategory;
+  });
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
   const filteredSubcategories = selectedCategoryData ? selectedCategoryData.subcategories.filter(subcategory => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
   
