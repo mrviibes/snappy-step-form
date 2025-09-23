@@ -101,6 +101,7 @@ export default function VisualsStep({
   const [error, setError] = useState<string | null>(null);
   const [customVisualDescription, setCustomVisualDescription] = useState('');
   const [showCustomVisualInput, setShowCustomVisualInput] = useState(false);
+  const [showAiAssistComplete, setShowAiAssistComplete] = useState(false);
 
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -154,11 +155,20 @@ export default function VisualsStep({
     setError(null);
     
     setShowSpecificVisualsDialog(false);
+    setShowSpecificVisualsChoice(false);
+    
     if (hasVisuals) {
       setShowSpecificVisualsInput(true);
       // Show the input section
     } else {
-      setShowVisualGeneration(true); // Skip to generation step
+      // For "No", go directly to completion
+      setShowAiAssistComplete(true);
+      updateData({
+        visuals: {
+          ...data.visuals,
+          aiAssistComplete: true
+        }
+      });
     }
   };
 
@@ -787,6 +797,62 @@ export default function VisualsStep({
               </div>
             )}
           </>}
+
+          {/* AI Assist Completion */}
+          {data.visuals?.option === "ai-assist" && showAiAssistComplete && (
+            <div className="space-y-4 pt-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  Ready to complete!
+                </h2>
+              </div>
+              
+              <Card className="p-4 border-2 border-primary bg-accent">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-foreground mb-1">
+                      Your Visual Process:
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      AI Visuals Assist {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 
+                        ? `with custom visuals: ${data.visuals.customVisuals.join(', ')}`
+                        : 'without specific visuals'
+                      }
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setShowAiAssistComplete(false);
+                      setShowSpecificVisualsChoice(true);
+                    }}
+                    className="text-xs text-cyan-500"
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </Card>
+
+              <div className="text-center">
+                <Button
+                  onClick={() => {
+                    // Mark as complete and proceed
+                    updateData({
+                      visuals: {
+                        ...data.visuals,
+                        isComplete: true
+                      }
+                    });
+                  }}
+                  className="w-full bg-primary hover:bg-primary/90 py-3"
+                >
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Complete Visuals Step
+                </Button>
+              </div>
+            </div>
+          )}
         </>}
 
       {/* Specific Visuals Dialog */}
