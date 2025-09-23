@@ -2288,12 +2288,20 @@ export default function CategoryStep({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
   const filteredGoals = fitnessGoals.filter(goal => {
-    const matchesMainCategory = goal.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                               goal.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchLower = searchQuery.toLowerCase();
     
-    const matchesSubcategory = goal.subcategories.some(subcategory => 
-      subcategory.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Match main category title or description
+    const matchesMainCategory = goal.title.toLowerCase().includes(searchLower) || 
+                               goal.description.toLowerCase().includes(searchLower);
+    
+    // Match any subcategory title with more flexible matching
+    const matchesSubcategory = goal.subcategories.some(subcategory => {
+      const subcategoryLower = subcategory.title.toLowerCase();
+      // Check for exact matches, partial matches, and word matches
+      return subcategoryLower.includes(searchLower) ||
+             subcategoryLower.split(' ').some(word => word.startsWith(searchLower)) ||
+             subcategoryLower.replace('-', ' ').includes(searchLower);
+    });
     
     return matchesMainCategory || matchesSubcategory;
   });
