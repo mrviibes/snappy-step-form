@@ -14,6 +14,7 @@ import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions } from '@/lib/api';
+import { validateBatch } from '@/lib/textValidator';
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -35,10 +36,12 @@ const writingPreferences = [{
   id: 'no-text',
   label: 'I Don\'t Want Text'
 }];
-const ratingOptions = getRatings().map(rating => ({
-  id: rating.id,
-  label: `${rating.name} (${rating.tag})`
-}));
+const ratingOptions = [
+  { id: "G", label: "G", name: "G", description: "wholesome/playful" },
+  { id: "PG", label: "PG", name: "PG", description: "light sarcasm, safe ironic" },
+  { id: "PG-13", label: "PG-13", name: "PG-13", description: "edgy, ironic, sharp" },
+  { id: "R", label: "R", name: "R", description: "savage, raw, unfiltered" }
+];
 const comedianOptions = getComedianStyles().map(comedian => ({
   id: comedian.id,
   label: comedian.name,
@@ -89,14 +92,34 @@ export default function TextStep({
         userId: 'anonymous'
       });
 
-      // Client-side guard: ensure 50–120 chars
+      // Client-side guard: ensure 50–120 chars and validate with master rules
       const safe = options.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
-      if (safe.length < 4) {
+      
+      // Apply master rules validation if we have enough options
+      if (safe.length >= 4) {
+        const validationResult = validateBatch({
+          scenario: {
+            category: data.category === 'celebrations' ? 'celebrations' : 
+                     data.category === 'sports' ? 'sports' :
+                     data.category === 'daily_life' ? 'daily_life' : 'pop_culture',
+            subcategory: data.subcategory,
+            rating: (data.text?.rating || 'PG') as "G" | "PG" | "PG-13" | "R",
+            insertTags: insertWords
+          },
+          lines: safe.slice(0, 4).map(o => o.line)
+        });
+        
+        if (validationResult.ok) {
+          setTextOptions(safe.slice(0, 4));
+        } else {
+          console.log('Validation failed:', 'details' in validationResult ? validationResult.details : 'unknown error');
+          // Use safe options anyway but log the validation failure
+          setTextOptions(safe.slice(0, 4));
+        }
+      } else {
         // Pad with existing safe options or show what we have
         const finalOptions = safe.length > 0 ? safe : options.slice(0, 4);
         setTextOptions(finalOptions);
-      } else {
-        setTextOptions(safe.slice(0, 4));
       }
       setShowTextOptions(true);
     } catch (error) {
@@ -543,20 +566,30 @@ export default function TextStep({
           </div>
 
           {/* Rating Selection */}
-          <div className="grid grid-cols-1 gap-4 pt-4">
-            {/* Rating Dropdown */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Rating</label>
-              <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
-                <SelectTrigger className="w-full min-h-[44px]">
-                  <SelectValue placeholder="G (clean)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
-                      {rating.label}
-                    </SelectItem>)}
-                </SelectContent>
-              </Select>
+          <div className="space-y-3 pt-4">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Choose Your Rating
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {ratingOptions.map(rating => (
+                <button 
+                  key={rating.id} 
+                  onClick={() => handleRatingSelect(rating.id)} 
+                  className={cn(
+                    "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                    data.text?.rating === rating.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                  )}
+                >
+                  <div className="flex h-full flex-col items-center justify-center space-y-1">
+                    <div className="font-semibold text-sm">{rating.name}</div>
+                    <div className="text-xs text-muted-foreground">{rating.description}</div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -636,20 +669,30 @@ export default function TextStep({
         {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
             <div className="space-y-4">
               {/* Rating Selection */}
-              <div className="grid grid-cols-1 gap-4">
-                {/* Rating Dropdown */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Rating</label>
-                  <Select onValueChange={handleRatingSelect} value={data.text?.rating || ""}>
-                    <SelectTrigger className="w-full min-h-[44px]">
-                      <SelectValue placeholder="G (clean)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ratingOptions.map(rating => <SelectItem key={rating.id} value={rating.id}>
-                          {rating.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-3">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">
+                    Choose Your Rating
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {ratingOptions.map(rating => (
+                    <button 
+                      key={rating.id} 
+                      onClick={() => handleRatingSelect(rating.id)} 
+                      className={cn(
+                        "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                        data.text?.rating === rating.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex h-full flex-col items-center justify-center space-y-1">
+                        <div className="font-semibold text-sm">{rating.name}</div>
+                        <div className="text-xs text-muted-foreground">{rating.description}</div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
               

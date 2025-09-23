@@ -1,1616 +1,338 @@
-// supabase/functions/generate-text/index.ts
-// Deno runtime
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-
-// Model configuration with fallback hierarchy
-const MODELS = [
-  { name: "gpt-4o-mini", timeout: 15000, useMaxTokens: true },
-  { name: "gpt-5-nano-2025-08-07", timeout: 20000, useMaxTokens: false }, // Faster fallback
-] as const;
-
-// CORS headers
-
-// Load the tone-style-rating matrix
-const matrixConfig = {
-  "version": "1.0",
-  "global_rules": {
-    "max_punctuation_per_line": 2,
-    "length_min": 50,
-    "length_max": 120,
-    "ban_em_dash": true,
-    "impossible_combo_overrides": [
-      { "if": {"style":"wholesome","rating":"r"}, "action":"downgrade_rating", "to":"pg" },
-      { "if": {"tone":"romantic","rating":"r","style":"wholesome"}, "action":"switch_style", "to":"sarcastic" }
-    ]
-  },
-  "ratings": {
-    "g": {
-      "forbidden_words": ["f***","s***","a**","d***","c***","bastard","sexual","explicit"],
-      "allow_innuendo": false
-    },
-    "pg": {
-      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
-      "allow_innuendo": true
-    },
-    "pg-13": {
-      "forbidden_words": ["f***","c***","motherf***","graphic sexual"],
-      "allowed_mild_swears": ["damn","hell","crap","ass"]
-    },
-    "r": {
-      "require_at_least_one_from": ["f***","s***","a**","bastard","bulls***"],
-      "forbidden_words": []
-    }
-  },
-  "comedian_pools": {
-    "CLEAN": ["Jim Gaffigan","Brian Regan","Ellen DeGeneres","Jerry Seinfeld","John Mulaney"],
-    "PG_EDGE": ["Sarah Silverman","Kevin Hart","Patton Oswalt","Ali Wong","Aziz Ansari"],
-    "PG13_SAVAGE": ["Bill Burr","Joan Rivers","Ricky Gervais","Chris Rock","Louis C.K."],
-    "R_EXPLICIT": ["George Carlin","Bill Burr","Joan Rivers","Sarah Silverman","Ricky Gervais","Louis C.K.","Ali Wong"],
-    "ROMANTIC_WARM": ["Jim Gaffigan","Ellen DeGeneres","John Mulaney"],
-    "ROMANTIC_SARCASTIC": ["Ali Wong","Sarah Silverman","Bill Burr"],
-    "WEIRD_DRY": ["Mitch Hedberg","Steven Wright","Norm Macdonald"],
-    "NERDY_STORY": ["Patton Oswalt","John Mulaney","Hasan Minhaj"]
-  },
-  "tone_style_map": {
-    "humorous": {
-      "generic":   { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" }
-    },
-    "savage": {
-      "generic":   { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"CLEAN" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" }
-    },
-    "sentimental": {
-      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    },
-    "romantic": {
-      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    },
-    "inspirational": {
-      "generic":   { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    },
-    "playful": {
-      "generic":   { "g":"CLEAN",        "pg":"PG_EDGE",     "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    },
-    "serious": {
-      "generic":   { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"CLEAN",        "pg":"CLEAN",       "pg-13":"PG_EDGE",     "r":"CLEAN" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    },
-    "nostalgic": {
-      "generic":   { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_SARCASTIC" },
-      "sarcastic": { "g":"PG_EDGE",      "pg":"PG_EDGE",     "pg-13":"PG13_SAVAGE", "r":"R_EXPLICIT" },
-      "wholesome": { "g":"ROMANTIC_WARM","pg":"ROMANTIC_WARM","pg-13":"PG_EDGE",     "r":"ROMANTIC_WARM" },
-      "weird":     { "g":"WEIRD_DRY",    "pg":"WEIRD_DRY",   "pg-13":"PG_EDGE",     "r":"R_EXPLICIT" }
-    }
-  },
-  "persona_overrides": {
-    "Norm Macdonald": "Keep dry, odd, dark. Prefer short lines. Avoid flowery romance.",
-    "Mitch Hedberg": "One-liners, surreal comparisons, minimal punctuation.",
-    "Steven Wright": "Deadpan, literal absurdity, short lines.",
-    "Joan Rivers": "Sharp roasts. For PG-13 avoid f-bomb; for R allow it.",
-    "Bill Burr": "Rants. For PG-13: no f-bomb. For R: allow swearing.",
-    "Ali Wong": "Relationship bite. For R: raunchy; for PG: sanitize.",
-    "Jim Gaffigan": "Food/family warm. G/PG only.",
-    "Jerry Seinfeld": "Observational, clean cadence.",
-    "Patton Oswalt": "Nerdy, specific imagery, heartfelt or sharp.",
-    "Ricky Gervais": "Mocking, brisk. PG-13/R only.",
-    "Sarah Silverman": "Ironic taboos. For G/PG: soft; PG-13/R: sharper."
-  }
-};
-
-// Helper function to get comedian pool based on tone/style/rating
-function getComedianPool(tone: string, style: string, rating: string): string[] {
-  const toneKey = tone.toLowerCase();
-  const styleKey = style.toLowerCase();
-  const ratingKey = rating.toLowerCase();
-  
-  const poolKey = matrixConfig.tone_style_map[toneKey]?.[styleKey]?.[ratingKey];
-  if (poolKey && matrixConfig.comedian_pools[poolKey]) {
-    return matrixConfig.comedian_pools[poolKey];
-  }
-  
-  // Fallback to generic mapping
-  return matrixConfig.comedian_pools.CLEAN;
-}
-
-// Apply impossible combo overrides with stronger conflict resolution
-function applyComboOverrides(tone: string, style: string, rating: string): {tone: string, style: string, rating: string} {
-  let finalTone = tone;
-  let finalStyle = style;
-  let finalRating = rating;
-  
-  // Handle contradictory combinations more aggressively
-  if (tone.toLowerCase() === "sentimental" && rating.toLowerCase() === "r") {
-    console.log("OVERRIDE: Sentimental + R is contradictory, switching to Savage tone");
-    finalTone = "savage";
-  }
-  
-  if (tone.toLowerCase() === "wholesome" && rating.toLowerCase() === "r") {
-    console.log("OVERRIDE: Wholesome + R is contradictory, downgrading to PG-13");
-    finalRating = "pg-13";
-  }
-  
-  if (tone.toLowerCase() === "romantic" && rating.toLowerCase() === "r" && style.toLowerCase() === "wholesome") {
-    console.log("OVERRIDE: Romantic + Wholesome + R is contradictory, switching to Sarcastic style");
-    finalStyle = "sarcastic";
-  }
-  
-  // Apply matrix config overrides
-  for (const override of matrixConfig.global_rules.impossible_combo_overrides) {
-    const conditions = override.if;
-    let matches = true;
-    
-    if (conditions.style && conditions.style.toLowerCase() !== finalStyle.toLowerCase()) matches = false;
-    if (conditions.rating && conditions.rating.toLowerCase() !== finalRating.toLowerCase()) matches = false;
-    if (conditions.tone && conditions.tone.toLowerCase() !== finalTone.toLowerCase()) matches = false;
-    
-    if (matches) {
-      if (override.action === "downgrade_rating") {
-        finalRating = override.to;
-      } else if (override.action === "switch_style") {
-        finalStyle = override.to;
-      }
-    }
-  }
-  
-  return { tone: finalTone, style: finalStyle, rating: finalRating };
-}
-
-// Enhanced validation for R-rated content
-function validateRRating(line: string, rating: string): boolean {
-  if (rating.toLowerCase() !== "r") return true;
-  
-  const ratingRules = matrixConfig.ratings.r;
-  if (ratingRules.require_at_least_one_from) {
-    const hasExplicitContent = ratingRules.require_at_least_one_from.some(word => 
-      line.toLowerCase().includes(word.replace(/\*/g, ''))
-    );
-    return hasExplicitContent;
-  }
-  
-  return true;
-}
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
-  "content-type": "application/json",
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "POST, OPTIONS",
-  "vary": "Origin"
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Position buckets for insert word placement tracking
-type PosBucket = "front" | "middle" | "end";
-
-// Comprehensive Subcategory Lexicon System
-interface SubcategoryLexicon {
-  must: string[];      // At least one MUST appear in every line
-  optional: string[];  // Good for variety but not required
-  banned: string[];    // Reject line if these appear
-}
-
-// Master lexicon table for all subcategories
-const SUBCATEGORY_LEXICON: Record<string, SubcategoryLexicon> = {
-  // 🎉 CELEBRATIONS
-  "engagement": {
-    must: ["ring", "proposal", "fiancé", "fiancée", "diamond", "forever", "yes", "question", "chosen", "engaged"],
-    optional: ["knees", "sparkle", "promise", "partner", "proposal", "popped"],
-    banned: ["wifi", "pizza", "monday", "spreadsheet", "taxes", "office", "meeting"]
-  },
-  "wedding": {
-    must: ["wedding", "vows", "altar", "bride", "groom", "rings", "forever", "dance floor", "reception", "bouquet", "cake", "married"],
-    optional: ["toast", "DJ", "honeymoon", "aisle", "partner", "ceremony", "I do"],
-    banned: ["wifi", "pizza", "monday", "office", "password", "spreadsheet"]
-  },
-  "birthday": {
-    must: ["birthday", "cake", "candles", "party", "age", "balloons", "wish", "celebrate", "year", "older"],
-    optional: ["gift", "frosting", "sprinkles", "blow out", "presents"],
-    banned: ["monday", "taxes", "wifi", "spreadsheet", "meeting", "funeral", "death", "divorce"]
-  },
-  "anniversary": {
-    must: ["anniversary", "years", "forever", "love", "together", "partner", "celebrate"],
-    optional: ["roses", "dinner", "milestone", "memory", "journey"],
-    banned: ["pizza", "monday", "wifi", "homework", "taxes"]
-  },
-  "graduation": {
-    must: ["graduation", "cap", "gown", "diploma", "degree", "tassel", "graduate", "achieved"],
-    optional: ["stage", "future", "proud", "ceremony", "accomplishment"],
-    banned: ["monday", "wifi", "pizza", "meeting", "taxes"]
-  },
-  "baby-shower": {
-    must: ["baby", "shower", "crib", "diaper", "bottle", "stroller", "little", "tiny"],
-    optional: ["new life", "precious", "bundle", "nursery"],
-    banned: ["taxes", "wifi", "pizza", "meeting", "office"]
+// Master Rules Configuration
+const MASTER_CONFIG = {
+  // Global Rules
+  length_min: 50,
+  length_max: 120,
+  max_punctuation_per_line: 2,
+  forbidden_punctuation: /[;…]|(?:^|[^.])\.\.(?:[^.]|$)|[–—]/,
+  
+  // Category Lexicons
+  lexicons: {
+    wedding: ["vows","rings","altar","reception","dance floor","bouquet","honeymoon","bride","groom","cake","toast","in-laws"],
+    engagement: ["ring","proposal","fiancé","fiancée","yes","forever"],
+    birthday: ["birthday","cake","candles","party","balloons","frosting","gift"],
+    graduation: ["cap","gown","diploma","tassel","stage","ceremony"],
+    work: ["meeting","boss","deadline","office","email","printer","coffee","slides","calendar"],
+    school: ["exam","homework","teacher","class","test","grade","study"],
+    soccer: ["goal","field","referee","fans","stadium","match","cup"],
+    basketball: ["hoop","court","dribble","dunk","buzzer","playoffs"],
+    baseball: ["bat","ball","base","inning","pitcher","glove","strike"],
+    hockey: ["puck","ice","rink","goalie","stick","net","season"],
+    music: ["song","lyrics","concert","stage","band","playlist"],
+    movies: ["movie","film","screen","popcorn","theater","trailer"],
+    tv: ["show","series","episode","streaming","channel","binge"]
   },
   
-  // 🏆 SPORTS
-  "sports": {
-    must: ["game", "score", "fans", "team", "trophy", "coach", "season", "field", "play"],
-    optional: ["stadium", "ref", "whistle", "jersey", "victory"],
-    banned: ["monday", "wifi", "spreadsheet", "office", "taxes"]
-  },
-  "soccer": {
-    must: ["goal", "kick", "field", "match", "cup", "referee", "soccer", "football"],
-    optional: ["stadium", "fans", "halftime", "penalty"],
-    banned: ["pizza", "wifi", "monday", "office"]
-  },
-  "basketball": {
-    must: ["court", "hoop", "basket", "dribble", "dunk", "season", "playoffs", "basketball"],
-    optional: ["ref", "buzzer", "fans", "three-pointer"],
-    banned: ["taxes", "wifi", "monday", "spreadsheet"]
-  },
-  "baseball": {
-    must: ["bat", "ball", "base", "home run", "inning", "pitcher", "stadium", "baseball"],
-    optional: ["fans", "glove", "strike", "diamond"],
-    banned: ["pizza", "wifi", "monday", "office"]
-  },
-  "hockey": {
-    must: ["puck", "ice", "stick", "net", "rink", "goalie", "season", "hockey"],
-    optional: ["fans", "slapshot", "hat trick", "penalty"],
-    banned: ["wifi", "pizza", "monday", "taxes"]
-  },
-  
-  // 💼 DAILY LIFE
-  "work": {
-    must: ["meeting", "boss", "deadline", "office", "email", "calendar", "slides", "work"],
-    optional: ["coffee", "desk", "break room", "presentation"],
-    banned: ["wedding", "vows", "ring", "birthday", "cake"]
-  },
-  "school": {
-    must: ["class", "teacher", "homework", "exam", "book", "test", "subject", "school"],
-    optional: ["study", "project", "grade", "student"],
-    banned: ["taxes", "vows", "wedding", "office"]
-  },
-  "family": {
-    must: ["family", "mom", "dad", "kids", "home", "together", "parents"],
-    optional: ["uncle", "cousin", "dinner", "siblings"],
-    banned: ["wifi", "office", "meeting", "spreadsheet"]
-  },
-  
-  // 🎬 POP CULTURE
-  "movies": {
-    must: ["movie", "film", "screen", "popcorn", "theater", "cinema"],
-    optional: ["blockbuster", "premiere", "trailer", "actor"],
-    banned: ["wedding", "vows", "cake", "office"]
-  },
-  "music": {
-    must: ["song", "band", "concert", "stage", "lyrics", "music"],
-    optional: ["album", "playlist", "artist", "melody"],
-    banned: ["wifi", "taxes", "monday", "spreadsheet"]
-  },
-  "tv": {
-    must: ["show", "series", "binge", "episode", "television", "TV"],
-    optional: ["remote", "channel", "streaming", "character"],
-    banned: ["cake", "wedding", "office", "meeting"]
+  // Rating Definitions
+  ratings: {
+    G: { forbidden_words: [], allow_innuendo: false, description: "wholesome/playful" },
+    PG: { forbidden_words: [], allow_innuendo: false, description: "light sarcasm, safe ironic" },
+    "PG-13": { forbidden_words: [], allow_innuendo: true, description: "edgy, ironic, sharp" },
+    R: { forbidden_words: [], allow_innuendo: true, description: "savage, raw, unfiltered" }
   }
 };
 
-type LineCheck = {
-  text: string;
-  insertWords: string[]; // e.g., ["chosen"]
-  category: "wedding" | "birthday" | string;
-  subcategory?: string; // Added for enhanced lexicon validation
-  rating: "G"|"PG"|"PG-13"|"R";
-};
+// Rating language gates
+const SWEARS_MILD = /\b(hell|damn|crap)\b/i;
+const SWEARS_STRONG = /\b(fuck(?:ing)?|shit|asshole|bastard|douche)\b/i;
+const SLURS = /\b(?:placeholder_slur)\b/i; // Server-side only
 
-// Enhanced Step 2 Rules with comprehensive lexicon enforcement
-function passesStep2Rules(l: LineCheck & { subcategory?: string }): boolean {
-  const t = l.text.trim();
-
-  // 1) Basic format rules - one sentence, 50–120 chars
-  if (t.length < 50 || t.length > 120) return false;
-  if ((t.match(/[.!?]/g) || []).length > 2) return false;         // ≤2 punctuation marks total
-  if (/[–—]/.test(t)) return false;                               // no en/em dash
-
-  // 2) Insert words exactly once each - STRICT
-  for (const w of l.insertWords) {
-    const re = new RegExp(`\\b${w}\\b`, "i");
-    if (!re.test(t)) return false;
-    if ((t.match(new RegExp(`\\b${w}\\b`, "ig")) || []).length !== 1) return false;
-  }
-
-  // 3) NO PLACEHOLDER FALLBACKS - fail fast instead of using "friend", "wifi", etc.
-  if (/\b(friend|NAME|USER|wifi|wi-fi|pizza)\b/i.test(t)) return false;
-
-  // 4) COMPREHENSIVE SUBCATEGORY LEXICON ENFORCEMENT
-  const subcategory = (l.subcategory || l.category || "").toLowerCase().replace(/[^a-z]/g, "-");
-  const lexicon = getSubcategoryLexicon(subcategory, l.category);
-  
-  if (lexicon) {
-    // MUST include at least one required keyword
-    if (!lexicon.must.some(k => new RegExp(`\\b${k}\\b`, "i").test(t))) {
-      console.log(`LEXICON FAIL: Missing required word from [${lexicon.must.join(', ')}] in: "${t}"`);
-      return false;
-    }
-    
-    // MUST NOT include any banned words (unless they're in insert words)
-    const insertedWords = new Set(l.insertWords.map(w => w.toLowerCase()));
-    const hasBannedWord = lexicon.banned.some(b => {
-      if (insertedWords.has(b)) return false; // Allow if explicitly inserted
-      return new RegExp(`\\b${b}\\b`, "i").test(t);
-    });
-    if (hasBannedWord) {
-      console.log(`LEXICON FAIL: Contains banned word in: "${t}"`);
-      return false;
-    }
-  }
-
-  // 5) Rating validation
-  if (l.rating.toLowerCase() === "g" && /\b(damn|hell)\b/i.test(t)) return false;
-
-  return true;
-}
-
-// Get subcategory lexicon with fallback logic
-function getSubcategoryLexicon(subcategory: string, category: string): SubcategoryLexicon | null {
-  // Try direct subcategory match first
-  if (SUBCATEGORY_LEXICON[subcategory]) {
-    return SUBCATEGORY_LEXICON[subcategory];
-  }
-  
-  // Try category-specific mappings
-  const categoryKey = category?.toLowerCase() || "";
-  
-  // Handle birthday variations
-  if (subcategory.includes("birthday") || categoryKey.includes("birthday")) {
-    return SUBCATEGORY_LEXICON["birthday"];
-  }
-  
-  // Handle wedding variations  
-  if (subcategory.includes("wedding") || categoryKey.includes("wedding")) {
-    return SUBCATEGORY_LEXICON["wedding"];
-  }
-  
-  // Handle engagement variations
-  if (subcategory.includes("engagement") || categoryKey.includes("engagement")) {
-    return SUBCATEGORY_LEXICON["engagement"];
-  }
-  
-  // Handle sports variations
-  if (subcategory.includes("sport") || categoryKey.includes("sport")) {
-    return SUBCATEGORY_LEXICON["sports"];
-  }
-  
-  // Try partial matches for known subcategories
-  for (const [key, lexicon] of Object.entries(SUBCATEGORY_LEXICON)) {
-    if (subcategory.includes(key) || key.includes(subcategory)) {
-      return lexicon;
-    }
-  }
-  
-  return null;
-}
-
-// Diverse topic seed nouns to avoid repetition
-const topicSeeds = [
-  "playlist", "balloons", "snacks", "candles", "karaoke", 
-  "leaf blower", "group chat", "speakers", "coffee", "microwave",
-  "smoke alarm", "doorbell", "garage", "lawn mower", "thermostat"
+// Comedian styles with enhanced flavors for master rules
+const COMEDIAN_STYLES = [
+  { name: "Seinfeld", flavor: "observational, everyday absurdity, what's the deal with..." },
+  { name: "Carlin", flavor: "cynical wordplay, social commentary, seven words you can't say" },
+  { name: "Wright", flavor: "deadpan surreal one-liners, I haven't slept for ten days" },
+  { name: "Hedberg", flavor: "absurd stream of consciousness, I used to do drugs" },
+  { name: "Rivers", flavor: "self-deprecating sharp wit, can we talk?" },
+  { name: "Mulaney", flavor: "storytelling relatable chaos, new in town" },
+  { name: "Chappelle", flavor: "provocative social satire, I'm rich!" },
+  { name: "Hart", flavor: "animated physical comedy, you gonna learn today" }
 ];
 
-// Structure types for variety enforcement
-const structureTypes = ["quip", "question", "metaphor", "observational"] as const;
-type StructureType = typeof structureTypes[number];
-
-// Diverse style examples to break cliché patterns
-const styleExamples: Record<string, string[]> = {
-  "sarcastic": [
-    "Jesse's calendar calls it a birthday, his knees call it a negotiation.",
-    "Aging gracefully is just PR for buying better pillows.",
-    "Another year of pretending you understand cryptocurrency.",
-    "Congrats on surviving another year without Googling your own symptoms."
-  ],
-  "weird": [
-    "May your age unlock secret playlists and suspiciously wise raccoons.",
-    "Another orbit, Jesse, and your shadow now demands a manager.",
-    "Congrats on graduating from the University of Procrastination and Existential Dread.",
-    "May your future be as bright as a disco ball operated by confused penguins."
-  ],
-  "weird_r": [
-    "Congrats Jesse, you party like a raccoon who just discovered fucking fireworks.",
-    "May your diploma be as useful as a shit-flavored lollipop in a candy store.",
-    "Another year of Jesse's existence, and even the coffee maker is questioning this bullshit.",
-    "Congrats on your degree, now you can professionally explain why you're broke as fuck."
-  ],
-  "wholesome": [
-    "Here's to inside jokes and unflattering photos we still love.",
-    "May laughter arrive early and overstay its welcome.",
-    "You're proof that good things happen to patient people.",
-    "May your year be filled with unexpected kindness and perfect timing."
-  ],
-  "generic": [
-    "Jesse, the playlist still slaps, but man you are old and somehow trending.",
-    "Another orbit completed and, man you are old, Jesse still forgets passwords.",
-    "The group chat voted you most likely to nap mid-party, man you are old Jesse.",
-    "Stories age like milk, Jesse — and so do you."
-  ]
-};
-
-// Comedian styles array
-const comedianStyles = [
-  { name: "Richard Pryor", flavor: "raw, confessional storytelling" },
-  { name: "George Carlin", flavor: "sharp, satirical, anti-establishment" },
-  { name: "Joan Rivers", flavor: "biting, fearless roast style" },
-  { name: "Eddie Murphy", flavor: "high-energy, character impressions" },
-  { name: "Robin Williams", flavor: "manic, surreal improvisation" },
-  { name: "Jerry Seinfeld", flavor: "clean observational minutiae" },
-  { name: "Chris Rock", flavor: "punchy, social commentary" },
-  { name: "Dave Chappelle", flavor: "thoughtful, edgy narrative riffs" },
-  { name: "Bill Burr", flavor: "ranting, blunt cynicism" },
-  { name: "Louis C.K.", flavor: "dark, self-deprecating honesty" },
-  { name: "Kevin Hart", flavor: "animated, personal storytelling" },
-  { name: "Ali Wong", flavor: "raunchy, feminist candor" },
-  { name: "Sarah Silverman", flavor: "deadpan, ironic taboo-poking" },
-  { name: "Amy Schumer", flavor: "self-aware, edgy relatability" },
-  { name: "Tiffany Haddish", flavor: "bold, outrageous energy" },
-  { name: "Jim Gaffigan", flavor: "clean, food/family obsession" },
-  { name: "Brian Regan", flavor: "clean, physical, goofy" },
-  { name: "John Mulaney", flavor: "polished, clever storytelling" },
-  { name: "Bo Burnham", flavor: "meta, musical satire" },
-  { name: "Hannah Gadsby", flavor: "vulnerable, subversive storytelling" },
-  { name: "Hasan Minhaj", flavor: "cultural/political storytelling" },
-  { name: "Russell Peters", flavor: "cultural riffing, accents" },
-  { name: "Aziz Ansari", flavor: "fast-paced, modern life takes" },
-  { name: "Patton Oswalt", flavor: "nerdy, sharp wit storytelling" },
-  { name: "Norm Macdonald", flavor: "absurd, slow-burn deadpan" },
-  { name: "Mitch Hedberg", flavor: "surreal, stoner one-liners" },
-  { name: "Steven Wright", flavor: "ultra-dry, absurd one-liners" },
-  { name: "Ellen DeGeneres", flavor: "relatable, observational, light" },
-  { name: "Chelsea Handler", flavor: "brash, self-aware honesty" },
-  { name: "Ricky Gervais", flavor: "mocking, irreverent roast" }
-];
-
-// Timeout wrapper for any promise
-function withTimeout<T>(promise: Promise<T>, ms: number, name = "operation"): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => 
-      setTimeout(() => reject(new Error(`${name} timed out after ${ms}ms`)), ms)
-    )
-  ]);
-}
-
-// Sanitize insert words to avoid model confusion - STRICT NO FALLBACKS
-function sanitizeInsertWords(words: string[]): string[] {
-  if (!words || words.length === 0) {
-    throw new Error("Insert words are required - no fallbacks allowed");
+function validateMasterRules(line: string, scenario: any): { ok: boolean; reason?: string } {
+  const text = line.trim();
+  
+  // 1. Length check
+  if (text.length < MASTER_CONFIG.length_min || text.length > MASTER_CONFIG.length_max) {
+    return { ok: false, reason: "length_out_of_bounds" };
   }
   
-  const sanitized = words.filter(word => {
-    const w = word.toLowerCase().trim();
-    // Filter out problematic words and all generic fallbacks
-    return w.length >= 2 && 
-           !['test', 'example', 'sample', 'friend', 'name', 'user', 'wifi', 'wi-fi', 'pizza'].includes(w) &&
-           !/^(user|name|friend|test)\d*$/i.test(w); // Block numbered variants
-  });
-  
-  // CRITICAL: FAIL FAST - no fallbacks to "friend", "wifi", or any placeholder words
-  if (sanitized.length === 0) {
-    throw new Error("Valid insert_words required - no generic fallbacks allowed. Received: " + JSON.stringify(words));
+  // 2. Punctuation checks
+  const punctCount = (text.match(/[.!?,:"]/g) || []).length;
+  if (punctCount > MASTER_CONFIG.max_punctuation_per_line) {
+    return { ok: false, reason: "too_much_punctuation" };
   }
   
-  return sanitized;
-}
-
-// Generate with model fallback and timeout
-async function generateWithFallback(body: any): Promise<Array<{line: string, comedian: string}>> {
-  const sanitizedInsertWords = sanitizeInsertWords(body.insertWords || []);
-  const requestBody = { ...body, insertWords: sanitizedInsertWords };
+  if (MASTER_CONFIG.forbidden_punctuation.test(text)) {
+    return { ok: false, reason: "forbidden_punctuation" };
+  }
   
-  console.log("Attempting generation with sanitized insert words:", sanitizedInsertWords);
-  
-  for (let modelIndex = 0; modelIndex < MODELS.length; modelIndex++) {
-    const model = MODELS[modelIndex];
-    console.log(`Trying model ${model.name} with ${model.timeout}ms timeout`);
-    
-    try {
-      const result = await withTimeout(
-        generateFour(requestBody),
-        model.timeout,
-        `generation with ${model.name}`
-      );
+  // 3. Insert tag validation (once each, flexible)
+  if (scenario.insertWords?.length) {
+    for (const tag of scenario.insertWords) {
+      const base = tag.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = tag.includes(" ") 
+        ? base.replace(/\s+/g, "\\s+")
+        : `${base}(?:s|es|ed|ing)?`;
+      const re = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "i");
+      const reAll = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "ig");
       
-      console.log(`Success with ${model.name}:`, result.length, "options generated");
-      return result;
-      
-    } catch (error) {
-      console.error(`Model ${model.name} failed:`, error.message);
-      
-      // If this is the last model, continue to fallback
-      if (modelIndex === MODELS.length - 1) {
-        console.log("All models failed, using fallback generation");
-        break;
+      if (!re.test(text) || ((text.match(reAll) || []).length !== 1)) {
+        return { ok: false, reason: `insert_not_once:${tag}` };
       }
     }
   }
   
-  // Ultimate fallback - generate safe, simple options
-  return generateUltimateFallback(requestBody);
-}
-
-// Generate ultimate fallback when all else fails - NO GENERIC WORDS
-function generateUltimateFallback(body: any): Array<{line: string, comedian: string}> {
-  const insertWords = body.insertWords || [];
-  const rating = (body.rating || "pg").toLowerCase();
-  const tone = (body.tone || "humorous").toLowerCase();
-  const category = (body.category || "celebrations").toLowerCase();
-  const subcategory = (body.subcategory || "").toLowerCase();
+  // 4. Category anchoring
+  const subcategory = scenario.subcategory || scenario.category;
+  const lexicon = MASTER_CONFIG.lexicons[subcategory] || [];
+  const hasDirectAnchor = lexicon.some(w => 
+    new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
+  );
   
-  // CRITICAL: NO "friend" fallback - use actual insert words or fail gracefully
-  if (insertWords.length === 0) {
-    throw new Error("Cannot generate fallback without insert words - no generic placeholders allowed");
+  if (!hasDirectAnchor) {
+    // Check contextual cues
+    const contextCues = {
+      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
+      birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party)\b/i,
+      graduation: /\b(graduat|commencement|walk the stage)\b/i
+    };
+    
+    const hasContextAnchor = contextCues[subcategory]?.test(text);
+    if (!hasContextAnchor) {
+      return { ok: false, reason: "category_anchor_missing" };
+    }
   }
   
-  const iwText = insertWords[0];
+  // 5. Rating compliance
+  if (SLURS.test(text)) return { ok: false, reason: "slur_violation" };
   
-  // Get subcategory-specific vocabulary for authentic fallbacks
-  const lexicon = getSubcategoryLexicon(subcategory, category);
-  const contextWord = lexicon ? lexicon.must[Math.floor(Math.random() * lexicon.must.length)] : "celebration";
-  
-  // Subcategory-specific authentic templates - NO Wi-Fi, pizza, etc.
-  const templates = {
-    humorous: lexicon ? [
-      `${iwText} brings joy like discovering the perfect ${contextWord} playlist exists.`,
-      `Is it just me, or does ${iwText} make every ${contextWord} feel like a victory lap?`,
-      `Another ${contextWord} with ${iwText}, and somehow the universe makes more sense.`,
-      `${iwText} turns ordinary moments into the kind of ${contextWord} stories worth telling.`
-    ] : [
-      `${iwText} brings light to every celebration and warmth to every gathering.`,
-      `Is it just me, or does ${iwText} make everything feel like a perfect moment?`,
-      `Another celebration with ${iwText}, and life feels exactly as it should.`,
-      `${iwText} turns ordinary days into the kind of memories worth keeping.`
-    ],
-    sentimental: [
-      `${iwText}, you bring grace to every ${contextWord} and meaning to every moment.`,
-      `In a world of fleeting things, ${iwText} creates lasting joy and genuine connection.`,
-      `${iwText}, your presence turns every ${contextWord} into something truly special.`,
-      `The world celebrates a little brighter because ${iwText} is part of the story.`
-    ],
-    savage: rating === "r" ? [
-      `${iwText}, you're so fucking genuine that even skeptics believe in magic again.`,
-      `Is ${iwText} perfect? Hell no, but they're real as fuck and that's pure gold.`,
-      `${iwText} doesn't need validation - they're too busy being authentically badass.`,
-      `Life's too short for bullshit, thankfully ${iwText} keeps every moment honest.`
-    ] : [
-      `${iwText}, you're so authentic that even cynics remember what joy feels like.`,
-      `Is ${iwText} perfect? No, but they're genuine and that's worth celebrating.`,
-      `${iwText} doesn't need anyone's approval - they're too busy being wonderfully themselves.`,
-      `Life's too precious for pretense, thankfully ${iwText} keeps every moment real.`
-    ]
-  };
-  
-  const selectedTemplates = templates[tone as keyof typeof templates] || templates.humorous;
-  const comedians = ["Ellen DeGeneres", "Jerry Seinfeld", "John Mulaney", "Sarah Silverman"];
-  
-  return selectedTemplates.slice(0, 4).map((line, index) => ({
-    line: line.substring(0, 120), // Ensure length compliance
-    comedian: comedians[index] || "Ellen DeGeneres"
-  }));
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+  switch (scenario.rating?.toUpperCase()) {
+    case "G":
+      if (SWEARS_MILD.test(text) || SWEARS_STRONG.test(text)) {
+        return { ok: false, reason: "rating_violation_G" };
+      }
+      break;
+    case "PG":
+      if (SWEARS_STRONG.test(text)) {
+        return { ok: false, reason: "rating_violation_PG" };
+      }
+      break;
+    case "PG-13":
+      if (SWEARS_STRONG.test(text)) {
+        return { ok: false, reason: "rating_violation_PG13" };
+      }
+      break;
+    case "R":
+      // R allows strong language, just no slurs
+      break;
   }
   
-  if (req.method !== "POST") {
-    return json({ success: false, error: "POST only" }, 405);
+  // 6. Basic cleanliness
+  if (/\b(NAME|USER|PLACEHOLDER|friend)\b/i.test(text)) {
+    return { ok: false, reason: "placeholder_leak" };
+  }
+  
+  return { ok: true };
+}
+
+function validateBatch(lines: string[], scenario: any): { ok: boolean; details?: any } {
+  if (!Array.isArray(lines) || lines.length !== 4) {
+    return { ok: false, details: "batch_must_have_4_lines" };
+  }
+  
+  const failures = [];
+  const lengths = [];
+  let directAnchors = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const validation = validateMasterRules(line, scenario);
+    
+    if (!validation.ok) {
+      failures.push({ index: i, reason: validation.reason });
+    }
+    
+    lengths.push(line.length);
+    
+    // Count direct lexicon hits
+    const subcategory = scenario.subcategory || scenario.category;
+    const lexicon = MASTER_CONFIG.lexicons[subcategory] || [];
+    if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
+      directAnchors++;
+    }
+  }
+  
+  if (failures.length) {
+    return { ok: false, details: { failures } };
+  }
+  
+  // Rhythm variety check
+  const hasShort = lengths.some(len => len < 70);
+  const hasLong = lengths.some(len => len >= 100);
+  if (!hasShort || !hasLong) {
+    return { ok: false, details: "rhythm_variety_missing" };
+  }
+  
+  // Batch anchoring check
+  if (directAnchors < 2) {
+    return { ok: false, details: "insufficient_direct_anchors" };
+  }
+  
+  return { ok: true };
+}
+
+function generateNonce(): string {
+  return Math.random().toString(36).substring(2, 15);
+}
+
+function pickComedians(count: number): any[] {
+  const shuffled = [...COMEDIAN_STYLES].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const temperature = 0.9 + Math.random() * 0.15; // 0.9 to 1.05
+  const topP = 0.85 + Math.random() * 0.1; // 0.85 to 0.95
+  
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature,
+      top_p: topP,
+      max_tokens: 150
+    }),
+  });
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    console.log("Request received with body:", body);
+    const payload = await req.json();
+    console.log('Master Rules Generation Request:', payload);
     
-    // Validate required fields
-    if (!body.tone || !body.category) {
-      console.error("Missing required fields:", { tone: body.tone, category: body.category });
-      return json({ 
-        success: false, 
-        error: "Missing required fields: tone and category" 
-      }, 400);
+    const nonce = generateNonce();
+    const comedians = pickComedians(4);
+    const subcategory = payload.subcategory || payload.category;
+    
+    // Enhanced system prompt with master rules
+    const systemPrompt = `You are a master comedy writer following strict Step-2 Text Generation Rules.
+
+MASTER RULES (CRITICAL - NO EXCEPTIONS):
+1. Structure: Exactly ONE sentence, 50-120 characters total
+2. Insert Tags: If provided, use each tag ONCE per line with natural inflections (plurals, past tense OK)
+3. Category Anchoring: Each line must clearly relate to ${subcategory} using direct keywords or contextual cues
+4. Rating Control: ${payload.rating} = ${MASTER_CONFIG.ratings[payload.rating]?.description}
+5. Punctuation: Max 2 marks per line. NO em dashes (—), semicolons (;), or ellipses (…)
+6. Quality: Sharp, quotable, stand-up quality humor - no greeting card fluff
+7. Variety: Vary line length and structure within each set of 4
+
+Category Keywords Available: ${MASTER_CONFIG.lexicons[subcategory]?.join(', ') || 'general'}
+
+Rating Guidelines:
+- G: Family-safe, wholesome, playful
+- PG: Light sarcasm, safe irony
+- PG-13: Edgy sarcasm, mild swears allowed (hell, damn)
+- R: Savage, explicit swears allowed (fuck, shit), no slurs
+
+FORBIDDEN: Placeholder words (friend, NAME, USER), em dashes, generic filler
+OUTPUT: Only the joke line, nothing else.
+
+Nonce: ${nonce}`;
+
+    const candidates = [];
+    
+    // Generate enhanced candidates with master rules enforcement
+    for (let i = 0; i < 12; i++) {
+      const comedian = comedians[i % comedians.length];
+      const placementHints = ['at the start', 'in the middle', 'at the end', 'naturally woven'];
+      const placement = payload.insertWords?.length ? placementHints[i % 4] : '';
+      
+      const userPrompt = `Category: ${payload.category}
+Subcategory: ${subcategory}
+Tone: ${payload.tone}
+Rating: ${payload.rating}
+Insert Words: ${(payload.insertWords || []).join(', ')}
+Comedian Style: ${comedian.name} – ${comedian.flavor}
+${placement ? `Insert Word Placement: ${placement}` : ''}
+
+Generate ONE sharp, category-anchored ${payload.rating}-rated joke line following all Master Rules.`;
+
+      try {
+        const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+        const cleaned = rawResponse.split('\n')[0].trim().replace(/^["']|["']$/g, '');
+        
+        // Validate with master rules
+        const validation = validateMasterRules(cleaned, payload);
+        if (validation.ok && cleaned.length >= 50 && cleaned.length <= 120) {
+          candidates.push({
+            line: cleaned,
+            comedian: comedian.name
+          });
+        }
+      } catch (error) {
+        console.error(`Generation ${i} failed:`, error);
+      }
     }
     
-    // Try with timeout first
-    let options;
-    try {
-      options = await withTimeout(generateFour(body), 20000, "main generation");
-      console.log("Generated options:", options.length, "items");
-    } catch (timeoutError) {
-      console.log("Main generation timed out, using fallback:", timeoutError.message);
-      options = generateUltimateFallback(body);
-    }
+    // Select best 4 with variety
+    const final = candidates.slice(0, 4);
     
-    // Ensure we always return 4 options
-    while (options.length < 4) {
-      const fallback = generateUltimateFallback(body);
-      options.push(...fallback.slice(0, 4 - options.length));
-    }
+    // Final batch validation
+    const batchValidation = validateBatch(final.map(c => c.line), payload);
+    console.log('Batch validation:', batchValidation);
     
-    return json({ success: true, options: options.slice(0, 4) });
-  } catch (e) {
-    console.error("Critical generation error:", e);
+    // Always return something, but log validation results
+    const response = final.length >= 4 ? final : [
+      ...final,
+      ...Array(4 - final.length).fill(null).map((_, i) => ({
+        line: `Generated ${subcategory} line ${i + final.length + 1} would go here.`,
+        comedian: 'Fallback'
+      }))
+    ];
     
-    // Even in critical failure, return fallback options
-    try {
-      const fallbackOptions = generateUltimateFallback(await req.json().catch(() => ({})));
-      return json({ 
-        success: true, 
-        options: fallbackOptions,
-        warning: "Using fallback generation due to system error"
-      });
-    } catch {
-      // Last resort - basic options
-      return json({ 
-        success: true, 
-        options: [
-          { line: "Every moment is a chance to celebrate something wonderful!", comedian: "Ellen DeGeneres" },
-          { line: "Life's too short not to find joy in the little things!", comedian: "Jerry Seinfeld" },
-          { line: "Today deserves a celebration, don't you think?", comedian: "John Mulaney" },
-          { line: "Here's to making memories that will make us smile for years to come!", comedian: "Sarah Silverman" }
-        ]
-      });
-    }
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Master Rules Generation Error:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      fallback: Array(4).fill(null).map((_, i) => ({
+        line: `Fallback line ${i + 1} - master rules system temporarily unavailable.`,
+        comedian: 'System'
+      }))
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
-
-function json(obj: any, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: corsHeaders,
-  });
-}
-
-// Parse insert words from various input formats
-function parseInsertWords(input: string[] | string | undefined): string[] {
-  if (!input) return [];
-  
-  // If already an array, return it cleaned
-  if (Array.isArray(input)) {
-    return input.filter(Boolean).map(w => String(w).trim()).filter(Boolean);
-  }
-  
-  // If it's a string, parse it
-  const inputStr = String(input).trim();
-  if (!inputStr) return [];
-  
-  // Handle both simple comma-separated and structured input
-  if (inputStr.includes(':') || inputStr.includes('[')) {
-    const words: string[] = [];
-    const nameMatch = inputStr.match(/name:\s*([^,\n]+)/i);
-    if (nameMatch) words.push(nameMatch[1].trim());
-    
-    const allMatch = inputStr.match(/all:\s*\[([^\]]+)\]/i);
-    if (allMatch) {
-      const allWords = allMatch[1].split(',').map(w => w.trim().replace(/['"]/g, ''));
-      words.push(...allWords);
-    }
-    
-    return words.filter(Boolean);
-  }
-  
-  return inputStr.split(',').map(w => w.trim()).filter(Boolean);
-}
-
-// Get subcategory-specific ban words using comprehensive lexicon
-function getCategoryBanWords(category: string, subcategory: string): string[] {
-  const lexicon = getSubcategoryLexicon((subcategory || "").toLowerCase().replace(/[^a-z]/g, "-"), category);
-  if (lexicon) {
-    return lexicon.banned;
-  }
-  
-  // Fallback to general banned words for unknown categories
-  return ["wifi", "wi-fi", "pizza", "monday", "spreadsheet", "taxes", "meeting"];
-}
-
-// Get comprehensive subcategory requirements using lexicon system
-function getCategoryRequirement(category: string, subcategory: string): string {
-  const subcategoryKey = (subcategory || "").toLowerCase().replace(/[^a-z]/g, "-");
-  const lexicon = getSubcategoryLexicon(subcategoryKey, category);
-  
-  if (lexicon) {
-    const mustWords = lexicon.must.slice(0, 8).join(", "); // Show first 8 must-have words
-    return `CRITICAL: Must include at least one of these ${subcategory || category} words: ${mustWords}. This ensures the content feels authentically ${subcategory || category}-themed.`;
-  }
-  
-  // Specific fallbacks for known categories
-  if (subcategory?.toLowerCase().includes("mothers-day") || subcategory?.toLowerCase().includes("mother")) {
-    return "Mother's Day requirement: Include clear mother/mom references to make it distinctly Mother's Day themed.";
-  }
-  if (subcategory?.toLowerCase().includes("fathers-day") || subcategory?.toLowerCase().includes("father")) {
-    return "Father's Day requirement: Include clear father/dad references to make it distinctly Father's Day themed.";
-  }
-  
-  return `${subcategory || category} requirement: Make it feel distinctly and authentically related to ${subcategory || category}. Use specific vocabulary that clearly belongs to this context.`;
-}
-
-// Get random style examples
-function getStyleExamples(style: string, rating: string = "pg"): string[] {
-  const styleKey = style.toLowerCase();
-  
-  // Use explicit examples for R-rated weird content
-  if (styleKey === "weird" && rating.toLowerCase() === "r") {
-    return styleExamples["weird_r"] || styleExamples["weird"];
-  }
-  
-  return styleExamples[styleKey] || styleExamples.generic;
-}
-
-// Detect position bucket for insert word placement with better accuracy
-function positionBucket(line: string, token: string): PosBucket {
-  if (!token) return "middle";
-  
-  const words = line.toLowerCase().split(/\W+/).filter(Boolean);
-  let tokenIndex = -1;
-  
-  // Find the token (handle partial matches for phrases)
-  for (let i = 0; i < words.length; i++) {
-    if (words[i].includes(token.toLowerCase()) || token.toLowerCase().includes(words[i])) {
-      tokenIndex = i;
-      break;
-    }
-  }
-  
-  if (tokenIndex === -1) return "none"; // token not found
-  
-  const n = words.length;
-  const ratio = (tokenIndex + 1) / n;
-  
-  if (ratio <= 0.33) return "front";
-  if (ratio >= 0.67) return "end";
-  return "middle";
-}
-
-// Pick needed bucket for variety
-function pickNeededBucket(used: Set<PosBucket>): PosBucket {
-  for (const b of ["front", "middle", "end"] as const) {
-    if (!used.has(b)) return b;
-  }
-  // All taken; prefer front or middle over end
-  return Math.random() < 0.5 ? "front" : "middle";
-}
-
-// Get bucket hint text for prompting
-function bucketHintText(bucket: PosBucket): string {
-  switch (bucket) {
-    case "front": return "Place one Insert Word early in the sentence.";
-    case "middle": return "Place one Insert Word mid-sentence.";
-    case "end": return "Place one Insert Word near the end (but not as a bolted suffix).";
-  }
-}
-
-// Get structure hint for variety
-function getStructureHint(structureType: StructureType): string {
-  switch (structureType) {
-    case "quip": return "Write a short, punchy quip (50-75 characters).";
-    case "question": return "Write a rhetorical question.";
-    case "metaphor": return "Write a playful metaphor or absurd comparison.";
-    case "observational": return "Write a straight observational line.";
-  }
-}
-
-// Extract non-insert nouns from a line to track topic diversity
-function extractTopicNouns(line: string, insertWords: string[]): string[] {
-  const insertSet = new Set(insertWords.map(w => w.toLowerCase()));
-  const words = line.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
-  return words.filter(w => 
-    !insertSet.has(w) && 
-    !['the', 'and', 'but', 'for', 'with', 'was', 'were', 'are', 'had', 'has', 'have'].includes(w)
-  );
-}
-
-// Check if lines repeat same topic nouns
-function repeatsTopicNouns(lines: string[], insertWords: string[]): boolean {
-  const allNouns = lines.flatMap(line => extractTopicNouns(line, insertWords));
-  const uniqueNouns = new Set(allNouns);
-  return allNouns.length > uniqueNouns.size * 1.5; // Too much repetition
-}
-
-// Check if lines have same opener structure
-function sameOpener(a: string, b: string): boolean {
-  const getFirst4 = (s: string) => s.toLowerCase().split(/\W+/).slice(0, 4).join(" ");
-  return getFirst4(a) === getFirst4(b);
-}
-
-// Universal prompt template with variety enforcement
-function buildPrompt(opts: {
-  category: string;
-  subcategory: string;
-  tone: string;
-  style: string;
-  rating: string;
-  insertWords: string[];
-  comedianStyle: { name: string; flavor: string };
-  targetBucket: PosBucket;
-  structureType: StructureType;
-  usedTopics: Set<string>;
-  nonce: string;
-}) {
-  const { category, subcategory, tone, style, rating, insertWords, comedianStyle, targetBucket, structureType, usedTopics, nonce } = opts;
-  const insert = insertWords.join(", ") || "none";
-
-  const ratingRules: Record<string, string> = {
-    "g": "clean language only. Humor may be playful, observational, or absurd without profanity.",
-    "pg": "mild spice, no explicit profanity. Light innuendo allowed.",
-    "pg-13": "edgy humor allowed with mild swears (damn, hell, crap, ass). MUST include at least one mild swear.",
-    "r": "EXPLICIT adult humor with STRONG profanity REQUIRED. You MUST include at least one strong swear word (fuck, shit, asshole, bastard, bullshit). This is not negotiable for R-rated content. Be bold and edgy.",
-  };
-
-  const styleHints: Record<string, string> = {
-    "sarcastic": "ironic bite, eye roll",
-    "wholesome": "warm, kind, uplifting", 
-    "weird": "ABSURD, surreal, completely unexpected imagery. Think raccoons, aliens, Wi-Fi routers with feelings, talking microwaves. Be gloriously strange.",
-    "savage": "brutally honest, cutting, no-holds-barred",
-    "generic": "neutral, straightforward phrasing"
-  };
-
-  // Get category-specific ban words and style examples
-  const banWords = getCategoryBanWords(category, subcategory);
-  const examples = getStyleExamples(style, rating);
-  // Pick 2 random examples
-  const shuffled = [...examples].sort(() => Math.random() - 0.5);
-  const selectedExamples = shuffled.slice(0, 2);
-  const hint = styleHints[style.toLowerCase()] || styleHints.generic;
-  const ratingRule = ratingRules[rating.toLowerCase()] || ratingRules.pg;
-  const bucketHint = bucketHintText(targetBucket);
-  const structureHint = getStructureHint(structureType);
-  
-  // Generate topic guidance to avoid repetition
-  const avoidTopics = Array.from(usedTopics).slice(0, 5);
-  const suggestTopics = topicSeeds.filter(t => !usedTopics.has(t)).slice(0, 3);
-  
-  const system = `You write one-liner jokes for a celebration generator.
-
-Hard rules:
-- Exactly ONE sentence.
-- 50–120 characters.
-- No em dash.
-- End with ., !, or ?.
-
-Insert Words policy:
-- Include all Insert Words EXACTLY as provided in the sentence.
-- If an Insert Word is a multi-word phrase (e.g., "amazing mom"), keep the phrase completely intact.
-- Vary placement across the set: aim for front, middle, end, and free placement diversity.
-- Do NOT always place Insert Words at the start or end.
-- Do NOT repeat Insert Words more than once unless it improves flow.
-- NEVER use em dashes (—) - use commas, periods, or ellipses instead.
-- MAXIMUM 2 punctuation marks total per line (excluding apostrophes in contractions).
-
-Structure requirement: ${structureHint}
-
-Category requirement: ${getCategoryRequirement(category, subcategory)}
-
-Diversity rules:
-- Vary sentence shape: one short quip, one rhetorical question, one gentle metaphor, one observational line.
-- Avoid category clichés (${banWords.join(', ')}) unless they are in Insert Words.
-- Do not invent personal details (age, jobs, diagnoses) unless in Insert Words.
-- Keep family-friendly for rating = G.
-${avoidTopics.length > 0 ? `- Avoid repeating these topics: ${avoidTopics.join(', ')}` : ''}
-${suggestTopics.length > 0 ? `- Consider these fresh topics: ${suggestTopics.join(', ')}` : ''}
-
-Rating: ${rating} — ${ratingRule}
-${rating.toLowerCase() === 'g' ? '- For G rating: forbid crisis, panic, anxiety, hangover, divorce, midlife themes.' : ''}
-${rating.toLowerCase() === 'r' ? '- For R rating: You MUST be explicit and edgy. Include strong profanity (fuck, shit, asshole, bastard, bullshit). This is REQUIRED.' : ''}
-
-${rating.toLowerCase() === 'r' ? 'CRITICAL FOR R RATING: Your line will be REJECTED if it does not contain explicit profanity. Be bold, edgy, and use strong swear words.' : ''}
-
-Output exactly the sentence. No preface or commentary.
-Nonce: ${nonce}`.trim();
-
-  const user = `Write ONE ${tone.toLowerCase()} one-liner for a celebration text generator.
-
-Category: ${category}${subcategory ? ` > ${subcategory}` : ''}
-Tone: ${tone}
-Style: ${style} (${hint})
-Rating: ${rating}
-Insert Words: ${insert}
-Comedian style: ${comedianStyle.name} – ${comedianStyle.flavor}
-
-Structure: ${structureHint}
-Placement hint: ${bucketHint} (Keep it natural; do not force awkward phrasing.)
-
-${rating.toLowerCase() === 'r' ? 'REMEMBER: R-rating requires explicit profanity. Use fuck, shit, asshole, bastard, or bullshit. Your response will be rejected if too clean.' : ''}
-
-Style examples (do not copy, just the vibe):
-- "${selectedExamples[0]}"
-- "${selectedExamples[1]}"`.trim();
-
-  return { system, user };
-}
-
-// Normalize and validate generated text
-function normalizeFirstLine(raw: string): string {
-  const first = (raw || "")
-    .split(/\r?\n/).map(s => s.trim()).find(Boolean) || "";
-  return first
-    .replace(/^["'`]/, "").replace(/["'`]$/, "")   // strip surrounding quotes
-    .replace(/^[•*\-]\s*/, "")                     // bullets
-    .replace(/^\d+[\.)]\s*/, "");                  // numbered lists
-}
-
-// Enhanced validation for individual lines
-function validateLine(
-  line: string, 
-  rating: string, 
-  insertWords: string[], 
-  category: string,
-  subcategory: string,
-  existingLines: string[],
-  structureType: StructureType
-): string | null {
-  if (!line) return null;
-
-  const len = [...line].length;
-  if (len < 50 || len > 120) return null;
-
-  // Strict punctuation count (max 2, excluding apostrophes in contractions)
-  const punctCount = (line.match(/[.,!?;:]/g) || []).length;
-  if (punctCount > 2) return null;
-
-  // No em dashes
-  if (/\u2014/.test(line)) return null;
-
-  // Validate insert words with phrase integrity
-  if (!validateInsertWords(line, insertWords)) return null;
-
-  // Category-specific validation with comprehensive lexicon
-  if (!validateCategorySpecific(line, category, subcategory, insertWords)) return null;
-
-  // Rating validation
-  const validatedLine = validateRating(line, rating, structureType, insertWords, category, subcategory, existingLines);
-  if (!validatedLine) {
-    console.log(`${rating.toUpperCase()}-rating validation FAILED:`, line);
-    return null;
-  }
-  line = validatedLine; // Use the potentially modified line (e.g., added punctuation)
-
-  // Structure validation - now handled within validateRating
-  // if (!validateStructure(line, structureType)) return null;
-
-  // Avoid similarity with existing lines
-  if (existingLines.some(existing => tooSimilar(line, existing))) return null;
-
-  return line;
-}
-
-// Validate insert words with phrase integrity
-function validateInsertWords(line: string, insertWords: string[]): boolean {
-  if (!insertWords || insertWords.length === 0) return true;
-  
-  for (const insertWord of insertWords) {
-    if (insertWord.includes(" ")) {
-      // Multi-word phrase - must appear intact
-      const regex = new RegExp(`\\b${insertWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-      if (!regex.test(line)) {
-        console.log(`Insert phrase validation FAILED - phrase "${insertWord}" not found intact in:`, line);
-        return false;
-      }
-    } else {
-      // Single word
-      const regex = new RegExp(`\\b${insertWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-      if (!regex.test(line)) {
-        console.log(`Insert word validation FAILED - word "${insertWord}" not found in:`, line);
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-// Enhanced category-specific validation using comprehensive lexicon
-function validateCategorySpecific(line: string, category: string, subcategory: string, insertWords: string[]): boolean {
-  const subcategoryKey = (subcategory || "").toLowerCase().replace(/[^a-z]/g, "-");
-  const lexicon = getSubcategoryLexicon(subcategoryKey, category);
-  
-  if (lexicon) {
-    // Check for required vocabulary (must have at least one)
-    const hasMustWord = lexicon.must.some(word => 
-      new RegExp(`\\b${word}\\b`, "i").test(line)
-    );
-    
-    if (!hasMustWord) {
-      console.log(`Category validation FAILED - missing required ${subcategory || category} vocabulary:`, line);
-      console.log("Required words:", lexicon.must.slice(0, 5).join(", "));
-      return false;
-    }
-    
-    // Check for banned words (unless they're explicitly in insert words)
-    const insertedWords = new Set(insertWords.map(w => w.toLowerCase()));
-    const hasBannedWord = lexicon.banned.some(bannedWord => {
-      if (insertedWords.has(bannedWord.toLowerCase())) return false; // Allow if explicitly inserted
-      return new RegExp(`\\b${bannedWord}\\b`, "i").test(line);
-    });
-    
-    if (hasBannedWord) {
-      console.log(`Category validation FAILED - contains banned off-topic word for ${subcategory || category}:`, line);
-      return false;
-    }
-    
-    return true;
-  }
-  
-  // Legacy validation for known categories without lexicon
-  if (subcategory?.toLowerCase().includes("mothers-day") || subcategory?.toLowerCase().includes("mother")) {
-    const motherCues = /\b(mom|mother('|)s day|amazing mom|mother)\b/i;
-    const hasMotherCue = motherCues.test(line);
-    const hasInsertMom = insertWords.some(w => /mom|mother/i.test(w));
-    
-    if (!hasMotherCue && !hasInsertMom) {
-      console.log("Mother's Day validation FAILED - no mother/mom cue:", line);
-      return false;
-    }
-  }
-  
-  // General banned words for unknown categories - no generic fallbacks
-  const genericBans = /\b(wifi|wi-fi|pizza|monday|spreadsheet|taxes|friend|NAME|USER)\b/i;
-  if (genericBans.test(line)) {
-    console.log("Generic validation FAILED - contains generic fallback word:", line);
-    return false;
-  }
-  
-  return true;
-}
-
-// Rating validation function
-function validateRating(line: string, rating: string, structureType: StructureType, insertWords: string[], category: string, subcategory: string, existingLines: string[]): string | null {
-  if (/\u2014/.test(line)) return null; // no em dash
-
-  // Check max 2 punctuation marks (excluding apostrophes in contractions)
-  const punctuationCount = (line.match(/[.!?,:;()]/g) || []).length;
-  if (punctuationCount > 2) return null;
-
-  // enforce ending punctuation
-  if (!/[.!?]$/.test(line)) line += ".";
-
-  // CRITICAL: Enhanced R-rating enforcement - MUST contain explicit language
-  if (rating.toLowerCase() === "r") {
-    const explicitWords = ["fuck", "shit", "asshole", "bastard", "bullshit", "bitch", "damn"];
-    const hasExplicitContent = explicitWords.some(word => 
-      new RegExp(`\\b${word}`, "i").test(line)
-    );
-    if (!hasExplicitContent) {
-      console.log("R-rating validation FAILED - no explicit content:", line);
-      return null;
-    }
-  }
-
-  // Enhanced structure validation
-  if (!validateStructureType(line, structureType)) {
-    console.log("Structure validation FAILED - expected", structureType, "got:", line);
-    return null;
-  }
-
-  // enforce insert words (more flexible matching for complex phrases)
-  if (insertWords.length > 0) {
-    const okWords = insertWords.every(w => {
-      // For complex phrases, check if most words are present
-      const words = w.toLowerCase().split(/\s+/).filter(Boolean);
-      if (words.length === 1) {
-        // Single word - use strict boundary check
-        return new RegExp(`\\b${escapeReg(w)}\\b`, "i").test(line);
-      } else {
-        // Multi-word phrase - check if at least 75% of words are present
-        const foundWords = words.filter(word => 
-          new RegExp(`\\b${escapeReg(word)}\\b`, "i").test(line)
-        );
-        return foundWords.length >= Math.ceil(words.length * 0.75);
-      }
-    });
-    if (!okWords) return null;
-  }
-
-  // Ban auto "Happy birthday" unless it's in insert words
-  if (/^happy birthday\b/i.test(line) && !insertWords.some(w => /happy birthday/i.test(w))) {
-    return null;
-  }
-
-  // Reject if all insert words are shoved to the end
-  const endsWithAll = insertWords.every(w =>
-    new RegExp(`${escapeReg(w)}[.!?"]?$`, "i").test(line)
-  );
-  if (endsWithAll && insertWords.length > 0) return null;
-
-  // Reject bolted-on comma suffix patterns
-  const boltedPattern = new RegExp(`[,;:]\\s*(?:${insertWords.map(escapeReg).join("|")})\\s*[.!?]?$`, "i");
-  if (boltedPattern.test(line) && insertWords.length > 0) return null;
-
-  // Apply comprehensive Step-2 rules for ALL categories with lexicon validation
-  if (insertWords.length > 0) {
-    const lineCheck: LineCheck & { subcategory?: string } = {
-      text: line,
-      insertWords: insertWords,
-      category: category.toLowerCase(),
-      subcategory: subcategory,
-      rating: (rating || "G").toUpperCase() as "G"|"PG"|"PG-13"|"R"
-    };
-    if (!passesStep2Rules(lineCheck)) {
-      console.log("Step-2 validation FAILED for:", line);
-      return null;
-    }
-  }
-  
-  // Ban off-topic words for relevant categories
-  const banWords = getCategoryBanWords(category, subcategory);
-  const insertedSet = new Set(insertWords.map(x => x.toLowerCase()));
-  if (banWords.some(b => line.toLowerCase().includes(b) && !insertedSet.has(b))) {
-    return null;
-  }
-
-  // Check for same opener as existing lines
-  if (existingLines.some(existing => sameOpener(line, existing))) {
-    return null;
-  }
-
-  // Enhanced G-rating guards
-  if (rating.toLowerCase() === "g") {
-    const gBanned = /\b(hell|damn|crap|crisis|panic|anxiety|hangover|divorce|midlife|turned \d+|diagnosis|therapist)\b/i.test(line);
-    if (gBanned) return null;
-  }
-
-  // Rating gates with stricter enforcement
-  const mild = /\b(hell|damn|crap)\b/i.test(line);
-  const explicit = /\b(fuck|shit|asshole|bastard|dick|piss|bitch|bullshit)\b/i.test(line);
-
-  if (rating.toLowerCase() === "g" && (mild || explicit)) return null;
-  if (rating.toLowerCase() === "pg" && explicit) return null;
-  if (rating.toLowerCase() === "pg-13" && !mild && explicit) return null; // PG-13 should have mild words
-  // R MUST have explicit content (enforced above)
-
-  return line;
-}
-
-// Validate structure type matches expected pattern
-function validateStructureType(line: string, expectedType: StructureType): boolean {
-  const trimmed = line.trim();
-  
-  switch (expectedType) {
-    case "quip":
-      return trimmed.length <= 80 && !trimmed.includes("?");
-    case "question":
-      return trimmed.includes("?");
-    case "metaphor":
-      return /\b(like|as if|as though|is like|feels like)\b/i.test(trimmed);
-    case "observational":
-      return trimmed.length >= 80 && !trimmed.includes("?") && 
-             !/\b(like|as if|as though|is like|feels like)\b/i.test(trimmed);
-    default:
-      return true;
-  }
-}
-
-// Enhanced set-level validation with position spreading
-function validateSet(
-  results: Array<{line: string, comedian: string}>, 
-  insertWords: string[], 
-  rating: string,
-  category: string,
-  subcategory: string
-): boolean {
-  if (results.length < 4) return false;
-  
-  const lines = results.map(r => r.line);
-  
-  // 1. Insert word placement diversity (for single words)
-  if (insertWords.length > 0) {
-    const singleWords = insertWords.filter(w => !w.includes(" "));
-    if (singleWords.length > 0) {
-      const positions = new Set<PosBucket>();
-      lines.forEach(line => {
-        const bucket = positionBucket(line, singleWords[0]);
-        if (bucket !== "none") positions.add(bucket);
-      });
-      if (positions.size < 3) {
-        console.log("Set validation FAILED - insufficient position variety:", Array.from(positions));
-        return false;
-      }
-    }
-  }
-
-  // 2. Structure diversity - MUST have variety
-  const structures = {
-    hasQuip: lines.some(l => l.length <= 80 && !l.includes("?")),
-    hasQuestion: lines.some(l => l.includes("?")),
-    hasMetaphor: lines.some(l => /\b(like|as if|as though|is like|feels like)\b/i.test(l)),
-    hasObservational: lines.some(l => l.length >= 80 && !l.includes("?") && 
-      !/\b(like|as if|as though|is like|feels like)\b/i.test(l))
-  };
-  
-  const structureCount = Object.values(structures).filter(Boolean).length;
-  if (structureCount < 3) {
-    console.log("Set validation FAILED - insufficient structure variety:", structures);
-    return false;
-  }
-
-  // 3. Comedian diversity - no duplicates in same set
-  const comedians = results.map(r => r.comedian);
-  const uniqueComedians = new Set(comedians);
-  if (uniqueComedians.size < Math.min(4, comedians.length)) {
-    console.log("Set validation FAILED - comedian repetition:", comedians);
-    return false;
-  }
-
-  // 4. R-rating set validation - ALL lines must have explicit content
-  if (rating.toLowerCase() === "r") {
-    const explicitWords = ["fuck", "shit", "asshole", "bastard", "bullshit", "bitch"];
-    const explicitCount = lines.filter(line => 
-      explicitWords.some(word => new RegExp(`\\b${word}`, "i").test(line))
-    ).length;
-    
-    if (explicitCount < lines.length) {
-      console.log("Set validation FAILED - R-rating requires ALL lines to have explicit content");
-      console.log("Explicit count:", explicitCount, "out of", lines.length, "lines");
-      return false;
-    }
-  }
-
-  // 5. Length variety
-  const lengths = lines.map(l => l.length);
-  const lengthVariety = Math.max(...lengths) - Math.min(...lengths);
-  if (lengthVariety < 20) {
-    console.log("Set validation FAILED - insufficient length variety:", lengthVariety);
-    return false;
-  }
-
-  // 6. Category-specific set validation
-  if (subcategory?.toLowerCase() === "mothers-day" || subcategory?.toLowerCase() === "mother's day") {
-    const hasMotherCue = lines.some(line => /\b(mom|mother('|)s day|amazing mom|mother)\b/i.test(line));
-    const hasInsertMom = insertWords.some(w => /mom|mother/i.test(w));
-    if (!hasMotherCue && !hasInsertMom) {
-      console.log("Set validation FAILED - Mother's Day requires at least one mom/mother cue");
-      return false;
-    }
-  }
-
-  console.log("Set validation PASSED - all diversity requirements met");
-  return true;
-}
-
-function escapeReg(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// Check if two lines are too similar
-function tooSimilar(a: string, b: string): boolean {
-  const wa = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
-  const wb = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
-  const overlap = [...wa].filter(x => wb.has(x)).length;
-  return overlap / Math.min(wa.size, wb.size) > 0.6;
-}
-
-// Generate a single line with specific bucket and structure targeting
-async function generateOne(opts: {
-  category: string;
-  subcategory: string;
-  tone: string;
-  style: string;
-  rating: string;
-  insertWords: string[];
-  usedComedians: Set<string>;
-  targetBucket: PosBucket;
-  structureType: StructureType;
-  usedTopics: Set<string>;
-  existingLines: string[];
-}): Promise<{line: string, comedian: string} | null> {
-  // Apply combo overrides first
-  const { tone, style, rating } = applyComboOverrides(opts.tone, opts.style, opts.rating);
-  
-  // Get appropriate comedian pool based on matrix
-  const comedianPool = getComedianPool(tone, style, rating);
-  
-  // Pick a comedian from the appropriate pool, avoiding already used ones
-  const availableComedians = comedianPool.filter(name => !opts.usedComedians.has(name));
-  const comedianName = availableComedians.length > 0 
-    ? availableComedians[Math.floor(Math.random() * availableComedians.length)]
-    : comedianPool[Math.floor(Math.random() * comedianPool.length)];
-  
-  opts.usedComedians.add(comedianName);
-  
-  // Create comedian style object with persona override
-  const comedianStyle = {
-    name: comedianName,
-    flavor: matrixConfig.persona_overrides[comedianName] || "Standard comedic style"
-  };
-  
-  const nonce = Math.random().toString(36).slice(2);
-  const { system, user } = buildPrompt({ 
-    ...opts, 
-    tone, 
-    style, 
-    rating, 
-    comedianStyle, 
-    nonce 
-  });
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "authorization": `Bearer ${OPENAI_API_KEY}`,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: MODELS[0].name,
-        temperature: 1.0,
-        top_p: 0.9,
-        max_tokens: 140,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user }
-        ]
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      const txt = await response.text();
-      console.error("OpenAI API error:", response.status, txt.slice(0, 200));
-      throw new Error(`openai_${response.status}_${txt.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const raw = (data?.choices?.[0]?.message?.content || "").trim();
-    const first = normalizeFirstLine(raw);
-    let valid = validateLine(first, rating, opts.insertWords, opts.category, opts.subcategory, opts.existingLines, opts.structureType);
-    
-    // Enhanced R-rating validation is now handled within validateLine
-    if (!valid) {
-      console.log("Line validation failed for:", first);
-    }
-    
-    console.log("Generated line attempt:", { 
-      raw, 
-      first, 
-      valid, 
-      comedian: comedianStyle.name,
-      targetBucket: opts.targetBucket,
-      structureType: opts.structureType,
-      actualBucket: valid ? positionBucket(valid, opts.insertWords[0] || "") : null,
-      length: valid ? valid.length : 0
-    });
-    
-    // Track topic nouns if line is valid
-    if (valid) {
-      const topicNouns = extractTopicNouns(valid, opts.insertWords);
-      topicNouns.forEach(noun => opts.usedTopics.add(noun));
-      return {line: valid, comedian: comedianStyle.name};
-    }
-    
-    return null;
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
-  }
-}
-
-// Generate 4 diverse options with comprehensive validation
-async function generateFour(body: any): Promise<Array<{line: string, comedian: string}>> {
-  const insertWords = parseInsertWords(body.insertWords || body.mandatory_words || '');
-  
-  // Extract category and subcategory from the body
-  const categoryParts = (body.category || "celebrations").split(' > ');
-  const category = categoryParts[0] || "celebrations";
-  const subcategory = body.subcategory || categoryParts[1] || "";
-  
-  // Apply combo overrides before generation
-  const { tone, style, rating } = applyComboOverrides(
-    body.tone || "Humorous",
-    body.style || "Generic", 
-    body.rating || "PG"
-  );
-  
-  const opts = {
-    category,
-    subcategory,
-    tone,
-    style,
-    rating,
-    insertWords,
-    usedComedians: new Set<string>(),
-    usedTopics: new Set<string>(),
-    existingLines: [] as string[]
-  };
-
-  console.log("Generating with options:", opts);
-
-  const results: Array<{line: string, comedian: string}> = [];
-  const usedBuckets = new Set<PosBucket>();
-  const usedStructures = new Set<StructureType>();
-  let attempts = 0;
-  let validationAttempts = 0;
-  const maxValidationAttempts = 3;
-
-  // Enhanced generation loop with set-level validation
-  while (validationAttempts < maxValidationAttempts) {
-    results.length = 0; // Reset results for each validation attempt
-    opts.usedComedians.clear();
-    opts.usedTopics.clear();
-    usedBuckets.clear();
-    usedStructures.clear();
-    attempts = 0;
-
-    // Generate 4 lines with diversity requirements
-    while (results.length < 4 && attempts < 20) {
-      try {
-        const targetBucket = pickNeededBucket(usedBuckets);
-        // Pick structure type we haven't used yet
-        const availableStructures = structureTypes.filter(s => !usedStructures.has(s));
-        const structureType = availableStructures.length > 0 
-          ? availableStructures[Math.floor(Math.random() * availableStructures.length)]
-          : structureTypes[Math.floor(Math.random() * structureTypes.length)];
-        
-        console.log(`Attempt ${attempts + 1}/20: Trying ${structureType} with ${targetBucket} placement`);
-        
-        const lineResult = await generateOne({
-          ...opts,
-          targetBucket,
-          structureType,
-          existingLines: results.map(r => r.line)
-        });
-        
-        if (lineResult && lineResult.line && 
-            !results.some(r => r.line === lineResult.line) && 
-            !results.some(r => tooSimilar(lineResult.line, r.line))) {
-          
-          // Check if this line achieves desired placement variety
-          if (insertWords.length > 0) {
-            const actualBucket = positionBucket(lineResult.line, insertWords[0]);
-            usedBuckets.add(actualBucket);
-          }
-          
-          // Track structure usage
-          usedStructures.add(structureType);
-          
-          results.push(lineResult);
-          console.log(`Generated line ${results.length}:`, lineResult.line);
-        }
-      } catch (e) {
-        console.error(`Generation attempt ${attempts + 1} failed:`, e);
-      }
-      attempts++;
-    }
-
-    // Validate the complete set
-    if (results.length >= 4 && validateSet(results, insertWords, rating, category, subcategory)) {
-      console.log("Set validation PASSED on attempt", validationAttempts + 1);
-      break;
-    } else {
-      validationAttempts++;
-      console.log(`Set validation FAILED on attempt ${validationAttempts}. ${validationAttempts < maxValidationAttempts ? 'Retrying...' : 'Using fallback strategy.'}`);
-    }
-  }
-
-  // If validation failed, use fallback strategy with enforced diversity
-  if (results.length < 4 || !validateSet(results, insertWords, rating)) {
-    console.log("Using fallback strategy with enforced diversity");
-    results.length = 0;
-    
-    // Generate fallbacks that explicitly enforce requirements
-    const fallbackResults = await generateFallbackSet(opts);
-    results.push(...fallbackResults);
-  }
-
-    // Enhanced safety check with subcategory-aware fallbacks - NO GENERIC WORDS
-  while (results.length < 4) {
-    if (insertWords.length === 0) {
-      console.error("Cannot generate more fallbacks without insert words - failing gracefully");
-      break;
-    }
-    
-    const iwText = insertWords[0];
-    const lexicon = getSubcategoryLexicon((subcategory || "").toLowerCase().replace(/[^a-z]/g, "-"), category);
-    const contextWord = lexicon ? lexicon.must[Math.floor(Math.random() * lexicon.must.length)] : "moment";
-    const position = results.length % 4;
-    
-    let fallback: string;
-    
-    // Create authentic fallbacks using subcategory vocabulary - NO Wi-Fi, pizza, etc.
-    if (rating.toLowerCase() === "r") {
-      const rFallbacks = [
-        `${iwText} makes every damn ${contextWord} worth celebrating, no bullshit.`,
-        `Fuck yes, ${iwText} brings authenticity to every ${contextWord}.`,
-        `${iwText}, you're real as hell and that's exactly what this ${contextWord} needs.`,
-        `Another ${contextWord} with ${iwText}, and life feels genuinely fucking perfect.`
-      ];
-      fallback = rFallbacks[position] || rFallbacks[0];
-    } else {
-      const cleanFallbacks = [
-        `${iwText} brings genuine joy to every ${contextWord} and moment.`,
-        `Time to celebrate the perfect ${contextWord} with ${iwText} by your side.`,
-        `${iwText}, your presence turns every ${contextWord} into something special.`,
-        `Another ${contextWord} with ${iwText}, and everything feels exactly right.`
-      ];
-      fallback = cleanFallbacks[position] || cleanFallbacks[0];
-    }
-    
-    // Ensure fallback meets length requirements and isn't duplicate
-    if (!results.some(r => r.line === fallback) && 
-        fallback.length >= 50 && 
-        fallback.length <= 120 &&
-        !/(wifi|wi-fi|pizza|monday|spreadsheet|friend)/i.test(fallback)) {
-      results.push({line: fallback, comedian: "Jerry Seinfeld"});
-      console.log("Added authentic positioned fallback:", fallback);
-    } else {
-      // Last resort - but still no generic words
-      const basicFallback = rating.toLowerCase() === "r" ? 
-        `${iwText} makes life authentically fucking awesome.` : 
-        `${iwText} makes every moment genuinely special.`;
-      
-      if (basicFallback.length <= 120) {
-        results.push({line: basicFallback, comedian: "Ellen DeGeneres"});
-      } else {
-        // If we can't create a valid fallback, break to avoid infinite loop
-        console.error("Cannot create valid fallback - breaking safety loop");
-        break;
-      }
-    }
-  }
-
-  // Log final variety stats
-  const lines = results.map(r => r.line);
-  const lengths = lines.map(l => l.length);
-  const buckets = insertWords.length > 0 ? 
-    lines.map(l => positionBucket(l, insertWords[0])) : [];
-  const topicNouns = lines.flatMap(l => extractTopicNouns(l, insertWords));
-  
-  console.log("Final lengths:", lengths);
-  console.log("Length variety:", Math.max(...lengths) - Math.min(...lengths));
-  console.log("Position buckets:", buckets);
-  console.log("Bucket variety:", new Set(buckets).size);
-  console.log("Structure variety:", usedStructures.size);
-  console.log("Topic diversity:", new Set(topicNouns).size, "unique topics from", topicNouns.length, "total nouns");
-  console.log("Topic repetition check:", !repeatsTopicNouns(lines, insertWords) ? "PASSED" : "FAILED");
-
-  return results;
-}
-
-// Generate fallback set with enforced diversity
-async function generateFallbackSet(opts: any): Promise<Array<{line: string, comedian: string}>> {
-  const results: Array<{line: string, comedian: string}> = [];
-  const requiredStructures: StructureType[] = ["quip", "question", "metaphor", "observational"];
-  
-  for (let i = 0; i < 4; i++) {
-    const structureType = requiredStructures[i % requiredStructures.length];
-    const targetBucket: PosBucket = i === 0 ? "front" : i === 1 ? "middle" : i === 2 ? "end" : "middle";
-    
-    try {
-      const lineResult = await generateOne({
-        ...opts,
-        targetBucket,
-        structureType,
-        existingLines: results.map(r => r.line)
-      });
-      
-      if (lineResult) {
-        results.push(lineResult);
-      }
-    } catch (error) {
-      console.error(`Fallback generation failed for structure ${structureType}:`, error);
-    }
-  }
-  
-  return results;
-}
