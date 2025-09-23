@@ -947,7 +947,7 @@ async function generateOne(opts: {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        model: CHAT_MODEL,
+        model: MODELS[0].name,
         temperature: 1.0,
         top_p: 0.9,
         max_tokens: 140,
