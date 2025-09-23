@@ -24,6 +24,7 @@ const MASTER_CONFIG = {
     wedding: ["vows","rings","altar","reception","dance floor","bouquet","honeymoon","bride","groom","cake","toast","in-laws"],
     engagement: ["ring","proposal","fiancé","fiancée","yes","forever"],
     birthday: ["birthday","cake","candles","party","balloons","frosting","gift"],
+    babyshower: ["baby","shower","diaper","bottle","crib","stroller","nursery","onesie","pacifier","bassinet","pregnant","expecting","newborn","infant"],
     graduation: ["cap","gown","diploma","tassel","stage","ceremony"],
     work: ["meeting","boss","deadline","office","email","printer","coffee","slides","calendar"],
     school: ["exam","homework","teacher","class","test","grade","study"],
@@ -184,6 +185,7 @@ function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?:
     const contextCues: Record<string, RegExp> = {
       wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
       birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party|age|years old)\b/i,
+      babyshower: /\b(expecting|baby shower|mom to be|little one|bundle of joy|due date|gender reveal)\b/i,
       graduation: /\b(graduat|commencement|walk the stage|diploma|degree)\b/i
     };
     validation.categoryAnchor = contextCues[key]?.test(text) || false;
@@ -389,7 +391,9 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
 
 // Enhanced insert word instruction builder
 function buildInsertWordInstruction(insertWords: string[]): string {
-  if (!insertWords || insertWords.length === 0) return '';
+  if (!insertWords || insertWords.length === 0) {
+    return "No specific words required. Focus on natural category-specific humor.";
+  }
   
   if (insertWords.length === 1) {
     return `Include "${insertWords[0]}" exactly once per line in natural phrasing.`;
@@ -405,11 +409,12 @@ function buildInsertWordInstruction(insertWords: string[]): string {
 const TONE_SEED_TEMPLATES = {
   'playful': (subcategory: string, config: any, insertWords: string[], rating: string) => `
 Write 4 playful one-sentence jokes for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, concise and punchy.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context.
+Each must be EXACTLY one sentence, 55-115 characters total, punchy and quotable.
+Use at most 2 punctuation marks per line. NO em dashes, semicolons, or ellipses.
+Include ${subcategory} context with words like: ${getLexiconFor(subcategory).slice(0, 5).join(', ')}.
 ${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating)}
+Keep them short, crisp, and memorable. No rambling or complex clauses.
 Return each line on a separate line with no numbering or formatting.`,
 
   'romantic': (subcategory: string, config: any, insertWords: string[], rating: string) => `
