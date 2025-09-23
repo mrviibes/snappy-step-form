@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -92,6 +93,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [showDimensions, setShowDimensions] = useState(false);
   const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
+  const [showSpecificVisualsDialog, setShowSpecificVisualsDialog] = useState(false);
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
 
@@ -116,19 +118,19 @@ export default function VisualsStep({
       }
     });
 
-    // If "AI Visuals Assist" is selected, show generation immediately
+    // If "AI Visuals Assist" is selected, show the specific visuals dialog
     if (optionId === 'ai-assist') {
-      setShowVisualGeneration(true);
+      setShowSpecificVisualsDialog(true);
       setShowSpecificVisualsChoice(false);
     }
   };
 
   const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
+    setShowSpecificVisualsDialog(false);
     if (hasVisuals) {
-      setShowSpecificVisualsChoice(false);
+      setShowSpecificVisualsChoice(true);
       // Show the input section (current behavior)
     } else {
-      setShowSpecificVisualsChoice(false);
       setShowVisualGeneration(true); // Skip to generation step
     }
   };
@@ -584,5 +586,35 @@ export default function VisualsStep({
 
             </>}
         </>}
+
+      {/* Specific Visuals Dialog */}
+      <Dialog open={showSpecificVisualsDialog} onOpenChange={setShowSpecificVisualsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg font-semibold">
+              Do you have any specific visuals?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-center text-sm text-muted-foreground mb-6">
+            eg. Balloons, Big Dog, old man
+          </div>
+          <div className="flex gap-4 justify-center">
+            <Button 
+              variant="outline" 
+              className="w-24 h-12" 
+              onClick={() => handleSpecificVisualsChoice(true)}
+            >
+              Yes
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-24 h-12" 
+              onClick={() => handleSpecificVisualsChoice(false)}
+            >
+              No
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>;
 }
