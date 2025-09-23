@@ -389,9 +389,6 @@ export default function VisualsStep({
                     <div className="text-sm font-medium text-foreground">
                       Style: {selectedStyle?.title}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {selectedStyle?.description}
-                    </div>
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => updateData({
