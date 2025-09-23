@@ -65,6 +65,7 @@ export default function TextStep({
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showComedianStyle, setShowComedianStyle] = useState(false);
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
+  const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationError(null);
@@ -172,8 +173,8 @@ export default function TextStep({
   };
   const handleSpecificWordsChoice = (hasWords: boolean) => {
     if (hasWords) {
-      setShowSpecificWordsChoice(false);
-      // Show the input section (current behavior)
+      setShowSpecificWordsInput(true);
+      // Keep showing the choice section but now with input
     } else {
       setShowSpecificWordsChoice(false);
       setShowGeneration(true); // Skip to generation step
@@ -220,6 +221,8 @@ export default function TextStep({
   };
   const handleReadyToGenerate = () => {
     setShowGeneration(true);
+    setShowSpecificWordsChoice(false);
+    setShowSpecificWordsInput(false);
   };
   const handleStyleSelect = (styleId: string) => {
     updateData({
@@ -450,6 +453,7 @@ export default function TextStep({
             <button onClick={() => {
           setShowGeneration(false);
           setShowSpecificWordsChoice(true);
+          setShowSpecificWordsInput(false);
         }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
@@ -518,14 +522,43 @@ export default function TextStep({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => handleSpecificWordsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-              <div className="font-semibold text-lg">Yes</div>
-            </button>
-            <button onClick={() => handleSpecificWordsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
-              <div className="font-semibold text-lg">No</div>
-            </button>
-          </div>
+          {!showSpecificWordsInput ? (
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => handleSpecificWordsChoice(true)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+                <div className="font-semibold text-lg">Yes</div>
+              </button>
+              <button onClick={() => handleSpecificWordsChoice(false)} className="rounded-lg border-2 p-6 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+                <div className="font-semibold text-lg">No</div>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Input 
+                value={tagInput} 
+                onChange={e => setTagInput(e.target.value)} 
+                onKeyDown={handleAddTag} 
+                placeholder="Enter words you want included into your final text" 
+                className="w-full py-6 min-h-[72px] text-center" 
+              />
+              
+              {/* Display tags right under input box */}
+              {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
+                  {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                      <span>{word}</span>
+                      <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
+                        ×
+                      </button>
+                    </div>)}
+                </div>}
+
+              {/* Done button - only show when there's at least one word */}
+              {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex justify-center pt-4">
+                  <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
+                    I'm Done With Putting Text
+                  </Button>
+                </div>}
+            </div>
+          )}
         </div>}
 
       {/* Add Specific Words Section - only show before generation and NOT for write-myself and NOT when showing choice */}
