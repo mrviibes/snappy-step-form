@@ -230,6 +230,84 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
+// Retry generation with better prompting for failed lines
+async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, retries = 3): Promise<Array<{line: string, comedian: string}>> {
+  const comedians = pickComedians(4);
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    console.log(`Generation attempt ${attempt + 1}:`);
+    const candidates = [];
+    const validationErrors = [];
+    
+    // Generate more candidates per attempt
+    for (let i = 0; i < 16; i++) {
+      const comedian = comedians[i % comedians.length];
+      
+      // Better insert tag prompting
+      let insertTagInstructions = '';
+      if (payload.insertWords?.length > 0) {
+        const insertTag = payload.insertWords[0]; // Use first tag
+        insertTagInstructions = `Include the name "${insertTag}" exactly once in natural phrasing. Do not repeat or omit the name.`;
+      }
+      
+      const userPrompt = `Write 1 ${payload.rating}-rated ${subcategory} joke. Tone: ${payload.tone}. Keep it 50-120 characters. Exactly one sentence. At most two punctuation marks. No em dashes, semicolons, or ellipses. ${insertTagInstructions} Tie to ${subcategory} context by keyword or situation.
+
+Comedian Style: ${comedian.name} – ${comedian.flavor}
+
+Generate ONE line only:`;
+
+      try {
+        const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+        const cleaned = rawResponse.split('\n')[0].trim().replace(/^["']|["']$/g, '');
+        
+        // Validate with master rules
+        const validation = validateMasterRules(cleaned, payload);
+        if (validation.ok && cleaned.length >= 50 && cleaned.length <= 120) {
+          candidates.push({
+            line: cleaned,
+            comedian: comedian.name
+          });
+        } else {
+          validationErrors.push({
+            line: cleaned,
+            reason: validation.reason || 'length_invalid',
+            length: cleaned.length
+          });
+        }
+      } catch (error) {
+        console.error(`Generation ${i} failed:`, error);
+      }
+    }
+    
+    console.log(`Attempt ${attempt + 1}: Got ${candidates.length} valid candidates out of 16`);
+    
+    if (candidates.length >= 4) {
+      // Select best 4 with variety
+      const selected = candidates.slice(0, 4);
+      const batchValidation = validateBatch(selected.map(c => c.line), payload);
+      
+      if (batchValidation.ok) {
+        return selected;
+      } else {
+        console.log(`Batch validation failed:`, batchValidation.details);
+      }
+    }
+    
+    // Log why this attempt failed
+    if (validationErrors.length > 0) {
+      const errorSummary = validationErrors.slice(0, 3).map(e => `"${e.line.substring(0, 30)}..." (${e.reason}, len:${e.length})`);
+      console.log(`Validation errors sample:`, errorSummary);
+    }
+    
+    // Wait before retry
+    if (attempt < retries - 1) {
+      await new Promise(r => setTimeout(r, 250 + Math.random() * 350));
+    }
+  }
+  
+  throw new Error(`no_valid_lines_after_${retries}_retries`);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -240,7 +318,6 @@ serve(async (req) => {
     console.log('Master Rules Generation Request:', payload);
     
     const nonce = generateNonce();
-    const comedians = pickComedians(4);
     const subcategory = payload.subcategory || payload.category;
     
     // Enhanced system prompt with master rules
@@ -268,68 +345,43 @@ OUTPUT: Only the joke line, nothing else.
 
 Nonce: ${nonce}`;
 
-    const candidates = [];
-    
-    // Generate enhanced candidates with master rules enforcement
-    for (let i = 0; i < 12; i++) {
-      const comedian = comedians[i % comedians.length];
-      const placementHints = ['at the start', 'in the middle', 'at the end', 'naturally woven'];
-      const placement = payload.insertWords?.length ? placementHints[i % 4] : '';
+    try {
+      // Use retry logic with better error reporting
+      const validLines = await generateValidBatch(systemPrompt, payload, subcategory, nonce);
       
-      const userPrompt = `Category: ${payload.category}
-Subcategory: ${subcategory}
-Tone: ${payload.tone}
-Rating: ${payload.rating}
-Insert Words: ${(payload.insertWords || []).join(', ')}
-Comedian Style: ${comedian.name} – ${comedian.flavor}
-${placement ? `Insert Word Placement: ${placement}` : ''}
-
-Generate ONE sharp, category-anchored ${payload.rating}-rated joke line following all Master Rules.`;
-
-      try {
-        const rawResponse = await callOpenAI(systemPrompt, userPrompt);
-        const cleaned = rawResponse.split('\n')[0].trim().replace(/^["']|["']$/g, '');
-        
-        // Validate with master rules
-        const validation = validateMasterRules(cleaned, payload);
-        if (validation.ok && cleaned.length >= 50 && cleaned.length <= 120) {
-          candidates.push({
-            line: cleaned,
-            comedian: comedian.name
-          });
+      return new Response(JSON.stringify({
+        success: true,
+        options: validLines
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+      
+    } catch (generationError) {
+      console.error('Generation failed after all retries:', generationError);
+      
+      // Return detailed error for debugging
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Text generation failed: ${generationError.message}`,
+        details: {
+          category: payload.category,
+          subcategory: subcategory,
+          tone: payload.tone,
+          rating: payload.rating,
+          insertWords: payload.insertWords,
+          reason: generationError.message
         }
-      } catch (error) {
-        console.error(`Generation ${i} failed:`, error);
-      }
+      }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
-    // Select best 4 with variety
-    const final = candidates.slice(0, 4);
-    
-    // Final batch validation
-    const batchValidation = validateBatch(final.map(c => c.line), payload);
-    console.log('Batch validation:', batchValidation);
-    
-    // Always return something, but log validation results
-    const response = final.length >= 4 ? final : [
-      ...final,
-      ...Array(4 - final.length).fill(null).map((_, i) => ({
-        line: `Generated ${subcategory} line ${i + final.length + 1} would go here.`,
-        comedian: 'Fallback'
-      }))
-    ];
-    
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   } catch (error) {
     console.error('Master Rules Generation Error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      fallback: Array(4).fill(null).map((_, i) => ({
-        line: `Fallback line ${i + 1} - master rules system temporarily unavailable.`,
-        comedian: 'System'
-      }))
+    return new Response(JSON.stringify({
+      success: false,
+      error: `System error: ${error.message}`
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
