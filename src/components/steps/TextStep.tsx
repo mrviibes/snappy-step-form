@@ -531,17 +531,11 @@ export default function TextStep({
       {/* Add Specific Words Section - show directly for AI Assist */}
       {showSpecificWordsChoice && data.text?.writingPreference === 'ai-assist' && <div className="space-y-4 pt-4">
           <div className="text-left">
-            <h3 className="text-lg font-semibold text-foreground">Any specific words you would like to include</h3>
+            <h3 className="text-lg font-semibold text-foreground">Optional - any specific words?</h3>
           </div>
 
           <div className="space-y-3">
-            <Input 
-              value={tagInput} 
-              onChange={e => setTagInput(e.target.value)} 
-              onKeyDown={handleAddTag} 
-              placeholder="e.g., names, congrats etc. and hit return" 
-              className="w-full"
-            />
+            <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
             
             {/* Display tags right under input box */}
             {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
@@ -556,13 +550,13 @@ export default function TextStep({
             {/* Done button - show always, will skip if no words */}
             <div className="flex justify-center pt-4">
               <Button onClick={() => {
-                if (data.text?.specificWords && data.text.specificWords.length > 0) {
-                  handleReadyToGenerate();
-                } else {
-                  setShowSpecificWordsChoice(false);
-                  setShowGeneration(true);
-                }
-              }} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
+            if (data.text?.specificWords && data.text.specificWords.length > 0) {
+              handleReadyToGenerate();
+            } else {
+              setShowSpecificWordsChoice(false);
+              setShowGeneration(true);
+            }
+          }} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
                 {data.text?.specificWords && data.text.specificWords.length > 0 ? "Let's Generate the Final Text" : "Continue Without Specific Words"}
               </Button>
             </div>
