@@ -389,10 +389,7 @@ export default function VisualsStep({
                   </div>
                 </Card>)}
             </div> : isGeneratingVisuals ? <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-              <div className="text-muted-foreground">
-                Generating your visual recommendations...
-              </div>
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
             </div> : <div className="text-center py-8">
               <div className="text-muted-foreground mb-4">
                 No visual recommendations generated. Please try again.
