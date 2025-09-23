@@ -94,7 +94,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [showDimensions, setShowDimensions] = useState(false);
   const [showSpecificVisualsChoice, setShowSpecificVisualsChoice] = useState(false);
-  const [showSpecificVisualsDialog, setShowSpecificVisualsDialog] = useState(false);
+  
   const [showSpecificVisualsInput, setShowSpecificVisualsInput] = useState(false);
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
@@ -131,7 +131,6 @@ export default function VisualsStep({
 
     // If "AI Visuals Assist" is selected, show inline question (no popup)
     if (optionId === 'ai-assist') {
-      setShowSpecificVisualsDialog(false);
       setShowSpecificVisualsChoice(true);
       setShowCustomVisualInput(false);
       setShowSpecificVisualsInput(false);
@@ -139,12 +138,10 @@ export default function VisualsStep({
     } else if (optionId === 'design-myself') {
       // If "Design Visuals Myself" is selected, show custom input
       setShowCustomVisualInput(true);
-      setShowSpecificVisualsDialog(false);
       setShowSpecificVisualsChoice(false);
       setCustomVisualDescription(data.visuals?.customVisualDescription || '');
     } else {
       // For "no-visuals" option, hide all dialogs
-      setShowSpecificVisualsDialog(false);
       setShowSpecificVisualsChoice(false);
       setShowCustomVisualInput(false);
     }
@@ -153,8 +150,6 @@ export default function VisualsStep({
   const handleSpecificVisualsChoice = (hasVisuals: boolean) => {
     // Clear any previous errors
     setError(null);
-    
-    setShowSpecificVisualsDialog(false);
     
     if (hasVisuals) {
       // Keep showing the choice section but switch to input mode
@@ -898,97 +893,5 @@ export default function VisualsStep({
           )}
         </>}
 
-      {/* Specific Visuals Dialog */}
-      <Dialog open={showSpecificVisualsDialog} onOpenChange={setShowSpecificVisualsDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center text-lg font-semibold">
-              Do you have any specific visuals you want included?
-            </DialogTitle>
-          </DialogHeader>
-          <div className="text-center text-sm text-muted-foreground mb-6">
-            eg. Dogs, Mountains, Cars, etc.
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Button 
-              variant="outline" 
-              className="w-24 h-12" 
-              onClick={() => handleSpecificVisualsChoice(true)}
-            >
-              Yes
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-24 h-12" 
-              onClick={() => handleSpecificVisualsChoice(false)}
-            >
-              No
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Specific Visuals Input Dialog */}
-      <Dialog open={showSpecificVisualsInput} onOpenChange={setShowSpecificVisualsInput}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center text-lg font-semibold">
-              Do you have any specific visuals you want included?
-            </DialogTitle>
-          </DialogHeader>
-          <div className="text-center text-sm text-muted-foreground mb-4">
-            eg. Dogs, Mountains, Cars, etc.
-          </div>
-          
-          <div className="space-y-4">
-            <Input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleAddTag}
-              placeholder="Type a visual and press Enter"
-              className="w-full"
-            />
-            
-            {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Added visuals:</div>
-                <div className="flex flex-wrap gap-2">
-                  {data.visuals.customVisuals.map((visual: string, index: number) => (
-                    <div key={index} className="flex items-center bg-accent rounded-full px-3 py-1 text-sm">
-                      <span>{visual}</span>
-                      <button
-                        onClick={() => handleRemoveTag(visual)}
-                        className="ml-2 text-muted-foreground hover:text-destructive"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="flex gap-2 pt-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowSpecificVisualsInput(false)}
-                className="flex-1"
-              >
-                Back
-              </Button>
-              <Button 
-                onClick={() => {
-                  setShowSpecificVisualsInput(false);
-                  setShowVisualGeneration(true);
-                }}
-                className="flex-1"
-                disabled={!data.visuals?.customVisuals || data.visuals.customVisuals.length === 0}
-              >
-                Continue
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>;
 }
