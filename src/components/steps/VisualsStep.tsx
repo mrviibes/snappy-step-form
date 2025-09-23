@@ -398,26 +398,6 @@ export default function VisualsStep({
                 Try Again
               </Button>
             </div>}
-
-          {generatedVisuals.length > 0 && <div className="pt-4 space-y-3">
-              <div className="text-sm font-medium text-foreground text-center">
-                Try a different visual style:
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer transition-all duration-200 overflow-hidden border-2 p-1", data.visuals?.style === style.id ? "border-primary bg-accent" : "border-border hover:border-primary/50")} onClick={() => {
-            handleStyleChange(style.id);
-            setGeneratedVisuals([]);
-            handleGenerateVisuals();
-          }}>
-                    <div className="aspect-video relative">
-                      <img src={style.preview} alt={style.title} className="w-full h-full object-cover rounded-sm" />
-                    </div>
-                    <div className="p-1 text-center">
-                      <h3 className="font-medium text-xs text-foreground">{style.title}</h3>
-                    </div>
-                  </Card>)}
-              </div>
-            </div>}
         </>}
 
       {/* Completion State - Compact Summary */}
