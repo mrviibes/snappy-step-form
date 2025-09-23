@@ -201,32 +201,26 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Compact Style Summary - Match reference styling */}
-      {hasSelectedStyle && !editingStyle && (
-        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
-          <div className="flex items-center justify-between p-4">
+      {/* Compact Style Summary - More prominent Edit button */}
+      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-accent/20 border-2 border-primary/20">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-8 rounded border overflow-hidden">
-                <img src={selectedStyle?.preview} alt="" className="w-full h-full object-cover" />
+              <div className="w-10 h-6 rounded border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
+                <img src={selectedStyle?.preview} alt="" className="w-full h-full object-cover rounded-sm" />
               </div>
               <div>
                 <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
                 <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
               </div>
             </div>
-            <button 
-              onClick={() => setEditingStyle(true)} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
+            <Button variant="outline" size="sm" onClick={() => setEditingStyle(true)} className="h-8 px-4 text-sm font-medium">
               Change Style
-            </button>
+            </Button>
           </div>
-        </div>
-      )}
+        </Card>}
 
       {/* Visual Style Selection - Always show first, more prominent */}
-      {(!hasSelectedStyle || editingStyle) && (
-        <>
+      {(!hasSelectedStyle || editingStyle) && <>
           <div className="text-center">
             <h2 className="mb-2 text-xl font-semibold text-foreground">
               Choose your visual style
@@ -236,51 +230,33 @@ export default function VisualsStep({
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {visualStyles.map(style => (
-              <Card 
-                key={style.id} 
-                className={cn(
-                  "cursor-pointer transition-all duration-200 overflow-hidden border-2 hover:shadow-md",
-                  data.visuals?.style === style.id 
-                    ? "border-primary bg-accent ring-2 ring-primary/20" 
-                    : "border-border hover:border-primary/50"
-                )} 
-                onClick={() => handleStyleChange(style.id)}
-              >
+            {visualStyles.map(style => <Card key={style.id} className={cn("cursor-pointer transition-all duration-200 overflow-hidden border-2 hover:shadow-md", data.visuals?.style === style.id ? "border-primary bg-accent ring-2 ring-primary/20" : "border-border hover:border-primary/50")} onClick={() => handleStyleChange(style.id)}>
                 <div className="aspect-video relative">
                   <img src={style.preview} alt={style.title} className="w-full h-full object-cover" />
-                  {data.visuals?.style === style.id && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                  {data.visuals?.style === style.id && <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                       <div className="w-3 h-3 bg-white rounded-full" />
-                    </div>
-                  )}
+                    </div>}
                 </div>
                 <div className="p-3">
                   <h3 className="font-semibold text-sm text-foreground">{style.title}</h3>
                   <p className="text-xs text-muted-foreground">{style.description}</p>
                 </div>
-              </Card>
-            ))}
+              </Card>)}
           </div>
-        </>
-      )}
+        </>}
 
-      {/* Compact Dimension Summary - Match reference styling */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && 
-        <div className="rounded-lg border-2 border-border bg-card">
-          <div className="flex items-center justify-between p-4">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Dimension</span> - <span className="text-primary capitalize">{data.visuals?.dimension}</span>
+      {/* Compact Dimension Summary */}
+      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-3 bg-accent/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Dimension - </span>
+              <span className="text-sm text-primary font-medium capitalize">{data.visuals?.dimension}</span>
             </div>
-            <button 
-              onClick={() => setEditingDimension(true)} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setEditingDimension(true)} className="h-7 px-3 text-xs">
               Edit
-            </button>
+            </Button>
           </div>
-        </div>
-      }
+        </Card>}
 
       {/* Dimensions Selection */}
       {hasSelectedStyle && !editingStyle && (!hasSelectedDimension || editingDimension) && <>
@@ -310,11 +286,7 @@ export default function VisualsStep({
 
       {/* Visual Tags and Generate */}
       {showGenerateButton && !showVisualOptions && !isComplete && !editingStyle && !editingDimension && <>
-          <div className="text-center pt-6 pb-2">
-            <h2 className="text-xl font-semibold text-foreground">
-              Generate AI Visuals
-            </h2>
-          </div>
+          
           
           {/* Optional Visual Tags */}
           <div className="space-y-4">
