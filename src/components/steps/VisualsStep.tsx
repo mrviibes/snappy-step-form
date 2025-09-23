@@ -254,13 +254,11 @@ export default function VisualsStep({
   }];
   return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && (
-        <div className="text-left mb-4">
+      {data.category && data.subcategory && <div className="text-left mb-4">
           <div className="text-sm text-muted-foreground">
             Your selection: {data.category} &gt; {data.subcategory}
           </div>
-        </div>
-      )}
+        </div>}
 
       {/* Text Summary from Step 2 */}
       <div className="text-center mb-6">
@@ -403,98 +401,7 @@ export default function VisualsStep({
 
       {/* Complete Summary and Remaining Flow */}
       {(isComplete || hasSelectedStyle && hasSelectedDimension) && <div className="space-y-4">
-          <Card className="border-2 border-cyan-400 bg-cyan-50/50 p-4 rounded-lg">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                    <img src={selectedStyle?.preview} alt={selectedStyle?.title} className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">
-                      Style: {selectedStyle?.title}
-                    </div>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => updateData({
-              visuals: {
-                style: "",
-                option: "",
-                dimension: ""
-              }
-            })} className="text-sm text-cyan-500 hover:text-cyan-600">
-                  Edit
-                </Button>
-              </div>
-              
-              {hasSelectedDimension && <>
-                  <div className="h-px bg-border"></div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Dimension - </span>
-                      <span className="text-sm text-foreground">
-                        {dimensionOptions.find(option => option.id === data.visuals?.dimension)?.title}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                setShowDimensions(true);
-                updateData({
-                  visuals: {
-                    ...data.visuals,
-                    dimension: ""
-                  }
-                });
-              }} className="text-xs text-cyan-500">
-                      Edit
-                    </Button>
-                  </div>
-                </>}
-
-              {hasSelectedOption && <>
-                  <div className="h-px bg-border"></div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Process - </span>
-                      <span className="text-sm text-foreground">{selectedOption?.title}</span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                updateData({
-                  visuals: {
-                    ...data.visuals,
-                    option: ""
-                  }
-                });
-                setShowSpecificVisualsChoice(false);
-              }} className="text-xs text-cyan-500">
-                      Edit
-                    </Button>
-                  </div>
-                </>}
-
-              {/* Inserted Visuals Section - show after choosing yes for AI assist */}
-              {data.visuals?.option === 'ai-assist' && !showSpecificVisualsChoice && <>
-                  <div className="h-px bg-border"></div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Inserted Visuals - </span>
-                      <span className="text-sm text-foreground">
-                        {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 ? data.visuals.customVisuals.join(', ') : 'chosen'}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                setShowVisualGeneration(false);
-                setShowSpecificVisualsChoice(true);
-              }} className="text-xs text-cyan-500">
-                      Edit
-                    </Button>
-                  </div>
-                </>}
-
-              {/* Rest of the complete flow sections... */}
-            </div>
-          </Card>
+          
 
           {/* All the remaining sections for AI Assist flow */}
           {data.visuals?.option === "ai-assist" && <>
