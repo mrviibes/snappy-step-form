@@ -36,8 +36,8 @@ interface GenerateVisualsParams {
   subcategory: string
   tone: string
   rating: string
-  insertWords: string[]
-  insertedVisuals: string[]
+  insertWords?: string[]
+  insertedVisuals?: string[]
   visualStyle: string
   finalText: string
   count: number
@@ -81,6 +81,9 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   const subcategoryContext = getSubcategoryContext(params.subcategory);
   
   // Build the system prompt
+  const insertWords = params.insertWords || [];
+  const insertedVisuals = params.insertedVisuals || [];
+  
   const systemPrompt = `You are generating exactly 4 visual scene descriptions for AI image generation.
 
 INPUTS:
@@ -88,8 +91,8 @@ INPUTS:
 - Subcategory: ${params.subcategory} 
 - Tone: ${params.tone}
 - Rating: ${params.rating}
-- Insert Words: ${params.insertWords.join(', ')}
-- Inserted Visuals: ${params.insertedVisuals.join(', ')}
+- Insert Words: ${insertWords.join(', ')}
+- Inserted Visuals: ${insertedVisuals.join(', ')}
 - Visual Style: ${params.visualStyle}
 - Final Text: "${params.finalText}"
 
@@ -97,7 +100,7 @@ REQUIREMENTS:
 - Generate exactly 4 distinct visual scene descriptions
 - Each description must be 10-15 words long
 - Each must reflect the ${params.subcategory} context (${subcategoryContext})
-- Each must include the insertWords (${params.insertWords.join(', ')}) and insertedVisuals (${params.insertedVisuals.join(', ')})
+- Each must include the insertWords (${insertWords.join(', ')}) and insertedVisuals (${insertedVisuals.join(', ')})
 - If insertWords = ["Jesse"] and insertedVisuals = ["old man yelling"], then Jesse is the old man yelling in each scene
 - Each scene should be different (different locations/settings within the subcategory context)
 - Keep sentences short, vivid, and concrete

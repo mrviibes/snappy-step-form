@@ -120,12 +120,12 @@ export default function VisualsStep({
   };
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
-      const currentVisuals = data.visuals?.customVisuals || [];
+      const currentVisuals = data.visuals?.insertedVisuals || [];
       if (!currentVisuals.includes(tagInput.trim())) {
         updateData({
           visuals: {
             ...data.visuals,
-            customVisuals: [...currentVisuals, tagInput.trim()]
+            insertedVisuals: [...currentVisuals, tagInput.trim()]
           }
         });
       }
@@ -133,11 +133,11 @@ export default function VisualsStep({
     }
   };
   const handleRemoveTag = (visualToRemove: string) => {
-    const currentVisuals = data.visuals?.customVisuals || [];
+    const currentVisuals = data.visuals?.insertedVisuals || [];
     updateData({
       visuals: {
         ...data.visuals,
-        customVisuals: currentVisuals.filter((visual: string) => visual !== visualToRemove)
+        insertedVisuals: currentVisuals.filter((visual: string) => visual !== visualToRemove)
       }
     });
   };
@@ -162,7 +162,7 @@ export default function VisualsStep({
         insertWords: data.vibe?.insertWords || [],
         visualStyle: data.visuals?.style || "general",
         visualTaste: "balanced",
-        customVisuals: data.visuals?.insertedVisuals || [],
+        insertedVisuals: data.visuals?.insertedVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
       const visuals = await generateVisualOptions(params);
@@ -318,8 +318,8 @@ export default function VisualsStep({
               <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., dogs, mountains, cars..." className="flex-1" />
             </div>
 
-            {data.visuals?.customVisuals && data.visuals.customVisuals.length > 0 && <div className="flex flex-wrap gap-2">
-                {data.visuals.customVisuals.map((visual: string, index: number) => <div key={index} className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full text-sm">
+            {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && <div className="flex flex-wrap gap-2">
+                {data.visuals.insertedVisuals.map((visual: string, index: number) => <div key={index} className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full text-sm">
                     <span>{visual}</span>
                     <button onClick={() => handleRemoveTag(visual)} className="hover:text-primary/60">
                       <X className="h-3 w-3" />
