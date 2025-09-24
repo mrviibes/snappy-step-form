@@ -170,7 +170,6 @@ export default function VisualsStep({
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         visualStyle: data.visuals?.style || "general",
-        visualTaste: "balanced",
         insertedVisuals: data.visuals?.insertedVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
