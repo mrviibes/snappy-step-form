@@ -137,6 +137,24 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<A
 
   try {
     const res = await ctlFetch<GenerateTextResponse>("generate-text", payload);
+    
+    // The edge function returns a direct array of {line, comedian} objects
+    if (Array.isArray(res)) {
+      const options = res as Array<{line: string, comedian: string}>;
+      if (options.length === 0) {
+        throw new Error("No options returned");
+      }
+      
+      // Client-side guard: ensure basic validation
+      const validated = options.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
+      if (validated.length === 0) {
+        throw new Error("All generated options failed validation");
+      }
+      
+      return validated.slice(0, 4);
+    }
+    
+    // Fallback: check for old response format
     if (!res || (res as any).success !== true) {
       const msg = (res as any)?.error || "Generation failed";
       throw new Error(msg);

@@ -70,6 +70,7 @@ export default function TextStep({
   const [showComedianStyle, setShowComedianStyle] = useState(false);
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const { toast } = useToast();
 
@@ -79,21 +80,40 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     
+    // Create debug info
+    const requestPayload = {
+      category: data.category || 'celebrations',
+      subcategory: data.subcategory,
+      tone: data.text.tone,
+      rating: data.text.rating,
+      insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
+      comedianStyle: data.text?.comedianStyle ? {
+        name: data.text.comedianStyle,
+        flavor: ''
+      } : null,
+      userId: 'anonymous'
+    };
+    
+    setDebugInfo({
+      model: 'gpt-4o-mini',
+      endpoint: 'generate-text',
+      requestPayload,
+      timestamp: new Date().toISOString(),
+      status: 'sending...'
+    });
+    
     try {
-      const options = await generateTextOptions({
-        category: data.category || 'celebrations',
-        subcategory: data.subcategory,
-        tone: data.text.tone,
-        rating: data.text.rating,
-        insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-        comedianStyle: data.text?.comedianStyle ? {
-          name: data.text.comedianStyle,
-          flavor: ''
-        } : null,
-        userId: 'anonymous'
-      });
+      const options = await generateTextOptions(requestPayload);
       
       if (options && options.length > 0) {
+        // Update debug info with success
+        setDebugInfo(prev => ({
+          ...prev,
+          status: 'success',
+          responseLength: options.length,
+          rawResponse: options
+        }));
+        
         // Format options for display
         const formattedOptions = options.map((option: { line: string; comedian: string }) => ({
           line: option.line,
@@ -112,6 +132,12 @@ export default function TextStep({
       
     } catch (error) {
       console.error('Text generation error:', error);
+      setDebugInfo(prev => ({
+        ...prev,
+        status: 'error',
+        error: error.message,
+        errorDetails: error
+      }));
       setGenerationError('Could not generate text options. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -737,6 +763,41 @@ export default function TextStep({
                     <p className="text-sm">{generationError}</p>
                   </div>
                 </div>}
+              
+              {/* Debug Information */}
+              {debugInfo && (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+                  <h4 className="font-semibold mb-2 text-gray-700">🔧 Debug Information</h4>
+                  <div className="space-y-2 text-gray-600">
+                    <div><strong>Model:</strong> {debugInfo.model}</div>
+                    <div><strong>Endpoint:</strong> {debugInfo.endpoint}</div>
+                    <div><strong>Status:</strong> <span className={debugInfo.status === 'success' ? 'text-green-600' : debugInfo.status === 'error' ? 'text-red-600' : 'text-yellow-600'}>{debugInfo.status}</span></div>
+                    <div><strong>Request Payload:</strong></div>
+                    <pre className="bg-white p-2 rounded border text-xs overflow-x-auto">
+                      {JSON.stringify(debugInfo.requestPayload, null, 2)}
+                    </pre>
+                    {debugInfo.rawResponse && (
+                      <>
+                        <div><strong>Response ({debugInfo.responseLength} options):</strong></div>
+                        <pre className="bg-white p-2 rounded border text-xs overflow-x-auto max-h-32 overflow-y-auto">
+                          {JSON.stringify(debugInfo.rawResponse, null, 2)}
+                        </pre>
+                      </>
+                    )}
+                    {debugInfo.error && (
+                      <>
+                        <div><strong>Error:</strong> <span className="text-red-600">{debugInfo.error}</span></div>
+                        {debugInfo.errorDetails && (
+                          <pre className="bg-red-50 p-2 rounded border text-xs overflow-x-auto">
+                            {JSON.stringify(debugInfo.errorDetails, null, 2)}
+                          </pre>
+                        )}
+                      </>
+                    )}
+                    <div><strong>Timestamp:</strong> {debugInfo.timestamp}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>}
               
