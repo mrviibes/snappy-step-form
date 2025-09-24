@@ -384,10 +384,18 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
-// Generate exactly 4 valid lines with detailed debugging
+// Generate exactly 4 valid lines with slot-retry mechanism
 async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
   const timeoutMs = 25000; // 25 second hard timeout
   const startTime = Date.now();
+  const totalNeeded = 4;
+  let validLines: Array<{line: string, comedian: string}> = [];
+  
+  // Get comedian pool once at the start
+  const comedianPool = (typeof getComedianPool === 'function') 
+    ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
+    : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
+  const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
   
   // Retry ladder with progressive relaxation
   const retryConfigs = [
@@ -402,7 +410,13 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
       throw new Error('generation_timeout_exceeded');
     }
     
-    console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
+    const slotsNeeded = totalNeeded - validLines.length;
+    if (slotsNeeded === 0) {
+      console.log(`🎉 All 4 slots filled! Returning complete set.`);
+      return validLines;
+    }
+    
+    console.log(`🎯 Attempt ${attempt + 1}: Need ${slotsNeeded} more slots for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
 // =============== TONE-SPECIFIC SEED TEMPLATES ===============
@@ -614,14 +628,14 @@ function buildToneSpecificSeed(tone: string, subcategory: string, config: any, i
   return seedTemplate(subcategory, config, insertWords, rating, tone)
 }
 
-    // Use tone-specific seed template for strict one-sentence enforcement
+    // Use tone-specific seed template for the needed number of slots
     const instructions = buildToneSpecificSeed(
       payload.tone || 'playful',
       subcategory, 
       config,
       payload.insertWords || [],
       payload.rating || 'PG'
-    );
+    ).replace('4 ', `${slotsNeeded} `); // Request only what we need
     
     // Add category context for better anchoring
     const contextWords = getLexiconFor(subcategory);
@@ -644,7 +658,7 @@ The bouquet sailed farther than the bride ever planned to throw.
 The DJ shouted toast time and half the guests raised cake instead.` :
   `Generate ${subcategory}-specific one-sentence lines that are punchy and contextual.`}
 
-Generate exactly 4 lines:`;
+Generate exactly ${slotsNeeded} lines:`;
 
     try {
       const rawResponse = await callOpenAI(systemPrompt, userPrompt);
@@ -652,27 +666,21 @@ Generate exactly 4 lines:`;
       // Use robust parsing and cleanup
       const cleanedLines = parseAndCleanLines(rawResponse);
       
-      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing`);
+      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing (needed ${slotsNeeded})`);
       console.log(`🧹 Sample cleaned lines:`, cleanedLines.slice(0, 2).map(l => `"${l.substring(0, 60)}..."`));
       
-      if (cleanedLines.length < 4) {
-        console.log(`❌ Only got ${cleanedLines.length} clean lines, need 4. Retrying...`);
+      if (cleanedLines.length === 0) {
+        console.log(`❌ No clean lines extracted, retrying...`);
         continue;
       }
       
-      // Take first 4 lines and validate each with tone-specific validation
-      const lines = cleanedLines.slice(0, 4);
-      const candidates = [];
+      // Process each line and add valid ones to our collection
+      const newValidLines = [];
       const detailedFailures = [];
       
-      // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
-      const comedianPool = (typeof getComedianPool === 'function') 
-        ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
-        : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
-      const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
-      
-      for (let i = 0; i < 4; i++) {
-        const line = lines[i];
+      for (let i = 0; i < Math.min(cleanedLines.length, slotsNeeded); i++) {
+        const line = cleanedLines[i];
+        const slotIndex = validLines.length + newValidLines.length;
         
         // Enhanced validation with tone-specific parameters
         const validation = debugValidateLine(line, {
@@ -685,86 +693,60 @@ Generate exactly 4 lines:`;
         });
         
         if (validation.ok) {
-          candidates.push({
+          newValidLines.push({
             line: line,
-            comedian: selectedComedians[i] || selectedComedians[0] // Always use a comedian, never "AI Assist"
+            comedian: selectedComedians[slotIndex] || selectedComedians[0]
           });
-          console.log(`✅ Line ${i+1} PASSED (${payload.tone}): "${line.substring(0, 60)}..."`);
+          console.log(`✅ Slot ${slotIndex + 1} FILLED (${payload.tone}): "${line.substring(0, 60)}..."`);
         } else {
           detailedFailures.push({
-            index: i,
+            attempt,
+            slotIndex,
             line: line.substring(0, 80) + '...',
             reason: validation.reason,
             details: validation.details,
             fullLine: line,
             tone: payload.tone
           });
-          console.log(`❌ Line ${i+1} FAILED (${validation.reason}) for ${payload.tone} tone: "${line.substring(0, 60)}..."`);
+          console.log(`❌ Slot ${slotIndex + 1} FAILED (${validation.reason}) for ${payload.tone} tone: "${line.substring(0, 60)}..."`);
           if (validation.details) {
             console.log(`   Details:`, validation.details);
           }
         }
       }
       
-      console.log(`📊 Attempt ${attempt + 1}: Got ${candidates.length} valid out of 4 lines using ${payload.tone} tone`);
+      // Add the new valid lines to our collection
+      validLines.push(...newValidLines);
       
-      // Success condition: exactly 4 valid lines
-      if (candidates.length === 4) {
-        console.log(`🎉 All lines passed validation for ${payload.tone} tone! Returning 4 valid lines.`);
-        return candidates;
+      console.log(`📊 Attempt ${attempt + 1}: Now have ${validLines.length}/${totalNeeded} valid slots`);
+      
+      // If we have all 4, we're done!
+      if (validLines.length >= totalNeeded) {
+        console.log(`🎉 All slots filled! Returning ${totalNeeded} valid lines.`);
+        return validLines.slice(0, totalNeeded);
       }
       
-      // If this is our last attempt, check if we have any valid lines to return
-      if (attempt === maxRetries - 1) {
-        // If we have at least 1-2 valid lines, return them with an explanation
-        if (candidates.length >= 1) {
-          console.log(`🔄 Returning ${candidates.length} partial results instead of complete failure`);
+      // If this is our last attempt and we have some lines, pad with fallbacks
+      if (attempt === maxRetries - 1 && validLines.length >= 1) {
+        console.log(`🔄 Last attempt: padding ${totalNeeded - validLines.length} missing slots with fallbacks`);
+        
+        while (validLines.length < totalNeeded) {
+          const slotIndex = validLines.length;
+          const fallbackComedian = selectedComedians[slotIndex] || selectedComedians[0];
+          const fallbackLine = subcategory === 'wedding' 
+            ? "Wedding bells rang louder than my objections." 
+            : subcategory === 'birthday'
+            ? "Another year older and still avoiding the scale."
+            : "Life happens one awkward moment at a time.";
           
-          // Pad with simplified versions if we have some but not 4
-          while (candidates.length < 4) {
-            // Generate a simple fallback line
-            const fallbackComedian = selectedComedians[candidates.length] || selectedComedians[0];
-            const fallbackLine = subcategory === 'wedding' 
-              ? "Wedding bells rang louder than my objections." 
-              : subcategory === 'birthday'
-              ? "Another year older and still avoiding the scale."
-              : "Life happens one awkward moment at a time.";
-            
-            candidates.push({
-              line: fallbackLine,
-              comedian: fallbackComedian
-            });
-          }
-          
-          return candidates;
+          validLines.push({
+            line: fallbackLine,
+            comedian: fallbackComedian
+          });
         }
         
-        const toneAdvice = {
-          'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
-          'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
-          'romantic': 'Try "witty" or "playful" tone for less wordy output',
-          'playful': 'Try "witty" or "dry" tone for more structured humor'
-        };
-        
-        const suggestion = toneAdvice[payload.tone?.toLowerCase()] || 'Try a different tone like "playful" or "witty"';
-        
-        const errorDetails = {
-          validLines: candidates.length,
-          totalRequested: 4,
-          tone: payload.tone,
-          suggestion,
-          detailedFailures
-        };
-        
-        console.log(`💥 Final attempt failed for ${payload.tone} tone. Suggestion: ${suggestion}`);
-        console.log(`🔍 Full debug info:`, JSON.stringify(errorDetails, null, 2));
-        
-        throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
+        return validLines;
       }
-      
-      // Continue to next attempt with more relaxed config
-      console.log(`⏳ Waiting ${300 + attempt * 100}ms before retry with relaxed config...`);
-      await new Promise(resolve => setTimeout(resolve, 300 + attempt * 100));
       
     } catch (error) {
       console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
@@ -787,12 +769,34 @@ Generate exactly 4 lines:`;
       }
     }
     
-    // Wait before retry with jitter
+    // Wait before retry with jitter for slots that still need filling
     if (attempt < maxRetries - 1) {
-      const delay = 1000 + Math.random() * 2000; // 1-3 second jitter
-      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
+      const delay = 300 + Math.random() * 700; // Shorter delay for slot retries
+      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry (${validLines.length}/${totalNeeded} slots filled)...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
+  }
+  
+  // Final fallback: if we have any valid lines, use them and throw descriptive error
+  if (validLines.length > 0) {
+    const toneAdvice = {
+      'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
+      'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
+      'romantic': 'Try "witty" or "playful" tone for less wordy output',
+      'humorous': 'Try simpler tones like "playful" or "witty" for shorter sentences'
+    };
+    
+    const suggestion = toneAdvice[payload.tone?.toLowerCase()] || 'Try a different tone like "playful" or "witty"';
+    
+    const errorDetails = {
+      validLines: validLines.length,
+      totalRequested: totalNeeded,
+      tone: payload.tone,
+      suggestion,
+      partialResults: validLines
+    };
+    
+    throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
   }
   
   throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
