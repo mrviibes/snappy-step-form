@@ -369,8 +369,6 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  const topP = 0.85 + Math.random() * 0.1; // 0.85 to 0.95
-  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -383,7 +381,6 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      top_p: topP,
       max_completion_tokens: 150
     }),
   });
