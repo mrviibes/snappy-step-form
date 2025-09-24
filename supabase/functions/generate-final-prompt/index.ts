@@ -131,14 +131,14 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     }
   };
 
-  // Simplified layout instructions (much shorter)
+  // Layout mappings with better text control
   const layoutMap: Record<string, string> = {
     "meme-text": "top and bottom text banners",
-    "lower-banner": "lower third text banner at bottom", 
-    "side-bar": "text sidebar on left or right",
-    "badge-callout": "decorative badge or callout bubble",
-    "subtle-caption": "subtle caption integrated into scene",
-    "negative-space": "text in empty space areas"
+    "lower-banner": "lower third banner at bottom, text only in margin", 
+    "side-bar": "left sidebar banner, text only in margin, not over props",
+    "badge-callout": "decorative badge or callout bubble with clear background",
+    "subtle-caption": "single caption strip below subject",
+    "negative-space": "text in empty space areas with high contrast"
   };
 
   // Dimension specs
@@ -164,12 +164,12 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const dimensionDesc = dimensionMap[dimension.toLowerCase()] || "square aspect ratio";
   const moodDesc = toneMap[tone.toLowerCase()] || "appropriate mood";
 
-  // Enhanced negative prompt with strong text safety
+  // Enhanced negative prompt with overlay text safety
   const enhancedNegatives = [
     ...styleGuide.negative,
     "extra text", "missing text", "misplaced text", "duplicate text", 
-    "distorted font", "unreadable text", "watermarks", "low resolution",
-    "cluttered background", "amateur quality", "poor composition"
+    "distorted font", "low contrast text", "text overlapping props", 
+    "watermarks", "low resolution", "cluttered background", "amateur quality", "poor composition"
   ];
 
   // Generate 4 templates with improved structure
@@ -277,7 +277,37 @@ function getCategoryContext(props: string[], variation: string): string {
   return contexts[variation] || `${variation} with ${mainProps}`;
 }
 
-// Build optimized prompt with clean structure
+// Enhanced overlay manager for better text placement
+function buildOverlayBlock(text: string, layoutDesc: string, maxCharsPerLine = 35) {
+  let clean = text.trim().replace(/\s+/g, " ");
+  const words = clean.split(" ");
+  let lines: string[] = [];
+  let current = "";
+
+  for (const w of words) {
+    if ((current + " " + w).trim().length > maxCharsPerLine) {
+      lines.push(current.trim());
+      current = w;
+    } else {
+      current += " " + w;
+    }
+  }
+  if (current) lines.push(current.trim());
+
+  const wrappedText = lines.join("\\n");
+
+  const overlayContract = `MANDATORY: Place exact overlay text once in ${layoutDesc}.
+Text: "${wrappedText}"
+Bold, highly readable font, high contrast, no duplicate text, spelling must be perfect.
+Text must occupy ≤25% of frame.`.trim();
+
+  const overlayBans = `extra text, missing text, misplaced text, duplicate text, distorted font,
+low contrast text, text overlapping props, watermarks, cluttered background`.trim();
+
+  return { overlayContract, overlayBans };
+}
+
+// Build optimized prompt with enhanced overlay management
 function buildOptimizedPrompt(opts: {
   finalText: string;
   layoutDesc: string; 
@@ -289,11 +319,13 @@ function buildOptimizedPrompt(opts: {
 }): string {
   const { finalText, layoutDesc, dimensionDesc, styleDesc, variation, categoryContext, moodDesc } = opts;
   
-  return `MANDATORY: Overlay exact text once in ${layoutDesc}.
-Text: "${finalText}"
-Bold, readable font. No duplicate text, spelling must be perfect.
-—
+  const { overlayContract, overlayBans } = buildOverlayBlock(finalText, layoutDesc);
+  
+  const positivePrompt = `${overlayContract}
+
 ${dimensionDesc}, ${styleDesc}, ${variation} composition.
 Scene: ${categoryContext}.
 ${moodDesc}, professional quality, detailed textures, natural lighting.`.trim();
+
+  return positivePrompt;
 }
