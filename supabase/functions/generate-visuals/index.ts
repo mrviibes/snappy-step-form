@@ -45,7 +45,7 @@ interface GenerateVisualsParams {
 
 interface GenerateVisualsResponse {
   success: boolean
-  visuals: string[]
+  visuals: { description: string }[]
   model: string
   debug?: {
     lengths: number[]
@@ -164,7 +164,7 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;
 
     return {
       success: true,
-      visuals: scenes,
+      visuals: scenes.map((scene: string) => ({ description: scene })),
       model,
       debug: {
         lengths,

@@ -165,8 +165,11 @@ export default function VisualsStep({
         insertedVisuals: data.visuals?.insertedVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
+      console.log('🎨 Generating visuals with params:', params);
       const visuals = await generateVisualOptions(params);
+      console.log('📥 Received visuals from API:', visuals);
       setGeneratedVisuals(visuals);
+      console.log('💾 Set generatedVisuals to:', visuals);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
       setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
