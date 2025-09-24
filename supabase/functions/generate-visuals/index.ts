@@ -700,12 +700,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
 }
 
 // Enhanced OpenAI call with timeout and retry
-async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, maxRetries: number = 2): Promise<string> {
+async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, maxRetries: number = 3): Promise<string> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       console.log(`🎯 Visual API attempt ${attempt + 1}/${maxRetries}`);
       
-      const result = await withTimeout(callOpenAI(systemPrompt, userPrompt), 18000); // 18s timeout
+      // Reduced timeout for faster failure and retry
+      const result = await withTimeout(callOpenAI(systemPrompt, userPrompt), 12000); // 12s timeout
       
       if (result && result.trim().length > 10) {
         console.log(`✅ Visual API succeeded on attempt ${attempt + 1}`);
@@ -721,14 +722,15 @@ async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, max
       console.log(`❌ Visual API attempt ${attempt + 1} failed: ${errorMessage}`);
       
       if (isLastAttempt) {
+        // Don't throw timeout errors - let the caller handle gracefully
         if (errorMessage === 'timeout_exceeded') {
-          throw new Error('Visual generation timed out after multiple attempts');
+          console.log('💡 All attempts timed out, caller will use fallbacks');
         }
         throw error;
       }
       
-      // Wait before retry with jitter
-      const delay = 300 + Math.random() * 500 + (attempt * 1000);
+      // Faster retry with reduced delay
+      const delay = 200 + Math.random() * 300 + (attempt * 500);
       console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -831,12 +833,15 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
     } catch (parseError) {
       console.error('❌ JSON parse failed:', parseError.message)
       console.log('📄 Raw response:', rawResponse.substring(0, 500))
-      throw new Error('Invalid JSON response from visual generation API')
+      // Don't throw - fall back to emergency visuals
+      console.log('🚨 JSON parsing failed, using emergency fallback visuals...')
+      return createFallbackVisuals(params, expectedStyle, allProps)
     }
     
     // Validate and process visuals
     if (!parsed.visuals || !Array.isArray(parsed.visuals)) {
-      throw new Error('Response missing visuals array')
+      console.log('🚨 Invalid response structure, using emergency fallback visuals...')
+      return createFallbackVisuals(params, expectedStyle, allProps)
     }
     
     console.log(`🔍 Processing ${parsed.visuals.length} visual candidates...`)
@@ -860,18 +865,29 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
       }
     }
     
-    // Return results (even if not perfect 6)
-    if (validVisuals.length >= 4) {
+    // Return results (even if not perfect 6, but ensure we have at least something)
+    if (validVisuals.length >= 2) {
       console.log(`🎉 Generated ${validVisuals.length} valid visuals with modes: [${[...usedInterpretations].join(', ')}]`)
+      
+      // If we have some but not enough, fill with fallbacks
+      if (validVisuals.length < 6) {
+        const fallbacks = createFallbackVisuals(params, expectedStyle, allProps)
+        const remainingSlots = 6 - validVisuals.length
+        validVisuals.push(...fallbacks.slice(0, remainingSlots))
+        console.log(`🔧 Topped up with ${remainingSlots} fallback visuals`)
+      }
+      
       return validVisuals.slice(0, 6)
     }
     
-    throw new Error(`Only generated ${validVisuals.length} valid visuals, need at least 4`)
+    // If we got fewer than 2 valid visuals, use fallbacks
+    console.log(`🚨 Only got ${validVisuals.length} valid visuals, using emergency fallback visuals...`)
+    return createFallbackVisuals(params, expectedStyle, allProps)
     
   } catch (error) {
     console.error('💥 Visual generation failed:', error.message)
     
-    // Return fast fallback visuals to prevent timeout
+    // Always return fallback visuals instead of throwing
     console.log('🚨 Using emergency fallback visuals...')
     return createFallbackVisuals(params, expectedStyle, allProps)
   }
