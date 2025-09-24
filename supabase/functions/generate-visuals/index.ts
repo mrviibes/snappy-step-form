@@ -316,12 +316,11 @@ function extractVisualElements(text: string, category: string, insertWords: stri
            word.length <= 6 && /^[A-Z][a-z]+$/.test(text.split(/\W+/).find(w => w.toLowerCase() === word) || '')  // Proper names like "Jesse"
   })
   
-  // Get category-specific props
-  const categoryKey = category.toLowerCase().replace(/\s+/g, '-')
-  const categoryLexicon = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
+  // Get category-specific props (reuse categoryKey from line 218)
+  const categoryLexicon2 = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
   
   // Enhanced category props that appear in text or are contextually relevant
-  const categoryProps = categoryLexicon.filter(prop => 
+  const categoryProps = categoryLexicon2.filter(prop => 
     text.toLowerCase().includes(prop) || 
     meaningfulWords.some(word => word.includes(prop.substring(0, 3)))
   )
