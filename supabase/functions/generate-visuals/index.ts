@@ -190,175 +190,154 @@ interface GenerateVisualsResponse {
   error?: string
 }
 
-// Enhanced visual prop extraction that pulls context directly from Step-2 text
-function extractVisualElements(text: string, category: string, insertWords: string[] = []): {
-  textProps: string[], 
-  categoryProps: string[], 
-  allProps: string[],
-  mood: string[],
-  actions: string[],
-  nouns: string[],
-  verbs: string[],
-  settings: string[],
-  people: string[]
-} {
-  const words = text.toLowerCase().split(/\W+/).filter(word => word.length > 2)
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'just', 'called', 'it', 'is', 'was', 'are', 'were', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'might', 'must', 'can', 'do', 'did', 'does', 'get', 'got', 'been', 'being', 'well', 'now', 'then', 'here', 'there', 'this', 'that', 'these', 'those', 'like', 'than', 'more', 'most', 'some', 'much', 'many', 'all', 'any', 'when', 'who', 'what', 'where', 'why', 'how'])
-  
-  // Extract meaningful words
-  const meaningfulWords = words.filter(word => 
-    !stopWords.has(word) && 
-    !/^\d+$/.test(word) && 
-    word.length > 2
-  )
-  
-  // Extract specific types of visual elements from the joke text
-  
-  // Get category-specific props first, then fall back to common arrays
-  const categoryKey = category.toLowerCase().replace(/\s+/g, '-')
-  const categoryLexicon = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
-  
-  // NOUNS (things that can be visualized) - enhanced with all categories
-  const visualNouns = meaningfulWords.filter(word => {
-    // Check category lexicon first
-    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
-      return true
-    }
-    
-    const objectWords = [
-      // Graduation
-      'cap', 'gown', 'diploma', 'degree', 'certificate', 'tassel', 'mortarboard',
-      // Wedding  
-      'dress', 'suit', 'ring', 'bouquet', 'veil', 'tuxedo', 'cake', 'flower',
-      // Birthday
-      'cake', 'candle', 'balloon', 'gift', 'present', 'hat', 'party',
-      // Sports/NASCAR
-      'car', 'beer', 'cup', 'flag', 'track', 'pit', 'crew', 'wheels', 'helmet', 'engine', 'trophy', 'uniform',
-      // Work/Dating
-      'desk', 'computer', 'laptop', 'phone', 'table', 'chair', 'microphone', 'stage', 'camera',
-      // General objects
-      'glasses', 'shirt', 'costume', 'outfit', 'sign', 'banner', 'tent', 'cooler', 'grill',
-      'soda', 'hotdog', 'nachos', 'popcorn', 'pretzel', 'barbecue'
-    ]
-    return objectWords.some(obj => word.includes(obj.substring(0, 3)) || obj.includes(word))
-  })
-  
-  // VERBS/ACTIONS (what's happening in the joke) - enhanced with all categories
-  const actionVerbs = meaningfulWords.filter(word => {
-    // Check category lexicon first
-    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
-      return true
-    }
-    
-    const actionWords = [
-      // Graduation actions
-      'graduate', 'graduating', 'march', 'receive', 'earn', 'achieve', 'study', 'learn', 'thought', 'wielding',
-      // Wedding actions
-      'marry', 'wed', 'kiss', 'dance', 'vow', 'exchange', 'celebrate',
-      // Birthday actions
-      'blow', 'wish', 'unwrap', 'surprise', 'sing',
-      // Sports/NASCAR actions
-      'drink', 'drinking', 'sip', 'chug', 'pour', 'spill', 'race', 'racing', 'drive', 'driving', 
-      'crash', 'speed', 'brake', 'turn', 'lap', 'qualify', 'finish', 'win', 'lose', 'dribble',
-      // General actions
-      'cheer', 'shout', 'wave', 'party', 'tailgate', 'grill', 'cook', 'eat', 'laugh', 'smile',
-      'dance', 'sing', 'fall', 'trip', 'stumble', 'run', 'walk', 'sit', 'stand', 'jump', 'climb',
-      'lean', 'point', 'grab', 'hold', 'carry', 'throw', 'catch', 'text', 'call', 'work', 'help'
-    ]
-    return actionWords.some(action => word.includes(action.substring(0, 4)) || action.includes(word))
-  })
-  
-  // SETTINGS/PLACES (where the joke takes place) - enhanced with all categories
-  const settingWords = meaningfulWords.filter(word => {
-    // Check category lexicon first
-    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
-      return true
-    }
-    
-    const placeWords = [
-      // Graduation settings
-      'ceremony', 'auditorium', 'campus', 'commencement', 'hall', 'classroom', 'university', 'college', 'school', 'stage',
-      // Wedding settings
-      'church', 'chapel', 'altar', 'aisle', 'reception', 'venue',
-      // Birthday settings
-      'party', 'home', 'restaurant',
-      // Sports/NASCAR settings
-      'track', 'speedway', 'infield', 'stands', 'garage', 'pit', 'lane', 'victory', 'circle', 'parking', 'lot',
-      'tailgate', 'area', 'grandstand', 'paddock', 'concession', 'entrance', 'exit',
-      // General settings
-      'office', 'desk', 'meeting', 'hotel', 'bar', 'pub', 'club', 'store', 'shop', 'museum',
-      'tent', 'trailer', 'motorhome', 'campground', 'play'
-    ]
-    return placeWords.some(place => word.includes(place.substring(0, 3)) || place.includes(word))
-  })
-  
-  // PEOPLE (characters in the joke) - enhanced with all categories
-  const peopleWords = meaningfulWords.filter(word => {
-    // Check category lexicon first for people terms
-    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
-      return true
-    }
-    
-    const personWords = [
-      // Education people
-      'graduate', 'student', 'professor', 'dean', 'valedictorian',
-      // Wedding people
-      'bride', 'groom', 'minister', 'priest', 'guest',
-      // Sports/NASCAR people
-      'driver', 'fan', 'crew', 'chief', 'mechanic', 'engineer', 'spotter', 'owner', 'sponsor',
-      'announcer', 'reporter', 'official', 'marshal', 'flagman', 'vendor', 'spectator',
-      // General people
-      'security', 'usher', 'photographer', 'cameraman', 'boss', 'colleague', 'client',
-      'expert', 'legend', 'rookie', 'veteran', 'champion', 'winner', 'loser', 'competitor',
-      'participant', 'attendee', 'guest', 'family', 'friend', 'mom', 'dad', 'sister', 'brother'
-    ]
-    return personWords.some(person => word.includes(person.substring(0, 4)) || person.includes(word)) ||
-           word.length <= 6 && /^[A-Z][a-z]+$/.test(text.split(/\W+/).find(w => w.toLowerCase() === word) || '')  // Proper names like "Jesse"
-  })
-  
-  // Get category-specific props (reuse categoryKey from line 218)
-  const categoryLexicon2 = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
-  
-  // Enhanced category props that appear in text or are contextually relevant
-  const categoryProps = categoryLexicon2.filter(prop => 
-    text.toLowerCase().includes(prop) || 
-    meaningfulWords.some(word => word.includes(prop.substring(0, 3)))
-  )
-  
-  // NASCAR-specific enhancements
-  if (category.toLowerCase().includes('nascar') || text.toLowerCase().includes('nascar')) {
-    visualNouns.push(...['car', 'flag', 'track', 'pit', 'crew', 'helmet', 'beer', 'cup'].filter(item => !visualNouns.includes(item)))
-    actionVerbs.push(...['race', 'drink', 'cheer', 'wave'].filter(item => !actionVerbs.includes(item)))
-    settingWords.push(...['track', 'infield', 'stands', 'pit'].filter(item => !settingWords.includes(item)))
+// ============= VIIBE GENERATOR STEP-3 IMPLEMENTATION (SIMPLIFIED) =============
+
+// Prop extractor - simplified and more reliable
+function extractProps(text: string, max = 8): string[] {
+  // naive noun/verb tokenization that works well enough
+  const words = text
+    .toLowerCase()
+    .replace(/["""'']/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const STOP = new Set([
+    "the","a","an","and","or","but","if","then","so","to","of","in","on","for",
+    "with","at","by","as","it","is","was","are","be","this","that","these","those",
+    "i","you","he","she","they","we","me","him","her","them","my","your","his","her","their",
+    "why","did","get","got","do","does","didn","t","than"
+  ]);
+
+  // crude POS-ish pick based on suffixes and length
+  const candidates = words.filter(w => w.length > 2 && !STOP.has(w));
+  const uniq: string[] = [];
+  for (const w of candidates) {
+    if (!uniq.includes(w)) uniq.push(w);
   }
+  return uniq.slice(0, max);
+}
+
+// Style-aware negative builder
+const STYLE_BANS: Record<string, string[]> = {
+  'Realistic': ["cartoon","anime","illustration","vector","cgi","3d render"],
+  'Design': ["photoreal","realistic photo","realistic photography","cgi","3d render"],
+  '3D Render': ["hand drawn","sketch","anime","manga","vector","flat illustration"],
+  'Anime': ["photoreal","realistic photo","3d render","cgi","live action"],
+  'General': [],
+  'Auto': []
+};
+
+function buildNegatives(style: string): string {
+  const bans = STYLE_BANS[style] || [];
+  const textSafety = [
+    "extra text","missing text","misplaced text","duplicate text",
+    "distorted font","low contrast text","text overlapping props",
+    "watermarks","low resolution","cluttered background","poor composition"
+  ];
+  return [...bans, ...textSafety].join(", ");
+}
+
+// Visual concepts builder
+type Variation = "Cinematic" | "Close-up" | "Crowd" | "Minimalist" | "Exaggerated" | "Goofy";
+
+function pick<T>(arr: T[], n: number): T[] {
+  const out: T[] = [];
+  for (const x of arr) if (out.length < n) out.push(x);
+  return out;
+}
+
+function dedupeWords(...lists: string[][]): string[][] {
+  const seen = new Set<string>();
+  return lists.map(list => list.filter(w => !seen.has(w) && seen.add(w)));
+}
+
+function buildVisualConcepts(
+  text: string,
+  style: string,
+  dimension: "Square" | "Portrait" | "Landscape",
+  category: string
+): { variation: Variation; description: string }[] {
+  // 1) extract props
+  const props = extractProps(text);
   
-  // Combine all props, prioritizing insert words, then text-extracted elements
-  const allProps = [
-    ...insertWords.filter(word => word.trim().length > 0),
-    ...visualNouns.slice(0, 3),
-    ...actionVerbs.slice(0, 2),
-    ...settingWords.slice(0, 2),
-    ...peopleWords.slice(0, 2),
-    ...categoryProps.slice(0, 2)
-  ].filter((prop, index, arr) => arr.indexOf(prop) === index).slice(0, 8)
+  // ensure at least some anchors for common joke cases
+  const fallbackAnchors: Record<string, string[]> = {
+    "jokes": ["road","sign","wordplay","crossing","stage","audience"],
+    "celebrations": ["cake","candles","balloons","party"],
+    "graduation": ["cap","gown","diploma","ceremony"],
+    "wedding": ["rings","vows","altar","reception"],
+    "sports": ["field","game","player","team"],
+    "work": ["office","desk","meeting","computer"]
+  };
   
-  // Extract mood/emotion words
-  const moodWords = meaningfulWords.filter(word => {
-    const emotions = ['funny', 'hilarious', 'amusing', 'silly', 'ridiculous', 'absurd', 'crazy', 'wild', 'chaotic', 'messy', 'clumsy', 'awkward', 'embarrassing', 'proud', 'confident', 'nervous', 'excited', 'happy', 'sad', 'angry', 'surprised', 'shocked', 'confused', 'worried', 'calm', 'relaxed']
-    return emotions.some(e => word.includes(e.substring(0, 4)) || e.includes(word))
-  })
+  const categoryKey = category.split(':')[0] || category.toLowerCase();
+  const bank = props.length ? props : (fallbackAnchors[categoryKey] || ["stage","audience","sign"]);
   
-  return {
-    textProps: [...visualNouns, ...actionVerbs].slice(0, 6),
-    categoryProps: categoryProps.slice(0, 3), 
-    allProps,
-    mood: moodWords.slice(0, 3),
-    actions: actionVerbs.slice(0, 4),
-    nouns: visualNouns.slice(0, 6),
-    verbs: actionVerbs.slice(0, 4),
-    settings: settingWords.slice(0, 3),
-    people: [...peopleWords, ...insertWords.filter(word => /^[A-Z]/.test(word))].slice(0, 3)
-  }
+  const [a, b, c, d, e, f] = dedupeWords(
+    pick(bank, 2), 
+    pick(bank.slice(2), 2), 
+    pick(bank.slice(4), 2), 
+    pick(bank.slice(6), 2), 
+    pick(bank.slice(8), 1), 
+    pick(bank.slice(9), 1)
+  );
+
+  // 2) compose variation descriptions with different prop focus
+  const concepts: { variation: Variation; description: string }[] = [
+    {
+      variation: "Cinematic",
+      description: `Wide ${dimension.toLowerCase()} scene, ${a.join(" and ")} visible, playful humor, cinematic framing.`
+    },
+    {
+      variation: "Close-up",
+      description: `Close-up of ${b.join(" and ")}, shallow focus, detailed textures, intimate view.`
+    },
+    {
+      variation: "Crowd",
+      description: `Group reaction to ${c.join(" and ")}, candid laughter, expressive faces, lively atmosphere.`
+    },
+    {
+      variation: "Minimalist",
+      description: `Minimal composition with a single ${d[0] || bank[0]}, clean background, strong lighting, negative space.`
+    },
+    {
+      variation: "Exaggerated",
+      description: `Comically oversized ${e[0] || bank[1]} beside a tiny ${f[0] || bank[2]}, absurd scale, playful gag.`
+    },
+    {
+      variation: "Goofy",
+      description: `Slapstick moment involving ${a[0] || bank[0]}, chaotic but funny energy, quick action beat.`
+    }
+  ];
+
+  // 3) filter to 4 by default, or keep 6 if you want the extended set
+  return concepts.slice(0, 6);
+}
+
+// Build final image prompts
+function buildFinalImagePrompts(
+  text: string,
+  style: "Realistic"|"Design"|"3D Render"|"Anime"|"General"|"Auto",
+  dimension: "Square"|"Portrait"|"Landscape",
+  categoryKey: string
+): VisualRecommendation[] {
+  const concepts = buildVisualConcepts(text, style, dimension, categoryKey);
+  const negatives = buildNegatives(style);
+
+  const aspect = dimension === "Square" ? "1:1" : dimension === "Portrait" ? "9:16" : "16:9";
+
+  return concepts.map((c, index) => ({
+    visualStyle: style,
+    layout: layouts[index % layouts.length],
+    description: `${dimension.toLowerCase()} ${style.toLowerCase()} style. ${c.description}`,
+    props: extractProps(text).slice(0, 3),
+    interpretation: c.variation.toLowerCase().replace(' ', '-'),
+    mood: 'humorous',
+    palette: ['vibrant'],
+    negativePrompt: negatives,
+    aspect
+  }));
 }
 
 // Style variation synonyms to prevent repetition
@@ -434,36 +413,6 @@ function extractJokeContext(text: string, elements: any): any {
     emotion: detectedEmotion,
     props: [...objects, ...actions].slice(0, 4)
   }
-}
-
-// Enhanced prop extraction focused on joke-specific elements
-function extractJokeProps(jokeText: string): string[] {
-  const text = jokeText.toLowerCase();
-  const props: string[] = [];
-  
-  // Extract key nouns from common joke patterns
-  const nounPatterns = [
-    // Objects and things
-    /\b(chicken|road|duck|cat|dog|bird|fish|tree|car|house|door|window|phone|computer|book|chair|table|bed|kitchen|bathroom|office|school|park|store|restaurant|hospital|beach|mountain|river|ocean|side|pun|joke|sign|crossing|street|path)\b/g,
-    // People and characters
-    /\b(dad|mom|wife|husband|kid|child|baby|friend|neighbor|boss|teacher|doctor|lawyer|chef|waiter|driver|pilot|person|people|character)\b/g,
-    // Actions as nouns (gerunds)
-    /\b(crossing|walking|running|jumping|flying|swimming|driving|eating|drinking|sleeping|working|playing|laughing|crying|singing|dancing|cooking|cleaning|reading|writing|thinking)\b/g,
-    // Settings and places
-    /\b(office|home|restaurant|bar|club|store|shop|museum|school|hospital|park|beach|mountain|field|track|stage|room|kitchen|bathroom|garage|basement|attic)\b/g
-  ];
-  
-  nounPatterns.forEach(pattern => {
-    const matches = text.match(pattern);
-    if (matches) props.push(...matches);
-  });
-  
-  // Extract action verbs
-  const verbMatches = text.match(/\b(cross|walk|run|jump|fly|swim|drive|eat|drink|sleep|work|play|laugh|cry|sing|dance|cook|clean|read|write|think|speak|listen|watch|see|hear|feel|smell|taste)\w*\b/g);
-  if (verbMatches) props.push(...verbMatches);
-  
-  // Remove duplicates and return up to 8 props
-  return [...new Set(props)].slice(0, 8);
 }
 
 // Template-based visual concept builder that distributes props across variations
@@ -548,6 +497,33 @@ function buildJokeAwareVisualConcepts(jokeText: string, extractedProps: string[]
   });
   
   return concepts;
+}
+
+// Extract joke-specific props
+function extractJokeProps(jokeText: string): string[] {
+  return extractProps(jokeText, 8);
+}
+
+// Extract visual elements from text
+function extractVisualElements(text: string, category: string, insertWords?: string[]): any {
+  const props = extractProps(text);
+  const words = text.toLowerCase().split(/\s+/);
+  
+  // Simple categorization
+  const nouns = props.filter(p => !p.includes('ing') && p.length > 2);
+  const verbs = props.filter(p => p.includes('ing') || ['cross', 'walk', 'run', 'drive', 'grill', 'cook'].includes(p));
+  const settings = words.filter(w => ['road', 'office', 'restaurant', 'park', 'field', 'kitchen', 'room', 'stage'].includes(w));
+  const people = words.filter(w => ['dad', 'person', 'people', 'character', 'man', 'woman'].includes(w));
+  
+  return {
+    nouns,
+    verbs,
+    settings,
+    people,
+    allProps: props,
+    mood: ['humorous'],
+    actions: verbs
+  };
 }
 
 // Updated buildSixVariedConcepts to use the new joke-aware approach
@@ -1178,6 +1154,11 @@ async function generateVisualRecommendations(params: GenerateVisualsParams): Pro
       mood: moodKeywords
     }
   })
+}
+
+// Build visual prompt function (placeholder for compatibility)
+function buildVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
+  return buildEnhancedVisualPrompt(params);
 }
 
 // Main handler
