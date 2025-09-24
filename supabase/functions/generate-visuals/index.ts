@@ -323,7 +323,7 @@ Each 20-30 words, ${selectedStyle.name.toLowerCase()} style.`
   return { system, user }
 }
 
-// Enhanced visual prompt builder using Step-3 template approach
+// Enhanced visual prompt builder using Step-3 template approach with joke element integration
 function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
   const { 
     finalText, 
@@ -350,36 +350,51 @@ function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: str
   const mainActions = verbs.slice(0, 2).join(', ') || 'action'
   const mainSetting = settings[0] || category.split('>').pop()?.trim() || 'setting'
   const mainPeople = people.slice(0, 2).join(', ') || 'people'
+  
+  // Create joke-specific visual concepts for each mode
+  const jokeElements = {
+    props: nouns.slice(0, 4),
+    actions: verbs.slice(0, 3), 
+    setting: settings[0] || mainSetting,
+    people: people.slice(0, 2),
+    mood: mood.slice(0, 2)
+  }
 
-  const system = `You are a Step-3 Visual Concept Generator that creates exactly 6 visual interpretations by parsing Step-2 joke content.
+  const system = `You are a Step-3 Visual Concept Generator that creates exactly 6 visual interpretations by extracting elements directly from the Step-2 joke text.
 
-CRITICAL STEP-3 TEMPLATE RULES:
-1. Parse the Step-2 text for NOUNS (props): ${nouns.join(', ')}
-2. Parse the Step-2 text for VERBS (actions): ${verbs.join(', ')}  
-3. Parse the Step-2 text for SETTINGS: ${settings.join(', ')}
-4. Parse the Step-2 text for PEOPLE: ${people.join(', ')}
-5. Apply these parsed elements across the 6 visual modes
-6. NEVER default to generic "celebration" language
-7. ALWAYS pull context directly from: "${finalText}"
+CRITICAL JOKE ELEMENT EXTRACTION from "${finalText}":
+- NOUNS (props to show): ${jokeElements.props.join(', ') || 'extracted from context'}
+- VERBS (actions happening): ${jokeElements.actions.join(', ') || 'extracted from context'}  
+- SETTING (where it happens): ${jokeElements.setting}
+- PEOPLE (who's involved): ${jokeElements.people.join(', ') || 'extracted from context'}
+- MOOD (emotional context): ${jokeElements.mood.join(', ') || 'humorous'}
 
-THE 6 OFFICIAL VISUAL MODES:
-1. CINEMATIC (Wide): Wide shot of [setting], [props] in view, [action] happening, dramatic lighting
-2. CLOSE-UP (Detail): Close-up of [main prop/person], [action implied], shallow depth of field  
-3. CROWD REACTION (Group): Group scene with [people], [reaction to prop/action], expressive faces
-4. MINIMALIST (Simple): Single [prop], clean background, negative space, focus on humor
-5. EXAGGERATED: Cartoonish proportions, [prop] oversized, people distorted comically
-6. GOOFY: Slapstick setup, [prop] misplaced, people mid-fail, chaotic humor
+THE 6 OFFICIAL VISUAL MODES must integrate these joke elements:
 
-PARSED ELEMENTS FROM "${finalText}":
-- Props to use: ${mainProps}
-- Actions happening: ${mainActions}  
-- Setting context: ${mainSetting}
-- People involved: ${mainPeople}
+1. CINEMATIC (Wide): Wide shot of [joke setting] with [joke props] visible, [joke people] doing [joke actions], dramatic framing that captures the full joke scenario
+
+2. CLOSE-UP (Detail): Intimate close-up of [main joke prop] while [joke action] is happening, shallow focus emphasizing the humor element from the text
+
+3. CROWD REACTION (Group): [Joke people] and others reacting to [joke scenario], group expressions responding to the specific humor in the text
+
+4. MINIMALIST (Simple): Single [main joke prop] representing the core humor from "${finalText}", clean background, symbolic of the joke's punchline
+
+5. EXAGGERATED (Cartoon): [Joke props] comically oversized, [joke people] with exaggerated proportions, emphasizing the absurdity of [joke actions]
+
+6. GOOFY (Absurd): [Joke people] mid-[joke actions] with [joke props] in ridiculous positions, capturing peak comedic chaos from the joke scenario
 
 Style: ${selectedStyle.name} - ${selectedStyle.description}
 ${bannedTerms}
 Mood: ${visualMood}
 Rating guidance: ${styleMood}
+
+MANDATORY REQUIREMENTS:
+- Each description must reference specific elements from: "${finalText}"
+- NO generic "celebration" or "basketball players" - use the actual joke elements
+- Include the extracted props: ${jokeElements.props.join(', ')}
+- Show the extracted actions: ${jokeElements.actions.join(', ')}
+- Feature the extracted people: ${jokeElements.people.join(', ')}
+- Set in the extracted setting: ${jokeElements.setting}
 
 OUTPUT FORMAT (JSON only):
 {
@@ -387,53 +402,53 @@ OUTPUT FORMAT (JSON only):
     {
       "visualStyle": "${selectedStyle.name}",
       "layout": "layout-type",
-      "description": "20-35 word description using specific props and actions from the joke text", 
-      "props": ["specific", "props", "from", "text"],
+      "description": "20-35 word description using SPECIFIC joke elements, NOT generic concepts", 
+      "props": ["specific", "elements", "from", "joke", "text"],
       "interpretation": "cinematic/close-up/crowd-reaction/minimalist/exaggerated-proportions/goofy-absurd",
-      "mood": "mood based on joke context"
+      "mood": "mood reflecting the specific joke context"
     }
   ]
 }`
 
   const user = `STEP-2 JOKE TEXT: "${finalText}"
 
-PARSED CONTEXT FROM THE JOKE:
-- Main props (nouns): ${mainProps}
-- Actions (verbs): ${mainActions}
-- Setting: ${mainSetting}  
-- People: ${mainPeople}
+EXTRACTED JOKE ELEMENTS TO USE:
+- Props (nouns): ${jokeElements.props.join(', ')}
+- Actions (verbs): ${jokeElements.actions.join(', ')}
+- Setting: ${jokeElements.setting}  
+- People: ${jokeElements.people.join(', ')}
 - Insert words: ${insertWords.join(', ') || 'none'}
 
-Generate 6 visual concepts that directly use these parsed elements:
+Generate 6 visual concepts that DIRECTLY integrate these joke elements:
 
 1. CINEMATIC (Wide shot):
-   Wide shot of ${mainSetting} with ${mainProps}, ${mainActions} happening, ${mainPeople} visible, dramatic ${selectedStyle.name.toLowerCase()} lighting
+   Wide shot of ${jokeElements.setting} with ${jokeElements.props.join(' and ')} visible, ${jokeElements.people.join(' and ')} ${jokeElements.actions.join(' and ')}, dramatic ${selectedStyle.name.toLowerCase()} lighting capturing the full joke scenario
 
 2. CLOSE-UP (Detail focus): 
-   Close-up of ${nouns[0] || 'main prop'} while ${verbs[0] || 'action'} is happening, ${selectedStyle.name.toLowerCase()} style, shallow focus on details
+   Close-up of ${jokeElements.props[0] || 'main element'} while ${jokeElements.actions[0] || 'action'} happens, ${selectedStyle.name.toLowerCase()} style, shallow focus on the humor element from the joke
 
 3. CROWD REACTION (Group scene):
-   ${mainPeople} reacting to ${mainActions} with ${mainProps}, group expressions in ${mainSetting}, ${selectedStyle.name.toLowerCase()} style
+   ${jokeElements.people.join(' and ')} and others reacting to ${jokeElements.actions.join(' and ')} involving ${jokeElements.props.join(' and ')}, group expressions responding to the specific joke context
 
 4. MINIMALIST (Simple composition):
-   Single ${nouns[0] || 'prop'} on clean background, representing the "${finalText}" humor, negative space, ${selectedStyle.name.toLowerCase()} aesthetic
+   Single ${jokeElements.props[0] || 'main prop'} on clean background symbolizing "${finalText}" humor, negative space, ${selectedStyle.name.toLowerCase()} aesthetic focusing on the joke's core element
 
 5. EXAGGERATED PROPORTIONS (Cartoon scale):
-   ${mainProps} comically oversized, ${mainPeople} tiny by comparison, emphasizing the absurdity of ${mainActions}, cartoon proportions
+   ${jokeElements.props.join(' and ')} comically oversized, ${jokeElements.people.join(' and ')} tiny by comparison, emphasizing absurdity of ${jokeElements.actions.join(' and ')}, cartoon proportions
 
 6. GOOFY ABSURD (Slapstick chaos):
-   ${mainPeople} mid-${mainActions} with ${mainProps} behaving ridiculously, peak comedy chaos from the joke scenario, maximum silliness
+   ${jokeElements.people.join(' and ')} mid-${jokeElements.actions.join(' and ')} with ${jokeElements.props.join(' and ')} in ridiculous positions, peak comedy chaos from "${finalText}", maximum silliness
 
-CRITICAL REQUIREMENTS:
-- Use exact words from the joke text: "${finalText}"
-- Include specific props: ${mainProps}
-- Show the action: ${mainActions}
-- Set in: ${mainSetting}
-- Feature: ${mainPeople}
-- Each 20-35 words
+CRITICAL INTEGRATION REQUIREMENTS:
+- Use EXACT elements from: "${finalText}"
+- Props to include: ${jokeElements.props.join(', ')}
+- Actions to show: ${jokeElements.actions.join(', ')}
+- Setting context: ${jokeElements.setting}
+- People involved: ${jokeElements.people.join(', ')}
+- Each 20-35 words capturing the specific joke scenario
 - ${selectedStyle.name.toLowerCase()} visual style
-- NEVER use generic celebration language
-- Pull ALL context from the actual joke content`
+- NEVER default to generic sports/celebration concepts
+- Every description must reflect the actual joke content and humor`
 
   return { system, user }
 }
