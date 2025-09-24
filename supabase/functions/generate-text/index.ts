@@ -2,6 +2,38 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
+// Centralized OpenAI Model Configuration
+const OPENAI_MODELS = {
+  text: 'gpt-5',
+  visuals: 'gpt-4o-mini',
+  images: 'gpt-image-1'
+} as const;
+
+// Helper function to build OpenAI request body with correct parameters
+function buildOpenAIRequest(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; maxTokens: number }
+) {
+  const body: any = {
+    model,
+    messages
+  };
+
+  // GPT-5 uses max_completion_tokens, older models use max_tokens
+  if (model === 'gpt-5') {
+    body.max_completion_tokens = options.maxTokens;
+    // GPT-5 doesn't support temperature parameter
+  } else {
+    body.max_tokens = options.maxTokens;
+    if (options.temperature !== undefined) {
+      body.temperature = options.temperature;
+    }
+  }
+
+  return body;
+}
+
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -369,16 +401,16 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  console.log('🤖 Making OpenAI API call with model: gpt-5');
+  console.log(`🤖 Making OpenAI API call with model: ${OPENAI_MODELS.text}`);
   
-  const requestBody = {
-    model: 'gpt-5',
-    messages: [
+  const requestBody = buildOpenAIRequest(
+    OPENAI_MODELS.text,
+    [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
-    max_completion_tokens: 150
-  };
+    { maxTokens: 150 }
+  );
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

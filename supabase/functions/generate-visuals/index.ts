@@ -1,6 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
+// Centralized OpenAI Model Configuration
+const OPENAI_MODELS = {
+  text: 'gpt-5',
+  visuals: 'gpt-4o-mini',
+  images: 'gpt-image-1'
+} as const;
+
+// Helper function to build OpenAI request body with correct parameters
+function buildOpenAIRequest(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; maxTokens: number }
+) {
+  const body: any = {
+    model,
+    messages
+  };
+
+  // GPT-5 uses max_completion_tokens, older models use max_tokens
+  if (model === 'gpt-5') {
+    body.max_completion_tokens = options.maxTokens;
+    // GPT-5 doesn't support temperature parameter
+  } else {
+    body.max_tokens = options.maxTokens;
+    if (options.temperature !== undefined) {
+      body.temperature = options.temperature;
+    }
+  }
+
+  return body;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -916,15 +948,14 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
       'Authorization': `Bearer ${openaiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
+    body: JSON.stringify(buildOpenAIRequest(
+      OPENAI_MODELS.visuals,
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.8,
-      max_tokens: 1000
-    }),
+      { temperature: 0.8, maxTokens: 1000 }
+    )),
   });
 
   if (!response.ok) {
@@ -988,15 +1019,14 @@ async function callOpenAIWithTimeout(systemPrompt: string, userPrompt: string): 
       'Authorization': `Bearer ${openaiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
+    body: JSON.stringify(buildOpenAIRequest(
+      OPENAI_MODELS.visuals,
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.8,
-      max_tokens: 1000,
-    }),
+      { temperature: 0.8, maxTokens: 1000 }
+    )),
   })
 
   if (!response.ok) {
@@ -1316,7 +1346,7 @@ serve(async (req) => {
     const response: GenerateVisualsResponse = {
       success: true,
       visuals,
-      model: 'gpt-4o-mini'
+      model: OPENAI_MODELS.visuals
     }
     
     console.log('Visual generation successful:', visuals.length, 'recommendations')
@@ -1347,7 +1377,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         visuals: [],
-        model: 'gpt-4o-mini',
+        model: OPENAI_MODELS.visuals,
         error: userMessage,
         troubleshooting: 'Try: simpler text, different visual style, or retry in a moment'
       }),

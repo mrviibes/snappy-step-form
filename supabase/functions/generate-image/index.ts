@@ -1,6 +1,13 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Centralized OpenAI Model Configuration
+const OPENAI_MODELS = {
+  text: 'gpt-5',
+  visuals: 'gpt-4o-mini',
+  images: 'gpt-image-1'
+} as const;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -87,7 +94,7 @@ async function tryOpenAIImage(prompt: string, negativePrompt: string | undefined
     const resp = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-image-1', prompt: combinedPrompt, size })
+      body: JSON.stringify({ model: OPENAI_MODELS.images, prompt: combinedPrompt, size })
     });
     if (!resp.ok) {
       const t = await resp.text();
