@@ -48,35 +48,6 @@ const MASTER_CONFIG = {
   }
 };
 
-// Structure templates for variety
-const STRUCTURE_TEMPLATES = {
-  BLUNT_ROAST: "Short roast with a twist",
-  ABSURD_METAPHOR: "Weird comparison taken too far",
-  OBSERVATIONAL: "Everyday life lens on the topic",
-  RHETORICAL_QUESTION: "Question setup, punch in the question",
-  SHORT_QUIP: "Punchy 55–75 chars",
-  STORY_MICRO: "Tiny narrative → punch",
-  SURPRISE_OBJECT: "Inanimate object has agency"
-};
-
-// Category-relevant topic seeds for creative twists
-const TOPIC_SEEDS_BY_CATEGORY = {
-  birthday: ["birthday cake", "candles", "party hats", "gift wrapping", "age", "wishes", "celebration", "friends", "family", "getting older"],
-  wedding: ["marriage", "commitment", "romance", "partnership", "love", "ceremony", "reception", "couple", "vows", "future together"],
-  anniversary: ["memories", "years together", "milestones", "relationship", "time", "growth", "partnership", "shared experiences", "commitment", "celebration"],
-  graduation: ["achievement", "education", "future", "accomplishment", "learning", "school", "career", "success", "knowledge", "new chapter"],
-  retirement: ["career", "work life", "freedom", "time", "experience", "wisdom", "leisure", "accomplishments", "new phase", "relaxation"],
-  promotion: ["success", "recognition", "advancement", "hard work", "achievement", "career growth", "responsibility", "leadership", "opportunity", "progress"]
-};
-
-// Fallback general seeds for unlisted categories
-const GENERAL_TOPIC_SEEDS = [
-  "neighbors", "thermostat", "raccoons", "parking meter",
-  "elevator", "leaf blower", "night shift", "robot vacuum", "playlist",
-  "leftovers", "inbox", "lawn flamingo", "group chat", "souvenir mug",
-  "houseplant", "delivery driver", "smoke alarm", "self-checkout", "weather app"
-];
-
 // Rating language gates
 const SWEARS_MILD = /\b(hell|damn|crap)\b/i;
 const SWEARS_STRONG = /\b(fuck(?:ing)?|shit|asshole|bastard|douche)\b/i;
@@ -367,20 +338,6 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
 function generateNonce(): string {
   return Math.random().toString(36).substring(2, 15);
 }
-
-function pickCategoryRelevantSeeds(category: string, count: number): string[] {
-  const categoryKey = category.toLowerCase().split(' > ')[0];
-  const categorySeeds = (TOPIC_SEEDS_BY_CATEGORY as any)[categoryKey] || GENERAL_TOPIC_SEEDS;
-  const shuffled = [...categorySeeds].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
-
-function pickStructureTemplates(count: number): string[] {
-  const templates = Object.keys(STRUCTURE_TEMPLATES);
-  const shuffled = [...templates].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
-
 
 function getBanList(category: string): string[] {
   const categoryKey = category.toLowerCase().split(' > ')[0];
