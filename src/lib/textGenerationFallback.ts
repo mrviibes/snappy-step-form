@@ -83,8 +83,8 @@ export async function generateTextWithFallback(
     console.warn('Text generation failed:', error);
   }
   
-  // Step 5: Last resort - use default content bank
-  const defaultLines = getDefaultContent(input.category);
+  // Step 5: Last resort - use subcategory or category-specific default content
+  const defaultLines = getDefaultContent(input.category, input.subcategory);
   
   return {
     success: true,

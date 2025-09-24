@@ -34,13 +34,31 @@ const SUBCATEGORY_COMPATIBILITY: Record<string, ToneId[]> = {
   'dating': ['humorous', 'savage', 'romantic', 'playful'],
   'family': ['sentimental', 'humorous', 'playful'],
   
+  // Daily Life subcategories (comprehensive coverage)
+  'take-shower': ['sentimental', 'humorous', 'playful', 'nostalgic'],
+  'morning-routine': ['humorous', 'sentimental', 'playful'],
+  'commute': ['savage', 'humorous', 'sentimental'],
+  'cooking': ['humorous', 'playful', 'savage', 'sentimental'],
+  'cleaning': ['humorous', 'savage', 'playful'],
+  'shopping': ['humorous', 'savage', 'playful'],
+  'exercise': ['humorous', 'savage', 'inspirational', 'playful'],
+  'sleep': ['sentimental', 'humorous', 'nostalgic', 'playful'],
+  'coffee': ['humorous', 'sentimental', 'savage', 'romantic'],
+  'laundry': ['humorous', 'savage', 'playful'],
+  'phone': ['humorous', 'savage', 'romantic', 'sentimental'],
+  'social-media': ['savage', 'humorous', 'playful'],
+  'traffic': ['savage', 'humorous', 'playful'],
+  'weather': ['humorous', 'sentimental', 'nostalgic', 'playful'],
+  'pets': ['sentimental', 'humorous', 'playful', 'romantic'],
+  'housework': ['humorous', 'savage', 'playful'],
+  
   // Pop Culture subcategories
   'movies': ['humorous', 'savage', 'playful'],
   'music': ['humorous', 'nostalgic', 'playful'],
   'celebrities': ['savage', 'humorous', 'playful']
 };
 
-// Safe default content banks (never fail)
+// Safe default content banks per category (never fail)
 const DEFAULT_CONTENT: Record<string, string[]> = {
   jokes: [
     "I used to hate puns, but then they groan on me.",
@@ -66,6 +84,33 @@ const DEFAULT_CONTENT: Record<string, string[]> = {
     "Adulting is just making it up as you go along.",
     "The best part of waking up is going back to sleep."
   ],
+  
+  // Specific daily-life subcategory fallbacks
+  'take-shower': [
+    "Every shower is a fresh start, literally and figuratively.",
+    "Hot water therapy: cheaper than actual therapy.",
+    "Showers: where all the best conversations happen with yourself.",
+    "Clean body, clear mind, questionable singing voice."
+  ],
+  'morning-routine': [
+    "Morning routines: the daily battle between who you want to be and who you are.",
+    "Coffee first, human second, everything else eventually.",
+    "Morning me and evening me are basically different people.",
+    "Some mornings are for conquering, others are for surviving."
+  ],
+  'cooking': [
+    "Cooking: where confidence meets reality and both leave disappointed.",
+    "Following recipes is just a suggestion, right?",
+    "Kitchen disasters make the best stories later.",
+    "Burnt offerings: my specialty dish."
+  ],
+  'commute': [
+    "Traffic: nature's way of teaching patience and creativity with curse words.",
+    "My commute is basically a daily meditation on why I need a new job.",
+    "Public transport: humanity's social experiment gone wrong.",
+    "GPS said five minutes, reality said twenty."
+  ],
+  
   pop_culture: [
     "Reality TV: where common sense goes to die.",
     "Social media: connecting people through shared judgment.",
@@ -173,7 +218,13 @@ export function prepareScenario(input: ScenarioInput): PreparedScenario {
 }
 
 // Get safe fallback content when generation fails completely
-export function getDefaultContent(category: CategoryType): string[] {
+export function getDefaultContent(category: CategoryType, subcategory?: string): string[] {
+  // Try subcategory-specific defaults first
+  if (subcategory && DEFAULT_CONTENT[subcategory]) {
+    return DEFAULT_CONTENT[subcategory];
+  }
+  
+  // Fall back to category defaults
   return DEFAULT_CONTENT[category] || DEFAULT_CONTENT.jokes;
 }
 
