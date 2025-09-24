@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { getTones, getRatings, getComedianStyles } from '@/config/aiRules';
+import { getTones, getRatings } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
 import memeTextImage from "@/assets/meme-layout.jpg";
@@ -44,11 +44,6 @@ const ratingOptions = [
   { id: "PG-13", label: "PG-13", name: "PG-13", description: "edgy, ironic, sharp" },
   { id: "R", label: "R", name: "R", description: "savage, raw, unfiltered" }
 ];
-const comedianOptions = getComedianStyles().map(comedian => ({
-  id: comedian.id,
-  label: comedian.name,
-  description: comedian.notes
-}));
 export default function TextStep({
   data,
   updateData,
@@ -60,14 +55,12 @@ export default function TextStep({
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
   const [textOptions, setTextOptions] = useState<Array<{
     line: string;
-    comedian: string;
   }>>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
-  const [showComedianStyle, setShowComedianStyle] = useState(false);
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -87,10 +80,6 @@ export default function TextStep({
       tone: data.text.tone,
       rating: data.text.rating,
       insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-      comedianStyle: data.text?.comedianStyle ? {
-        name: data.text.comedianStyle,
-        flavor: ''
-      } : null,
       userId: 'anonymous'
     };
     
@@ -115,9 +104,8 @@ export default function TextStep({
         }));
         
         // Format options for display
-        const formattedOptions = options.map((option: { line: string; comedian: string }) => ({
-          line: option.line,
-          comedian: option.comedian || "AI Assist"
+        const formattedOptions = options.map((option: { line: string; comedian?: string }) => ({
+          line: option.line
         }));
         
         // Client-side validation
@@ -255,14 +243,6 @@ export default function TextStep({
       text: {
         ...data.text,
         rating: ratingId
-      }
-    });
-  };
-  const handleComedianStyleSelect = (comedianId: string) => {
-    updateData({
-      text: {
-        ...data.text,
-        comedianStyle: comedianId
       }
     });
   };
@@ -784,7 +764,6 @@ export default function TextStep({
                    <div className="space-y-3">
                      {textOptions.map((textOption, index) => <div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
                          <p className="text-sm leading-relaxed mb-2">{textOption.line}</p>
-                         <p className="text-xs text-muted-foreground font-medium">— {textOption.comedian}</p>
                        </div>)}
                    </div>
                  </div>}

@@ -82,17 +82,6 @@ const SWEARS_MILD = /\b(hell|damn|crap)\b/i;
 const SWEARS_STRONG = /\b(fuck(?:ing)?|shit|asshole|bastard|douche)\b/i;
 const SLURS = /\b(?:placeholder_slur)\b/i; // Server-side only
 
-// Comedian styles with enhanced flavors for master rules
-const COMEDIAN_STYLES = [
-  { name: "Seinfeld", flavor: "observational, everyday absurdity, what's the deal with..." },
-  { name: "Carlin", flavor: "cynical wordplay, social commentary, seven words you can't say" },
-  { name: "Wright", flavor: "deadpan surreal one-liners, I haven't slept for ten days" },
-  { name: "Hedberg", flavor: "absurd stream of consciousness, I used to do drugs" },
-  { name: "Rivers", flavor: "self-deprecating sharp wit, can we talk?" },
-  { name: "Mulaney", flavor: "storytelling relatable chaos, new in town" },
-  { name: "Chappelle", flavor: "provocative social satire, I'm rich!" },
-  { name: "Hart", flavor: "animated physical comedy, you gonna learn today" }
-];
 
 // Category-specific ban lists (off-topic words to avoid)
 const CATEGORY_BAN_LISTS = {
@@ -392,10 +381,6 @@ function pickStructureTemplates(count: number): string[] {
   return shuffled.slice(0, count);
 }
 
-function pickComedians(count: number): any[] {
-  const shuffled = [...COMEDIAN_STYLES].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
 
 function getBanList(category: string): string[] {
   const categoryKey = category.toLowerCase().split(' > ')[0];
@@ -558,9 +543,7 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
   const totalNeeded = 4;
   let validLines: Array<{line: string, comedian: string}> = [];
   
-  // Get comedian pool once at the start
-  const comedianPool = pickComedians(4);
-  const selectedComedians = comedianPool.map(c => c.name);
+  // Use generic AI assistant label for all generated lines
   
   // Retry ladder with progressive relaxation
   const retryConfigs = [
@@ -611,10 +594,9 @@ Return only the lines, one per line, no formatting or numbering.`;
         });
         
         if (validation.ok) {
-          const comedianIndex = validLines.length % selectedComedians.length;
           validLines.push({
             line: line,
-            comedian: selectedComedians[comedianIndex]
+            comedian: "AI Assist"
           });
         }
       }

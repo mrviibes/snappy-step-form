@@ -18,7 +18,6 @@ interface FormData {
     generatedText?: string;
     specificWords?: string[];
     selectedOption?: number;
-    comedianStyle?: string;
     style?: string;
     rating?: string;
     isComplete?: boolean;

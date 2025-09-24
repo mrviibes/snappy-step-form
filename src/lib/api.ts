@@ -8,7 +8,6 @@ type GenerateTextParams = {
   style?: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];      // prefer array over CSV
-  comedianStyle?: { name: string; flavor: string } | null;
   userId?: string;
 };
 
@@ -50,7 +49,6 @@ type GenerateFinalPromptParams = {
   textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];
-  comedianStyle?: string;
   visualStyle: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
   layout: string;
   dimension: "Square"|"Portrait"|"Landscape";
@@ -131,7 +129,6 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<A
     style: params.style || "Generic",
     rating: params.rating || "PG",
     insertWords,                          // consistent name and array
-    comedianStyle: params.comedianStyle ?? null,
     userId: params.userId ?? "anonymous"
   };
 
