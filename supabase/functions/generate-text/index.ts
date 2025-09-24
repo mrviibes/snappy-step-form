@@ -48,6 +48,35 @@ const MASTER_CONFIG = {
   }
 };
 
+// Structure templates for variety
+const STRUCTURE_TEMPLATES = {
+  BLUNT_ROAST: "Short roast with a twist",
+  ABSURD_METAPHOR: "Weird comparison taken too far",
+  OBSERVATIONAL: "Everyday life lens on the topic",
+  RHETORICAL_QUESTION: "Question setup, punch in the question",
+  SHORT_QUIP: "Punchy 55–75 chars",
+  STORY_MICRO: "Tiny narrative → punch",
+  SURPRISE_OBJECT: "Inanimate object has agency"
+};
+
+// Category-relevant topic seeds for creative twists
+const TOPIC_SEEDS_BY_CATEGORY = {
+  birthday: ["birthday cake", "candles", "party hats", "gift wrapping", "age", "wishes", "celebration", "friends", "family", "getting older"],
+  wedding: ["marriage", "commitment", "romance", "partnership", "love", "ceremony", "reception", "couple", "vows", "future together"],
+  anniversary: ["memories", "years together", "milestones", "relationship", "time", "growth", "partnership", "shared experiences", "commitment", "celebration"],
+  graduation: ["achievement", "education", "future", "accomplishment", "learning", "school", "career", "success", "knowledge", "new chapter"],
+  retirement: ["career", "work life", "freedom", "time", "experience", "wisdom", "leisure", "accomplishments", "new phase", "relaxation"],
+  promotion: ["success", "recognition", "advancement", "hard work", "achievement", "career growth", "responsibility", "leadership", "opportunity", "progress"]
+};
+
+// Fallback general seeds for unlisted categories
+const GENERAL_TOPIC_SEEDS = [
+  "neighbors", "thermostat", "raccoons", "parking meter",
+  "elevator", "leaf blower", "night shift", "robot vacuum", "playlist",
+  "leftovers", "inbox", "lawn flamingo", "group chat", "souvenir mug",
+  "houseplant", "delivery driver", "smoke alarm", "self-checkout", "weather app"
+];
+
 // Rating language gates
 const SWEARS_MILD = /\b(hell|damn|crap)\b/i;
 const SWEARS_STRONG = /\b(fuck(?:ing)?|shit|asshole|bastard|douche)\b/i;
@@ -64,6 +93,15 @@ const COMEDIAN_STYLES = [
   { name: "Chappelle", flavor: "provocative social satire, I'm rich!" },
   { name: "Hart", flavor: "animated physical comedy, you gonna learn today" }
 ];
+
+// Category-specific ban lists (off-topic words to avoid)
+const CATEGORY_BAN_LISTS = {
+  wedding: ["wifi","wi-fi","pizza","monday","spreadsheet","deadline","zoom","traffic","taxes","office","email","login","password"],
+  birthday: [],
+  sports: ["winner", "champion", "team", "victory", "score", "game", "field"],
+  cooking: ["recipe", "ingredients", "delicious", "taste", "flavor", "kitchen"],
+  technology: ["computer", "internet", "digital", "online", "click", "download"]
+};
 
 // Normalize category/subcategory keys like "celebrations > wedding" -> "wedding"
 function normKey(input?: string): string {
@@ -158,6 +196,7 @@ function parseAndCleanLines(rawResponse: string): string[] {
   
   return cleanedLines;
 }
+
 function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?: string; details?: any } {
   const text = line.trim();
   
@@ -288,11 +327,11 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
     lengths.push(line.length);
     
     // Count direct lexicon hits
-  const key = normKey(scenario.subcategory || scenario.category);
-  const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
-  if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
-    directAnchors++;
-  }
+    const key = normKey(scenario.subcategory || scenario.category);
+    const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
+    if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
+      directAnchors++;
+    }
   }
   
   if (failures.length) {
@@ -340,9 +379,119 @@ function generateNonce(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
+function pickCategoryRelevantSeeds(category: string, count: number): string[] {
+  const categoryKey = category.toLowerCase().split(' > ')[0];
+  const categorySeeds = TOPIC_SEEDS_BY_CATEGORY[categoryKey] || GENERAL_TOPIC_SEEDS;
+  const shuffled = [...categorySeeds].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+function pickStructureTemplates(count: number): string[] {
+  const templates = Object.keys(STRUCTURE_TEMPLATES);
+  const shuffled = [...templates].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
 function pickComedians(count: number): any[] {
   const shuffled = [...COMEDIAN_STYLES].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
+}
+
+function getBanList(category: string): string[] {
+  const categoryKey = category.toLowerCase().split(' > ')[0];
+  return CATEGORY_BAN_LISTS[categoryKey] || [];
+}
+
+// Helper: classify insert word position
+function getInsertPos(line: string, insertWord: string): string {
+  const words = line.toLowerCase().split(/\W+/);
+  const idx = words.indexOf(insertWord.toLowerCase());
+  if (idx === -1) return "none";
+  const ratio = (idx + 1) / words.length;
+  if (ratio <= 0.33) return "front";
+  if (ratio >= 0.67) return "end";
+  return "middle";
+}
+
+// Helper: classify joke structure
+function classifyStructure(line: string): string {
+  if (line.trim().endsWith("?")) return "question";
+  if (line.toLowerCase().startsWith("knock knock")) return "knock";
+  if (line.toLowerCase().includes("like a") || line.toLowerCase().includes("as if"))
+    return "metaphor";
+  if (line.length < 75) return "quip";
+  return "narrative";
+}
+
+// Helper: detect dominant topic words
+function extractTopicWord(line: string, insertWords: string[]): string | null {
+  const tokens = line.toLowerCase().split(/\W+/).filter(t => t.length > 3);
+  const skip = new Set((insertWords || []).map(w => w.toLowerCase()));
+  // Skip common words and return first substantial topic word
+  const commonWords = new Set(['that', 'with', 'they', 'were', 'been', 'have', 'this', 'will', 'your', 'from', 'just', 'like', 'more', 'some', 'time', 'very', 'when', 'come', 'here', 'how', 'also', 'its', 'our', 'out', 'many', 'then', 'them', 'these', 'now', 'look', 'only', 'come', 'think', 'also', 'back', 'after', 'use', 'her', 'can', 'out', 'than', 'way', 'she', 'may', 'what', 'say', 'each', 'which', 'their', 'said', 'make', 'can', 'over', 'think', 'where', 'much', 'take', 'how', 'little', 'good', 'want', 'too', 'old', 'any', 'my', 'other', 'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use']);
+  
+  return tokens.find(t => !skip.has(t) && !commonWords.has(t)) || null;
+}
+
+function generateHash(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  return crypto.subtle.digest('SHA-256', data).then(hash => {
+    return Array.from(new Uint8Array(hash))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  });
+}
+
+async function checkUniqueness(candidates: string[], userId?: string): Promise<string[]> {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  const hashes = await Promise.all(candidates.map(generateHash));
+  
+  // Check against existing hashes
+  const { data: existing } = await supabase
+    .from('gen_history')
+    .select('text_hash')
+    .in('text_hash', hashes);
+    
+  const existingHashes = new Set(existing?.map(row => row.text_hash) || []);
+  
+  return candidates.filter((_, index) => !existingHashes.has(hashes[index]));
+}
+
+function ensurePlacementSpread(lines: string[], insertWords: string[]): string[] {
+  if (!insertWords || insertWords.length === 0) return lines;
+  
+  const firstWord = insertWords[0].toLowerCase();
+  const positions = { front: [], middle: [], end: [] };
+  
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+    const wordIndex = lowerLine.indexOf(firstWord);
+    
+    if (wordIndex === -1) continue;
+    
+    const position = wordIndex < line.length * 0.3 ? 'front' :
+                    wordIndex > line.length * 0.7 ? 'end' : 'middle';
+    
+    positions[position].push(line);
+  }
+  
+  // Try to get one from each position
+  const result = [];
+  ['front', 'middle', 'end'].forEach(pos => {
+    if (positions[pos].length > 0) {
+      result.push(positions[pos][0]);
+    }
+  });
+  
+  // Fill remaining slots
+  const remaining = lines.filter(line => !result.includes(line));
+  while (result.length < 4 && remaining.length > 0) {
+    result.push(remaining.shift());
+  }
+  
+  return result.slice(0, 4);
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -384,6 +533,23 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   return data.choices[0].message.content;
 }
 
+async function saveToHistory(lines: string[], payload: any) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  const records = await Promise.all(lines.map(async (line) => ({
+    user_id: payload.userId || null,
+    category: payload.category,
+    tone: payload.tone,
+    style: payload.style,
+    rating: payload.rating,
+    insert_words: payload.insertWords || [],
+    text_out: line,
+    text_hash: await generateHash(line)
+  })));
+  
+  await supabase.from('gen_history').insert(records);
+}
+
 // Generate exactly 4 valid lines with slot-retry mechanism
 async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
   const timeoutMs = 25000; // 25 second hard timeout
@@ -392,10 +558,8 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
   let validLines: Array<{line: string, comedian: string}> = [];
   
   // Get comedian pool once at the start
-  const comedianPool = (typeof getComedianPool === 'function') 
-    ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
-    : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
-  const selectedComedians = comedianPool.sort(() => 0.5 - Math.random()).slice(0, 4);
+  const comedianPool = pickComedians(4);
+  const selectedComedians = comedianPool.map(c => c.name);
   
   // Retry ladder with progressive relaxation
   const retryConfigs = [
@@ -419,387 +583,55 @@ async function generateValidBatch(systemPrompt: string, payload: any, subcategor
     console.log(`🎯 Attempt ${attempt + 1}: Need ${slotsNeeded} more slots for ${subcategory}`);
     const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
     
-// =============== TONE-SPECIFIC SEED TEMPLATES ===============
-
-// Enhanced insert word instruction builder
-function buildInsertWordInstruction(insertWords: string[]): string {
-  if (!insertWords || insertWords.length === 0) {
-    return "No specific words required. Focus on natural category-specific humor.";
-  }
-  
-  if (insertWords.length === 1) {
-    return `Include "${insertWords[0]}" exactly once per line in natural phrasing.`;
-  }
-  
-  if (insertWords.length === 2) {
-    return `Include both "${insertWords[0]}" and "${insertWords[1]}" exactly once per line in natural phrasing. Each line must contain both words.`;
-  }
-  
-  return `Include all these words exactly once per line in natural phrasing: ${insertWords.map(w => `"${w}"`).join(', ')}. Each line must contain all the specified words.`;
-}
-
-const TONE_SEED_TEMPLATES = {
-  'humorous': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 humorous one-sentence jokes for a ${subcategory} celebration.
-Each line must be 50–120 characters, exactly one sentence.
-Use at most two punctuation marks in total (count commas, periods, exclamation marks, question marks, and quotes).
-No em dashes, semicolons, or ellipses.
-Include ${subcategory} context with words like: ${getLexiconFor(subcategory).slice(0, 5).join(', ')}.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Keep jokes short, witty punchlines — not long or chatty sentences.
-Return exactly 4 lines, one per line, with no numbering or formatting.`,
-
-  'playful': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => {
-    if ((subcategory || '').toLowerCase() === 'dad-jokes') {
-      return `
-Write 4 playful one-sentence dad jokes.
-Each line must be 50–120 characters, exactly one sentence, punchy.
-At most two punctuation marks. No em dashes, semicolons, ellipses.
-${buildInsertWordInstruction(insertWords)}
-Use dad-joke cues like puns, groans, eye-roll humor, lawn, grill, thermostat, cargo shorts, socks with sandals.
-Return each line on its own line with no numbering or extra formatting.`;
-    }
-    return `
-Write 4 playful one-sentence jokes for a ${subcategory} celebration.
-Each must be EXACTLY one sentence, 55-115 characters total, punchy and quotable.
-Use at most 2 punctuation marks per line. NO em dashes, semicolons, or ellipses.
-Include ${subcategory} context with words like: ${getLexiconFor(subcategory).slice(0, 5).join(', ')}.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Keep them short, crisp, and memorable. No rambling or complex clauses.
-Return each line on a separate line with no numbering or formatting.`;
-  },
-
-  'romantic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 romantic one-sentence lines for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, heartfelt but concise.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`,
-
-  'sentimental': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 sentimental one-sentence lines for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, emotional but NOT wordy.
-CRITICAL: No rambling, no flowery language that creates long sentences.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Use simple, direct emotional statements tied to ${subcategory} context.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`,
-
-  'nostalgic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 nostalgic one-sentence lines for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, reflective but concise.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context with memories or reflections.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`,
-
-  'sarcastic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 sarcastic one-sentence jokes for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, witty but punchy.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context with ironic humor.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`,
-
-  'savage': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 savage one-sentence roasts for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, brutal but clever.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context with cutting humor.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-REMEMBER: Rating ${rating} determines language limits - savage tone must work within ${rating} constraints.
-Return each line on a separate line with no numbering or formatting.`,
-
-  'witty': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 witty one-sentence jokes for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, clever but concise.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context with smart wordplay.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`,
-
-  'dry': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
-Write 4 dry humor one-sentence jokes for a ${subcategory} celebration.
-Each line must be ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence, deadpan but tight.
-Use at most ${config.maxPunct} punctuation marks. Do not use em dashes, semicolons, or ellipses.
-Tie each line clearly to ${subcategory} context with understated humor.
-${buildInsertWordInstruction(insertWords)}
-${getRatingGuidance(rating, tone)}
-Return each line on a separate line with no numbering or formatting.`
-}
-
-// Get comedian pool based on tone and rating (rating always overrides tone)
-function getComedianPool(tone: string, rating: string, style: string = 'Generic'): string[] {
-  // Load the tone-style-rating matrix
-  const toneStyleMap = {
-    "Humorous": {
-      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
-    },
-    "Savage": {
-      "Generic":   { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"CLEAN" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" }
-    },
-    "Playful": {
-      "Generic":   { "G":"CLEAN",        "PG":"PG_EDGE",     "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
-    },
-    "Sentimental": {
-      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
-    },
-    "Romantic": {
-      "Generic":   { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_SARCASTIC" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"ROMANTIC_WARM","PG":"ROMANTIC_WARM","PG-13":"PG_EDGE",     "R":"ROMANTIC_WARM" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
-    },
-    "Serious": {
-      "Generic":   { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" },
-      "Sarcastic": { "G":"PG_EDGE",      "PG":"PG_EDGE",     "PG-13":"PG13_SAVAGE", "R":"R_EXPLICIT" },
-      "Wholesome": { "G":"CLEAN",        "PG":"CLEAN",       "PG-13":"PG_EDGE",     "R":"CLEAN" },
-      "Weird":     { "G":"WEIRD_DRY",    "PG":"WEIRD_DRY",   "PG-13":"PG_EDGE",     "R":"R_EXPLICIT" }
-    }
-  };
-
-  const comedianPools = {
-    "CLEAN": ["Jim Gaffigan","Brian Regan","Ellen DeGeneres","Jerry Seinfeld","John Mulaney"],
-    "PG_EDGE": ["Sarah Silverman","Kevin Hart","Patton Oswalt","Ali Wong","Aziz Ansari"],
-    "PG13_SAVAGE": ["Bill Burr","Joan Rivers","Ricky Gervais","Chris Rock","Louis C.K."],
-    "R_EXPLICIT": ["George Carlin","Bill Burr","Joan Rivers","Sarah Silverman","Ricky Gervais","Louis C.K.","Ali Wong"],
-    "ROMANTIC_WARM": ["Jim Gaffigan","Ellen DeGeneres","John Mulaney"],
-    "ROMANTIC_SARCASTIC": ["Ali Wong","Sarah Silverman","Bill Burr"],
-    "WEIRD_DRY": ["Mitch Hedberg","Steven Wright","Norm Macdonald"],
-    "NERDY_STORY": ["Patton Oswalt","John Mulaney","Hasan Minhaj"]
-  };
-
-  // Get the pool key based on tone, style, and rating
-  const toneMap = toneStyleMap[tone] || toneStyleMap["Playful"];
-  const styleMap = toneMap[style] || toneMap["Generic"];
-  const poolKey = styleMap[rating] || styleMap["PG"];
-  
-  return comedianPools[poolKey] || comedianPools["CLEAN"];
-}
-
-// Enhanced rating enforcement guidance - rating ALWAYS overrides tone
-function getRatingGuidance(rating: string, tone: string): string {
-  const guidance = {
-    'G': `Family-safe, wholesome humor. NO swearing or edge content. Even if tone is "${tone}", keep it clean and gentle.`,
-    'PG': `Light sarcasm and irony allowed. Gentle roasting OK. Words like "hell" or "damn" permitted. Tone "${tone}" must stay within PG bounds.`,
-    'PG-13': `Edgy sarcasm, sharper wit allowed. Mild swears permitted (hell, damn, crap). Tone "${tone}" can be more aggressive but no F-bombs.`,
-    'R': `SAVAGE and EXPLICIT required. Must include strong language (fuck, shit, asshole, bastard). Raw, unfiltered comedy. At least 2 lines should have profanity. Tone "${tone}" can be fully unleashed.`
-  };
-  return `RATING ${rating} OVERRIDES ALL: ${guidance[rating] || guidance['PG']}`;
-}
-
-// Rating enforcement guidance with enhanced R-level requirements
-function getRatingGuidance_Legacy(rating: string): string {
-  const guidance = {
-    'G': 'Family-safe, wholesome humor. No swearing or edge.',
-    'PG': 'Light sarcasm and irony. Gentle roasting. Words like "hell" or "damn" allowed.',
-    'PG-13': 'Edgy sarcasm, sharper wit. Mild swears allowed (hell, damn, crap).',
-    'R': 'SAVAGE and EXPLICIT. Must include strong language (fuck, shit, asshole, bastard). Raw, unfiltered comedy. At least 2 lines should have profanity.'
-  }
-  return `Rating ${rating}: ${guidance[rating] || guidance['PG']}`
-}
-
-// Build tone-specific seed prompt with RATING OVERRIDES TONE logic
-function buildToneSpecificSeed(tone: string, subcategory: string, config: any, insertWords: string[] = [], rating: string = 'PG'): string {
-  const normalizedTone = tone.toLowerCase().replace(/\s+/g, '')
-  const seedTemplate = TONE_SEED_TEMPLATES[normalizedTone] || TONE_SEED_TEMPLATES['playful']
-  
-  return seedTemplate(subcategory, config, insertWords, rating, tone)
-}
-
-    // Use tone-specific seed template for the needed number of slots
-    const instructions = buildToneSpecificSeed(
-      payload.tone || 'playful',
-      subcategory, 
-      config,
-      payload.insertWords || [],
-      payload.rating || 'PG'
-    ).replace('4 ', `${slotsNeeded} `); // Request only what we need
-    
-    // Add category context for better anchoring
-    const contextWords = getLexiconFor(subcategory);
-    const contextHint = contextWords.length > 0 
-      ? `\nUse ${subcategory} words like: ${contextWords.slice(0, 4).join(', ')}`
-      : '';
-      
-    const userPrompt = `${instructions}${contextHint}
-
-EXAMPLES of valid single-sentence ${subcategory} lines:
-${subcategory === 'birthday' ? 
-  `The cake had so many candles the smoke alarm joined the party.
-The balloons popped faster than my birthday wish left my lips.
-Another year older means another year of pretending to like cake.
-The frosting survived longer than my diet did at this party.` :
-subcategory === 'wedding' ? 
-  `The cake toppled before vows ended but everyone called it tradition.
-Uncle Bob hit the dance floor like it was a second wedding vow.
-The bouquet sailed farther than the bride ever planned to throw.
-The DJ shouted toast time and half the guests raised cake instead.` :
-  `Generate ${subcategory}-specific one-sentence lines that are punchy and contextual.`}
-
-Generate exactly ${slotsNeeded} lines:`;
-
     try {
+      const userPrompt = `Generate ${slotsNeeded * 2} humorous one-liners for ${payload.category || 'celebration'}.
+      
+Constraints:
+- Each line: ${config.lengthMin}–${config.lengthMax} characters, exactly one sentence
+- Max ${config.maxPunct} punctuation marks per line
+- Include these words naturally: ${(payload.insertWords || []).join(', ')}
+- Tone: ${payload.tone || 'humorous'}
+- Rating: ${payload.rating || 'PG'}
+- Style: ${payload.style || 'generic'}
+
+Return only the lines, one per line, no formatting or numbering.`;
+
       const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+      const candidateLines = parseAndCleanLines(rawResponse);
       
-      // Use robust parsing and cleanup
-      const cleanedLines = parseAndCleanLines(rawResponse);
-      
-      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing (needed ${slotsNeeded})`);
-      console.log(`🧹 Sample cleaned lines:`, cleanedLines.slice(0, 2).map(l => `"${l.substring(0, 60)}..."`));
-      
-      if (cleanedLines.length === 0) {
-        console.log(`❌ No clean lines extracted, retrying...`);
-        continue;
-      }
-      
-      // Process each line and add valid ones to our collection
-      const newValidLines = [];
-      const detailedFailures = [];
-      
-      for (let i = 0; i < Math.min(cleanedLines.length, slotsNeeded); i++) {
-        const line = cleanedLines[i];
-        const slotIndex = validLines.length + newValidLines.length;
-        
-        // Enhanced validation with tone-specific parameters
+      // Validate each candidate
+      for (let i = 0; i < candidateLines.length && validLines.length < totalNeeded; i++) {
+        const line = candidateLines[i];
         const validation = debugValidateLine(line, {
+          category: payload.category,
+          subcategory: payload.subcategory,
           insertWords: payload.insertWords || [],
-          lengthMin: config.lengthMin,
-          lengthMax: config.lengthMax,
-          maxPunct: config.maxPunct,
-          subcategory,
-          tone: payload.tone
+          rating: payload.rating || 'PG'
         });
         
         if (validation.ok) {
-          newValidLines.push({
-            line: line,
-            comedian: selectedComedians[slotIndex] || selectedComedians[0]
-          });
-          console.log(`✅ Slot ${slotIndex + 1} FILLED (${payload.tone}): "${line.substring(0, 60)}..."`);
-        } else {
-          detailedFailures.push({
-            attempt,
-            slotIndex,
-            line: line.substring(0, 80) + '...',
-            reason: validation.reason,
-            details: validation.details,
-            fullLine: line,
-            tone: payload.tone
-          });
-          console.log(`❌ Slot ${slotIndex + 1} FAILED (${validation.reason}) for ${payload.tone} tone: "${line.substring(0, 60)}..."`);
-          if (validation.details) {
-            console.log(`   Details:`, validation.details);
-          }
-        }
-      }
-      
-      // Add the new valid lines to our collection
-      validLines.push(...newValidLines);
-      
-      console.log(`📊 Attempt ${attempt + 1}: Now have ${validLines.length}/${totalNeeded} valid slots`);
-      
-      // If we have all 4, we're done!
-      if (validLines.length >= totalNeeded) {
-        console.log(`🎉 All slots filled! Returning ${totalNeeded} valid lines.`);
-        return validLines.slice(0, totalNeeded);
-      }
-      
-      // If this is our last attempt and we have some lines, pad with fallbacks
-      if (attempt === maxRetries - 1 && validLines.length >= 1) {
-        console.log(`🔄 Last attempt: padding ${totalNeeded - validLines.length} missing slots with fallbacks`);
-        
-        while (validLines.length < totalNeeded) {
-          const slotIndex = validLines.length;
-          const fallbackComedian = selectedComedians[slotIndex] || selectedComedians[0];
-          const fallbackLine = subcategory === 'wedding' 
-            ? "Wedding bells rang louder than my objections." 
-            : subcategory === 'birthday'
-            ? "Another year older and still avoiding the scale."
-            : "Life happens one awkward moment at a time.";
-          
+          const comedianIndex = validLines.length % selectedComedians.length;
           validLines.push({
-            line: fallbackLine,
-            comedian: fallbackComedian
+            line: line,
+            comedian: selectedComedians[comedianIndex]
           });
         }
-        
-        return validLines;
       }
       
     } catch (error) {
-      console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
-      
-      // Handle content moderation errors specifically
-      if (error.message === 'CONTENT_MODERATION_BLOCKED') {
-        const problematicInserts = payload.insertWords?.filter(word => 
-          /redneck|hillbilly|trailer|cracker/i.test(word)
-        ) || [];
-        
-        if (problematicInserts.length > 0) {
-          throw new Error(`MODERATION_BLOCKED_INSERT:${problematicInserts[0]}`);
-        } else {
-          throw new Error('MODERATION_BLOCKED_GENERAL');
-        }
-      }
-      
+      console.error(`Generation attempt ${attempt + 1} failed:`, error);
       if (attempt === maxRetries - 1) {
         throw error;
       }
     }
-    
-    // Wait before retry with jitter for slots that still need filling
-    if (attempt < maxRetries - 1) {
-      const delay = 300 + Math.random() * 700; // Shorter delay for slot retries
-      console.log(`⏳ Waiting ${Math.round(delay)}ms before retry (${validLines.length}/${totalNeeded} slots filled)...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
   }
   
-  // Final fallback: if we have any valid lines, use them and throw descriptive error
-  if (validLines.length > 0) {
-    const toneAdvice = {
-      'sentimental': 'Try "playful" or "witty" tone for shorter, punchier lines',
-      'nostalgic': 'Try "playful" or "dry" tone for more concise humor', 
-      'romantic': 'Try "witty" or "playful" tone for less wordy output',
-      'humorous': 'Try simpler tones like "playful" or "witty" for shorter sentences'
-    };
-    
-    const suggestion = toneAdvice[payload.tone?.toLowerCase()] || 'Try a different tone like "playful" or "witty"';
-    
-    const errorDetails = {
-      validLines: validLines.length,
-      totalRequested: totalNeeded,
-      tone: payload.tone,
-      suggestion,
-      partialResults: validLines
-    };
-    
-    throw new Error(`insufficient_valid_lines:${JSON.stringify(errorDetails)}`);
+  // If we still don't have enough, return what we have
+  if (validLines.length === 0) {
+    throw new Error('Failed to generate any valid lines');
   }
   
-  throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
+  return validLines;
 }
 
 serve(async (req) => {
@@ -807,154 +639,65 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Add request timeout protection
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('request_timeout')), 30000); // 30 second total timeout
-  });
-
   try {
     const payload = await req.json();
-    console.log('Master Rules Generation Request:', payload);
+    console.log('Generation request:', payload);
     
-    // Robust schema normalization - handle multiple field names and types
-    if (!payload.rating) payload.rating = 'PG';
-    
-    // Handle insertWords/insertTags field name variations and type coercion
-    let insertWords: string[] = [];
-    if (payload.insertWords) {
-      insertWords = Array.isArray(payload.insertWords) 
-        ? payload.insertWords.filter(Boolean) 
-        : [payload.insertWords].filter(Boolean);
-    } else if (payload.insertTags) {
-      insertWords = Array.isArray(payload.insertTags) 
-        ? payload.insertTags.filter(Boolean) 
-        : [payload.insertTags].filter(Boolean);
-    }
-    payload.insertWords = insertWords; // Normalize to insertWords
     const nonce = generateNonce();
-    const subcategory = payload.subcategory || payload.category;
+    const subcategory = payload.subcategory || payload.category || 'celebration';
     
-    // Enhanced system prompt with RATING OVERRIDES TONE emphasis
-    const safeTone = payload.tone || 'Playful';
-    const safeRating = payload.rating || 'PG';
-    const comedianName = (typeof getComedianPool === 'function' 
-      ? (getComedianPool(safeTone, safeRating)[0] || 'a top stand-up comedian')
-      : 'a top stand-up comedian');
-    const systemPrompt = `You are a master comedy writer following strict Step-2 Text Generation Rules.
+    const systemPrompt = `You write stand-up style one-liners.
 
-MASTER RULES (CRITICAL - NO EXCEPTIONS):
-1. Structure: Exactly ONE sentence, 50-120 characters total
-2. Insert Tags: If provided, use each tag ONCE per line with natural inflections (plurls, past tense OK)
-3. Category Anchoring (LOOSENED): Each line must relate to ${subcategory} using direct keywords OR cultural cues. At batch level, at least 2 of 4 lines should contain direct category keywords.
-4. RATING ALWAYS OVERRIDES TONE: ${safeRating} rating limits supersede ${safeTone} tone preferences
-5. Punctuation: Max 2 marks per line. NO em dashes (—), semicolons (;), or ellipses (…)
-6. Quality: Sharp, quotable, stand-up quality humor - no greeting card fluff
-7. Variety: Vary line length and structure within each set of 4
-8. Comedian Persona: Write in the voice of ${comedianName} - NEVER generic "AI Assist" style
-
-Category Keywords Available: ${getLexiconFor(subcategory).join(', ') || 'general'}
-Cultural Context: ${subcategory} celebrations, traditions, emotions, and experiences
-
-Rating Guidelines (THESE OVERRIDE TONE):
-- G: Family-safe, wholesome, playful - even "Savage" tone must be gentle
-- PG: Light sarcasm, safe irony - tone can be edgier but clean
-- PG-13: Edgy sarcasm, mild swears allowed (hell, damn) - tone can be sharp
-- R: SAVAGE AND EXPLICIT required. Strong profanity MANDATORY (fuck, shit, asshole). At least 2/4 lines must contain explicit language. Raw, unfiltered edge.
-
-FORBIDDEN: Placeholder words (friend, NAME, USER), em dashes, generic filler
-OUTPUT: Only the joke line, nothing else.
-
+Constraints:
+- Exactly ONE sentence, 50–120 characters.
+- Include Insert Words naturally if provided; vary their placement (front, middle, end).
+- Do not always start lines with Insert Words - mix up the positioning.
+- No em dash (—). Use commas, periods, ellipses, or short sentences.
+- Keep punctuation light; avoid stuffing marks.
+- Stay relevant to the category context while avoiding overused cliché phrases.
+- Use creative twists on category-relevant topics rather than completely unrelated subjects.
+- Do not invent personal details like age, job, or milestones unless provided in Insert Words.
+- Vary rhythm and structure; do not repeat the same shape in one set.
+- Each line should focus on different topics/objects to avoid repetition.
+- Output only the sentence. No explanations.
 Nonce: ${nonce}`;
 
-    try {
-      // Race between generation and timeout
-      const validLines = await Promise.race([
-        generateValidBatch(systemPrompt, payload, subcategory, nonce),
-        timeoutPromise
-      ]);
-      
-      return new Response(JSON.stringify({
-        success: true,
-        options: validLines
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-      
-    } catch (generationError) {
-      console.error('🚨 Generation failed after all retries:', generationError);
-      
-      // Parse detailed error information if available
-      let userMessage = 'Text generation failed';
-      let statusCode = 200; // Always return 200 for structured error responses
-      let debugInfo = null;
-      
-      if (generationError.message.includes('insufficient_valid_lines:') || generationError.message.includes('validation_failed:')) {
-        try {
-          const errorData = JSON.parse(generationError.message.replace(/^(insufficient_valid_lines|validation_failed):/, ''));
-          debugInfo = errorData;
-          
-          // Create specific user-friendly messages based on failure patterns
-          const commonFailures = errorData.detailedFailures || errorData.failures || [];
-          const failureReasons = commonFailures.map(f => f.reason);
-          
-          // Analyze specific failure patterns for better user guidance
-          if (failureReasons.some(r => r.includes('multiple_sentences'))) {
-            userMessage = `Generated text was too wordy (multiple sentences). Try "${payload.tone}" with shorter, punchier phrasing.`;
-          } else if (failureReasons.some(r => r.includes('length_out_of_bounds'))) {
-            userMessage = `Generated text exceeded 120 character limit. "${payload.tone}" tone tends to be longer - try "playful" or "witty" instead.`;
-          } else if (failureReasons.some(r => r.includes('punct_invalid'))) {
-            userMessage = `Generated text had too much punctuation (>2 marks). "${payload.tone}" tone creates complex sentences - try simpler tones.`;
-          } else if (failureReasons.some(r => r.includes('category_anchor_missing'))) {
-            userMessage = `Could not create ${subcategory}-specific content. Try a more general category or different tone.`;
-          } else if (failureReasons.some(r => r.includes('forbidden_punctuation'))) {
-            userMessage = `Generated text used forbidden punctuation (semicolons, em-dashes). Please try again.`;
-          } else if (failureReasons.some(r => r.includes('insert_not_once'))) {
-            const missingTag = failureReasons.find(r => r.includes('insert_not_once'))?.split(':')[1];
-            userMessage = `Could not naturally include "${missingTag}" in ${subcategory} context. Try different category or remove specific words.`;
-          } else {
-            const validCount = errorData.validLines || 0;
-            userMessage = `Generated ${validCount} of 4 valid lines. Main issue: ${failureReasons[0]?.replace(/_/g, ' ') || 'formatting problems'}`;
-          }
-        } catch (parseError) {
-          console.error('Failed to parse error details:', parseError);
-        }
-      } else if (generationError.message === 'request_timeout' || generationError.message === 'generation_timeout_exceeded') {
-        userMessage = 'Generation timed out. Try again with simpler requirements.';
-        statusCode = 408;
-      } else if (generationError.message.includes('no_valid_batch')) {
-        userMessage = 'Could not generate valid jokes with current settings. Try different tone, rating, or category.';
-      } else if (generationError.message.startsWith('MODERATION_BLOCKED_INSERT:')) {
-        const blockedWord = generationError.message.split(':')[1];
-        userMessage = `The word "${blockedWord}" was blocked by content safety. Try NASCAR-specific terms like "pit crew", "infield", "burnout", or "checkered flag" instead.`;
-      } else if (generationError.message === 'MODERATION_BLOCKED_GENERAL') {
-        userMessage = 'Content was blocked by safety filters. Try different insert words or a different category.';
-      }
-      
-      return new Response(JSON.stringify({
-        success: false,
-        error: userMessage,
-        details: {
-          category: payload.category,
-          subcategory: subcategory,
-          tone: payload.tone,
-          rating: payload.rating,
-          insertWords: payload.insertWords,
-          reason: generationError.message.split(':')[0], // Remove JSON details for user
-          troubleshooting: 'Try different settings: simpler tone, different category, or no insert words',
-          debugInfo: debugInfo // Include detailed debug info for development
-        }
-      }), {
-        status: 200, // Always return 200 for structured error responses  
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Generate valid batch
+    const validOptions = await generateValidBatch(systemPrompt, payload, subcategory, nonce);
+    
+    // Check uniqueness
+    const lines = validOptions.map(opt => opt.line);
+    const uniqueLines = await checkUniqueness(lines, payload.userId);
+    
+    // Filter options to only unique ones
+    const uniqueOptions = validOptions.filter(opt => uniqueLines.includes(opt.line));
+    
+    // Ensure placement spread for insert words
+    let finalOptions = uniqueOptions;
+    if (payload.insertWords && payload.insertWords.length > 0) {
+      const spreadLines = ensurePlacementSpread(uniqueLines, payload.insertWords);
+      finalOptions = validOptions.filter(opt => spreadLines.includes(opt.line));
     }
     
+    // Take up to 4 options
+    const resultOptions = finalOptions.slice(0, 4);
+    
+    // Save to history
+    if (resultOptions.length > 0) {
+      await saveToHistory(resultOptions.map(opt => opt.line), payload);
+    }
+    
+    console.log(`Generated ${resultOptions.length} valid options for ${subcategory}`);
+    
+    return new Response(JSON.stringify(resultOptions), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
   } catch (error) {
-    console.error('Master Rules Generation Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'System error occurred. Please try again.',
-      details: { reason: error.message }
+    console.error('Error in generate-text function:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Internal server error',
+      details: error.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

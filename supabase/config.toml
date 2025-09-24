@@ -17,8 +17,5 @@ port = 54323
 [functions.generate-text]
 verify_jwt = false
 
-[functions.generate-viibe-text]
-verify_jwt = false
-
 [functions.poll-image-status]
 verify_jwt = false
