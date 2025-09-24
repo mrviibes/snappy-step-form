@@ -11,28 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import birthdayImage from "@/assets/birthday-celebration.jpg";
-import coffeeImage from "@/assets/coffee-morning.jpg";
-import footballImage from "@/assets/football-player.jpg";
-import paparazziImage from "@/assets/paparazzi-scene.jpg";
-import comedianImage from "@/assets/comedian-performance.jpg";
-import sorceressImage from "@/assets/sorceress-majestic.jpg";
+import { fitnessGoals, ThemeItem, SubcategoryItem } from "@/data/CategoryList";
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
 
-interface ThemeItem {
-  id: string;
-  title: string;
-}
-
-interface SubcategoryItem {
-  id: string;
-  title: string;
-  themes?: ThemeItem[];
-}
 
 export default function CategoryStep({
   data,
