@@ -1,4 +1,4 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
@@ -37,7 +37,7 @@ interface FinalPromptResponse {
   error?: string;
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     console.error("Generation error:", e);
     return json({ 
       success: false, 
-      error: String(e?.message || "prompt_generation_failed") 
+      error: String((e as Error)?.message || "prompt_generation_failed") 
     }, 500);
   }
 });

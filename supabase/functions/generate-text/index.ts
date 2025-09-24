@@ -381,7 +381,7 @@ function generateNonce(): string {
 
 function pickCategoryRelevantSeeds(category: string, count: number): string[] {
   const categoryKey = category.toLowerCase().split(' > ')[0];
-  const categorySeeds = TOPIC_SEEDS_BY_CATEGORY[categoryKey] || GENERAL_TOPIC_SEEDS;
+  const categorySeeds = (TOPIC_SEEDS_BY_CATEGORY as any)[categoryKey] || GENERAL_TOPIC_SEEDS;
   const shuffled = [...categorySeeds].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 }
@@ -399,7 +399,7 @@ function pickComedians(count: number): any[] {
 
 function getBanList(category: string): string[] {
   const categoryKey = category.toLowerCase().split(' > ')[0];
-  return CATEGORY_BAN_LISTS[categoryKey] || [];
+  return (CATEGORY_BAN_LISTS as any)[categoryKey] || [];
 }
 
 // Helper: classify insert word position
@@ -463,7 +463,7 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
   if (!insertWords || insertWords.length === 0) return lines;
   
   const firstWord = insertWords[0].toLowerCase();
-  const positions = { front: [], middle: [], end: [] };
+  const positions: { front: string[]; middle: string[]; end: string[] } = { front: [], middle: [], end: [] };
   
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
@@ -478,8 +478,8 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
   }
   
   // Try to get one from each position
-  const result = [];
-  ['front', 'middle', 'end'].forEach(pos => {
+  const result: string[] = [];
+  (['front', 'middle', 'end'] as const).forEach(pos => {
     if (positions[pos].length > 0) {
       result.push(positions[pos][0]);
     }
@@ -488,7 +488,8 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
   // Fill remaining slots
   const remaining = lines.filter(line => !result.includes(line));
   while (result.length < 4 && remaining.length > 0) {
-    result.push(remaining.shift());
+    const next = remaining.shift();
+    if (next) result.push(next);
   }
   
   return result.slice(0, 4);
@@ -696,8 +697,8 @@ Nonce: ${nonce}`;
   } catch (error) {
     console.error('Error in generate-text function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Internal server error',
-      details: error.stack
+      error: (error as Error)?.message || 'Internal server error',
+      details: (error as Error)?.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
