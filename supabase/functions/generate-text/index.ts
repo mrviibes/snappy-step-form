@@ -379,7 +379,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -425,11 +425,11 @@ async function saveToHistory(lines: string[], payload: any) {
 }
 
 // Generate exactly 4 valid lines with slot-retry mechanism
-async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string}>> {
+async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
   const timeoutMs = 25000; // 25 second hard timeout
   const startTime = Date.now();
   const totalNeeded = 4;
-  let validLines: Array<{line: string}> = [];
+  let validLines: Array<{line: string, comedian: string}> = [];
   
   // Use generic AI assistant label for all generated lines
   
@@ -483,7 +483,8 @@ Return only the lines, one per line, no formatting or numbering.`;
         
         if (validation.ok) {
           validLines.push({
-            line: line
+            line: line,
+            comedian: "AI Assist"
           });
         }
       }
