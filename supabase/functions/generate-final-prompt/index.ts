@@ -99,35 +99,35 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   // Extract category context props for better scene description
   const categoryProps = extractCategoryProps(category, subcategory, finalText, insertWords);
   
-  // Visual style mappings (same as before but cleaner)
+  // Visual style mappings with comprehensive negative prompt management
   const visualStyleGuides: Record<string, {positive: string[], negative: string[]}> = {
     "realistic": {
-      positive: ["photorealistic", "natural lighting", "detailed textures"],
-      negative: ["cartoon", "anime", "illustration", "CGI", "3D render"]
+      positive: ["photorealistic", "natural lighting", "detailed textures", "professional photography"],
+      negative: ["cartoon", "anime", "illustration", "CGI", "3D render", "vector art", "drawing", "sketch"]
     },
     "design": {
-      positive: ["modern graphic design", "clean typography", "professional layout"],
-      negative: ["photorealistic", "cluttered", "realistic textures"]
+      positive: ["modern graphic design", "clean typography", "professional layout", "vector illustration"],
+      negative: ["photorealistic", "realistic textures", "natural photography", "cluttered design"]
     },
     "3d render": {
-      positive: ["3D rendered", "volumetric lighting", "realistic materials"],
-      negative: ["2D", "flat", "hand-drawn", "photograph"]
+      positive: ["3D rendered", "volumetric lighting", "realistic materials", "ray traced"],
+      negative: ["2D", "flat", "hand-drawn", "photograph", "anime", "cartoon"]
     },
     "3d-render": {
-      positive: ["3D rendered", "volumetric lighting", "realistic materials"],
-      negative: ["2D", "flat", "hand-drawn", "photograph"]
+      positive: ["3D rendered", "volumetric lighting", "realistic materials", "ray traced"],
+      negative: ["2D", "flat", "hand-drawn", "photograph", "anime", "cartoon"]
     },
     "anime": {
-      positive: ["anime style", "cel-shaded", "vibrant colors"],
-      negative: ["photorealistic", "3D render", "realistic proportions"]
+      positive: ["anime style", "cel-shaded", "vibrant colors", "manga artwork"],
+      negative: ["photorealistic", "3D render", "realistic proportions", "photography", "CGI"]
     },
     "general": {
-      positive: ["artistic", "well-composed", "balanced"],
-      negative: ["poor quality", "blurry", "distorted"]
+      positive: ["artistic", "well-composed", "balanced", "creative"],
+      negative: ["poor quality", "blurry", "distorted", "amateur"]
     },
     "auto": {
-      positive: ["high quality", "appropriate style", "professional"],
-      negative: ["poor quality", "distorted", "amateur"]
+      positive: ["high quality", "appropriate style", "professional", "well-executed"],
+      negative: ["poor quality", "distorted", "amateur", "low resolution"]
     }
   };
 

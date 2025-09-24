@@ -361,42 +361,111 @@ function extractVisualElements(text: string, category: string, insertWords: stri
   }
 }
 
-// Simplified visual prompt for faster generation
-function buildSimplifiedVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
+// Style variation synonyms to prevent repetition
+const STYLE_SYNONYMS = {
+  lighting: ["cool dusk light", "harsh top light", "soft porch glow", "garage fluorescent", "dramatic shadows", "warm golden hour"],
+  mood: ["deadpan humor", "awkward comedy", "backyard fail energy", "sarcastic vibe", "chaotic moment", "peak embarrassment"]
+}
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// Enhanced visual concept builder that reflects actual joke content
+function buildSpecificVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
   const { finalText, category, subcategory, visualStyle, rating } = params
   
   const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
-  const { allProps } = extractVisualElements(finalText, category, params.insertWords)
+  const elements = extractVisualElements(finalText, category, params.insertWords)
   
-  // Get only the most important props (max 3)
-  const keyProps = allProps.slice(0, 3)
-  const propList = keyProps.length > 0 ? keyProps.join(', ') : 'birthday elements'
+  // Extract specific failure/action context from the joke
+  const jokeContext = extractJokeContext(finalText, elements)
   
-  const system = `Create 6 SHORT visual descriptions for image generation (20-30 words each).
+  const system = `Create 6 SPECIFIC visual descriptions for image generation (25-35 words each).
 
 CRITICAL RULES:
-- Text: "${finalText}"
-- Style: ${selectedStyle.name} 
-- Props: ${propList}
-- Each description must be completely different
-- Use exactly these 6 modes: cinematic, close-up, crowd-reaction, minimalist, exaggerated-proportions, goofy-absurd
+- Text reflects specific joke content: "${finalText}"
+- Style: ${selectedStyle.name}
+- Extract actual props, actions, and failures from the text
+- NO generic "celebration" or "cheerful atmosphere" - be specific to the joke scenario
+- Each mode must show different aspects of the same joke situation
 
-FORMAT: JSON with "visuals" array containing objects with "description", "interpretation", "layout", "visualStyle", "props".
+FORMAT: JSON with "visuals" array containing objects with "description", "interpretation", "layout", "visualStyle", "props".`
 
-Keep descriptions simple and concrete - avoid complex lighting descriptions.`
+  const concepts = buildSixVariedConcepts(jokeContext, elements, selectedStyle)
+  
+  const user = `Generate 6 visual concepts for joke: "${finalText}"
 
-  const user = `Generate 6 visual concepts for: "${finalText}"
+Use these specific concepts (avoid generic celebration language):
 
-1. CINEMATIC: Wide shot of ${propList}, ${category} setting
-2. CLOSE-UP: Detail view of ${keyProps[0] || 'main element'}, shallow focus  
-3. CROWD REACTION: People reacting to ${keyProps[0] || 'scene'}, group expressions
-4. MINIMALIST: Simple ${keyProps[0] || 'element'} on clean background
-5. EXAGGERATED PROPORTIONS: Oversized ${keyProps[0] || 'elements'}, cartoon proportions
-6. GOOFY ABSURD: Silly ${propList} arrangement, maximum comedy
+${concepts.map((concept, i) => `${i + 1}. ${concept.name.toUpperCase()}: ${concept.prompt}`).join('\n')}
 
-Each 20-30 words, ${selectedStyle.name.toLowerCase()} style.`
+Each description must reflect the specific joke scenario, not generic ${category} imagery.`
 
   return { system, user }
+}
+
+// Extract specific context from joke content
+function extractJokeContext(text: string, elements: any): any {
+  const lowerText = text.toLowerCase()
+  
+  // Detect failure/success scenarios
+  const failureWords = ['failed', 'fail', 'wrong', 'burnt', 'charred', 'ruined', 'disaster', 'mess', 'broke', 'crashed', 'spilled']
+  const isFailure = failureWords.some(word => lowerText.includes(word))
+  
+  // Detect specific objects and their states
+  const objects = elements.nouns.slice(0, 3)
+  const actions = elements.verbs.slice(0, 2)
+  const setting = elements.settings[0] || 'scene'
+  const people = elements.people[0] || 'person'
+  
+  // Extract emotional context
+  const emotions = ['embarrassed', 'proud', 'confused', 'shocked', 'mortified', 'amused']
+  const detectedEmotion = emotions.find(emotion => lowerText.includes(emotion)) || (isFailure ? 'embarrassed' : 'amused')
+  
+  return {
+    isFailure,
+    mainObject: objects[0] || 'item',
+    secondObject: objects[1] || null,
+    action: actions[0] || 'situation',
+    setting,
+    people,
+    emotion: detectedEmotion,
+    props: [...objects, ...actions].slice(0, 4)
+  }
+}
+
+// Build six varied concepts based on actual joke content
+function buildSixVariedConcepts(context: any, elements: any, style: any) {
+  const { mainObject, action, setting, people, emotion, isFailure, props } = context
+  
+  // Build specific scenarios rather than generic templates
+  return [
+    {
+      name: 'Cinematic Wide',
+      prompt: `Wide ${setting} scene, ${isFailure ? 'smoke/mess' : 'celebration'} with ${mainObject}, ${people} ${isFailure ? 'dealing with disaster' : 'enjoying moment'}, ${pickRandom(STYLE_SYNONYMS.lighting)}, ${pickRandom(STYLE_SYNONYMS.mood)}`
+    },
+    {
+      name: 'Close-up Detail', 
+      prompt: `Extreme close-up of ${mainObject} with ${isFailure ? 'burnt/damaged texture' : 'perfect details'}, ${isFailure ? 'ash and char' : 'appealing surface'}, shallow depth of field, detailed textures`
+    },
+    {
+      name: 'Crowd Reaction',
+      prompt: `Group of people ${isFailure ? 'laughing and pointing at the' : 'celebrating with'} ${mainObject}, ${isFailure ? 'someone holding fire extinguisher' : 'everyone cheering'}, candid expressions, social chaos`
+    },
+    {
+      name: 'Minimalist Clean',
+      prompt: `Single ${mainObject} ${isFailure ? 'completely ruined' : 'perfectly presented'} on white surface, ${isFailure ? 'dramatic lighting showing damage' : 'clean professional lighting'}, strong negative space, minimal composition`
+    },
+    {
+      name: 'Exaggerated Proportions',
+      prompt: `Comically oversized ${isFailure ? 'smoke cloud or damage' : mainObject} dwarfing tiny ${people}, exaggerated cartoon proportions, ${isFailure ? 'disaster comedy scale' : 'celebration comedy scale'}`
+    },
+    {
+      name: 'Goofy Absurd',
+      prompt: `Slapstick scene with ${isFailure ? 'smoke alarms beeping, neighbors with garden hose' : 'over-the-top celebration chaos'}, ${mainObject} at center of comedy, peak absurd moment, maximum visual humor`
+    }
+  ]
 }
 
 // Enhanced visual prompt builder using Step-3 template approach with joke element integration
@@ -738,8 +807,8 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
   
   try {
-    // Use simplified prompt for faster generation
-    const { system, user } = buildSimplifiedVisualPrompt(params)
+    // Use specific content-aware prompt for better visual concepts
+    const { system, user } = buildSpecificVisualPrompt(params)
     
     // Call OpenAI with timeout and retry
     const rawResponse = await callOpenAIWithRetry(system, user, 2)
