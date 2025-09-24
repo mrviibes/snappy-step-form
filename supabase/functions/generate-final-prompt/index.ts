@@ -85,141 +85,215 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const {
     finalText,
     category,
+    subcategory,
     tone,
     textStyle,
     rating,
     visualStyle,
     layout,
     dimension,
-    insertedVisuals = []
+    insertedVisuals = [],
+    insertWords = []
   } = params;
 
-  // Visual style mappings for Ideogram
+  // Extract category context props for better scene description
+  const categoryProps = extractCategoryProps(category, subcategory, finalText, insertWords);
+  
+  // Visual style mappings (same as before but cleaner)
   const visualStyleGuides: Record<string, {positive: string[], negative: string[]}> = {
     "realistic": {
-      positive: ["photorealistic", "high quality photography", "natural lighting", "detailed textures", "real world"],
-      negative: ["cartoon", "anime", "illustration", "vector art", "flat design", "abstract", "CGI", "3D render"]
+      positive: ["photorealistic", "natural lighting", "detailed textures"],
+      negative: ["cartoon", "anime", "illustration", "CGI", "3D render"]
     },
     "design": {
-      positive: ["modern graphic design", "clean typography", "minimalist design", "professional layout", "sleek"],
-      negative: ["photorealistic", "cluttered", "amateur design", "busy background", "realistic textures"]
+      positive: ["modern graphic design", "clean typography", "professional layout"],
+      negative: ["photorealistic", "cluttered", "realistic textures"]
     },
-    "3d": {
-      positive: ["3D rendered", "volumetric lighting", "high quality 3D", "realistic materials", "depth", "ray traced"],
-      negative: ["2D", "flat", "hand-drawn", "sketchy", "photograph", "anime style"]
+    "3d render": {
+      positive: ["3D rendered", "volumetric lighting", "realistic materials"],
+      negative: ["2D", "flat", "hand-drawn", "photograph"]
+    },
+    "3d-render": {
+      positive: ["3D rendered", "volumetric lighting", "realistic materials"],
+      negative: ["2D", "flat", "hand-drawn", "photograph"]
     },
     "anime": {
-      positive: ["anime style", "manga illustration", "cel-shaded", "vibrant colors", "Japanese art style"],
-      negative: ["photorealistic", "western cartoon", "3D render", "realistic proportions", "photograph"]
+      positive: ["anime style", "cel-shaded", "vibrant colors"],
+      negative: ["photorealistic", "3D render", "realistic proportions"]
     },
     "general": {
-      positive: ["artistic", "creative", "well-composed", "balanced", "high quality"],
-      negative: ["poor quality", "blurry", "distorted", "amateur"]
+      positive: ["artistic", "well-composed", "balanced"],
+      negative: ["poor quality", "blurry", "distorted"]
     },
     "auto": {
-      positive: ["high quality", "well-composed", "appropriate style", "professional"],
-      negative: ["poor quality", "distorted", "inappropriate style", "amateur"]
+      positive: ["high quality", "appropriate style", "professional"],
+      negative: ["poor quality", "distorted", "amateur"]
     }
   };
 
-  // Layout positioning guides with mandatory instructions and exact constraints
-  const layoutGuides: Record<string, {description: string, constraints: string, mandatoryInstruction: string}> = {
-    "meme-text": {
-      description: "bold text overlays at top and bottom of image",
-      constraints: "Layout: top and bottom text banners, text_overlay_max_fraction: 0.25, bold_readable_font",
-      mandatoryInstruction: "Render exact overlay text in bold banners at the top and bottom of the image"
-    },
-    "lower-banner": {
-      description: "clean text banner at bottom of image", 
-      constraints: "Layout: lower third banner, text_overlay_max_fraction: 0.20, clean_typography",
-      mandatoryInstruction: "Render exact overlay text in a lower third banner at the bottom of the image"
-    },
-    "side-bar": {
-      description: "elegant text sidebar on left or right side",
-      constraints: "Layout: side panel overlay, text_overlay_max_fraction: 0.25, vertical_text_option",
-      mandatoryInstruction: "Render exact overlay text in an elegant sidebar panel on the left or right side"
-    },
-    "badge-callout": {
-      description: "text in decorative badge or callout bubble",
-      constraints: "Layout: decorative badge overlay, text_overlay_max_fraction: 0.15, badge_design, decorative_frame",
-      mandatoryInstruction: "Render exact overlay text in a decorative badge or callout bubble"
-    },
-    "subtle-caption": {
-      description: "subtle text overlay integrated naturally into scene",
-      constraints: "Layout: natural integration caption, text_overlay_max_fraction: 0.20, subtle_placement",
-      mandatoryInstruction: "Render exact overlay text as a subtle caption naturally integrated into the scene"
-    },
-    "negative-space": {
-      description: "text placed strategically in empty/negative space areas",
-      constraints: "Layout: strategic negative space placement, text_overlay_max_fraction: 0.25, smart_positioning",
-      mandatoryInstruction: "Render exact overlay text strategically placed in empty/negative space areas"
-    }
+  // Simplified layout instructions (much shorter)
+  const layoutMap: Record<string, string> = {
+    "meme-text": "top and bottom text banners",
+    "lower-banner": "lower third text banner at bottom", 
+    "side-bar": "text sidebar on left or right",
+    "badge-callout": "decorative badge or callout bubble",
+    "subtle-caption": "subtle caption integrated into scene",
+    "negative-space": "text in empty space areas"
   };
 
-  // Tone influences for mood
-  const toneGuides: Record<string, {mood: string, avoid: string}> = {
-    "sentimental": { mood: "warm, heartfelt, gentle, emotional, soft lighting", avoid: "cold, harsh, sarcastic, dark" },
-    "humorous": { mood: "playful, fun, lighthearted, cheerful, bright", avoid: "serious, dramatic, somber, dark" },
-    "playful": { mood: "energetic, fun, vibrant, joyful, colorful", avoid: "formal, stiff, boring, monochrome" },
-    "savage": { mood: "bold, edgy, confident, striking, dramatic", avoid: "cute, innocent, overly sweet, soft" },
-    "weird": { mood: "quirky, unusual, surreal, creative, unexpected", avoid: "conventional, boring, predictable, normal" }
+  // Dimension specs
+  const dimensionMap: Record<string, string> = {
+    "square": "square 1:1 aspect ratio",
+    "portrait": "portrait 9:16 aspect ratio", 
+    "landscape": "landscape 16:9 aspect ratio"
   };
 
-  // Dimension specifications
-  const dimensionSpecs: Record<string, string> = {
-    "square": "1:1 aspect ratio, centered composition",
-    "portrait": "vertical 9:16 or 4:5 aspect ratio, portrait orientation",
-    "landscape": "horizontal 16:9 or 3:2 aspect ratio, landscape orientation"
+  // Tone to mood mapping
+  const toneMap: Record<string, string> = {
+    "humorous": "playful mood, bright cheerful atmosphere",
+    "playful": "energetic fun, vibrant joyful colors",
+    "sarcastic": "subtle ironic mood, clever visual puns",
+    "savage": "bold edgy mood, dramatic lighting",
+    "sentimental": "warm heartfelt mood, soft golden lighting",
+    "nostalgic": "dreamy nostalgic mood, vintage color grading",
+    "witty": "sophisticated mood, clever composition"
   };
 
   const styleGuide = visualStyleGuides[visualStyle.toLowerCase()] || visualStyleGuides["auto"];
-  const layoutGuide = layoutGuides[layout.toLowerCase()] || layoutGuides["lower-banner"];
-  const toneGuide = toneGuides[tone.toLowerCase()] || { mood: "appropriate", avoid: "inappropriate" };
-  const dimensionSpec = dimensionSpecs[dimension.toLowerCase()] || dimensionSpecs["square"];
-  const visualElements = insertedVisuals.length > 0 ? insertedVisuals.join(', ') : '';
+  const layoutDesc = layoutMap[layout.toLowerCase()] || "lower third text banner";
+  const dimensionDesc = dimensionMap[dimension.toLowerCase()] || "square aspect ratio";
+  const moodDesc = toneMap[tone.toLowerCase()] || "appropriate mood";
 
-  // Enhanced negative prompt elements for text safety
-  const textNegatives = [
-    "extra text", "watermarks", "spelling errors", "duplicate text", 
-    "missing text", "misplaced text", "distorted font", "unreadable text",
-    "text artifacts", "garbled text", "partial text", "cut-off text"
+  // Enhanced negative prompt with strong text safety
+  const enhancedNegatives = [
+    ...styleGuide.negative,
+    "extra text", "missing text", "misplaced text", "duplicate text", 
+    "distorted font", "unreadable text", "watermarks", "low resolution",
+    "cluttered background", "amateur quality", "poor composition"
   ];
 
-  // Generate 4 distinct templates with front-loaded text instructions
+  // Generate 4 templates with improved structure
   const templates: PromptTemplate[] = [
     {
-      name: "Cinematic",
-      description: "Dramatic, movie-like composition with professional lighting",
-      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
-—
-${dimensionSpec}, cinematic composition, ${styleGuide.positive.join(', ')}, dramatic lighting, professional quality, ${toneGuide.mood} atmosphere, ${visualElements ? `include ${visualElements},` : ''} high production value, movie-like quality, professional cinematography`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, amateur quality, poor lighting, cluttered composition, low resolution, unprofessional`
+      name: "Cinematic Wide",
+      description: "Dramatic wide shot showing full context with cinematic lighting",
+      positive: buildOptimizedPrompt({
+        finalText,
+        layoutDesc,
+        dimensionDesc,
+        styleDesc: styleGuide.positive.join(", "),
+        variation: "cinematic",
+        categoryContext: getCategoryContext(categoryProps, "wide shot"),
+        moodDesc
+      }),
+      negative: enhancedNegatives.join(", ")
     },
     {
-      name: "Close-up",
-      description: "Intimate, detailed focus on key elements with shallow depth",
-      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
-—
-${dimensionSpec}, close-up detailed composition, ${styleGuide.positive.join(', ')}, shallow depth of field, focus on main subject, ${toneGuide.mood} mood, ${visualElements ? `featuring ${visualElements},` : ''} macro detail, intimate perspective, sharp focus, detailed textures`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, wide angle, busy background, distracted focus, blurry details, poor focus, out of focus`
+      name: "Close-up Detail", 
+      description: "Intimate detail shot focusing on key props with shallow depth",
+      positive: buildOptimizedPrompt({
+        finalText,
+        layoutDesc, 
+        dimensionDesc,
+        styleDesc: styleGuide.positive.join(", "),
+        variation: "close-up",
+        categoryContext: getCategoryContext(categoryProps, "close-up detail"),
+        moodDesc
+      }),
+      negative: enhancedNegatives.join(", ")
     },
     {
-      name: "Crowd Reaction", 
-      description: "Dynamic scene showing people or environment reacting to the message",
-      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use bold, highly readable font. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
-—
-${dimensionSpec}, dynamic crowd scene, ${styleGuide.positive.join(', ')}, people reacting, energetic atmosphere, ${toneGuide.mood} energy, ${visualElements ? `with ${visualElements},` : ''} social interaction, lively scene, group dynamics, engaging composition`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, static scene, lonely, empty, antisocial, boring composition, lifeless, dull atmosphere`
+      name: "Crowd Reaction",
+      description: "Group scene showing people reacting to the situation", 
+      positive: buildOptimizedPrompt({
+        finalText,
+        layoutDesc,
+        dimensionDesc, 
+        styleDesc: styleGuide.positive.join(", "),
+        variation: "crowd reaction",
+        categoryContext: getCategoryContext(categoryProps, "group scene"),
+        moodDesc
+      }),
+      negative: enhancedNegatives.join(", ")
     },
     {
-      name: "Minimalist",
-      description: "Clean, simple design focusing on essential elements only", 
-      positive: `MANDATORY: ${layoutGuide.mandatoryInstruction}. Text must read: "${finalText}". Use clean, readable typography. ${layoutGuide.constraints}. No duplicate text, spelling must be perfect.
-—
-${dimensionSpec}, minimalist composition, ${styleGuide.positive.join(', ')}, clean simple design, plenty of white space, ${toneGuide.mood} simplicity, ${visualElements ? `minimal ${visualElements},` : ''} elegant simplicity, uncluttered, balanced composition, modern aesthetics`,
-      negative: `${styleGuide.negative.join(', ')}, ${toneGuide.avoid}, ${textNegatives.join(', ')}, cluttered, busy, complex, overwhelming, chaotic, too many elements, messy layout`
+      name: "Minimalist Clean",
+      description: "Simple clean composition with essential elements only",
+      positive: buildOptimizedPrompt({
+        finalText,
+        layoutDesc,
+        dimensionDesc,
+        styleDesc: styleGuide.positive.join(", "), 
+        variation: "minimalist",
+        categoryContext: getCategoryContext(categoryProps, "clean simple"),
+        moodDesc
+      }),
+      negative: enhancedNegatives.join(", ")
     }
   ];
 
   return templates;
+}
+
+// Extract props from category and text context
+function extractCategoryProps(category: string, subcategory?: string, finalText?: string, insertWords: string[] = []): string[] {
+  const categoryLexicons: Record<string, string[]> = {
+    "nascar": ["beer", "cup", "track", "fans", "pit crew", "infield", "stands", "cars", "flags", "tailgate", "garage", "helmet"],
+    "sports": ["field", "game", "players", "crowd", "stadium", "competition"],
+    "birthday": ["cake", "candles", "balloons", "party", "gifts", "celebration"],
+    "wedding": ["rings", "dress", "altar", "bouquet", "reception", "guests"],
+    "work": ["office", "desk", "computer", "meeting", "coffee", "colleagues"],
+    "dating": ["restaurant", "dinner", "conversation", "couple", "romance"]
+  };
+
+  const key = (subcategory || category).toLowerCase();
+  const baseProps = categoryLexicons[key] || categoryLexicons["general"] || [];
+  
+  // Add insert words and text-extracted props
+  const textWords = finalText?.toLowerCase().split(/\W+/).filter(w => w.length > 3) || [];
+  const relevantTextProps = textWords.filter(word => 
+    baseProps.some(prop => prop.includes(word) || word.includes(prop))
+  );
+
+  return [
+    ...insertWords.filter(Boolean),
+    ...relevantTextProps.slice(0, 3),
+    ...baseProps.slice(0, 4)
+  ].filter((prop, index, arr) => arr.indexOf(prop) === index).slice(0, 6);
+}
+
+// Get category-specific context description
+function getCategoryContext(props: string[], variation: string): string {
+  if (props.length === 0) return `${variation}`;
+  
+  const mainProps = props.slice(0, 3).join(", ");
+  const contexts: Record<string, string> = {
+    "wide shot": `wide shot with ${mainProps} visible in scene`,
+    "close-up detail": `close-up focusing on ${mainProps}`,
+    "group scene": `group scene with people and ${mainProps}`,
+    "clean simple": `simple composition featuring ${mainProps}`
+  };
+  
+  return contexts[variation] || `${variation} with ${mainProps}`;
+}
+
+// Build optimized prompt with clean structure
+function buildOptimizedPrompt(opts: {
+  finalText: string;
+  layoutDesc: string; 
+  dimensionDesc: string;
+  styleDesc: string;
+  variation: string;
+  categoryContext: string;
+  moodDesc: string;
+}): string {
+  const { finalText, layoutDesc, dimensionDesc, styleDesc, variation, categoryContext, moodDesc } = opts;
+  
+  return `MANDATORY: Overlay exact text once in ${layoutDesc}.
+Text: "${finalText}"
+Bold, readable font. No duplicate text, spelling must be perfect.
+—
+${dimensionDesc}, ${styleDesc}, ${variation} composition.
+Scene: ${categoryContext}.
+${moodDesc}, professional quality, detailed textures, natural lighting.`.trim();
 }
