@@ -2248,71 +2248,226 @@ const fitnessGoals = [{
     id: "dad-jokes",
     title: "Dad Jokes",
     themes: [
+      { id: "everyday-life", title: "Everyday Life" },
+      { id: "school", title: "School" },
+      { id: "work-office", title: "Work / Office" },
+      { id: "parenting-kids", title: "Parenting / Kids" },
+      { id: "food-cooking", title: "Food / Cooking" },
+      { id: "animals", title: "Animals" },
       { id: "sports", title: "Sports" },
-      { id: "food", title: "Food" },
-      { id: "work", title: "Work" },
-      { id: "family", title: "Family" },
       { id: "technology", title: "Technology" },
-      { id: "relationships", title: "Relationships" },
-      { id: "everyday-life", title: "Everyday Life" }
+      { id: "weather-seasons", title: "Weather / Seasons" }
+    ]
+  }, {
+    id: "knock-knock-jokes",
+    title: "Knock-Knock Jokes",
+    themes: [
+      { id: "animals", title: "Animals" },
+      { id: "food", title: "Food" },
+      { id: "celebrities", title: "Celebrities" },
+      { id: "everyday-objects", title: "Everyday Objects" },
+      { id: "holidays", title: "Holidays" },
+      { id: "professions", title: "Professions" },
+      { id: "wordplay", title: "Wordplay" }
     ]
   }, {
     id: "puns",
     title: "Puns",
     themes: [
       { id: "animals", title: "Animals" },
-      { id: "food", title: "Food" },
+      { id: "food-cooking", title: "Food / Cooking" },
       { id: "weather", title: "Weather" },
-      { id: "work", title: "Work" },
+      { id: "work-office", title: "Work / Office" },
       { id: "technology", title: "Technology" },
       { id: "sports", title: "Sports" },
-      { id: "everyday-objects", title: "Everyday Objects" }
+      { id: "music", title: "Music" },
+      { id: "science", title: "Science" }
+    ]
+  }, {
+    id: "one-liners",
+    title: "One-Liners",
+    themes: [
+      { id: "marriage-relationships", title: "Marriage / Relationships" },
+      { id: "work-office", title: "Work / Office" },
+      { id: "money-economy", title: "Money / Economy" },
+      { id: "technology", title: "Technology" },
+      { id: "food", title: "Food" },
+      { id: "self-deprecating", title: "Self-Deprecating" },
+      { id: "absurd-humor", title: "Absurd Humor" }
+    ]
+  }, {
+    id: "roasts",
+    title: "Roasts",
+    themes: [
+      { id: "celebrities", title: "Celebrities" },
+      { id: "politicians", title: "Politicians" },
+      { id: "everyday-people", title: "Everyday People" },
+      { id: "professions", title: "Professions" },
+      { id: "social-media", title: "Social Media" },
+      { id: "fashion", title: "Fashion" },
+      { id: "lifestyle", title: "Lifestyle" }
+    ]
+  }, {
+    id: "yo-mama-jokes",
+    title: "Yo Mama Jokes",
+    themes: [
+      { id: "size-weight", title: "Size / Weight" },
+      { id: "intelligence", title: "Intelligence" },
+      { id: "age", title: "Age" },
+      { id: "cooking", title: "Cooking" },
+      { id: "technology", title: "Technology" },
+      { id: "money", title: "Money" },
+      { id: "appearance", title: "Appearance" }
+    ]
+  }, {
+    id: "lightbulb-jokes",
+    title: "Lightbulb Jokes",
+    themes: [
+      { id: "professions", title: "Professions" },
+      { id: "stereotypes", title: "Stereotypes" },
+      { id: "technology", title: "Technology" },
+      { id: "politicians", title: "Politicians" },
+      { id: "students", title: "Students" },
+      { id: "celebrities", title: "Celebrities" }
+    ]
+  }, {
+    id: "anti-jokes",
+    title: "Anti-Jokes",
+    themes: [
+      { id: "everyday-situations", title: "Everyday Situations" },
+      { id: "animals", title: "Animals" },
+      { id: "classic-setups", title: "Classic Setups" },
+      { id: "expectations", title: "Expectations" },
+      { id: "literal-answers", title: "Literal Answers" }
     ]
   }, {
     id: "observational",
     title: "Observational",
     themes: [
-      { id: "social-media", title: "Social Media" },
       { id: "modern-life", title: "Modern Life" },
-      { id: "relationships", title: "Relationships" },
+      { id: "social-media", title: "Social Media" },
+      { id: "dating", title: "Dating" },
       { id: "work-culture", title: "Work Culture" },
+      { id: "shopping-retail", title: "Shopping / Retail" },
+      { id: "commuting-driving", title: "Commuting / Driving" },
       { id: "technology", title: "Technology" },
-      { id: "daily-habits", title: "Daily Habits" },
       { id: "generational-differences", title: "Generational Differences" }
     ]
   }, {
-    id: "one-liners",
-    title: "One-liners",
+    id: "self-deprecating",
+    title: "Self-Deprecating",
     themes: [
-      { id: "self-deprecating", title: "Self-deprecating" },
-      { id: "witty-comebacks", title: "Witty Comebacks" },
-      { id: "absurd-humor", title: "Absurd Humor" },
+      { id: "appearance", title: "Appearance" },
+      { id: "intelligence", title: "Intelligence" },
+      { id: "dating-relationships", title: "Dating / Relationships" },
+      { id: "career", title: "Career" },
+      { id: "age", title: "Age" },
+      { id: "skills", title: "Skills" },
+      { id: "lifestyle", title: "Lifestyle" }
+    ]
+  }, {
+    id: "riddles",
+    title: "Riddles",
+    themes: [
       { id: "wordplay", title: "Wordplay" },
-      { id: "dark-humor", title: "Dark Humor" },
-      { id: "clever-observations", title: "Clever Observations" }
+      { id: "logic", title: "Logic" },
+      { id: "animals", title: "Animals" },
+      { id: "everyday-objects", title: "Everyday Objects" },
+      { id: "numbers", title: "Numbers" },
+      { id: "silly-answers", title: "Silly Answers" }
     ]
   }, {
-    id: "situational",
-    title: "Situational",
+    id: "dark-humor",
+    title: "Dark Humor",
     themes: [
-      { id: "office-life", title: "Office Life" },
-      { id: "dating", title: "Dating" },
-      { id: "parenting", title: "Parenting" },
-      { id: "travel", title: "Travel" },
-      { id: "shopping", title: "Shopping" },
-      { id: "social-events", title: "Social Events" },
-      { id: "everyday-mishaps", title: "Everyday Mishaps" }
+      { id: "death", title: "Death" },
+      { id: "misfortune", title: "Misfortune" },
+      { id: "taboo-topics", title: "Taboo Topics" },
+      { id: "existential", title: "Existential" },
+      { id: "gallows-humor", title: "Gallows Humor" }
     ]
   }, {
-    id: "wordplay",
-    title: "Wordplay",
+    id: "question-answer",
+    title: "Question/Answer Jokes",
     themes: [
-      { id: "double-meanings", title: "Double Meanings" },
-      { id: "rhymes", title: "Rhymes" },
-      { id: "homophones", title: "Homophones" },
-      { id: "acronyms", title: "Acronyms" },
-      { id: "spoonerisms", title: "Spoonerisms" },
-      { id: "alliteration", title: "Alliteration" }
+      { id: "animals", title: "Animals" },
+      { id: "professions", title: "Professions" },
+      { id: "food", title: "Food" },
+      { id: "technology", title: "Technology" },
+      { id: "sports", title: "Sports" },
+      { id: "wordplay", title: "Wordplay" }
+    ]
+  }, {
+    id: "shaggy-dog",
+    title: "Shaggy Dog Jokes",
+    themes: [
+      { id: "elaborate-setups", title: "Elaborate Setups" },
+      { id: "adventure-stories", title: "Adventure Stories" },
+      { id: "pun-punchlines", title: "Pun Punchlines" },
+      { id: "absurd-situations", title: "Absurd Situations" }
+    ]
+  }, {
+    id: "pick-up-lines",
+    title: "Pick-Up Lines",
+    themes: [
+      { id: "cheesy-romantic", title: "Cheesy / Romantic" },
+      { id: "clever-wordplay", title: "Clever Wordplay" },
+      { id: "science-nerdy", title: "Science / Nerdy" },
+      { id: "food-related", title: "Food Related" },
+      { id: "technology", title: "Technology" },
+      { id: "so-bad-theyre-good", title: "So Bad They're Good" }
+    ]
+  }, {
+    id: "tongue-twisters",
+    title: "Tongue Twisters / Wordplay",
+    themes: [
+      { id: "alliteration", title: "Alliteration" },
+      { id: "rhyming", title: "Rhyming" },
+      { id: "similar-sounds", title: "Similar Sounds" },
+      { id: "speed-challenges", title: "Speed Challenges" },
+      { id: "funny-phrases", title: "Funny Phrases" }
+    ]
+  }, {
+    id: "parody",
+    title: "Parody Jokes",
+    themes: [
+      { id: "famous-quotes", title: "Famous Quotes" },
+      { id: "movie-lines", title: "Movie Lines" },
+      { id: "song-lyrics", title: "Song Lyrics" },
+      { id: "proverbs-sayings", title: "Proverbs / Sayings" },
+      { id: "commercials", title: "Commercials" },
+      { id: "political-speeches", title: "Political Speeches" }
+    ]
+  }, {
+    id: "list-top-10",
+    title: "List / Top-10 Jokes",
+    themes: [
+      { id: "worst-things", title: "Worst Things" },
+      { id: "best-things", title: "Best Things" },
+      { id: "signs-you-know", title: "Signs You Know..." },
+      { id: "reasons-why", title: "Reasons Why..." },
+      { id: "things-never-hear", title: "Things You'll Never Hear" }
+    ]
+  }, {
+    id: "dad-ism-proverbs",
+    title: "Dad-ism Proverbs",
+    themes: [
+      { id: "fake-wisdom", title: "Fake Wisdom" },
+      { id: "punny-advice", title: "Punny Advice" },
+      { id: "life-lessons", title: "Life Lessons" },
+      { id: "common-sayings", title: "Common Sayings" },
+      { id: "parenting-tips", title: "Parenting Tips" }
+    ]
+  }, {
+    id: "short-story",
+    title: "Short Story Jokes",
+    themes: [
+      { id: "everyday-mishaps", title: "Everyday Mishaps" },
+      { id: "work-situations", title: "Work Situations" },
+      { id: "dating-disasters", title: "Dating Disasters" },
+      { id: "travel-troubles", title: "Travel Troubles" },
+      { id: "family-dynamics", title: "Family Dynamics" },
+      { id: "social-awkwardness", title: "Social Awkwardness" }
     ]
   }]
 }, {
