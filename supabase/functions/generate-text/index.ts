@@ -369,26 +369,34 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  console.log('🤖 Making OpenAI API call with model: gpt-5');
+  
+  const requestBody = {
+    model: 'gpt-5',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    max_completion_tokens: 150
+  };
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-5',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_completion_tokens: 150
-    }),
+    body: JSON.stringify(requestBody),
   });
 
+  console.log('📡 OpenAI Response Status:', response.status);
+  
   const data = await response.json();
+  console.log('📄 OpenAI Response Data:', JSON.stringify(data, null, 2));
   
   // Handle content moderation errors
   if (data.error) {
+    console.error('❌ OpenAI API Error:', data.error);
     if (data.error.code === 'content_policy_violation' || data.error.message?.includes('content policy')) {
       throw new Error('CONTENT_MODERATION_BLOCKED');
     }
@@ -396,6 +404,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   }
   
   if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    console.error('❌ Invalid OpenAI response structure:', data);
     throw new Error('Invalid response from OpenAI API');
   }
   
