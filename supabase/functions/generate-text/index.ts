@@ -425,6 +425,17 @@ function buildInsertWordInstruction(insertWords: string[]): string {
 }
 
 const TONE_SEED_TEMPLATES = {
+  'humorous': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
+Write 4 humorous one-sentence jokes for a ${subcategory} celebration.
+Each line must be 50–120 characters, exactly one sentence.
+Use at most two punctuation marks in total (count commas, periods, exclamation marks, question marks, and quotes).
+No em dashes, semicolons, or ellipses.
+Include ${subcategory} context with words like: ${getLexiconFor(subcategory).slice(0, 5).join(', ')}.
+${buildInsertWordInstruction(insertWords)}
+${getRatingGuidance(rating, tone)}
+Keep jokes short, witty punchlines — not long or chatty sentences.
+Return exactly 4 lines, one per line, with no numbering or formatting.`,
+
   'playful': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => {
     if ((subcategory || '').toLowerCase() === 'dad-jokes') {
       return `
