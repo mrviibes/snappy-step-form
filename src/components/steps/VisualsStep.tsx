@@ -155,7 +155,7 @@ export default function VisualsStep({
         finalText,
         category: data.category || "",
         subcategory: data.subcategory || "",
-        subSubcategory: data.subSubcategory || "",
+        subSubcategory: data.theme || "",
         tone: data.vibe?.tone || "Humorous",
         textStyle: data.vibe?.style || "Sarcastic",
         rating: data.vibe?.rating || "PG",
@@ -206,11 +206,13 @@ export default function VisualsStep({
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
       {/* Category Breadcrumb */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && (
+        <div className="text-left mb-2">
           <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
+            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}{data.theme ? ` > ${data.theme}` : ''}
           </div>
-        </div>}
+        </div>
+      )}
 
       {/* Text Summary */}
       <div className="text-left mb-6">

@@ -53,6 +53,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           finalText,
           category: data.category || '',
           subcategory: data.subcategory || '',
+          subSubcategory: data.theme || '',
           tone: data.text?.tone || 'Humorous',
           textStyle: data.text?.style || 'Generic',
           rating: data.text?.rating || 'PG',
@@ -95,7 +96,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     };
 
     generateTemplates();
-  }, [data.category, data.subcategory, data.text?.generatedText, data.text?.customText, data.text?.tone, data.text?.style, data.text?.layout, data.text?.rating, data.visuals?.style, data.visuals?.dimension]);
+  }, [data.category, data.subcategory, data.theme, data.text?.generatedText, data.text?.customText, data.text?.tone, data.text?.style, data.text?.layout, data.text?.rating, data.visuals?.style, data.visuals?.dimension]);
 
   const generateImageFromTemplate = async (template: PromptTemplate, requestToken?: string) => {
     const currentToken = requestToken || Date.now().toString();

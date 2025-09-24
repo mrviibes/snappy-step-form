@@ -9,6 +9,7 @@ import SummaryStep from "./steps/SummaryStep";
 interface FormData {
   category: string;
   subcategory: string;
+  theme?: string;
   text: {
     tone: string;
     writingPreference: string;
@@ -58,6 +59,7 @@ export default function MultiStepForm() {
   const [formData, setFormData] = useState<FormData>({
     category: "",
     subcategory: "",
+    theme: "",
     text: {
       tone: "",
       writingPreference: ""
@@ -86,6 +88,9 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
+        if (formData.category === 'jokes') {
+          return !!formData.category && !!formData.subcategory && !!formData.theme;
+        }
         return !!formData.category && !!formData.subcategory;
       case 2:
         // Special case for "no-text" - only need tone and writing preference
