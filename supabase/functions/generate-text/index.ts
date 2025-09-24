@@ -32,6 +32,7 @@ const MASTER_CONFIG = {
     basketball: ["hoop","court","dribble","dunk","buzzer","playoffs"],
     baseball: ["bat","ball","base","inning","pitcher","glove","strike"],
     hockey: ["puck","ice","rink","goalie","stick","net","season"],
+    nascar: ["pit stop","laps","draft","checkered flag","burnout","infield","tailgate","pit crew","V8","pit lane","speedway","qualifying"],
     music: ["song","lyrics","concert","stage","band","playlist"],
     movies: ["movie","film","screen","popcorn","theater","trailer"],
     tv: ["show","series","episode","streaming","channel","binge"],
@@ -244,14 +245,17 @@ function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?:
   // OPTIONAL: Check insert words only if they exist
   if (Array.isArray(scenario.insertWords) && scenario.insertWords.length > 0) {
     for (const tag of scenario.insertWords) {
-      const base = tag.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = tag.includes(" ") 
-        ? base.replace(/\s+/g, "\\s+")
-        : `${base}(?:s|es|ed|ing)?`;
-      const re = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "i");
-      const reAll = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "ig");
+      // Case-insensitive insert checking with flexible pattern matching
+      const hasInsertOnce = (text: string, insert: string): boolean => {
+        const esc = (s:string) => s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+        const pattern = insert.trim().split(/\s+/).map(esc).join("[\\s\\p{P}]*");
+        const one = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`,"iu");
+        const all = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`,"igu");
+        const hits = (text.match(all) || []).length;
+        return one.test(text) && hits === 1;
+      };
       
-      if (!re.test(text) || ((text.match(reAll) || []).length !== 1)) {
+      if (!hasInsertOnce(text, tag)) {
         return { 
           ok: false, 
           reason: `insert_not_once:${tag}`, 
@@ -364,6 +368,19 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   });
 
   const data = await response.json();
+  
+  // Handle content moderation errors
+  if (data.error) {
+    if (data.error.code === 'content_policy_violation' || data.error.message?.includes('content policy')) {
+      throw new Error('CONTENT_MODERATION_BLOCKED');
+    }
+    throw new Error(`OpenAI API Error: ${data.error.message}`);
+  }
+  
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error('Invalid response from OpenAI API');
+  }
+  
   return data.choices[0].message.content;
 }
 
@@ -740,6 +757,20 @@ Generate exactly 4 lines:`;
       
     } catch (error) {
       console.error(`💥 Generation attempt ${attempt + 1} failed:`, error);
+      
+      // Handle content moderation errors specifically
+      if (error.message === 'CONTENT_MODERATION_BLOCKED') {
+        const problematicInserts = payload.insertWords?.filter(word => 
+          /redneck|hillbilly|trailer|cracker/i.test(word)
+        ) || [];
+        
+        if (problematicInserts.length > 0) {
+          throw new Error(`MODERATION_BLOCKED_INSERT:${problematicInserts[0]}`);
+        } else {
+          throw new Error('MODERATION_BLOCKED_GENERAL');
+        }
+      }
+      
       if (attempt === maxRetries - 1) {
         throw error;
       }
@@ -877,6 +908,11 @@ Nonce: ${nonce}`;
         statusCode = 408;
       } else if (generationError.message.includes('no_valid_batch')) {
         userMessage = 'Could not generate valid jokes with current settings. Try different tone, rating, or category.';
+      } else if (generationError.message.startsWith('MODERATION_BLOCKED_INSERT:')) {
+        const blockedWord = generationError.message.split(':')[1];
+        userMessage = `The word "${blockedWord}" was blocked by content safety. Try NASCAR-specific terms like "pit crew", "infield", "burnout", or "checkered flag" instead.`;
+      } else if (generationError.message === 'MODERATION_BLOCKED_GENERAL') {
+        userMessage = 'Content was blocked by safety filters. Try different insert words or a different category.';
       }
       
       return new Response(JSON.stringify({
