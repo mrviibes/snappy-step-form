@@ -192,32 +192,112 @@ interface GenerateVisualsResponse {
 
 // ============= VIIBE GENERATOR STEP-3 IMPLEMENTATION (SIMPLIFIED) =============
 
-// Enhanced prop extractor that filters generic words
-function extractProps(text: string, max = 8): string[] {
-  const raw = text
-    .toLowerCase()
-    .replace(/[""''"']/g, "")
-    .replace(/[^a-z0-9\s-]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+type CategoryKey = "celebrations:engagement" | "celebrations:wedding" | "celebrations:birthday" |
+                   "jokes:puns" | "jokes:roasts:celebrities" | "sports:basketball" | "general";
 
-  const STOP = new Set([
-    "the","a","an","and","or","but","to","of","in","on","for","with","at","by","as",
-    "it","is","was","are","be","this","that","these","those","i","you","he","she","we","they",
-    "my","your","his","her","their","our","why","did","does","do","get","got","than","then",
-    "very","really","so","just","like",
-    // Filter out generic words that cause "think celebration" bug
-    "think","celebration","moment","thing","stuff","going","want","see","know","time"
-  ]);
+const CONTRACTIONS: Record<string,string> = {
+  "doesn't":"does not","dont":"do not","doesnt":"does not",
+  "won't":"will not","wont":"will not","can't":"cannot","cant":"cannot",
+  "isn't":"is not","isnt":"is not","wasn't":"was not","wasnt":"was not",
+  "aren't":"are not","arent":"are not","weren't":"were not","werent":"were not",
+  "I'm":"I am","i'm":"i am","it's":"it is","its":"it is"
+};
 
-  const uniq: string[] = [];
-  for (const w of raw) {
-    if (w.length < 3) continue;
-    if (STOP.has(w)) continue;
-    if (!uniq.includes(w)) uniq.push(w);
-    if (uniq.length === max) break;
+const STOP = new Set([
+  // helpers/pronouns/determiners
+  "the","a","an","and","or","but","to","of","in","on","for","with","at","by","as",
+  "it","is","was","are","be","this","that","these","those","i","you","he","she","we","they",
+  "me","him","her","them","my","your","his","her","their","our","mine","yours","his","hers",
+  "who","whom","why","what","when","where","how",
+  "very","really","so","just","like","only","still","even","again","ever","never",
+  "every","each","more","most","less","least","some","any","no","not","yes","day","rest","life","way",
+  // common empty verbs/gerunds we don't want as props
+  "get","gets","getting","got","gotten","do","does","doing","did",
+  "say","says","saying","think","thinking","mean","means","meaning",
+  "want","needs","need","make","makes","made","take","takes","taking","took","try","tries","trying",
+  // filler fragments
+  "does","will","won","cannot","can","could","should","would"
+]);
+
+const PROFANITY = new Set(["fuck","fucking","shit","asshole","bitch","dick","cunt","piss","bastard"]);
+
+const CATEGORY_BOOST: Record<string, string[]> = {
+  "celebrations:engagement": ["ring","proposal","couple","knee","altar","wedding","ceremony","family"],
+  "celebrations:wedding":    ["ring","vows","altar","bouquet","cake","dance floor","bride","groom"],
+  "celebrations:birthday":   ["cake","candles","balloons","confetti","party table"],
+  "jokes:puns":              ["road","crossing","sign","wordplay","side"],
+  "jokes:roasts:celebrities":["stage","microphone","spotlight","audience","podium"],
+  "sports:basketball":       ["court","hoop","ball","dunk","locker room","fans"],
+  "general":                 ["scene","sign","crowd","subject"]
+};
+
+// crude noun-ish heuristic: prefer tokens that look like nouns/objects
+function nounishScore(token: string): number {
+  let score = 0;
+  if (token.length >= 4) score += 1;
+  if (/^[a-z]+$/.test(token)) score += 0.5;
+  if (/(ring|cake|road|sign|court|ball|altar|dress|bouquet|table|glass|car|bus|flag|microphone|phone|screen|chair|door|window|stage|banner)$/.test(token)) score += 2;
+  if (/(ing|ed)$/.test(token)) score -= 0.9;     // likely verb form
+  if (STOP.has(token)) score = -1;
+  if (PROFANITY.has(token)) score = -1;
+  return score;
+}
+
+function normalizeText(s: string) {
+  let out = s;
+  for (const [k,v] of Object.entries(CONTRACTIONS)) {
+    const re = new RegExp(`\\b${k}\\b`, "gi");
+    out = out.replace(re, v);
   }
-  return uniq;
+  return out.toLowerCase().replace(/[""''"']/g,"").replace(/[^a-z0-9\s-]/g," ");
+}
+
+// trivial singularizer for s/es
+function singularize(t: string) {
+  if (t.endsWith("ies")) return t.slice(0,-3) + "y";
+  if (t.endsWith("sses") || t.endsWith("ches") || t.endsWith("shes")) return t.slice(0,-2);
+  if (t.endsWith("s") && !t.endsWith("ss")) return t.slice(0,-1);
+  return t;
+}
+
+function extractPropsSmart(text: string, categoryKey: string, max = 8) {
+  const clean = normalizeText(text);
+  const tokens = clean.split(/\s+/).filter(Boolean).map(singularize);
+
+  // tally + score
+  const counts = new Map<string, number>();
+  for (const tok of tokens) {
+    const base = tok.trim();
+    const score = nounishScore(base);
+    if (score <= 0) continue;
+    counts.set(base, (counts.get(base) || 0) + score);
+  }
+
+  // inject boosts for category anchors
+  const boosts = CATEGORY_BOOST[categoryKey] || CATEGORY_BOOST.general;
+  for (const b of boosts) {
+    const base = singularize(b.replace(/\s+/g," "));
+    counts.set(base, (counts.get(base) || 0) + 2.5); // boost
+  }
+
+  // rank by score then by frequency
+  const ranked = [...counts.entries()]
+    .sort((a,b) => (b[1] - a[1]) || (b[0].length - a[0].length))
+    .map(([k]) => k)
+    .filter(k => k.length >= 3 && !STOP.has(k) && !PROFANITY.has(k));
+
+  // ensure diversity: de-dupe stem collisions (ring/rings handled above)
+  const out: string[] = [];
+  for (const r of ranked) {
+    if (!out.some(x => x === r)) out.push(r);
+    if (out.length === max) break;
+  }
+
+  // guaranteed minimum: fill from anchors if needed
+  if (out.length < 4) {
+    for (const b of boosts) if (!out.includes(b)) out.push(b);
+  }
+  return out.slice(0, max);
 }
 
 // Style-aware negative builder
@@ -929,34 +1009,11 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
   
   try {
-    // Extract props from joke text
-    let props = extractProps(params.finalText, 8);
-    console.log('🔍 Extracted props from joke:', props);
+    // Extract props from joke text using smart extractor
+    const categoryKey = params.category.toLowerCase();
+    let props = extractPropsSmart(params.finalText, categoryKey, 8);
+    console.log('🔍 Extracted smart props from joke:', props);
     
-    // Use full category key first, then fallback to main category
-    const fullCategoryKey = params.category.toLowerCase();
-    const mainCategoryKey = params.category.split(':')[0] || params.category.toLowerCase();
-    const categoryAnchors: Record<string, string[]> = {
-      "celebrations:wedding": ["ring","vows","altar","cake","dance floor","bouquet"],
-      "celebrations:birthday": ["cake","candles","balloons","confetti","party table"],
-      "jokes:puns": ["road","crossing","sign","wordplay","side"],
-      "jokes:roasts:celebrities": ["stage","microphone","spotlight","audience"],
-      "sports:basketball": ["court","hoop","ball","dunk","fans"],
-      "sports": ["field","game","player","team","ball"],
-      "work": ["office","desk","meeting","computer","boss"],
-      "dating": ["restaurant","flowers","dinner","conversation","couple"],
-      "graduation": ["cap","gown","diploma","ceremony","stage"],
-      "general": ["scene","sign","crowd","subject"]
-    };
-    
-    const anchors = categoryAnchors[fullCategoryKey] || categoryAnchors[mainCategoryKey] || [];
-    
-    // Top up with category anchors if we are light on props
-    if (props.length < 4) {
-      for (const anchor of anchors) {
-        if (!props.includes(anchor)) props.push(anchor);
-      }
-    }
     if (props.length === 0) props = ["scene","sign","crowd","subject"];
     
     console.log('🎯 Final props after anchoring:', props);
