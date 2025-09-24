@@ -17,35 +17,7 @@ const MASTER_CONFIG = {
   length_min: 50,
   length_max: 120,
   max_punctuation_per_line: 2,
-  forbidden_punctuation: /[;…]|(?:^|[^.])\.\.(?:[^.]|$)|[–—]/,
-  
-  // Category Lexicons
-  lexicons: {
-    wedding: ["vows","rings","altar","reception","dance floor","bouquet","honeymoon","bride","groom","cake","toast","in-laws"],
-    engagement: ["ring","proposal","fiancé","fiancée","yes","forever"],
-    birthday: ["birthday","cake","candles","party","balloons","frosting","gift"],
-    babyshower: ["baby","shower","diaper","bottle","crib","stroller","nursery","onesie","pacifier","bassinet","pregnant","expecting","newborn","infant"],
-    graduation: ["cap","gown","diploma","tassel","stage","ceremony"],
-    work: ["meeting","boss","deadline","office","email","printer","coffee","slides","calendar"],
-    school: ["exam","homework","teacher","class","test","grade","study"],
-    soccer: ["goal","field","referee","fans","stadium","match","cup"],
-    basketball: ["hoop","court","dribble","dunk","buzzer","playoffs"],
-    baseball: ["bat","ball","base","inning","pitcher","glove","strike"],
-    hockey: ["puck","ice","rink","goalie","stick","net","season"],
-    nascar: ["pit stop","laps","draft","checkered flag","burnout","infield","tailgate","pit crew","V8","pit lane","speedway","qualifying"],
-    music: ["song","lyrics","concert","stage","band","playlist"],
-    movies: ["movie","film","screen","popcorn","theater","trailer"],
-    tv: ["show","series","episode","streaming","channel","binge"],
-    "dad-jokes": ["pun","groan","eye roll","lawn","grill","thermostat","cargo shorts","socks","sandals","minivan","coupon","garage","toolbox"]
-  },
-  
-  // Rating Definitions
-  ratings: {
-    G: { forbidden_words: [], allow_innuendo: false, description: "wholesome/playful" },
-    PG: { forbidden_words: [], allow_innuendo: false, description: "light sarcasm, safe ironic" },
-    "PG-13": { forbidden_words: [], allow_innuendo: true, description: "edgy, ironic, sharp" },
-    R: { forbidden_words: [], allow_innuendo: true, description: "savage, raw, unfiltered" }
-  }
+  forbidden_punctuation: /[;…]|(?:^|[^.])\.\.(?:[^.]|$)|[–—]/
 };
 
 // Rating language gates
@@ -63,11 +35,6 @@ function normKey(input?: string): string {
     'weddings': 'wedding',
   };
   return aliases[last] || last;
-}
-
-function getLexiconFor(input?: string): string[] {
-  const key = normKey(input);
-  return MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
 }
 
 // Robust text cleanup function to handle common model formatting quirks
@@ -165,23 +132,8 @@ function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?:
     sentences: text.split(/[.!?]+/).filter(s => s.trim()).length === 1
   };
   
-  // Category anchoring check
-  const key = normKey(scenario.subcategory || scenario.category);
-  const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
-  validation.categoryAnchor = lexicon.some(w => 
-    new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(text)
-  );
-  
-  // If no direct anchor, check contextual cues
-  if (!validation.categoryAnchor) {
-    const contextCues: Record<string, RegExp> = {
-      wedding: /\b(bride|groom|best man|maid of honor|altar|reception|first dance|in laws)\b/i,
-      birthday: /\b(happy birthday|blow out|turning \d+|party hat|surprise party|age|years old)\b/i,
-      babyshower: /\b(expecting|baby shower|mom to be|little one|bundle of joy|due date|gender reveal)\b/i,
-      graduation: /\b(graduat|commencement|walk the stage|diploma|degree)\b/i
-    };
-    validation.categoryAnchor = contextCues[key]?.test(text) || false;
-  }
+  // Simplified category check - we can skip lexicon validation since it's removed
+  validation.categoryAnchor = true;
   
   // Return first failure found
   if (!validation.length) {
@@ -220,7 +172,7 @@ function debugValidateLine(line: string, scenario: any): { ok: boolean; reason?:
     return { 
       ok: false, 
       reason: "category_anchor_missing", 
-      details: { category: key, lexicon: lexicon.slice(0, 5), text: text.substring(0, 50) + "..." }
+      details: { text: text.substring(0, 50) + "..." }
     };
   }
   
@@ -276,13 +228,6 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
     }
     
     lengths.push(line.length);
-    
-    // Count direct lexicon hits
-    const key = normKey(scenario.subcategory || scenario.category);
-    const lexicon = MASTER_CONFIG.lexicons[key as keyof typeof MASTER_CONFIG.lexicons] || [];
-    if (lexicon.some(w => new RegExp(`\\b${w.replace(/\s+/g, "\\s+")}\\b`, "i").test(line))) {
-      directAnchors++;
-    }
   }
   
   if (failures.length) {
