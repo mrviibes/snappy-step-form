@@ -26,7 +26,7 @@ export interface CategoryItem {
   subcategories: SubcategoryItem[];
 }
 
-export const fitnessGoals: CategoryItem[] = const fitnessGoals = [{
+export const fitnessGoals: CategoryItem[] = [{
   id: "celebrations",
   title: "Celebrations",
   description: "Birthdays, holidays, and special events",
