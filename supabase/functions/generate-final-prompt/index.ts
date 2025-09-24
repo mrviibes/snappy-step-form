@@ -14,6 +14,7 @@ interface FinalPromptRequest {
   finalText: string;
   category: string;
   subcategory?: string;
+  subSubcategory?: string;
   tone: string;
   textStyle: string;
   rating: string;
@@ -86,6 +87,13 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   
   const {
     finalText,
+    category,
+    subcategory,
+    subSubcategory,
+    tone,
+    textStyle,
+    rating,
+    insertWords = [],
     visualStyle,
     layout,
     dimension,
@@ -110,33 +118,92 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     "landscape": "16:9 aspect ratio"
   };
 
+  // Map tone to descriptive words
+  const toneMap: Record<string, string> = {
+    "humorous": "funny, witty, playful",
+    "savage": "aggressive, intense, bold, cutting",
+    "sarcastic": "witty, ironic, sharp",
+    "wholesome": "warm, positive, uplifting",
+    "dark": "edgy, moody, dramatic",
+    "inspirational": "motivating, uplifting, powerful"
+  };
+
+  // Map rating to content guidelines
+  const ratingMap: Record<string, string> = {
+    "G": "family-friendly, innocent, wholesome",
+    "PG": "mild content, suitable for general audiences", 
+    "PG-13": "moderate content, some mature themes",
+    "R": "adult content, intense themes, mature audiences"
+  };
+
+  // Build category context
+  const categoryContext = [category, subcategory, subSubcategory].filter(Boolean).join(' ');
+  
   // Get mapped values
   const textLayout = layoutMap[layout] || layout;
   const dimensions = dimensionMap[dimension] || dimension;
+  const toneDescriptor = toneMap[tone.toLowerCase()] || tone.toLowerCase();
+  const ratingGuideline = ratingMap[rating] || "appropriate for general audiences";
   
-  // Use first visual scene as "chosen recommended text" or fallback
-  const chosenRecommendedText = insertedVisuals[0] || "dynamic scene composition";
+  // Use first visual scene as context or create category-based scene
+  const visualScene = insertedVisuals[0] || `${categoryContext} scene`;
   
-  console.log('🎨 Mapped values:', { textLayout, dimensions, chosenRecommendedText });
+  // Build emphasis for specific words
+  const wordEmphasis = insertWords.length > 0 
+    ? ` Pay special attention to prominently featuring these key words: ${insertWords.join(', ')}.`
+    : '';
 
-  // Enhanced positive prompt with specific text placement instructions
-  const positivePrompt = `Create a ${visualStyle} style image with ${dimensions}. IMPORTANT: The text "${finalText}" MUST be prominently displayed using ${textLayout} placement. Ensure the text is clearly readable, well-positioned, and integrated into the ${chosenRecommendedText} composition. Use bold, high-contrast typography that complements the ${visualStyle} aesthetic.`;
+  console.log('🎨 Mapped values:', { 
+    textLayout, 
+    dimensions, 
+    toneDescriptor, 
+    ratingGuideline,
+    categoryContext,
+    visualScene,
+    wordEmphasis
+  });
+
+  // Enhanced positive prompt with ALL context
+  const positivePrompt = `Create a ${visualStyle} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${finalText}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone.${wordEmphasis} Ensure excellent readability, professional typography, and visual appeal that matches the ${visualStyle} aesthetic.`;
   
-  // Enhanced negative prompt to prevent text issues
-  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed`;
+  // Enhanced negative prompt with category-specific exclusions
+  const categoryNegatives = getCategoryNegatives(category, rating);
+  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed, ${categoryNegatives}`;
 
   console.log('✅ Generated positive prompt:', positivePrompt);
   console.log('❌ Generated negative prompt:', negativePrompt);
 
-  // Return single template with your format
+  // Return enhanced template
   const templates: PromptTemplate[] = [
     {
       name: "Ideogram Template",
-      description: "Optimized template for Ideogram image generation",
+      description: `Optimized ${categoryContext} template with ${tone} tone for ${rating} content`,
       positive: positivePrompt,
       negative: negativePrompt
     }
   ];
 
   return templates;
+}
+
+function getCategoryNegatives(category: string, rating: string): string {
+  const baseNegatives: Record<string, string> = {
+    "sports": "blurry motion, incorrect anatomy, floating objects, unnatural poses",
+    "celebration": "sad expressions, dark moods, negative emotions",
+    "workplace": "unprofessional content, inappropriate behavior",
+    "relationships": "toxic behavior, harmful stereotypes",
+    "animals": "distorted animals, unnatural animal features"
+  };
+
+  const ratingNegatives: Record<string, string> = {
+    "G": "violence, adult themes, inappropriate content, mature themes",
+    "PG": "explicit violence, strong adult themes, inappropriate language",
+    "PG-13": "extreme violence, explicit adult content", 
+    "R": "illegal content, extreme graphic violence"
+  };
+
+  const categoryNeg = baseNegatives[category.toLowerCase()] || "";
+  const ratingNeg = ratingNegatives[rating] || "";
+  
+  return [categoryNeg, ratingNeg].filter(Boolean).join(', ');
 }
