@@ -764,40 +764,6 @@ export default function TextStep({
                   </div>
                 </div>}
               
-              {/* Debug Information */}
-              {debugInfo && (
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-xs">
-                  <h4 className="font-semibold mb-2 text-gray-700">🔧 Debug Information</h4>
-                  <div className="space-y-2 text-gray-600">
-                    <div><strong>Model:</strong> {debugInfo.model}</div>
-                    <div><strong>Endpoint:</strong> {debugInfo.endpoint}</div>
-                    <div><strong>Status:</strong> <span className={debugInfo.status === 'success' ? 'text-green-600' : debugInfo.status === 'error' ? 'text-red-600' : 'text-yellow-600'}>{debugInfo.status}</span></div>
-                    <div><strong>Request Payload:</strong></div>
-                    <pre className="bg-white p-2 rounded border text-xs overflow-x-auto">
-                      {JSON.stringify(debugInfo.requestPayload, null, 2)}
-                    </pre>
-                    {debugInfo.rawResponse && (
-                      <>
-                        <div><strong>Response ({debugInfo.responseLength} options):</strong></div>
-                        <pre className="bg-white p-2 rounded border text-xs overflow-x-auto max-h-32 overflow-y-auto">
-                          {JSON.stringify(debugInfo.rawResponse, null, 2)}
-                        </pre>
-                      </>
-                    )}
-                    {debugInfo.error && (
-                      <>
-                        <div><strong>Error:</strong> <span className="text-red-600">{debugInfo.error}</span></div>
-                        {debugInfo.errorDetails && (
-                          <pre className="bg-red-50 p-2 rounded border text-xs overflow-x-auto">
-                            {JSON.stringify(debugInfo.errorDetails, null, 2)}
-                          </pre>
-                        )}
-                      </>
-                    )}
-                    <div><strong>Timestamp:</strong> {debugInfo.timestamp}</div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>}
               
@@ -840,7 +806,66 @@ export default function TextStep({
                            </h3>
                          </div>
                        </Card>)}
+                   </div>
+                   </div>}
+                   
+      {/* Debug Panel - Always visible when debugInfo exists */}
+      {debugInfo && (
+        <div className="mt-6">
+          <details className="rounded-lg border bg-card">
+            <summary className="cursor-pointer p-4 font-medium text-card-foreground hover:bg-accent/50 transition-colors">
+              🐛 Debug Information
+            </summary>
+            <div className="border-t bg-muted/20 p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-semibold">Model:</span> {debugInfo.model}
+                </div>
+                <div>
+                  <span className="font-semibold">Status:</span> 
+                  <span className={`ml-1 ${debugInfo.status === 'success' ? 'text-green-600' : debugInfo.status === 'error' ? 'text-red-600' : 'text-yellow-600'}`}>
+                    {debugInfo.status}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-semibold">Endpoint:</span> {debugInfo.endpoint}
+                </div>
+                <div>
+                  <span className="font-semibold">Timestamp:</span> {new Date(debugInfo.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+              
+              {debugInfo.requestPayload && (
+                <div>
+                  <div className="font-semibold mb-2">Request Payload:</div>
+                  <pre className="bg-background p-2 rounded text-xs overflow-x-auto">
+                    {JSON.stringify(debugInfo.requestPayload, null, 2)}
+                  </pre>
+                </div>
+              )}
+              
+              {debugInfo.error && (
+                <div>
+                  <div className="font-semibold mb-2 text-red-600">Error:</div>
+                  <div className="bg-red-50 border border-red-200 p-2 rounded text-sm text-red-800">
+                    {debugInfo.error}
                   </div>
-                  </div>}
+                </div>
+              )}
+              
+              {debugInfo.rawResponse && (
+                <div>
+                  <div className="font-semibold mb-2">Raw Response ({debugInfo.responseLength} options):</div>
+                  <pre className="bg-background p-2 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">
+                    {JSON.stringify(debugInfo.rawResponse.slice(0, 2), null, 2)}
+                    {debugInfo.rawResponse.length > 2 && '\n... and ' + (debugInfo.rawResponse.length - 2) + ' more'}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </details>
+        </div>
+      )}
+      
      </div>;
 }
