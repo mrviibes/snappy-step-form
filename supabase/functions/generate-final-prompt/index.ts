@@ -164,11 +164,10 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const dimensionDesc = dimensionMap[dimension.toLowerCase()] || "square aspect ratio";
   const moodDesc = toneMap[tone.toLowerCase()] || "appropriate mood";
 
-  // Enhanced negative prompt with overlay text safety
+  // Enhanced negative prompt for background generation (tell model to avoid text)
   const enhancedNegatives = [
     ...styleGuide.negative,
-    "extra text", "missing text", "misplaced text", "duplicate text", 
-    "distorted font", "low contrast text", "text overlapping props", 
+    "text", "subtitles", "captions", "typography", "letters", "words", 
     "watermarks", "low resolution", "cluttered background", "amateur quality", "poor composition"
   ];
 
@@ -178,8 +177,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
       name: "Cinematic Wide",
       description: "Dramatic wide shot showing full context with cinematic lighting",
       positive: buildOptimizedPrompt({
-        finalText,
-        layoutDesc,
         dimensionDesc,
         styleDesc: styleGuide.positive.join(", "),
         variation: "cinematic",
@@ -192,8 +189,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
       name: "Close-up Detail", 
       description: "Intimate detail shot focusing on key props with shallow depth",
       positive: buildOptimizedPrompt({
-        finalText,
-        layoutDesc, 
         dimensionDesc,
         styleDesc: styleGuide.positive.join(", "),
         variation: "close-up",
@@ -206,8 +201,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
       name: "Crowd Reaction",
       description: "Group scene showing people reacting to the situation", 
       positive: buildOptimizedPrompt({
-        finalText,
-        layoutDesc,
         dimensionDesc, 
         styleDesc: styleGuide.positive.join(", "),
         variation: "crowd reaction",
@@ -220,8 +213,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
       name: "Minimalist Clean",
       description: "Simple clean composition with essential elements only",
       positive: buildOptimizedPrompt({
-        finalText,
-        layoutDesc,
         dimensionDesc,
         styleDesc: styleGuide.positive.join(", "), 
         variation: "minimalist",
@@ -277,55 +268,23 @@ function getCategoryContext(props: string[], variation: string): string {
   return contexts[variation] || `${variation} with ${mainProps}`;
 }
 
-// Enhanced overlay manager for better text placement
-function buildOverlayBlock(text: string, layoutDesc: string, maxCharsPerLine = 35) {
-  let clean = text.trim().replace(/\s+/g, " ");
-  const words = clean.split(" ");
-  let lines: string[] = [];
-  let current = "";
-
-  for (const w of words) {
-    if ((current + " " + w).trim().length > maxCharsPerLine) {
-      lines.push(current.trim());
-      current = w;
-    } else {
-      current += " " + w;
-    }
-  }
-  if (current) lines.push(current.trim());
-
-  const wrappedText = lines.join("\\n");
-
-  const overlayContract = `MANDATORY: Place exact overlay text once in ${layoutDesc}.
-Text: "${wrappedText}"
-Bold, highly readable font, high contrast, no duplicate text, spelling must be perfect.
-Text must occupy ≤25% of frame.`.trim();
-
-  const overlayBans = `extra text, missing text, misplaced text, duplicate text, distorted font,
-low contrast text, text overlapping props, watermarks, cluttered background`.trim();
-
-  return { overlayContract, overlayBans };
+// Build background scene description without text overlay instructions
+function buildSceneDescription(categoryContext: string, moodDesc: string): string {
+  return `Scene: ${categoryContext}. ${moodDesc}, professional quality, detailed textures, natural lighting.`;
 }
 
-// Build optimized prompt with enhanced overlay management
+// Build background-only prompt without text overlay instructions  
 function buildOptimizedPrompt(opts: {
-  finalText: string;
-  layoutDesc: string; 
   dimensionDesc: string;
   styleDesc: string;
   variation: string;
   categoryContext: string;
   moodDesc: string;
 }): string {
-  const { finalText, layoutDesc, dimensionDesc, styleDesc, variation, categoryContext, moodDesc } = opts;
+  const { dimensionDesc, styleDesc, variation, categoryContext, moodDesc } = opts;
   
-  const { overlayContract, overlayBans } = buildOverlayBlock(finalText, layoutDesc);
-  
-  const positivePrompt = `${overlayContract}
-
-${dimensionDesc}, ${styleDesc}, ${variation} composition.
-Scene: ${categoryContext}.
-${moodDesc}, professional quality, detailed textures, natural lighting.`.trim();
+  const positivePrompt = `${dimensionDesc}, ${styleDesc}, ${variation} composition.
+${buildSceneDescription(categoryContext, moodDesc)}`.trim();
 
   return positivePrompt;
 }
