@@ -424,6 +424,7 @@ function extractJokeContext(text: string, elements: any): any {
   const detectedEmotion = emotions.find(emotion => lowerText.includes(emotion)) || (isFailure ? 'embarrassed' : 'amused')
   
   return {
+    originalText: text, // Pass original text for new prop extraction
     isFailure,
     mainObject: objects[0] || 'item',
     secondObject: objects[1] || null,
@@ -435,37 +436,164 @@ function extractJokeContext(text: string, elements: any): any {
   }
 }
 
-// Build six varied concepts based on actual joke content
-function buildSixVariedConcepts(context: any, elements: any, style: any) {
-  const { mainObject, action, setting, people, emotion, isFailure, props } = context
+// Enhanced prop extraction focused on joke-specific elements
+function extractJokeProps(jokeText: string): string[] {
+  const text = jokeText.toLowerCase();
+  const props: string[] = [];
   
-  // Build specific scenarios rather than generic templates
-  return [
+  // Extract key nouns from common joke patterns
+  const nounPatterns = [
+    // Objects and things
+    /\b(chicken|road|duck|cat|dog|bird|fish|tree|car|house|door|window|phone|computer|book|chair|table|bed|kitchen|bathroom|office|school|park|store|restaurant|hospital|beach|mountain|river|ocean|side|pun|joke|sign|crossing|street|path)\b/g,
+    // People and characters
+    /\b(dad|mom|wife|husband|kid|child|baby|friend|neighbor|boss|teacher|doctor|lawyer|chef|waiter|driver|pilot|person|people|character)\b/g,
+    // Actions as nouns (gerunds)
+    /\b(crossing|walking|running|jumping|flying|swimming|driving|eating|drinking|sleeping|working|playing|laughing|crying|singing|dancing|cooking|cleaning|reading|writing|thinking)\b/g,
+    // Settings and places
+    /\b(office|home|restaurant|bar|club|store|shop|museum|school|hospital|park|beach|mountain|field|track|stage|room|kitchen|bathroom|garage|basement|attic)\b/g
+  ];
+  
+  nounPatterns.forEach(pattern => {
+    const matches = text.match(pattern);
+    if (matches) props.push(...matches);
+  });
+  
+  // Extract action verbs
+  const verbMatches = text.match(/\b(cross|walk|run|jump|fly|swim|drive|eat|drink|sleep|work|play|laugh|cry|sing|dance|cook|clean|read|write|think|speak|listen|watch|see|hear|feel|smell|taste)\w*\b/g);
+  if (verbMatches) props.push(...verbMatches);
+  
+  // Remove duplicates and return up to 8 props
+  return [...new Set(props)].slice(0, 8);
+}
+
+// Template-based visual concept builder that distributes props across variations
+function buildJokeAwareVisualConcepts(jokeText: string, extractedProps: string[], visualStyle: string): any[] {
+  const propPool = [...extractedProps];
+  const concepts = [];
+  
+  // Template definitions that use different props to ensure variety
+  const templates = [
     {
       name: 'Cinematic Wide',
-      prompt: `Wide ${setting} scene, ${isFailure ? 'smoke/mess' : 'celebration'} with ${mainObject}, ${people} ${isFailure ? 'dealing with disaster' : 'enjoying moment'}, ${pickRandom(STYLE_SYNONYMS.lighting)}, ${pickRandom(STYLE_SYNONYMS.mood)}`
+      mode: 'cinematic',
+      buildPrompt: (props: string[]) => {
+        const setting = props.find(p => ['road', 'office', 'restaurant', 'park', 'field', 'kitchen', 'room'].some(s => p.includes(s))) || props[0] || 'scene';
+        const subject = props.find(p => ['dad', 'person', 'character', 'people'].some(s => p.includes(s))) || 'character';
+        const action = props.find(p => p.includes('ing') || ['cross', 'walk', 'run', 'drive'].includes(p)) || 'moving';
+        return `Wide shot of ${setting}, ${subject} ${action}, dramatic framing, ${visualStyle.toLowerCase()} style, humorous mood`;
+      }
     },
     {
-      name: 'Close-up Detail', 
-      prompt: `Extreme close-up of ${mainObject} with ${isFailure ? 'burnt/damaged texture' : 'perfect details'}, ${isFailure ? 'ash and char' : 'appealing surface'}, shallow depth of field, detailed textures`
+      name: 'Close-up Detail',
+      mode: 'close-up', 
+      buildPrompt: (props: string[]) => {
+        const object = props.find(p => !['dad', 'person', 'people', 'character'].includes(p)) || props[1] || 'object';
+        const context = props.find(p => p !== object) || 'detail';
+        return `Close-up of ${object} with ${context}, shallow focus, ${visualStyle.toLowerCase()} style, detailed textures`;
+      }
     },
     {
-      name: 'Crowd Reaction',
-      prompt: `Group of people ${isFailure ? 'laughing and pointing at the' : 'celebrating with'} ${mainObject}, ${isFailure ? 'someone holding fire extinguisher' : 'everyone cheering'}, candid expressions, social chaos`
+      name: 'Group Reaction',
+      mode: 'crowd-reaction',
+      buildPrompt: (props: string[]) => {
+        const focusElement = props[0] || 'scene';
+        return `Group of people reacting to ${focusElement}, laughing and surprised expressions, ${visualStyle.toLowerCase()} style, candid social moment`;
+      }
     },
     {
       name: 'Minimalist Clean',
-      prompt: `Single ${mainObject} ${isFailure ? 'completely ruined' : 'perfectly presented'} on white surface, ${isFailure ? 'dramatic lighting showing damage' : 'clean professional lighting'}, strong negative space, minimal composition`
+      mode: 'minimalist',
+      buildPrompt: (props: string[]) => {
+        const symbol = props.find(p => !['people', 'person', 'character'].includes(p)) || props[0] || 'element';
+        return `Minimalist composition featuring ${symbol}, clean background, strong lighting, ${visualStyle.toLowerCase()} style, negative space`;
+      }
     },
     {
       name: 'Exaggerated Proportions',
-      prompt: `Comically oversized ${isFailure ? 'smoke cloud or damage' : mainObject} dwarfing tiny ${people}, exaggerated cartoon proportions, ${isFailure ? 'disaster comedy scale' : 'celebration comedy scale'}`
+      mode: 'exaggerated-proportions',
+      buildPrompt: (props: string[]) => {
+        const mainProp = props[0] || 'element';
+        const secondProp = props[1] || 'object';
+        return `Comically oversized ${mainProp}, tiny ${secondProp}, exaggerated cartoon proportions, ${visualStyle.toLowerCase()} style, absurd scale humor`;
+      }
     },
     {
       name: 'Goofy Absurd',
-      prompt: `Slapstick scene with ${isFailure ? 'smoke alarms beeping, neighbors with garden hose' : 'over-the-top celebration chaos'}, ${mainObject} at center of comedy, peak absurd moment, maximum visual humor`
+      mode: 'goofy-absurd',
+      buildPrompt: (props: string[]) => {
+        const mainProp = props[0] || 'element';
+        const action = props.find(p => p.includes('ing') || ['cross', 'walk', 'run'].includes(p)) || 'action';
+        return `Slapstick scene with ${mainProp} during ${action}, chaotic comedy, ${visualStyle.toLowerCase()} style, peak absurd moment`;
+      }
     }
-  ]
+  ];
+  
+  // Distribute props across templates to ensure variety
+  templates.forEach((template, index) => {
+    // Give each template different props from the pool
+    const templateProps = propPool.splice(0, Math.min(3, propPool.length));
+    if (templateProps.length === 0) templateProps.push('element', 'scene'); // Fallback
+    
+    concepts.push({
+      name: template.name,
+      mode: template.mode,
+      prompt: template.buildPrompt(templateProps),
+      usedProps: templateProps
+    });
+    
+    // Replenish pool if we're running low
+    if (propPool.length < 2 && extractedProps.length > 0) {
+      propPool.push(...extractedProps.filter(p => !templateProps.includes(p)).slice(0, 2));
+    }
+  });
+  
+  return concepts;
+}
+
+// Updated buildSixVariedConcepts to use the new joke-aware approach
+function buildSixVariedConcepts(context: any, elements: any, style: any) {
+  // Extract the original joke text from context if available
+  const jokeText = context.originalText || '';
+  
+  // Use the new joke-aware system if we have joke text
+  if (jokeText) {
+    const extractedProps = extractJokeProps(jokeText);
+    const styleName = style.name || 'realistic';
+    return buildJokeAwareVisualConcepts(jokeText, extractedProps, styleName);
+  }
+  
+  // Fallback to improved version of original logic
+  const { mainObject, action, setting, people, emotion, isFailure, props } = context;
+  
+  // Distribute different props across each concept to avoid repetition
+  const availableProps = [...props];
+  
+  return [
+    {
+      name: 'Cinematic Wide',
+      prompt: `Wide shot of ${setting || 'scene'} with ${availableProps[0] || mainObject}, ${people} ${action || 'in action'}, dramatic framing, ${style.name?.toLowerCase()} style`
+    },
+    {
+      name: 'Close-up Detail', 
+      prompt: `Close-up of ${availableProps[1] || mainObject} with detailed textures, shallow focus, ${style.name?.toLowerCase()} style`
+    },
+    {
+      name: 'Crowd Reaction',
+      prompt: `Group of people reacting to ${availableProps[2] || action}, surprised expressions, candid social moment, ${style.name?.toLowerCase()} style`
+    },
+    {
+      name: 'Minimalist Clean',
+      prompt: `Single ${availableProps[0] || mainObject} on clean background, strong lighting, negative space, ${style.name?.toLowerCase()} style`
+    },
+    {
+      name: 'Exaggerated Proportions',
+      prompt: `Comically oversized ${availableProps[1] || mainObject}, tiny ${availableProps[3] || people}, cartoon proportions, ${style.name?.toLowerCase()} style`
+    },
+    {
+      name: 'Goofy Absurd',
+      prompt: `Slapstick scene with ${availableProps[2] || mainObject} and ${action}, chaotic comedy, ${style.name?.toLowerCase()} style`
+    }
+  ];
 }
 
 // Enhanced visual prompt builder using Step-3 template approach with joke element integration
