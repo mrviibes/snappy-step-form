@@ -1,34 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Get model from environment with fallback
-const getImageModel = () => Deno.env.get('OPENAI_IMAGE_MODEL') || 'gpt-image-1';
-
-// Helper function to build OpenAI request body with correct parameters
-function buildOpenAIRequest(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  options: { temperature?: number; maxTokens: number }
-) {
-  const body: any = {
-    model,
-    messages
-  };
-
-  // GPT-5 and newer models use max_completion_tokens, older models use max_tokens
-  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
-    body.max_completion_tokens = options.maxTokens;
-    // These models don't support temperature parameter
-  } else {
-    body.max_tokens = options.maxTokens;
-    if (options.temperature !== undefined) {
-      body.temperature = options.temperature;
-    }
-  }
-
-  return body;
-}
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -104,33 +76,6 @@ async function withRetry<T>(
   throw lastError;
 }
 
-// Fallback: Try OpenAI gpt-image-1 if Ideogram fails
-async function tryOpenAIImage(prompt: string, negativePrompt: string | undefined, dimension: 'square' | 'portrait' | 'landscape') {
-  try {
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiKey) return null;
-    const sizeMap: Record<string, string> = { square: '1024x1024', landscape: '1536x1024', portrait: '1024x1536' };
-    const size = sizeMap[dimension] || '1024x1024';
-    const combinedPrompt = negativePrompt ? `${prompt}\n\nNegative prompt: ${negativePrompt}` : prompt;
-    const resp = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: getImageModel(), prompt: combinedPrompt, size })
-    });
-    if (!resp.ok) {
-      const t = await resp.text();
-      console.error('OpenAI image fallback failed:', resp.status, t);
-      return null;
-    }
-    const data = await resp.json();
-    const b64 = data?.data?.[0]?.b64_json;
-    if (!b64) return null;
-    return `data:image/png;base64,${b64}`;
-  } catch (e) {
-    console.error('OpenAI image fallback exception:', e);
-    return null;
-  }
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -255,6 +200,12 @@ serve(async (req) => {
 
     try {
       console.log('Sending request to Ideogram API (v3 multipart)...');
+      console.log('V3 request details:', {
+        endpoint: 'https://api.ideogram.ai/v3/generate',
+        resolution: resolutionMap[dimension],
+        renderingSpeed: speedMap[quality]
+      });
+      
       const form = new FormData();
       form.append('prompt', prompt.trim());
       if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
@@ -265,7 +216,7 @@ serve(async (req) => {
       form.append('num_images', '1');
 
       response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/generate-v3', {
+        const fetchPromise = fetch('https://api.ideogram.ai/v3/generate', {
           method: 'POST',
           headers: { 'Api-Key': ideogramApiKey },
           body: form,
@@ -321,13 +272,6 @@ serve(async (req) => {
         statusText: response.statusText,
         errorData: errorData.substring(0, 500)
       });
-      
-      // Try OpenAI fallback before failing
-      const fallbackImage = await tryOpenAIImage(prompt, negativePrompt, dimension);
-      if (fallbackImage) {
-        console.log('Fallback succeeded with OpenAI gpt-image-1');
-        return jsonResponse({ success: true, imageData: fallbackImage });
-      }
       
       // Map specific error codes to user-friendly messages
       let userMessage = '';
