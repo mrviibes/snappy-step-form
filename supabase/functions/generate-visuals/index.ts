@@ -113,6 +113,7 @@ const CATEGORY_LEXICONS = {
   'wedding': ['dress', 'rings', 'altar', 'bouquet', 'vows', 'reception', 'dance', 'cake', 'guests'],
   'graduation': ['cap', 'gown', 'diploma', 'stage', 'ceremony', 'degree', 'school', 'achievement'],
   'sports': ['ball', 'field', 'game', 'player', 'team', 'score', 'competition', 'victory'],
+  'nascar': ['pit stop', 'laps', 'draft', 'checkered flag', 'burnout', 'infield', 'tailgate', 'pit crew', 'V8', 'pit lane', 'speedway', 'qualifying', 'car', 'track', 'helmet', 'beer', 'cup', 'stands', 'garage', 'trophy', 'race', 'driver', 'fan', 'crowd'],
   'work': ['office', 'desk', 'computer', 'meeting', 'boss', 'deadline', 'project', 'coffee'],
   'dating': ['restaurant', 'flowers', 'dinner', 'conversation', 'date', 'romance', 'couple'],
   'general': ['people', 'situation', 'moment', 'scene', 'action', 'reaction', 'environment']
@@ -189,66 +190,98 @@ interface GenerateVisualsResponse {
   error?: string
 }
 
-// Extract visual props from Step-2 text + category lexicon + insert words
+// Enhanced visual prop extraction that pulls context directly from Step-2 text
 function extractVisualElements(text: string, category: string, insertWords: string[] = []): {
   textProps: string[], 
   categoryProps: string[], 
   allProps: string[],
   mood: string[],
-  actions: string[]
+  actions: string[],
+  nouns: string[],
+  verbs: string[],
+  settings: string[],
+  people: string[]
 } {
   const words = text.toLowerCase().split(/\W+/).filter(word => word.length > 2)
   const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'just', 'called', 'it', 'is', 'was', 'are', 'were', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'might', 'must', 'can', 'do', 'did', 'does', 'get', 'got', 'been', 'being', 'well', 'now', 'then', 'here', 'there', 'this', 'that', 'these', 'those', 'like', 'than', 'more', 'most', 'some', 'much', 'many', 'all', 'any', 'when', 'who', 'what', 'where', 'why', 'how'])
   
-  // Extract meaningful props from text
+  // Extract meaningful words
   const meaningfulWords = words.filter(word => 
     !stopWords.has(word) && 
     !/^\d+$/.test(word) && 
     word.length > 2
   )
   
+  // Extract specific types of visual elements from the joke text
+  
+  // NOUNS (things that can be visualized)
+  const visualNouns = meaningfulWords.filter(word => {
+    const objectWords = ['cake', 'car', 'beer', 'cup', 'flag', 'track', 'pit', 'crew', 'wheels', 'helmet', 'engine', 'trophy', 'hat', 'shirt', 'glasses', 'phone', 'table', 'chair', 'microphone', 'stage', 'camera', 'crowd', 'stands', 'infield', 'garage', 'toolbox', 'grill', 'cooler', 'tent', 'banner', 'sign', 'uniform', 'mascot', 'scoreboard', 'fence', 'gate', 'parking', 'tailgate', 'barbecue', 'soda', 'hotdog', 'nachos', 'popcorn', 'pretzel']
+    return objectWords.some(obj => word.includes(obj.substring(0, 3)) || obj.includes(word))
+  })
+  
+  // VERBS/ACTIONS (what's happening in the joke)
+  const actionVerbs = meaningfulWords.filter(word => {
+    const actionWords = ['drink', 'drinking', 'sip', 'chug', 'pour', 'spill', 'race', 'racing', 'drive', 'driving', 'crash', 'speed', 'accelerate', 'brake', 'turn', 'lap', 'qualify', 'finish', 'win', 'lose', 'cheer', 'shout', 'wave', 'celebrate', 'party', 'tailgate', 'grill', 'cook', 'eat', 'laugh', 'smile', 'dance', 'sing', 'fall', 'trip', 'stumble', 'run', 'walk', 'sit', 'stand', 'jump', 'climb', 'lean', 'point', 'grab', 'hold', 'carry', 'throw', 'catch']
+    return actionWords.some(action => word.includes(action.substring(0, 4)) || action.includes(word))
+  })
+  
+  // SETTINGS/PLACES (where the joke takes place)
+  const settingWords = meaningfulWords.filter(word => {
+    const placeWords = ['track', 'speedway', 'infield', 'stands', 'garage', 'pit', 'lane', 'victory', 'circle', 'parking', 'lot', 'tailgate', 'area', 'grandstand', 'paddock', 'media', 'center', 'concession', 'restroom', 'entrance', 'exit', 'tunnel', 'bridge', 'tower', 'booth', 'tent', 'trailer', 'hauler', 'motorhome', 'campground', 'hotel', 'restaurant', 'bar', 'pub', 'club', 'store', 'shop', 'museum', 'hall', 'fame']
+    return placeWords.some(place => word.includes(place.substring(0, 3)) || place.includes(word))
+  })
+  
+  // PEOPLE (characters in the joke)
+  const peopleWords = meaningfulWords.filter(word => {
+    const personWords = ['driver', 'fan', 'crew', 'chief', 'mechanic', 'engineer', 'spotter', 'owner', 'sponsor', 'announcer', 'reporter', 'official', 'marshal', 'flagman', 'security', 'usher', 'vendor', 'spectator', 'photographer', 'cameraman', 'interviewer', 'commentator', 'analyst', 'expert', 'legend', 'rookie', 'veteran', 'champion', 'winner', 'loser', 'competitor', 'participant', 'attendee', 'guest', 'family', 'friend']
+    return personWords.some(person => word.includes(person.substring(0, 4)) || person.includes(word)) ||
+           word.length <= 6 && /^[A-Z][a-z]+$/.test(text.split(/\W+/).find(w => w.toLowerCase() === word) || '')  // Proper names like "Jesse"
+  })
+  
   // Get category-specific props
   const categoryKey = category.toLowerCase().replace(/\s+/g, '-')
   const categoryLexicon = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
   
-  // Find props mentioned in text
-  const textProps = meaningfulWords.filter(word => {
-    // Visual nouns that can be rendered
-    return word.length > 3 || ['cat', 'dog', 'car', 'sun', 'sky', 'sea', 'eye', 'art', 'cup', 'box', 'hat', 'map', 'key', 'gem', 'ice', 'oil', 'gas', 'bar', 'mic', 'dj'].includes(word)
-  })
-  
-  // Extract category props that appear in text or are contextually relevant
+  // Enhanced category props that appear in text or are contextually relevant
   const categoryProps = categoryLexicon.filter(prop => 
     text.toLowerCase().includes(prop) || 
     meaningfulWords.some(word => word.includes(prop.substring(0, 3)))
   )
   
-  // Combine all props, prioritizing insert words, then text props, then category props
+  // NASCAR-specific enhancements
+  if (category.toLowerCase().includes('nascar') || text.toLowerCase().includes('nascar')) {
+    visualNouns.push(...['car', 'flag', 'track', 'pit', 'crew', 'helmet', 'beer', 'cup'].filter(item => !visualNouns.includes(item)))
+    actionVerbs.push(...['race', 'drink', 'cheer', 'wave'].filter(item => !actionVerbs.includes(item)))
+    settingWords.push(...['track', 'infield', 'stands', 'pit'].filter(item => !settingWords.includes(item)))
+  }
+  
+  // Combine all props, prioritizing insert words, then text-extracted elements
   const allProps = [
     ...insertWords.filter(word => word.trim().length > 0),
-    ...textProps.slice(0, 4),
-    ...categoryProps.slice(0, 3)
-  ].filter((prop, index, arr) => arr.indexOf(prop) === index).slice(0, 6)
+    ...visualNouns.slice(0, 3),
+    ...actionVerbs.slice(0, 2),
+    ...settingWords.slice(0, 2),
+    ...peopleWords.slice(0, 2),
+    ...categoryProps.slice(0, 2)
+  ].filter((prop, index, arr) => arr.indexOf(prop) === index).slice(0, 8)
   
-  // Extract action/emotion words for mood
+  // Extract mood/emotion words
   const moodWords = meaningfulWords.filter(word => {
-    const emotions = ['laugh', 'smile', 'cry', 'angry', 'happy', 'sad', 'excited', 'calm', 'worried', 'surprised', 'shocked', 'amazed', 'confused', 'proud', 'embarrassed', 'nervous', 'confident']
-    const actions = ['dance', 'sing', 'run', 'walk', 'jump', 'fall', 'fly', 'swim', 'climb', 'throw', 'catch', 'break', 'build', 'create', 'destroy', 'explode', 'burn', 'freeze', 'melt', 'shine', 'glow']
-    return emotions.some(e => word.includes(e) || e.includes(word)) ||
-           actions.some(a => word.includes(a) || a.includes(word))
-  })
-  
-  const actions = meaningfulWords.filter(word => {
-    const actionIndicators = ['made', 'make', 'creating', 'leaving', 'taking', 'giving', 'moving', 'running', 'walking', 'flying', 'falling', 'rising', 'shining', 'glowing', 'breaking', 'building', 'growing', 'flowing', 'burning', 'melting', 'dancing', 'singing', 'clapping', 'pointing', 'laughing', 'crying', 'shouting']
-    return actionIndicators.some(indicator => word.includes(indicator.substring(0, 4)) || indicator.includes(word))
+    const emotions = ['funny', 'hilarious', 'amusing', 'silly', 'ridiculous', 'absurd', 'crazy', 'wild', 'chaotic', 'messy', 'clumsy', 'awkward', 'embarrassing', 'proud', 'confident', 'nervous', 'excited', 'happy', 'sad', 'angry', 'surprised', 'shocked', 'confused', 'worried', 'calm', 'relaxed']
+    return emotions.some(e => word.includes(e.substring(0, 4)) || e.includes(word))
   })
   
   return {
-    textProps: textProps.slice(0, 4),
+    textProps: [...visualNouns, ...actionVerbs].slice(0, 6),
     categoryProps: categoryProps.slice(0, 3), 
     allProps,
     mood: moodWords.slice(0, 3),
-    actions: actions.slice(0, 3)
+    actions: actionVerbs.slice(0, 4),
+    nouns: visualNouns.slice(0, 6),
+    verbs: actionVerbs.slice(0, 4),
+    settings: settingWords.slice(0, 3),
+    people: [...peopleWords, ...insertWords.filter(word => /^[A-Z]/.test(word))].slice(0, 3)
   }
 }
 
@@ -290,7 +323,7 @@ Each 20-30 words, ${selectedStyle.name.toLowerCase()} style.`
   return { system, user }
 }
 
-// Enhanced visual prompt builder with comprehensive context
+// Enhanced visual prompt builder using Step-3 template approach
 function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
   const { 
     finalText, 
@@ -304,7 +337,7 @@ function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: str
   } = params
   
   const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
-  const { textProps, categoryProps, allProps, mood, actions } = extractVisualElements(finalText, category, insertWords)
+  const { nouns, verbs, settings, people, allProps, mood, actions } = extractVisualElements(finalText, category, insertWords)
   const visualMood = TONE_TO_MOOD[tone] || 'balanced mood and lighting'
   const styleMood = selectedStyle.moodKeywords?.[rating] || 'appropriate mood for rating'
   
@@ -312,27 +345,41 @@ function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: str
     ? `CRITICAL: NEVER use these conflicting styles: ${selectedStyle.banned.join(', ')}`
     : ''
 
-  const system = `You are a Step-3 Visual Concept Generator creating exactly 6 distinct visual interpretations.
+  // Build contextual prop/action combinations from the actual text
+  const mainProps = nouns.slice(0, 3).join(', ') || 'main elements'
+  const mainActions = verbs.slice(0, 2).join(', ') || 'action'
+  const mainSetting = settings[0] || category.split('>').pop()?.trim() || 'setting'
+  const mainPeople = people.slice(0, 2).join(', ') || 'people'
 
-MASTER RULES:
-1. Generate exactly 6 visual concepts using the official variation modes
-2. Each description: 20-35 words maximum 
-3. Anchor every concept to the Step-2 text: "${finalText}"
-4. Include concrete props from text: ${allProps.slice(0, 4).join(', ')}
-5. Style: ${selectedStyle.name} - ${selectedStyle.description}
-6. ${bannedTerms}
-7. Mood: ${visualMood}
-8. Rating guidance: ${styleMood}
+  const system = `You are a Step-3 Visual Concept Generator that creates exactly 6 visual interpretations by parsing Step-2 joke content.
 
-THE 6 OFFICIAL VARIATION MODES:
-1. CINEMATIC: ${VISUAL_MODES.cinematic.description} - ${VISUAL_MODES.cinematic.focus}
-2. CLOSE-UP: ${VISUAL_MODES['close-up'].description} - ${VISUAL_MODES['close-up'].focus}  
-3. CROWD REACTION: ${VISUAL_MODES['crowd-reaction'].description} - ${VISUAL_MODES['crowd-reaction'].focus}
-4. MINIMALIST: ${VISUAL_MODES.minimalist.description} - ${VISUAL_MODES.minimalist.focus}
-5. EXAGGERATED PROPORTIONS: ${VISUAL_MODES['exaggerated-proportions'].description} - ${VISUAL_MODES['exaggerated-proportions'].focus}
-6. GOOFY ABSURD: ${VISUAL_MODES['goofy-absurd'].description} - ${VISUAL_MODES['goofy-absurd'].focus}
+CRITICAL STEP-3 TEMPLATE RULES:
+1. Parse the Step-2 text for NOUNS (props): ${nouns.join(', ')}
+2. Parse the Step-2 text for VERBS (actions): ${verbs.join(', ')}  
+3. Parse the Step-2 text for SETTINGS: ${settings.join(', ')}
+4. Parse the Step-2 text for PEOPLE: ${people.join(', ')}
+5. Apply these parsed elements across the 6 visual modes
+6. NEVER default to generic "celebration" language
+7. ALWAYS pull context directly from: "${finalText}"
 
-CRITICAL: Each mode must produce a completely different composition and camera angle.
+THE 6 OFFICIAL VISUAL MODES:
+1. CINEMATIC (Wide): Wide shot of [setting], [props] in view, [action] happening, dramatic lighting
+2. CLOSE-UP (Detail): Close-up of [main prop/person], [action implied], shallow depth of field  
+3. CROWD REACTION (Group): Group scene with [people], [reaction to prop/action], expressive faces
+4. MINIMALIST (Simple): Single [prop], clean background, negative space, focus on humor
+5. EXAGGERATED: Cartoonish proportions, [prop] oversized, people distorted comically
+6. GOOFY: Slapstick setup, [prop] misplaced, people mid-fail, chaotic humor
+
+PARSED ELEMENTS FROM "${finalText}":
+- Props to use: ${mainProps}
+- Actions happening: ${mainActions}  
+- Setting context: ${mainSetting}
+- People involved: ${mainPeople}
+
+Style: ${selectedStyle.name} - ${selectedStyle.description}
+${bannedTerms}
+Mood: ${visualMood}
+Rating guidance: ${styleMood}
 
 OUTPUT FORMAT (JSON only):
 {
@@ -340,49 +387,53 @@ OUTPUT FORMAT (JSON only):
     {
       "visualStyle": "${selectedStyle.name}",
       "layout": "layout-type",
-      "description": "20-35 word description with specific props and ${selectedStyle.name.toLowerCase()} style", 
-      "props": ["prop1", "prop2", "prop3"],
+      "description": "20-35 word description using specific props and actions from the joke text", 
+      "props": ["specific", "props", "from", "text"],
       "interpretation": "cinematic/close-up/crowd-reaction/minimalist/exaggerated-proportions/goofy-absurd",
-      "cameraAngle": "specific camera direction and framing"
+      "mood": "mood based on joke context"
     }
   ]
 }`
 
-  const user = `STEP-2 TEXT: "${finalText}"
+  const user = `STEP-2 JOKE TEXT: "${finalText}"
 
-CONTEXT:
-- Category: ${category}${subcategory ? ` > ${subcategory}` : ''}
-- Props to include: ${allProps.join(', ')}
+PARSED CONTEXT FROM THE JOKE:
+- Main props (nouns): ${mainProps}
+- Actions (verbs): ${mainActions}
+- Setting: ${mainSetting}  
+- People: ${mainPeople}
 - Insert words: ${insertWords.join(', ') || 'none'}
-- Mood: ${mood.join(', ') || 'general'}
-- Actions: ${actions.join(', ') || 'static scene'}
 
-Generate 6 completely different ${selectedStyle.name.toLowerCase()} visual concepts:
+Generate 6 visual concepts that directly use these parsed elements:
 
-1. CINEMATIC (${VISUAL_MODES.cinematic.cameraAngle}):
-   Wide dramatic shot showing the full scene from "${finalText}", include: ${allProps.slice(0, 2).join(', ')}
+1. CINEMATIC (Wide shot):
+   Wide shot of ${mainSetting} with ${mainProps}, ${mainActions} happening, ${mainPeople} visible, dramatic ${selectedStyle.name.toLowerCase()} lighting
 
-2. CLOSE-UP (${VISUAL_MODES['close-up'].cameraAngle}): 
-   Detailed intimate view of key props: ${allProps.slice(0, 3).join(', ')}, shallow focus
+2. CLOSE-UP (Detail focus): 
+   Close-up of ${nouns[0] || 'main prop'} while ${verbs[0] || 'action'} is happening, ${selectedStyle.name.toLowerCase()} style, shallow focus on details
 
-3. CROWD REACTION (${VISUAL_MODES['crowd-reaction'].cameraAngle}):
-   People reacting to the situation in "${finalText}", ${category} setting, group expressions
+3. CROWD REACTION (Group scene):
+   ${mainPeople} reacting to ${mainActions} with ${mainProps}, group expressions in ${mainSetting}, ${selectedStyle.name.toLowerCase()} style
 
-4. MINIMALIST (${VISUAL_MODES.minimalist.cameraAngle}):
-   Clean simple composition, essential elements only: ${allProps.slice(0, 2).join(', ')}, negative space
+4. MINIMALIST (Simple composition):
+   Single ${nouns[0] || 'prop'} on clean background, representing the "${finalText}" humor, negative space, ${selectedStyle.name.toLowerCase()} aesthetic
 
-5. EXAGGERATED PROPORTIONS (${VISUAL_MODES['exaggerated-proportions'].cameraAngle}):
-   Comically oversized or distorted ${allProps[0] || 'elements'}, cartoon-style proportions, visual comedy
+5. EXAGGERATED PROPORTIONS (Cartoon scale):
+   ${mainProps} comically oversized, ${mainPeople} tiny by comparison, emphasizing the absurdity of ${mainActions}, cartoon proportions
 
-6. GOOFY ABSURD (${VISUAL_MODES['goofy-absurd'].cameraAngle}):
-   Peak silliness from "${finalText}", props behaving ridiculously, maximum comedy chaos
+6. GOOFY ABSURD (Slapstick chaos):
+   ${mainPeople} mid-${mainActions} with ${mainProps} behaving ridiculously, peak comedy chaos from the joke scenario, maximum silliness
 
-Each description must:
-- Use exact words from the original text
-- Include specific ${selectedStyle.name.toLowerCase()} style elements  
-- Have ${visualMood}
-- Stay 20-35 words
-- Be completely unique in composition`
+CRITICAL REQUIREMENTS:
+- Use exact words from the joke text: "${finalText}"
+- Include specific props: ${mainProps}
+- Show the action: ${mainActions}
+- Set in: ${mainSetting}
+- Feature: ${mainPeople}
+- Each 20-35 words
+- ${selectedStyle.name.toLowerCase()} visual style
+- NEVER use generic celebration language
+- Pull ALL context from the actual joke content`
 
   return { system, user }
 }
