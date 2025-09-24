@@ -54,15 +54,6 @@ const SWEARS_STRONG = /\b(fuck(?:ing)?|shit|asshole|bastard|douche)\b/i;
 const SLURS = /\b(?:placeholder_slur)\b/i; // Server-side only
 
 
-// Category-specific ban lists (off-topic words to avoid)
-const CATEGORY_BAN_LISTS = {
-  wedding: ["wifi","wi-fi","pizza","monday","spreadsheet","deadline","zoom","traffic","taxes","office","email","login","password"],
-  birthday: [],
-  sports: ["winner", "champion", "team", "victory", "score", "game", "field"],
-  cooking: ["recipe", "ingredients", "delicious", "taste", "flavor", "kitchen"],
-  technology: ["computer", "internet", "digital", "online", "click", "download"]
-};
-
 // Normalize category/subcategory keys like "celebrations > wedding" -> "wedding"
 function normKey(input?: string): string {
   if (!input) return '';
@@ -337,11 +328,6 @@ function validateBatch(lines: string[], scenario: any): { ok: boolean; details?:
 
 function generateNonce(): string {
   return Math.random().toString(36).substring(2, 15);
-}
-
-function getBanList(category: string): string[] {
-  const categoryKey = category.toLowerCase().split(' > ')[0];
-  return (CATEGORY_BAN_LISTS as any)[categoryKey] || [];
 }
 
 // Helper: classify insert word position
