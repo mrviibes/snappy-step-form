@@ -53,7 +53,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           finalText,
           category: data.category || '',
           subcategory: data.subcategory || '',
-          subSubcategory: data.theme || '',
           tone: data.text?.tone || 'Humorous',
           textStyle: data.text?.style || 'Generic',
           rating: data.text?.rating || 'PG',

@@ -14,7 +14,6 @@ interface FinalPromptRequest {
   finalText: string;
   category: string;
   subcategory?: string;
-  subSubcategory?: string;
   tone: string;
   textStyle: string;
   rating: string;
@@ -89,7 +88,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     finalText,
     category,
     subcategory,
-    subSubcategory,
     tone,
     textStyle,
     rating,
@@ -137,7 +135,7 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   };
 
   // Build category context
-  const categoryContext = [category, subcategory, subSubcategory].filter(Boolean).join(' ');
+  const categoryContext = [category, subcategory].filter(Boolean).join(' ');
   
   // Get mapped values
   const textLayout = layoutMap[layout] || layout;

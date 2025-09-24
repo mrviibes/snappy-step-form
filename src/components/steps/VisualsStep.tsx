@@ -155,7 +155,6 @@ export default function VisualsStep({
         finalText,
         category: data.category || "",
         subcategory: data.subcategory || "",
-        subSubcategory: data.theme || "",
         tone: data.vibe?.tone || "Humorous",
         textStyle: data.vibe?.style || "Sarcastic",
         rating: data.vibe?.rating || "PG",
