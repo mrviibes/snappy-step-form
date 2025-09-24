@@ -22,6 +22,17 @@ interface CategoryStepProps {
   updateData: (data: any) => void;
   onNext: () => void;
 }
+
+interface ThemeItem {
+  id: string;
+  title: string;
+}
+
+interface SubcategoryItem {
+  id: string;
+  title: string;
+  themes?: ThemeItem[];
+}
 const fitnessGoals = [{
   id: "celebrations",
   title: "Celebrations",
@@ -2235,22 +2246,74 @@ const fitnessGoals = [{
   image: comedianImage,
   subcategories: [{
     id: "dad-jokes",
-    title: "Dad Jokes"
+    title: "Dad Jokes",
+    themes: [
+      { id: "sports", title: "Sports" },
+      { id: "food", title: "Food" },
+      { id: "work", title: "Work" },
+      { id: "family", title: "Family" },
+      { id: "technology", title: "Technology" },
+      { id: "relationships", title: "Relationships" },
+      { id: "everyday-life", title: "Everyday Life" }
+    ]
   }, {
     id: "puns",
-    title: "Puns"
+    title: "Puns",
+    themes: [
+      { id: "animals", title: "Animals" },
+      { id: "food", title: "Food" },
+      { id: "weather", title: "Weather" },
+      { id: "work", title: "Work" },
+      { id: "technology", title: "Technology" },
+      { id: "sports", title: "Sports" },
+      { id: "everyday-objects", title: "Everyday Objects" }
+    ]
   }, {
     id: "observational",
-    title: "Observational"
+    title: "Observational",
+    themes: [
+      { id: "social-media", title: "Social Media" },
+      { id: "modern-life", title: "Modern Life" },
+      { id: "relationships", title: "Relationships" },
+      { id: "work-culture", title: "Work Culture" },
+      { id: "technology", title: "Technology" },
+      { id: "daily-habits", title: "Daily Habits" },
+      { id: "generational-differences", title: "Generational Differences" }
+    ]
   }, {
     id: "one-liners",
-    title: "One-liners"
+    title: "One-liners",
+    themes: [
+      { id: "self-deprecating", title: "Self-deprecating" },
+      { id: "witty-comebacks", title: "Witty Comebacks" },
+      { id: "absurd-humor", title: "Absurd Humor" },
+      { id: "wordplay", title: "Wordplay" },
+      { id: "dark-humor", title: "Dark Humor" },
+      { id: "clever-observations", title: "Clever Observations" }
+    ]
   }, {
     id: "situational",
-    title: "Situational"
+    title: "Situational",
+    themes: [
+      { id: "office-life", title: "Office Life" },
+      { id: "dating", title: "Dating" },
+      { id: "parenting", title: "Parenting" },
+      { id: "travel", title: "Travel" },
+      { id: "shopping", title: "Shopping" },
+      { id: "social-events", title: "Social Events" },
+      { id: "everyday-mishaps", title: "Everyday Mishaps" }
+    ]
   }, {
     id: "wordplay",
-    title: "Wordplay"
+    title: "Wordplay",
+    themes: [
+      { id: "double-meanings", title: "Double Meanings" },
+      { id: "rhymes", title: "Rhymes" },
+      { id: "homophones", title: "Homophones" },
+      { id: "acronyms", title: "Acronyms" },
+      { id: "spoonerisms", title: "Spoonerisms" },
+      { id: "alliteration", title: "Alliteration" }
+    ]
   }]
 }, {
   id: "custom",
@@ -2285,8 +2348,11 @@ export default function CategoryStep({
 }: CategoryStepProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [subcategorySearchQuery, setSubcategorySearchQuery] = useState("");
+  const [themeSearchQuery, setThemeSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
+  const [showingThemes, setShowingThemes] = useState(false);
   // Create flattened search results for direct subcategory selection
   const getSearchResults = () => {
     if (!searchQuery || searchQuery.length === 0) return [];
@@ -2302,7 +2368,7 @@ export default function CategoryStep({
 
     fitnessGoals.forEach(goal => {
       // Check subcategories for matches
-      goal.subcategories.forEach((subcategory: any) => {
+      (goal.subcategories as SubcategoryItem[]).forEach((subcategory: SubcategoryItem) => {
         const subcategoryLower = subcategory.title.toLowerCase();
         const matches = subcategoryLower.includes(searchLower) ||
                        subcategoryLower.split(' ').some((word: string) => word.startsWith(searchLower)) ||
@@ -2347,6 +2413,16 @@ export default function CategoryStep({
 
   // Handle direct subcategory selection from search results
   const handleDirectSubcategorySelection = (categoryId: string, subcategoryId: string) => {
+    // For jokes category, we need theme selection, so don't auto-complete
+    if (categoryId === 'jokes') {
+      setSelectedCategory(categoryId);
+      setSelectedSubcategory(subcategoryId);
+      setShowingSubcategories(false);
+      setShowingThemes(true);
+      setSearchQuery("");
+      return;
+    }
+    
     updateData({
       category: categoryId,
       subcategory: subcategoryId
@@ -2355,7 +2431,13 @@ export default function CategoryStep({
 
   const filteredGoals = searchQuery.length === 0 ? fitnessGoals : [];
   const selectedCategoryData = selectedCategory ? fitnessGoals.find(goal => goal.id === selectedCategory) : null;
-  const filteredSubcategories = selectedCategoryData ? selectedCategoryData.subcategories.filter(subcategory => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
+  const selectedSubcategoryData = selectedSubcategory && selectedCategoryData 
+    ? (selectedCategoryData.subcategories as SubcategoryItem[]).find((sub: SubcategoryItem) => sub.id === selectedSubcategory) 
+    : null;
+  const filteredSubcategories = selectedCategoryData ? (selectedCategoryData.subcategories as SubcategoryItem[]).filter((subcategory: SubcategoryItem) => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
+  const filteredThemes = selectedSubcategoryData?.themes 
+    ? selectedSubcategoryData.themes.filter(theme => theme.title.toLowerCase().includes(themeSearchQuery.toLowerCase()))
+    : [];
   
   const handleCategorySelection = (goalId: string) => {
     setSelectedCategory(goalId);
@@ -2365,40 +2447,86 @@ export default function CategoryStep({
   };
   
   const handleSubcategorySelection = (subcategoryId: string) => {
+    // For jokes category, proceed to theme selection
+    if (selectedCategory === 'jokes') {
+      setSelectedSubcategory(subcategoryId);
+      setShowingSubcategories(false);
+      setShowingThemes(true);
+      return;
+    }
+    
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
     });
   };
+
+  const handleThemeSelection = (themeId: string) => {
+    updateData({
+      category: selectedCategory,
+      subcategory: selectedSubcategory,
+      theme: themeId
+    });
+  };
   
   const handleEditCategory = () => {
     setShowingSubcategories(false);
+    setShowingThemes(false);
     setSelectedCategory(null);
+    setSelectedSubcategory(null);
     setSearchQuery("");
     setSubcategorySearchQuery("");
+    setThemeSearchQuery("");
     updateData({
       category: "",
-      subcategory: ""
+      subcategory: "",
+      theme: ""
     });
   };
   
   const handleEditSubcategory = () => {
+    if (selectedCategory === 'jokes') {
+      setShowingThemes(false);
+      setSelectedSubcategory(null);
+      setThemeSearchQuery("");
+      updateData({
+        subcategory: "",
+        theme: ""
+      });
+    } else {
+      updateData({
+        subcategory: ""
+      });
+    }
+  };
+
+  const handleEditTheme = () => {
     updateData({
-      subcategory: ""
+      theme: ""
     });
   };
   
   const handleBack = () => {
-    setShowingSubcategories(false);
-    setSelectedCategory(null);
-    setSearchQuery("");
-    setSubcategorySearchQuery("");
+    if (showingThemes) {
+      setShowingThemes(false);
+      setShowingSubcategories(true);
+      setSelectedSubcategory(null);
+      setThemeSearchQuery("");
+    } else {
+      setShowingSubcategories(false);
+      setSelectedCategory(null);
+      setSearchQuery("");
+      setSubcategorySearchQuery("");
+    }
   };
 
-  // If both category and subcategory are selected, show the compact view
-  if (data.category && data.subcategory) {
+  // If all three levels are selected for jokes, or category and subcategory for others, show compact view
+  if (data.category && data.subcategory && (data.category !== 'jokes' || data.theme)) {
     const categoryData = fitnessGoals.find(goal => goal.id === data.category);
-    const subcategoryData = categoryData?.subcategories.find(sub => sub.id === data.subcategory);
+    const subcategoryData = (categoryData?.subcategories as SubcategoryItem[])?.find(sub => sub.id === data.subcategory);
+    const themeData = data.category === 'jokes' && subcategoryData?.themes 
+      ? subcategoryData.themes.find(theme => theme.id === data.theme)
+      : null;
     
     return (
       <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
@@ -2415,15 +2543,96 @@ export default function CategoryStep({
         {/* Selected Subcategory */}
         <div className="flex items-center justify-between p-4 border-t border-border">
           <div className="text-sm text-foreground">
-            <span className="font-bold text-muted-foreground">Subcategory</span> - <span className="font-normal">{subcategoryData?.title}</span>
+            <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
           </div>
           <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
+
+        {/* Selected Theme (for jokes) */}
+        {data.category === 'jokes' && themeData && (
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-bold text-muted-foreground">Theme</span> - <span className="font-normal">{themeData.title}</span>
+            </div>
+            <button onClick={handleEditTheme} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        )}
       </div>
     );
   }
+  // Theme selection view for jokes
+  if (showingThemes && selectedSubcategoryData?.themes) {
+    return <div className="space-y-6">
+        {/* Selected Category and Subcategory Header */}
+        <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{selectedCategoryData?.title}</span>
+            </div>
+            <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{selectedSubcategoryData.title}</span>
+            </div>
+            <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Theme Search and List */}
+        <div className="space-y-4">
+          {/* Search Header */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+            <Input 
+              type="text" 
+              placeholder="Search themes..." 
+              value={themeSearchQuery} 
+              onChange={e => setThemeSearchQuery(e.target.value)} 
+              className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
+            />
+          </div>
+
+          {/* Individual Theme Items */}
+          <div className="max-h-80 overflow-y-auto scrollbar-hide">
+            <div className="space-y-3">
+              {filteredThemes.map(theme => (
+                <Card 
+                  key={theme.id} 
+                  className={cn(
+                    "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg w-full",
+                    {
+                      "border-primary bg-accent shadow-sm": data.theme === theme.id,
+                      "border-border hover:border-border": data.theme !== theme.id
+                    }
+                  )} 
+                  onClick={() => handleThemeSelection(theme.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-normal text-foreground text-sm">{theme.title}</h4>
+                    <div className="text-muted-foreground text-sm">→</div>
+                  </div>
+                </Card>
+              ))}
+              {filteredThemes.length === 0 && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No themes found
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>;
+  }
+
   if (showingSubcategories && selectedCategoryData) {
     return <div className="space-y-6">
         {/* Selected Category Header */}
