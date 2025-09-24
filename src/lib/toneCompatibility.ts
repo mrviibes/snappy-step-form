@@ -16,7 +16,7 @@ const SUBCATEGORY_COMPATIBILITY: Record<string, ToneId[]> = {
   
   // Celebrations subcategories
   'birthday': ['playful', 'humorous', 'savage', 'sentimental'],
-  'wedding': ['romantic', 'sentimental', 'playful', 'savage'],
+  'wedding': ['romantic', 'sentimental', 'playful', 'savage', 'humorous'],
   'engagement': ['romantic', 'playful', 'sentimental'],
   'graduation': ['playful', 'humorous', 'sentimental', 'nostalgic'],
   'baby-shower': ['playful', 'sentimental', 'humorous'],
