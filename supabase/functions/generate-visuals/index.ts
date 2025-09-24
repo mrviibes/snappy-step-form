@@ -340,8 +340,8 @@ function buildVisualConcepts(
   dimension: "Square" | "Portrait" | "Landscape",
   category: string
 ): { variation: Variation; description: string }[] {
-  // 1) extract props
-  const props = extractProps(text);
+  // 1) extract props using smart extractor
+  const props = extractPropsSmart(text, category.toLowerCase(), 8);
   
   // Category-specific anchors for when props are insufficient
   const categoryAnchors: Record<string, string[]> = {
@@ -428,7 +428,7 @@ function buildFinalImagePrompts(
     visualStyle: style,
     layout: layouts[index % layouts.length],
     description: `${dimension.toLowerCase()} ${style.toLowerCase()} style. ${c.description}`,
-    props: extractProps(text).slice(0, 3),
+    props: extractPropsSmart(text, categoryKey.toLowerCase(), 8).slice(0, 3),
     interpretation: c.variation.toLowerCase().replace(' ', '-'),
     mood: 'humorous',
     palette: ['vibrant'],
@@ -597,13 +597,13 @@ function buildJokeAwareVisualConcepts(jokeText: string, extractedProps: string[]
 }
 
 // Extract joke-specific props
-function extractJokeProps(jokeText: string): string[] {
-  return extractProps(jokeText, 8);
+function extractJokeProps(jokeText: string, category: string = "general"): string[] {
+  return extractPropsSmart(jokeText, category.toLowerCase(), 8);
 }
 
 // Extract visual elements from text
 function extractVisualElements(text: string, category: string, insertWords?: string[]): any {
-  const props = extractProps(text);
+  const props = extractPropsSmart(text, category.toLowerCase(), 8);
   const words = text.toLowerCase().split(/\s+/);
   
   // Simple categorization
@@ -630,7 +630,7 @@ function buildSixVariedConcepts(context: any, elements: any, style: any) {
   
   // Use the new joke-aware system if we have joke text
   if (jokeText) {
-    const extractedProps = extractJokeProps(jokeText);
+    const extractedProps = extractJokeProps(jokeText, context.category || 'general');
     const styleName = style.name || 'realistic';
     return buildJokeAwareVisualConcepts(jokeText, extractedProps, styleName);
   }
@@ -1065,14 +1065,22 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   } catch (error) {
     console.error('💥 Visual generation failed:', error.message)
     
-    // Fallback to basic template system
-    console.log('🚨 Using basic template fallback...')
-    return buildFinalImagePrompts(
-      params.finalText,
-      params.visualStyle as any,
-      (params.dimension as any) || "Square",
-      params.category
-    );
+    // Fallback using template system with smart extraction
+    console.log('🚨 Using template fallback with smart props...')
+    const fallbackProps = extractPropsSmart(params.finalText, params.category.toLowerCase(), 8);
+    const fallbackNegatives = buildNegatives(params.visualStyle);
+    
+    return [{
+      visualStyle: expectedStyle,
+      layout: 'meme-text',
+      description: `${(params.dimension || "Square").toLowerCase()} ${expectedStyle.toLowerCase()} style. Wide scene with ${fallbackProps[0] || 'scene'} and ${fallbackProps[1] || 'subject'}, playful humor, cinematic framing.`,
+      props: fallbackProps.slice(0, 3),
+      interpretation: 'cinematic',
+      mood: 'humorous',
+      palette: ['vibrant'],
+      negativePrompt: fallbackNegatives,
+      aspect: (params.dimension === "Square" ? "1:1" : params.dimension === "Portrait" ? "9:16" : "16:9")
+    }];
   }
 }
 
