@@ -41,7 +41,7 @@ serve(async (req) => {
 
   } catch (error) {
     return Response.json(
-      { ok: false, error: error.message },
+      { ok: false, error: (error as Error).message },
       { status: 500, headers: corsHeaders }
     )
   }

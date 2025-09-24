@@ -181,6 +181,8 @@ interface VisualRecommendation {
   interpretation?: string
   palette?: string[]
   mood?: string
+  negativePrompt?: string[]
+  aspect?: string
 }
 
 interface GenerateVisualsResponse {
@@ -465,7 +467,7 @@ function buildFinalImagePrompts(
     interpretation: c.variation.toLowerCase().replace(' ', '-'),
     mood: 'humorous',
     palette: ['vibrant'],
-    negativePrompt: negatives,
+    negativePrompt: negatives.split(', '),
     aspect
   }));
 }
@@ -484,7 +486,7 @@ function pickRandom<T>(arr: T[]): T {
 function buildSpecificVisualPrompt(params: GenerateVisualsParams): { system: string; user: string } {
   const { finalText, category, subcategory, visualStyle, rating } = params
   
-  const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
+  const selectedStyle = (visualStyles as any)[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
   const elements = extractVisualElements(finalText, category, params.insertWords)
   
   // Extract specific failure/action context from the joke
@@ -548,7 +550,7 @@ function extractJokeContext(text: string, elements: any): any {
 // Template-based visual concept builder that distributes props across variations
 function buildJokeAwareVisualConcepts(jokeText: string, extractedProps: string[], visualStyle: string): any[] {
   const propPool = [...extractedProps];
-  const concepts = [];
+  const concepts: any[] = [];
   
   // Template definitions that use different props to ensure variety
   const templates = [
@@ -715,9 +717,9 @@ function buildEnhancedVisualPrompt(params: GenerateVisualsParams): { system: str
     dimension = 'square'
   } = params
   
-  const selectedStyle = visualStyles[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
+  const selectedStyle = (visualStyles as any)[visualStyle.toLowerCase().replace(/\s+/g, '-')] || visualStyles['general']
   const { nouns, verbs, settings, people, allProps, mood, actions } = extractVisualElements(finalText, category, insertWords)
-  const visualMood = TONE_TO_MOOD[tone] || 'balanced mood and lighting'
+  const visualMood = (TONE_TO_MOOD as any)[tone] || 'balanced mood and lighting'
   const styleMood = selectedStyle.moodKeywords?.[rating] || 'appropriate mood for rating'
   
   const bannedTerms = selectedStyle.banned.length > 0 
@@ -883,7 +885,7 @@ function validateVisualRec(rec: any, expectedStyle: string, textProps: string[])
     description: description.trim(),
     props: Array.isArray(props) ? props.filter(p => typeof p === 'string').slice(0, 5) : [],
     interpretation,
-    mood: TONE_TO_MOOD[interpretation] || undefined,
+    mood: (TONE_TO_MOOD as any)[interpretation] || undefined,
     ...(cameraAngle && { cameraAngle })
   }
 }
@@ -892,7 +894,7 @@ function validateVisualRec(rec: any, expectedStyle: string, textProps: string[])
 
 // Timeout wrapper to prevent hanging requests
 async function withTimeout<T>(promise: Promise<T>, ms: number = 20000): Promise<T> {
-  let timer: NodeJS.Timeout;
+  let timer: number;
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => {
@@ -951,7 +953,7 @@ async function callOpenAIWithRetry(systemPrompt: string, userPrompt: string, max
       
     } catch (error) {
       const isLastAttempt = attempt === maxRetries - 1;
-      const errorMessage = error.message;
+      const errorMessage = (error as Error).message;
       
       console.log(`❌ Visual API attempt ${attempt + 1} failed: ${errorMessage}`);
       
@@ -1040,7 +1042,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
   console.log('📝 Input params:', { text: params.finalText.substring(0, 50) + '...', style: params.visualStyle, category: params.category });
   console.log('🔑 Canonical category key:', canonicalKey(params.category));
   
-  const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
+  const expectedStyle = (visualStyles as any)[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
   
   try {
     // Extract props from joke text using smart extractor with canonical key
@@ -1090,14 +1092,14 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
       description: c.description,
       props: props.slice(0, 3),
       interpretation: c.interpretation,
-      mood: TONE_TO_MOOD[params.tone] || 'humorous mood',
+      mood: (TONE_TO_MOOD as any)[params.tone] || 'humorous mood',
       palette: ['vibrant'],
-      negativePrompt: negatives,
+      negativePrompt: negatives.split(', '),
       aspect: (params.dimension === "Square" ? "1:1" : params.dimension === "Portrait" ? "9:16" : "16:9")
     }));
     
   } catch (error) {
-    console.error('💥 Visual generation failed:', error.message)
+    console.error('💥 Visual generation failed:', (error as Error).message)
     
     // Fallback using template system with smart extraction
     console.log('🚨 Using template fallback with smart props...')
@@ -1112,7 +1114,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRec
       interpretation: 'cinematic',
       mood: 'humorous',
       palette: ['vibrant'],
-      negativePrompt: fallbackNegatives,
+      negativePrompt: fallbackNegatives.split(', '),
       aspect: (params.dimension === "Square" ? "1:1" : params.dimension === "Portrait" ? "9:16" : "16:9")
     }];
   }
@@ -1143,7 +1145,7 @@ function createFallbackVisuals_DEPRECATED(params: GenerateVisualsParams, expecte
 // Enhanced visual generation with 6-mode validation
 async function generateVisualRecommendations(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
   const { system, user } = buildVisualPrompt(params)
-  const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
+  const expectedStyle = (visualStyles as any)[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
   const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
   
   console.log('Generating 6-mode visuals with params:', params)
@@ -1174,7 +1176,7 @@ async function generateVisualRecommendations(params: GenerateVisualsParams): Pro
         
         parsed = JSON.parse(jsonText)
       } catch (e) {
-        console.error('JSON parse error:', e.message)
+        console.error('JSON parse error:', (e as Error).message)
         console.error('Raw response:', rawResponse.substring(0, 500))
         continue
       }
@@ -1194,7 +1196,7 @@ async function generateVisualRecommendations(params: GenerateVisualsParams): Pro
       
       for (const rec of parsed.visuals) {
         const validated = validateVisualRec(rec, expectedStyle, allProps)
-        if (validated && !usedInterpretations.has(validated.interpretation)) {
+        if (validated && validated.interpretation && !usedInterpretations.has(validated.interpretation)) {
           validVisuals.push(validated)
           usedInterpretations.add(validated.interpretation)
         }
@@ -1218,10 +1220,10 @@ async function generateVisualRecommendations(params: GenerateVisualsParams): Pro
   console.log('Using enhanced fallback visual generation with 6 modes')
   const fallbackModes = ['cinematic', 'close-up', 'crowd-reaction', 'minimalist', 'exaggerated-proportions', 'goofy-absurd']
   const { allProps: fallbackProps, mood } = extractVisualElements(params.finalText, params.category, params.insertWords)
-  const moodKeywords = TONE_TO_MOOD[params.tone] || 'balanced mood'
+  const moodKeywords = (TONE_TO_MOOD as any)[params.tone] || 'balanced mood'
   
   return fallbackModes.slice(0, 6).map((mode, index) => {
-    const modeConfig = VISUAL_MODES[mode]
+    const modeConfig = (VISUAL_MODES as any)[mode]
     const primaryProp = fallbackProps[0] || 'main subject'
     const secondaryProp = fallbackProps[1] || 'scene elements'
     
@@ -1330,13 +1332,13 @@ serve(async (req) => {
     let userMessage = 'Visual generation failed'
     let statusCode = 500
     
-    if (error.message.includes('timeout') || error.message.includes('Visual generation timed out')) {
+    if ((error as Error).message.includes('timeout') || (error as Error).message.includes('Visual generation timed out')) {
       userMessage = 'Visual generation timed out. The AI service is taking too long to respond. Please try again.'
       statusCode = 408
-    } else if (error.message.includes('Invalid JSON') || error.message.includes('JSON parse')) {
+    } else if ((error as Error).message.includes('Invalid JSON') || (error as Error).message.includes('JSON parse')) {
       userMessage = 'Visual generation returned invalid data. Please try again with different settings.'
       statusCode = 422
-    } else if (error.message.includes('Only generated')) {
+    } else if ((error as Error).message.includes('Only generated')) {
       userMessage = 'Could not generate enough visual variations. Try simpler text or different style.'
       statusCode = 422
     }
