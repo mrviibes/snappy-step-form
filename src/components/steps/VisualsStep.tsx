@@ -97,6 +97,8 @@ export default function VisualsStep({
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
   const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("cinematic");
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -165,12 +167,50 @@ export default function VisualsStep({
         dimension: data.visuals?.dimension || "square"
       };
       console.log('🎨 Generating visuals with params:', params);
+      
+      // Set debug info before API call
+      setDebugInfo({
+        timestamp: new Date().toISOString(),
+        step: 'API_CALL_START',
+        params,
+        formData: {
+          category: data.category,
+          subcategory: data.subcategory,
+          theme: data.theme,
+          text: data.text,
+          vibe: data.vibe,
+          visuals: data.visuals
+        }
+      });
+
       const visuals = await generateVisualOptions(params);
       console.log('📥 Received visuals from API:', visuals);
+      
+      // Update debug info with API response
+      setDebugInfo(prev => ({
+        ...prev,
+        step: 'API_CALL_SUCCESS',
+        apiResponse: visuals,
+        visualsCount: visuals.length
+      }));
+      
       setGeneratedVisuals(visuals);
       console.log('💾 Set generatedVisuals to:', visuals);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
+      
+      // Update debug info with error
+      setDebugInfo(prev => ({
+        ...prev,
+        step: 'API_CALL_ERROR',
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          type: typeof error,
+          raw: error
+        }
+      }));
+      
       setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setGeneratedVisuals([]);
     } finally {
@@ -207,6 +247,76 @@ export default function VisualsStep({
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
+      {/* Debug Toggle */}
+      <div className="flex justify-between items-center">
+        <div></div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowDebug(!showDebug)}
+          className="text-xs"
+        >
+          {showDebug ? 'Hide' : 'Show'} Debug
+        </Button>
+      </div>
+
+      {/* Debug Panel */}
+      {showDebug && (
+        <Card className="p-4 bg-muted/20 border-orange-200">
+          <h4 className="font-semibold text-sm mb-3 text-orange-700">Debug Information</h4>
+          <div className="space-y-3 text-xs">
+            <div>
+              <strong>Form Data:</strong>
+              <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
+                {JSON.stringify({
+                  category: data.category,
+                  subcategory: data.subcategory,
+                  theme: data.theme,
+                  text: data.text,
+                  vibe: data.vibe,
+                  visuals: data.visuals,
+                  selectedCustomVisualStyle,
+                  hasSelectedStyle,
+                  hasSelectedDimension,
+                  showGenerateButton,
+                  showVisualOptions,
+                  isComplete
+                }, null, 2)}
+              </pre>
+            </div>
+            
+            {debugInfo && (
+              <div>
+                <strong>Last API Debug:</strong>
+                <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </div>
+            )}
+            
+            <div>
+              <strong>Generated Visuals State:</strong>
+              <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
+                {JSON.stringify({
+                  count: generatedVisuals.length,
+                  selectedOption: selectedVisualOption,
+                  isGenerating: isGeneratingVisuals,
+                  error: error,
+                  visuals: generatedVisuals.map((v, i) => ({
+                    index: i,
+                    visualStyle: v.visualStyle,
+                    layout: v.layout,
+                    description: v.description?.substring(0, 100) + '...',
+                    props: v.props,
+                    interpretation: v.interpretation?.substring(0, 100) + '...'
+                  }))
+                }, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Category Breadcrumb */}
       {data.category && data.subcategory && (
         <div className="text-left mb-2">
