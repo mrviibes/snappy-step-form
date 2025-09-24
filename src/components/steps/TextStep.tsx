@@ -17,7 +17,7 @@ import { generateTextOptions } from '@/lib/api';
 import { generateTextWithFallback, type GenerationInput } from '@/lib/textGenerationFallback';
 import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
-import { checkToneCompatibility, getRecommendedTones, type ToneId, type CategoryType } from '@/lib/toneCompatibility';
+
 interface TextStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -71,22 +71,9 @@ export default function TextStep({
   const [showComedianStyle, setShowComedianStyle] = useState(false);
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
-  const [compatibilityResult, setCompatibilityResult] = useState<ReturnType<typeof checkToneCompatibility> | null>(null);
+  
   const { toast } = useToast();
 
-  // Check compatibility when category, subcategory, or tone changes
-  useEffect(() => {
-    if (data.category && data.subcategory && data.text?.tone) {
-      const compatibility = checkToneCompatibility(
-        data.text.tone as ToneId,
-        data.category as CategoryType,
-        data.subcategory
-      );
-      setCompatibilityResult(compatibility);
-    } else {
-      setCompatibilityResult(null);
-    }
-  }, [data.category, data.subcategory, data.text?.tone]);
   const handleGenerate = async () => {
     if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
 
@@ -410,58 +397,6 @@ export default function TextStep({
           </div>
         </div>
 
-        {/* Compatibility Warning/Error */}
-        {compatibilityResult && (
-          <div className={cn(
-            "rounded-lg border-2 p-4",
-            compatibilityResult.level === 'incompatible' 
-              ? "border-destructive bg-destructive/10" 
-              : compatibilityResult.level === 'warning'
-              ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20"
-              : "border-green-500 bg-green-50 dark:bg-green-950/20"
-          )}>
-            <div className="flex items-start space-x-2">
-              <AlertCircle className={cn(
-                "w-4 h-4 mt-0.5 flex-shrink-0",
-                compatibilityResult.level === 'incompatible' 
-                  ? "text-destructive"
-                  : compatibilityResult.level === 'warning'
-                  ? "text-yellow-600"
-                  : "text-green-600"
-              )} />
-              <div className="text-sm">
-                <p className={cn(
-                  "font-medium",
-                  compatibilityResult.level === 'incompatible' 
-                    ? "text-destructive"
-                    : compatibilityResult.level === 'warning'
-                    ? "text-yellow-700 dark:text-yellow-400"
-                    : "text-green-700 dark:text-green-400"
-                )}>
-                  {compatibilityResult.level === 'incompatible' ? 'Incompatible Combination' : 
-                   compatibilityResult.level === 'warning' ? 'Tone Suggestion' : 'Good Match'}
-                </p>
-                {compatibilityResult.message && (
-                  <p className={cn(
-                    "mt-1",
-                    compatibilityResult.level === 'incompatible' 
-                      ? "text-destructive/80"
-                      : compatibilityResult.level === 'warning'
-                      ? "text-yellow-600 dark:text-yellow-300"
-                      : "text-green-600 dark:text-green-300"
-                  )}>
-                    {compatibilityResult.message}
-                  </p>
-                )}
-                {compatibilityResult.recommendedTones && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Recommended tones: {compatibilityResult.recommendedTones.join(', ')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Rating Selection */}
         <div className="space-y-3 pt-4">
@@ -710,50 +645,12 @@ export default function TextStep({
           </div>
 
 
-          {/* Compatibility Warning - show before generation if there are issues */}
-          {compatibilityResult && compatibilityResult.level !== 'compatible' && (
-            <div className={cn(
-              "rounded-lg border-2 p-3",
-              compatibilityResult.level === 'incompatible' 
-                ? "border-destructive bg-destructive/10" 
-                : "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20"
-            )}>
-              <div className="flex items-start space-x-2">
-                <AlertCircle className={cn(
-                  "w-4 h-4 mt-0.5 flex-shrink-0",
-                  compatibilityResult.level === 'incompatible' 
-                    ? "text-destructive"
-                    : "text-yellow-600"
-                )} />
-                <div className="text-sm">
-                  <p className={cn(
-                    "font-medium",
-                    compatibilityResult.level === 'incompatible' 
-                      ? "text-destructive"
-                      : "text-yellow-700 dark:text-yellow-400"
-                  )}>
-                    {compatibilityResult.level === 'incompatible' ? 'Cannot Generate' : 'Tone Warning'}
-                  </p>
-                  {compatibilityResult.message && (
-                    <p className={cn(
-                      "mt-1",
-                      compatibilityResult.level === 'incompatible' 
-                        ? "text-destructive/80"
-                        : "text-yellow-600 dark:text-yellow-300"
-                    )}>
-                      {compatibilityResult.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Generate Button */}
           <div className="w-full">
             <Button 
               onClick={handleGenerate} 
-              disabled={isGenerating || (compatibilityResult?.level === 'incompatible')} 
+              disabled={isGenerating} 
               className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {isGenerating ? <>

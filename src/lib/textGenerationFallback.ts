@@ -3,7 +3,10 @@
    Never fails - always returns content
    ================================ */
 
-import { prepareScenario, getDefaultContent, ScenarioInput, PreparedScenario, type ToneId, type CategoryType, type Rating } from './toneCompatibility';
+// Types moved inline since toneCompatibility was removed
+export type ToneId = 'humorous' | 'savage' | 'roast' | 'playful' | 'wholesome' | 'motivational' | 'romantic' | 'dark' | 'random';
+export type CategoryType = 'celebrations' | 'daily-life' | 'sports' | 'pop-culture' | 'jokes';
+export type Rating = 'G' | 'PG' | 'PG-13' | 'R';
 
 export interface GenerationInput {
   category: CategoryType;
@@ -29,85 +32,26 @@ export async function generateTextWithFallback(
   generateFunction: (params: any) => Promise<string[] | Array<{line: string, comedian: string}>>
 ): Promise<GenerationResult> {
   
-  // Step 1: Prepare scenario with compatibility checks
-  const scenarioInput: ScenarioInput = {
-    category: input.category,
-    subcategory: input.subcategory,
-    tone: input.tone,
-    rating: input.rating
-  };
-  
-  const prepared = prepareScenario(scenarioInput);
-  
   try {
-    // Step 2: Try generation with prepared (compatible) settings
-    const params = {
-      ...input,
-      tone: prepared.tone,
-      rating: prepared.rating
-    };
+    // Try generation with original settings
+    const result = await generateFunction(input);
     
-    const result = await generateFunction(params);
-    
-    // Step 3: Check if we got valid results and normalize format
     if (result && result.length > 0) {
-      // Handle both string[] and option object formats
-      const isOptionsFormat = typeof result[0] === 'object' && 'line' in result[0];
-      
-      if (isOptionsFormat) {
-        const options = result as Array<{line: string, comedian: string}>;
+      // Check if result has comedian attribution (new format)
+      if (Array.isArray(result) && result.length > 0 && typeof result[0] === 'object' && 'line' in result[0]) {
         return {
           success: true,
-          options,
-          lines: options.map(opt => opt.line), // Keep legacy format for compatibility
-          wasAdjusted: prepared.wasAdjusted,
-          adjustmentReason: prepared.adjustmentReason,
+          options: result as Array<{line: string, comedian: string}>,
+          wasAdjusted: false,
           fallbackUsed: false
         };
       } else {
-        const lines = result as string[];
+        // Legacy string array format
         return {
           success: true,
-          lines,
-          wasAdjusted: prepared.wasAdjusted,
-          adjustmentReason: prepared.adjustmentReason,
+          lines: result as string[],
+          wasAdjusted: false,
           fallbackUsed: false
-        };
-      }
-    }
-    
-    // Step 4: If no results, try with safe playful-humorous fallback
-    const safeFallbackParams = {
-      ...input,
-      tone: 'humorous' as ToneId,
-      rating: 'PG' as Rating,
-      insertWords: [] // Remove complex insert words that might cause failures
-    };
-    
-    const fallbackResult = await generateFunction(safeFallbackParams);
-    
-    if (fallbackResult && fallbackResult.length > 0) {
-      // Handle both formats for fallback too
-      const isOptionsFormat = typeof fallbackResult[0] === 'object' && 'line' in fallbackResult[0];
-      
-      if (isOptionsFormat) {
-        const options = fallbackResult as Array<{line: string, comedian: string}>;
-        return {
-          success: true,
-          options,
-          lines: options.map(opt => opt.line),
-          wasAdjusted: true,
-          adjustmentReason: 'Used safe fallback settings due to generation issues',
-          fallbackUsed: true
-        };
-      } else {
-        const lines = fallbackResult as string[];
-        return {
-          success: true,
-          lines,
-          wasAdjusted: true,
-          adjustmentReason: 'Used safe fallback settings due to generation issues',
-          fallbackUsed: true
         };
       }
     }
@@ -116,8 +60,43 @@ export async function generateTextWithFallback(
     console.warn('Text generation failed:', error);
   }
   
-  // Step 5: Last resort - use subcategory or category-specific default content
-  const defaultLines = getDefaultContent(input.category, input.subcategory);
+  // Fallback: Try with safe defaults (humorous, PG)
+  try {
+    const fallbackParams = {
+      ...input,
+      tone: 'humorous' as ToneId,
+      rating: 'PG' as Rating
+    };
+    
+    const fallbackResult = await generateFunction(fallbackParams);
+    
+    if (fallbackResult && fallbackResult.length > 0) {
+      // Check format again
+      if (Array.isArray(fallbackResult) && fallbackResult.length > 0 && typeof fallbackResult[0] === 'object' && 'line' in fallbackResult[0]) {
+        return {
+          success: true,
+          options: fallbackResult as Array<{line: string, comedian: string}>,
+          wasAdjusted: true,
+          adjustmentReason: 'Used safe fallback settings (humorous, PG)',
+          fallbackUsed: true
+        };
+      } else {
+        return {
+          success: true,
+          lines: fallbackResult as string[],
+          wasAdjusted: true,
+          adjustmentReason: 'Used safe fallback settings (humorous, PG)',
+          fallbackUsed: true
+        };
+      }
+    }
+    
+  } catch (error) {
+    console.warn('Fallback generation also failed:', error);
+  }
+  
+  // Last resort - use simple default content
+  const defaultLines = getSimpleDefaultContent(input.category, input.subcategory);
   
   return {
     success: true,
@@ -128,22 +107,27 @@ export async function generateTextWithFallback(
   };
 }
 
-// Wrapper for existing text generation API
-export async function generateTextSafely(params: GenerationInput): Promise<GenerationResult> {
+// Simple default content generator
+function getSimpleDefaultContent(category: CategoryType, subcategory: string): string[] {
+  const defaults = {
+    celebrations: ['Celebrate good times!', 'Time to party!', 'Let\'s make it memorable!'],
+    'daily-life': ['Life is good!', 'Every day is a gift!', 'Making the most of it!'],
+    sports: ['Game on!', 'Victory is sweet!', 'Champions never quit!'],
+    'pop-culture': ['That\'s entertainment!', 'Pop culture rocks!', 'Trending now!'], 
+    jokes: ['Ha ha ha!', 'That\'s funny!', 'Comedy gold!']
+  };
   
-  // This would be your existing text generation function
-  const generateFunction = async (genParams: any) => {
-    // Call your existing API here
+  return defaults[category] || ['Great content!', 'Awesome!', 'Perfect!'];
+}
+
+// Wrapper function for API calls
+export async function generateTextSafely(params: GenerationInput): Promise<GenerationResult> {
+  const generateFunction = async (apiParams: any) => {
     const response = await fetch('/api/generate-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(genParams)
+      body: JSON.stringify(apiParams)
     });
-    
-    if (!response.ok) {
-      throw new Error(`Generation failed: ${response.status}`);
-    }
-    
     const data = await response.json();
     return data.lines || [];
   };
@@ -151,15 +135,8 @@ export async function generateTextSafely(params: GenerationInput): Promise<Gener
   return generateTextWithFallback(params, generateFunction);
 }
 
-// Quick check if combination will work before attempting generation
+// Quick check function (simplified without compatibility logic)
 export function willCombinationWork(tone: ToneId, subcategory: string): boolean {
-  const scenarioInput: ScenarioInput = {
-    category: 'celebrations', // dummy category
-    subcategory,
-    tone,
-    rating: 'PG'
-  };
-  
-  const prepared = prepareScenario(scenarioInput);
-  return !prepared.wasAdjusted || prepared.tone === tone;
+  // Without tone compatibility, all combinations are considered valid
+  return true;
 }
