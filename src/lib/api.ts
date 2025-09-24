@@ -34,7 +34,7 @@ type GenerateVisualsParams = {
   insertWords?: string[];
   visualStyle: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
   visualTaste?: string;
-  customVisuals?: string[];
+  insertedVisuals?: string[];
   dimension: "Square"|"Portrait"|"Landscape";
 };
 

@@ -162,7 +162,7 @@ export default function VisualsStep({
         insertWords: data.vibe?.insertWords || [],
         visualStyle: data.visuals?.style || "general",
         visualTaste: "balanced",
-        customVisuals: data.visuals?.customVisuals || [],
+        customVisuals: data.visuals?.insertedVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
       const visuals = await generateVisualOptions(params);
