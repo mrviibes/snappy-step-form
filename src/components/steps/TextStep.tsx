@@ -14,7 +14,6 @@ import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions } from '@/lib/api';
-import { generateTextWithFallback, type GenerationInput } from '@/lib/textGenerationFallback';
 import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
 
@@ -81,48 +80,25 @@ export default function TextStep({
     setGenerationError(null);
     
     try {
-      // Use the new fallback system
-      const generationInput: GenerationInput = {
-        category: data.category as any,
+      const options = await generateTextOptions({
+        category: data.category || 'celebrations',
         subcategory: data.subcategory,
-        tone: data.text.tone as any,
-        rating: data.text.rating as any,
+        tone: data.text.tone,
+        rating: data.text.rating,
         insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-        style: data.text?.style || 'generic'
-      };
-
-      // Create adapter function for existing API
-      const generateFunction = async (params: any) => {
-        const options = await generateTextOptions({
-          category: params.category || 'celebrations',
-          subcategory: params.subcategory,
-          tone: params.tone,
-          rating: params.rating,
-          insertWords: params.insertWords || [],
-          comedianStyle: data.text?.comedianStyle ? {
-            name: data.text.comedianStyle,
-            flavor: ''
-          } : null,
-          userId: 'anonymous'
-        });
-        // Return full options with comedian data, not just lines
-        return options;
-      };
-
-      const result = await generateTextWithFallback(generationInput, generateFunction);
+        comedianStyle: data.text?.comedianStyle ? {
+          name: data.text.comedianStyle,
+          flavor: ''
+        } : null,
+        userId: 'anonymous'
+      });
       
-      if (result.success && result.lines.length > 0) {
-        // Convert back to expected format
-        // Use actual comedian attributions from API response
-        const formattedOptions = result.options 
-          ? result.options.map((option: { line: string; comedian: string }) => ({
-              line: option.line,
-              comedian: option.comedian || "AI Assist"
-            }))
-          : result.lines.map((line: string, index: number) => ({
-              line,
-              comedian: "AI Assist" // Fallback for old API format
-            }));
+      if (options && options.length > 0) {
+        // Format options for display
+        const formattedOptions = options.map((option: { line: string; comedian: string }) => ({
+          line: option.line,
+          comedian: option.comedian || "AI Assist"
+        }));
         
         // Client-side validation
         const safe = formattedOptions.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
@@ -130,18 +106,7 @@ export default function TextStep({
         
         setTextOptions(finalOptions);
         setShowTextOptions(true);
-        
-        // Show adjustment notification if settings were changed
-        if (result.wasAdjusted && result.adjustmentReason) {
-          toast({
-            title: "Settings Adjusted",
-            description: result.adjustmentReason,
-            duration: 4000,
-          });
-        }
-        
       } else {
-        // This should never happen with the fallback system, but just in case
         throw new Error('No content generated');
       }
       
