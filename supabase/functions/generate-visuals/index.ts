@@ -1,12 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
-// Centralized OpenAI Model Configuration
-const OPENAI_MODELS = {
-  text: 'gpt-5',
-  visuals: 'gpt-4o-mini',
-  images: 'gpt-image-1'
-} as const;
+// Get model from environment with fallback
+const getVisualsModel = () => Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-4o-mini';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
@@ -19,10 +15,10 @@ function buildOpenAIRequest(
     messages
   };
 
-  // GPT-5 uses max_completion_tokens, older models use max_tokens
-  if (model === 'gpt-5') {
+  // GPT-5 and newer models use max_completion_tokens, older models use max_tokens
+  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
     body.max_completion_tokens = options.maxTokens;
-    // GPT-5 doesn't support temperature parameter
+    // These models don't support temperature parameter
   } else {
     body.max_tokens = options.maxTokens;
     if (options.temperature !== undefined) {
@@ -949,7 +945,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(buildOpenAIRequest(
-      OPENAI_MODELS.visuals,
+      getVisualsModel(),
       [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -1020,7 +1016,7 @@ async function callOpenAIWithTimeout(systemPrompt: string, userPrompt: string): 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(buildOpenAIRequest(
-      OPENAI_MODELS.visuals,
+      getVisualsModel(),
       [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -1346,7 +1342,7 @@ serve(async (req) => {
     const response: GenerateVisualsResponse = {
       success: true,
       visuals,
-      model: OPENAI_MODELS.visuals
+      model: getVisualsModel()
     }
     
     console.log('Visual generation successful:', visuals.length, 'recommendations')
@@ -1377,7 +1373,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         visuals: [],
-        model: OPENAI_MODELS.visuals,
+        model: getVisualsModel(),
         error: userMessage,
         troubleshooting: 'Try: simpler text, different visual style, or retry in a moment'
       }),

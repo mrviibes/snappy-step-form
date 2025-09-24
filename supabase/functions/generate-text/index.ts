@@ -2,12 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
-// Centralized OpenAI Model Configuration
-const OPENAI_MODELS = {
-  text: 'gpt-5',
-  visuals: 'gpt-4o-mini',
-  images: 'gpt-image-1'
-} as const;
+// Get model from environment with fallback
+const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
@@ -20,10 +16,10 @@ function buildOpenAIRequest(
     messages
   };
 
-  // GPT-5 uses max_completion_tokens, older models use max_tokens
-  if (model === 'gpt-5') {
+  // GPT-5 and newer models use max_completion_tokens, older models use max_tokens
+  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
     body.max_completion_tokens = options.maxTokens;
-    // GPT-5 doesn't support temperature parameter
+    // These models don't support temperature parameter
   } else {
     body.max_tokens = options.maxTokens;
     if (options.temperature !== undefined) {
@@ -400,16 +396,23 @@ function ensurePlacementSpread(lines: string[], insertWords: string[]): string[]
   return result.slice(0, 4);
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  console.log(`🤖 Making OpenAI API call with model: ${OPENAI_MODELS.text}`);
+async function callOpenAI(systemPrompt: string, userPrompt: string, attempt: number = 1): Promise<string> {
+  const model = getTextModel();
+  console.log(`🤖 Making OpenAI API call with model: ${model} (attempt ${attempt})`);
+  
+  // Progressive token allocation for GPT-5 to handle reasoning tokens
+  let maxTokens = 150;
+  if (model.startsWith('gpt-5')) {
+    maxTokens = attempt === 1 ? 350 : 600; // Higher for GPT-5 due to reasoning tokens
+  }
   
   const requestBody = buildOpenAIRequest(
-    OPENAI_MODELS.text,
+    model,
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
-    { maxTokens: 150 }
+    { maxTokens }
   );
   
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -440,7 +443,41 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
     throw new Error('Invalid response from OpenAI API');
   }
   
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+  
+  // Handle empty content from GPT-5 reasoning models
+  if (!content || content.trim() === '') {
+    console.log('⚠️ Empty content received, finish_reason:', data.choices[0].finish_reason);
+    if (attempt === 1 && model.startsWith('gpt-5')) {
+      console.log('🔄 Retrying with higher token limit...');
+      return callOpenAI(systemPrompt, userPrompt, 2);
+    } else if (attempt === 2 && model.startsWith('gpt-5')) {
+      console.log('🔄 Falling back to gpt-5-mini...');
+      const fallbackBody = buildOpenAIRequest(
+        'gpt-5-mini-2025-08-07',
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        { maxTokens: 300 }
+      );
+      
+      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fallbackBody),
+      });
+      
+      const fallbackData = await fallbackResponse.json();
+      return fallbackData.choices?.[0]?.message?.content || '';
+    }
+    throw new Error('Empty content received from OpenAI');
+  }
+  
+  return content;
 }
 
 async function saveToHistory(lines: string[], payload: any) {
@@ -462,7 +499,7 @@ async function saveToHistory(lines: string[], payload: any) {
 
 // Generate exactly 4 valid lines with slot-retry mechanism
 async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
-  const timeoutMs = 25000; // 25 second hard timeout
+  const timeoutMs = 30000; // 30 second hard timeout for GPT-5
   const startTime = Date.now();
   const totalNeeded = 4;
   let validLines: Array<{line: string, comedian: string}> = [];

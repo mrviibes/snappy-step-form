@@ -84,7 +84,7 @@ export default function TextStep({
     };
     
     setDebugInfo({
-      model: 'gpt-4o-mini',
+      model: 'server-selected',
       endpoint: 'generate-text',
       requestPayload,
       timestamp: new Date().toISOString(),

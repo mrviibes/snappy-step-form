@@ -1,12 +1,33 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Centralized OpenAI Model Configuration
-const OPENAI_MODELS = {
-  text: 'gpt-5',
-  visuals: 'gpt-4o-mini',
-  images: 'gpt-image-1'
-} as const;
+// Get model from environment with fallback
+const getImageModel = () => Deno.env.get('OPENAI_IMAGE_MODEL') || 'gpt-image-1';
+
+// Helper function to build OpenAI request body with correct parameters
+function buildOpenAIRequest(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; maxTokens: number }
+) {
+  const body: any = {
+    model,
+    messages
+  };
+
+  // GPT-5 and newer models use max_completion_tokens, older models use max_tokens
+  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
+    body.max_completion_tokens = options.maxTokens;
+    // These models don't support temperature parameter
+  } else {
+    body.max_tokens = options.maxTokens;
+    if (options.temperature !== undefined) {
+      body.temperature = options.temperature;
+    }
+  }
+
+  return body;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -94,7 +115,7 @@ async function tryOpenAIImage(prompt: string, negativePrompt: string | undefined
     const resp = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: OPENAI_MODELS.images, prompt: combinedPrompt, size })
+      body: JSON.stringify({ model: getImageModel(), prompt: combinedPrompt, size })
     });
     if (!resp.ok) {
       const t = await resp.text();

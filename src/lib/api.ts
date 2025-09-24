@@ -113,6 +113,15 @@ export async function checkServerHealth(): Promise<boolean> {
   }
 }
 
+export async function getServerModels(): Promise<{ text: string; visuals: string; images: string } | null> {
+  try {
+    const res = await ctlFetch<{ ok: boolean; models?: { text: string; visuals: string; images: string } }>("health", {});
+    return res.models || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateTextOptions(params: GenerateTextParams): Promise<Array<{line: string}>> {
   // Normalize insertWords to array
   const insertWords = Array.isArray(params.insertWords)
