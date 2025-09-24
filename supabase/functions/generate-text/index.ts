@@ -425,11 +425,11 @@ async function saveToHistory(lines: string[], payload: any) {
 }
 
 // Generate exactly 4 valid lines with slot-retry mechanism
-async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
+async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string}>> {
   const timeoutMs = 25000; // 25 second hard timeout
   const startTime = Date.now();
   const totalNeeded = 4;
-  let validLines: Array<{line: string, comedian: string}> = [];
+  let validLines: Array<{line: string}> = [];
   
   // Use generic AI assistant label for all generated lines
   
@@ -483,8 +483,7 @@ Return only the lines, one per line, no formatting or numbering.`;
         
         if (validation.ok) {
           validLines.push({
-            line: line,
-            comedian: "AI Assist"
+            line: line
           });
         }
       }

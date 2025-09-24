@@ -45,7 +45,6 @@ export interface AIRulesConfig {
   tones: Tone[];
   styles: Style[];
   ratings: Rating[];
-  comedianStylePresets: ComedianStyle[];
   validation: {
     rejectIf: string[];
     regexChecks: {
@@ -74,12 +73,6 @@ export interface Rating {
   tag: string;
 }
 
-export interface ComedianStyle {
-  id: string;
-  name: string;
-  flavor: string;
-  notes: string;
-}
 
 export const aiRulesConfig: AIRulesConfig = {
   docName: "AI Rules – Step #2 Text Generation",
@@ -93,7 +86,6 @@ export const aiRulesConfig: AIRulesConfig = {
       mandatoryWords: { type: "array", items: "string", required: false, maxItems: 6 },
       style: { type: "string", enumRef: "styles", required: true },
       rating: { type: "string", enumRef: "ratings", required: true },
-      comedianStyle: { type: "string", required: false },
       text: { type: "string", required: true }
     }
   },
@@ -134,8 +126,7 @@ export const aiRulesConfig: AIRulesConfig = {
     randomizeWhenUnspecified: {
       tone: false,
       style: false,
-      rating: false,
-      comedianStyle: true
+      rating: false
     }
   },
   tones: [
@@ -160,38 +151,6 @@ export const aiRulesConfig: AIRulesConfig = {
     { id: "pg-13", name: "PG-13", tag: "edgy" },
     { id: "r", name: "R", tag: "explicit" }
   ],
-  comedianStylePresets: [
-    { id: "richard-pryor", name: "Richard Pryor", flavor: "raw confessional", notes: "raw, confessional storytelling" },
-    { id: "george-carlin", name: "George Carlin", flavor: "sharp satirical", notes: "sharp, satirical, anti-establishment" },
-    { id: "joan-rivers", name: "Joan Rivers", flavor: "biting roast", notes: "biting, fearless roast style" },
-    { id: "eddie-murphy", name: "Eddie Murphy", flavor: "high-energy impressions", notes: "high-energy, character impressions" },
-    { id: "robin-williams", name: "Robin Williams", flavor: "manic improv", notes: "manic, surreal improvisation" },
-    { id: "jerry-seinfeld", name: "Jerry Seinfeld", flavor: "clean observational", notes: "clean observational minutiae" },
-    { id: "chris-rock", name: "Chris Rock", flavor: "punchy commentary", notes: "punchy, social commentary" },
-    { id: "dave-chappelle", name: "Dave Chappelle", flavor: "thoughtful edge", notes: "thoughtful, edgy narrative riffs" },
-    { id: "bill-burr", name: "Bill Burr", flavor: "ranting cynicism", notes: "ranting, blunt cynicism" },
-    { id: "louis-ck", name: "Louis C.K.", flavor: "dark self-deprecating", notes: "dark, self-deprecating honesty" },
-    { id: "kevin-hart", name: "Kevin Hart", flavor: "animated storytelling", notes: "animated, personal storytelling" },
-    { id: "ali-wong", name: "Ali Wong", flavor: "raunchy candor", notes: "raunchy, feminist candor" },
-    { id: "sarah-silverman", name: "Sarah Silverman", flavor: "deadpan taboo", notes: "deadpan, ironic taboo-poking" },
-    { id: "amy-schumer", name: "Amy Schumer", flavor: "edgy relatability", notes: "self-aware, edgy relatability" },
-    { id: "tiffany-haddish", name: "Tiffany Haddish", flavor: "outrageous energy", notes: "bold, outrageous energy" },
-    { id: "jim-gaffigan", name: "Jim Gaffigan", flavor: "clean domestic", notes: "clean, food/family obsession" },
-    { id: "brian-regan", name: "Brian Regan", flavor: "clean goofy", notes: "clean, physical, goofy" },
-    { id: "john-mulaney", name: "John Mulaney", flavor: "polished story", notes: "polished, clever storytelling" },
-    { id: "bo-burnham", name: "Bo Burnham", flavor: "meta satire", notes: "meta, musical satire" },
-    { id: "hannah-gadsby", name: "Hannah Gadsby", flavor: "subversive storytelling", notes: "vulnerable, subversive storytelling" },
-    { id: "hasan-minhaj", name: "Hasan Minhaj", flavor: "cultural storytelling", notes: "cultural/political storytelling" },
-    { id: "russell-peters", name: "Russell Peters", flavor: "cultural riffing", notes: "cultural riffing, accents" },
-    { id: "aziz-ansari", name: "Aziz Ansari", flavor: "modern life takes", notes: "fast-paced, modern life takes" },
-    { id: "patton-oswalt", name: "Patton Oswalt", flavor: "nerdy wit", notes: "nerdy, sharp wit storytelling" },
-    { id: "norm-macdonald", name: "Norm Macdonald", flavor: "absurd deadpan", notes: "absurd, slow-burn deadpan" },
-    { id: "mitch-hedberg", name: "Mitch Hedberg", flavor: "surreal one-liner", notes: "surreal, stoner one-liners" },
-    { id: "steven-wright", name: "Steven Wright", flavor: "ultra-dry absurd", notes: "ultra-dry, absurd one-liners" },
-    { id: "ellen-degeneres", name: "Ellen DeGeneres", flavor: "relatable light", notes: "relatable, observational, light" },
-    { id: "chelsea-handler", name: "Chelsea Handler", flavor: "brash honesty", notes: "brash, self-aware honesty" },
-    { id: "ricky-gervais", name: "Ricky Gervais", flavor: "irreverent roast", notes: "mocking, irreverent roast" }
-  ],
   validation: {
     rejectIf: [
       "text.length < length_rules.min_chars",
@@ -205,7 +164,7 @@ export const aiRulesConfig: AIRulesConfig = {
     }
   },
   generationPipeline: [
-    "1. Accept inputs: category, subcategory, tone, mandatory_words, style, rating, optional comedian_style.",
+    "1. Accept inputs: category, subcategory, tone, mandatory_words, style, rating.",
     "2. Select line_shape and punchline_placement based on variation_rules.",
     "3. Compose draft honoring tone, style, rating.",
     "4. Insert all mandatory_words naturally.",
@@ -220,14 +179,6 @@ export const aiRulesConfig: AIRulesConfig = {
 export const getTones = () => aiRulesConfig.tones;
 export const getStyles = () => aiRulesConfig.styles;
 export const getRatings = () => aiRulesConfig.ratings;
-export const getComedianStyles = () => aiRulesConfig.comedianStylePresets;
 export const getLengthRules = () => aiRulesConfig.lengthRules;
 export const getFormattingRules = () => aiRulesConfig.formattingRules;
 export const getVariationRules = () => aiRulesConfig.variationRules;
-
-// Random comedian selector for when comedian style should be randomized
-export const getRandomComedianStyle = () => {
-  const styles = aiRulesConfig.comedianStylePresets;
-  const randomIndex = Math.floor(Math.random() * styles.length);
-  return styles[randomIndex];
-};

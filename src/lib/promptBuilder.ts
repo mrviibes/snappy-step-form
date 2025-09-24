@@ -1,4 +1,4 @@
-import { aiRulesConfig, ComedianStyle } from '@/config/aiRules';
+import { aiRulesConfig } from '@/config/aiRules';
 
 export interface TextGenerationParams {
   tone: string;
@@ -7,7 +7,6 @@ export interface TextGenerationParams {
   specificWords?: string[];
   style?: string;
   rating?: string;
-  comedianStyle?: string;
 }
 
 export class PromptBuilder {
@@ -17,13 +16,12 @@ export class PromptBuilder {
    * Build a sophisticated prompt based on the AI rules configuration
    */
   buildPrompt(params: TextGenerationParams): string {
-    const { tone, category, subcategory, specificWords = [], style = 'generic', rating = 'g', comedianStyle } = params;
+    const { tone, category, subcategory, specificWords = [], style = 'generic', rating = 'g' } = params;
 
     // Get configuration objects
     const toneConfig = this.config.tones.find(t => t.id === tone);
     const styleConfig = this.config.styles.find(s => s.id === style);
     const ratingConfig = this.config.ratings.find(r => r.id === rating);
-    const comedianConfig = comedianStyle ? this.config.comedianStylePresets.find(c => c.id === comedianStyle) : null;
 
     // Build the core prompt
     let prompt = this.buildCorePrompt(toneConfig, styleConfig, ratingConfig);
@@ -36,11 +34,6 @@ export class PromptBuilder {
     // Add mandatory words constraint
     if (specificWords.length > 0) {
       prompt += this.buildMandatoryWordsSection(specificWords);
-    }
-
-    // Add comedian style influence
-    if (comedianConfig) {
-      prompt += this.buildComedianStyleSection(comedianConfig);
     }
 
     // Add length and formatting constraints
@@ -75,10 +68,6 @@ export class PromptBuilder {
 
   private buildMandatoryWordsSection(specificWords: string[]): string {
     return ` CRITICAL: Each option must naturally include ALL of these words: ${specificWords.join(', ')}.`;
-  }
-
-  private buildComedianStyleSection(comedianConfig: ComedianStyle): string {
-    return ` Comedy influence: ${comedianConfig.name} style (${comedianConfig.flavor}) - ${comedianConfig.notes}`;
   }
 
   private buildConstraintsSection(rating: string): string {
@@ -131,14 +120,6 @@ export class PromptBuilder {
       isValid: errors.length === 0,
       errors
     };
-  }
-
-  /**
-   * Get random comedian style if none specified
-   */
-  getRandomComedianStyle(): ComedianStyle {
-    const comedians = this.config.comedianStylePresets;
-    return comedians[Math.floor(Math.random() * comedians.length)];
   }
 
   /**

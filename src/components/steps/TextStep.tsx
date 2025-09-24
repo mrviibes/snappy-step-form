@@ -104,7 +104,7 @@ export default function TextStep({
         }));
         
         // Format options for display
-        const formattedOptions = options.map((option: { line: string; comedian?: string }) => ({
+        const formattedOptions = options.map((option: { line: string }) => ({
           line: option.line
         }));
         
