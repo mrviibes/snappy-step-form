@@ -776,48 +776,6 @@ Generate exactly 4 lines:`;
   
   throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
 }
-    const contextWords = getLexiconFor(subcategory);
-    const contextHint = contextWords.length > 0 
-      ? `\nUse ${subcategory} words like: ${contextWords.slice(0, 4).join(', ')}`
-      : '';
-      
-    const userPrompt = `${instructions}${contextHint}
-
-EXAMPLES of valid single-sentence ${subcategory} lines:
-${subcategory === 'birthday' ? 
-  `The cake had so many candles the smoke alarm joined the party.
-The balloons popped faster than my birthday wish left my lips.
-Another year older means another year of pretending to like cake.
-The frosting survived longer than my diet did at this party.` :
-subcategory === 'wedding' ? 
-  `The cake toppled before vows ended but everyone called it tradition.
-Uncle Bob hit the dance floor like it was a second wedding vow.
-The bouquet sailed farther than the bride ever planned to throw.
-The DJ shouted toast time and half the guests raised cake instead.` :
-  `Generate ${subcategory}-specific one-sentence lines that are punchy and contextual.`}
-
-Generate exactly 4 lines:`;
-
-    try {
-      const rawResponse = await callOpenAI(systemPrompt, userPrompt);
-      
-      // Use robust parsing and cleanup
-      const cleanedLines = parseAndCleanLines(rawResponse);
-      
-      console.log(`📝 Raw response gave ${cleanedLines.length} clean lines after parsing`);
-      console.log(`🧹 Sample cleaned lines:`, cleanedLines.slice(0, 2).map(l => `"${l.substring(0, 60)}..."`));
-      
-      if (cleanedLines.length < 4) {
-        console.log(`❌ Only got ${cleanedLines.length} clean lines, need 4. Retrying...`);
-        continue;
-      }
-      
-      // Take first 4 lines and validate each with tone-specific validation
-      const lines = cleanedLines.slice(0, 4);
-      const candidates = [];
-      const detailedFailures = [];
-      
-      // ALWAYS pick comedians based on tone+rating combination - never fall back to "AI Assist"
       const comedianPool = (typeof getComedianPool === 'function')
         ? getComedianPool(payload.tone || 'Playful', payload.rating || 'PG', 'Generic')
         : ["Jerry Seinfeld","Ellen DeGeneres","Jim Gaffigan","Ali Wong"]; 
