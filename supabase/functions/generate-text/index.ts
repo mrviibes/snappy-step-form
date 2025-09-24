@@ -586,27 +586,6 @@ function buildToneSpecificSeed(tone: string, subcategory: string, config: any, i
   return seedTemplate(subcategory, config, insertWords, rating, tone)
 }
 
-// Generate exactly 4 valid lines with detailed debugging
-async function generateValidBatch(systemPrompt: string, payload: any, subcategory: string, nonce: string, maxRetries = 3): Promise<Array<{line: string, comedian: string}>> {
-  const timeoutMs = 25000; // 25 second hard timeout
-  const startTime = Date.now();
-  
-  // Retry ladder with progressive relaxation
-  const retryConfigs = [
-    { lengthMin: 50, lengthMax: 120, maxPunct: 2 }, // Strict
-    { lengthMin: 45, lengthMax: 125, maxPunct: 2 }, // Slightly relaxed
-    { lengthMin: 40, lengthMax: 130, maxPunct: 3 }  // More relaxed
-  ];
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    // Check timeout
-    if (Date.now() - startTime > timeoutMs) {
-      throw new Error('generation_timeout_exceeded');
-    }
-    
-    console.log(`🎯 Generation attempt ${attempt + 1}: Requesting exactly 4 lines for ${subcategory}`);
-    const config = retryConfigs[attempt] || retryConfigs[retryConfigs.length - 1];
-    
     // Use tone-specific seed template for strict one-sentence enforcement
     const instructions = buildToneSpecificSeed(
       payload.tone || 'playful',
@@ -776,7 +755,6 @@ Generate exactly 4 lines:`;
   
   throw new Error(`no_valid_batch_after_${maxRetries}_retries`);
 }
-
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
