@@ -118,17 +118,24 @@ export default function TextStep({
           } : null,
           userId: 'anonymous'
         });
-        return options.map(opt => opt.line);
+        // Return full options with comedian data, not just lines
+        return options;
       };
 
       const result = await generateTextWithFallback(generationInput, generateFunction);
       
       if (result.success && result.lines.length > 0) {
         // Convert back to expected format
-        const formattedOptions = result.lines.map((line, index) => ({
-          line,
-          comedian: `Option ${index + 1}`
-        }));
+        // Use actual comedian attributions from API response
+        const formattedOptions = result.options 
+          ? result.options.map((option: { line: string; comedian: string }) => ({
+              line: option.line,
+              comedian: option.comedian || "AI Assist"
+            }))
+          : result.lines.map((line: string, index: number) => ({
+              line,
+              comedian: "AI Assist" // Fallback for old API format
+            }));
         
         // Client-side validation
         const safe = formattedOptions.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);

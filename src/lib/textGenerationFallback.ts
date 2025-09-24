@@ -16,7 +16,8 @@ export interface GenerationInput {
 
 export interface GenerationResult {
   success: boolean;
-  lines: string[];
+  lines?: string[]; // Legacy format
+  options?: Array<{ line: string; comedian: string }>; // New format with comedian attribution
   wasAdjusted: boolean;
   adjustmentReason?: string;
   fallbackUsed: boolean;
@@ -25,7 +26,7 @@ export interface GenerationResult {
 // Main text generation with universal fallback
 export async function generateTextWithFallback(
   input: GenerationInput,
-  generateFunction: (params: any) => Promise<string[]>
+  generateFunction: (params: any) => Promise<string[] | Array<{line: string, comedian: string}>>
 ): Promise<GenerationResult> {
   
   // Step 1: Prepare scenario with compatibility checks
@@ -46,17 +47,33 @@ export async function generateTextWithFallback(
       rating: prepared.rating
     };
     
-    const lines = await generateFunction(params);
+    const result = await generateFunction(params);
     
-    // Step 3: Check if we got valid results
-    if (lines && lines.length > 0) {
-      return {
-        success: true,
-        lines,
-        wasAdjusted: prepared.wasAdjusted,
-        adjustmentReason: prepared.adjustmentReason,
-        fallbackUsed: false
-      };
+    // Step 3: Check if we got valid results and normalize format
+    if (result && result.length > 0) {
+      // Handle both string[] and option object formats
+      const isOptionsFormat = typeof result[0] === 'object' && 'line' in result[0];
+      
+      if (isOptionsFormat) {
+        const options = result as Array<{line: string, comedian: string}>;
+        return {
+          success: true,
+          options,
+          lines: options.map(opt => opt.line), // Keep legacy format for compatibility
+          wasAdjusted: prepared.wasAdjusted,
+          adjustmentReason: prepared.adjustmentReason,
+          fallbackUsed: false
+        };
+      } else {
+        const lines = result as string[];
+        return {
+          success: true,
+          lines,
+          wasAdjusted: prepared.wasAdjusted,
+          adjustmentReason: prepared.adjustmentReason,
+          fallbackUsed: false
+        };
+      }
     }
     
     // Step 4: If no results, try with safe playful-humorous fallback
@@ -67,16 +84,32 @@ export async function generateTextWithFallback(
       insertWords: [] // Remove complex insert words that might cause failures
     };
     
-    const fallbackLines = await generateFunction(safeFallbackParams);
+    const fallbackResult = await generateFunction(safeFallbackParams);
     
-    if (fallbackLines && fallbackLines.length > 0) {
-      return {
-        success: true,
-        lines: fallbackLines,
-        wasAdjusted: true,
-        adjustmentReason: 'Used safe fallback settings due to generation issues',
-        fallbackUsed: true
-      };
+    if (fallbackResult && fallbackResult.length > 0) {
+      // Handle both formats for fallback too
+      const isOptionsFormat = typeof fallbackResult[0] === 'object' && 'line' in fallbackResult[0];
+      
+      if (isOptionsFormat) {
+        const options = fallbackResult as Array<{line: string, comedian: string}>;
+        return {
+          success: true,
+          options,
+          lines: options.map(opt => opt.line),
+          wasAdjusted: true,
+          adjustmentReason: 'Used safe fallback settings due to generation issues',
+          fallbackUsed: true
+        };
+      } else {
+        const lines = fallbackResult as string[];
+        return {
+          success: true,
+          lines,
+          wasAdjusted: true,
+          adjustmentReason: 'Used safe fallback settings due to generation issues',
+          fallbackUsed: true
+        };
+      }
     }
     
   } catch (error) {
