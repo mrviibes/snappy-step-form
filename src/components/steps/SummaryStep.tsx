@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, RefreshCw, Zap } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
+import DebugPanel from "@/components/DebugPanel";
 
 
 interface SummaryStepProps {
@@ -34,6 +35,25 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const currentRequestRef = useRef<string | null>(null);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debug state for final prompt generation
+  const [promptDebugInfo, setPromptDebugInfo] = useState<{
+    timestamp: string;
+    step: string;
+    params?: any;
+    apiResponse?: any;
+    error?: any;
+  } | null>(null);
+
+  // Debug state for image generation
+  const [imageDebugInfo, setImageDebugInfo] = useState<{
+    timestamp: string;
+    step: string;
+    template?: any;
+    params?: any;
+    apiResponse?: any;
+    error?: any;
+  } | null>(null);
 
   // Generate templates on mount and auto-generate with first template
   // Only depend on core data fields, not the entire data object to avoid infinite loops
@@ -65,6 +85,14 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         };
 
         console.log('Generating templates with params:', params);
+        
+        // Set prompt debug info
+        setPromptDebugInfo({
+          timestamp: new Date().toISOString(),
+          step: 'API_CALL_START',
+          params
+        });
+
         const response = await generateFinalPrompt(params);
         
         // Check if this request is still current
@@ -75,6 +103,14 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         
         if (response.templates && response.templates.length > 0) {
           setTemplates(response.templates);
+          
+          // Update prompt debug info with success
+          setPromptDebugInfo(prev => ({
+            ...prev!,
+            step: 'API_CALL_SUCCESS',
+            apiResponse: response.templates
+          }));
+          
           // Auto-select and generate with first template (Cinematic)
           const firstTemplate = response.templates[0];
           setSelectedTemplate(firstTemplate);
@@ -85,6 +121,19 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       } catch (error) {
         if (currentRequestRef.current === requestToken) {
           console.error('Error generating templates:', error);
+          
+          // Update prompt debug info with error
+          setPromptDebugInfo(prev => ({
+            ...prev!,
+            step: 'API_CALL_ERROR',
+            error: {
+              message: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined,
+              type: typeof error,
+              raw: error
+            }
+          }));
+          
           setImageError(`Template generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } finally {
@@ -127,12 +176,26 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     
     try {
       console.log('Generating image with template:', template.name);
-      const response = await generateImage({
+      
+      // Set image debug info
+      const imageParams = {
         prompt: template.positive,
         negativePrompt: template.negative,
         dimension: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
-        quality: 'high'
+        quality: 'high' as const
+      };
+      
+      setImageDebugInfo({
+        timestamp: new Date().toISOString(),
+        step: 'API_CALL_START',
+        template: {
+          name: template.name,
+          description: template.description
+        },
+        params: imageParams
       });
+
+      const response = await generateImage(imageParams);
       
       // Check if this request is still current
       if (currentRequestRef.current !== currentToken) {
@@ -152,6 +215,13 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           safetyTimeoutRef.current = null;
         }
         
+        // Update image debug info with success
+        setImageDebugInfo(prev => ({
+          ...prev!,
+          step: 'API_CALL_SUCCESS',
+          apiResponse: { imageData: response.imageData.substring(0, 100) + '...' }
+        }));
+        
         setGeneratedImage(response.imageData);
         updateData({
           generation: {
@@ -167,6 +237,14 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       } else if ('jobId' in response && response.jobId) {
         // Async response - need to poll for completion
         console.log('Polling for image completion, job ID:', response.jobId);
+        
+        // Update image debug info with job info
+        setImageDebugInfo(prev => ({
+          ...prev!,
+          step: 'POLLING_START',
+          apiResponse: { jobId: response.jobId, provider: response.provider }
+        }));
+        
         pollForImageCompletion(response.jobId, response.provider, template, currentToken);
       } else {
         throw new Error('Invalid response format from image generation API');
@@ -174,6 +252,19 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     } catch (error) {
       if (currentRequestRef.current === currentToken) {
         console.error('Error generating image:', error);
+        
+        // Update image debug info with error
+        setImageDebugInfo(prev => ({
+          ...prev!,
+          step: 'API_CALL_ERROR',
+          error: {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            type: typeof error,
+            raw: error
+          }
+        }));
+        
         setImageError(error instanceof Error ? error.message : 'Failed to generate image');
         setIsLoadingImage(false);
         currentRequestRef.current = null;
@@ -407,6 +498,43 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           </div>
         )}
       </Card>
+
+      <Separator />
+
+      {/* Debug Panels for Summary Step */}
+      <div className="space-y-4">
+        {promptDebugInfo && (
+          <DebugPanel
+            title="Final Prompt Generation Debug"
+            model="server-selected"
+            status={promptDebugInfo.step === 'API_CALL_START' ? 'sending...' : 
+                   promptDebugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
+                   promptDebugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}
+            endpoint="generate-final-prompt"
+            timestamp={promptDebugInfo.timestamp}
+            requestPayload={promptDebugInfo.params}
+            responseData={promptDebugInfo.apiResponse}
+            error={promptDebugInfo.error}
+          />
+        )}
+
+        {imageDebugInfo && (
+          <DebugPanel
+            title="Image Generation Debug"
+            model="ideogram-v3"
+            status={imageDebugInfo.step === 'API_CALL_START' ? 'sending...' : 
+                   imageDebugInfo.step === 'POLLING_START' ? 'polling...' :
+                   imageDebugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
+                   imageDebugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}
+            endpoint="generate-image"
+            timestamp={imageDebugInfo.timestamp}
+            requestPayload={imageDebugInfo.params}
+            responseData={imageDebugInfo.apiResponse}
+            formData={imageDebugInfo.template}
+            error={imageDebugInfo.error}
+          />
+        )}
+      </div>
 
       <Separator />
 

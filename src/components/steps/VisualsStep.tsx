@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
+import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
 import realisticImage from "@/assets/visual-style-realistic-new.jpg";
@@ -97,8 +98,15 @@ export default function VisualsStep({
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
   const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("cinematic");
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    timestamp: string;
+    step: string;
+    params?: any;
+    formData?: any;
+    apiResponse?: any;
+    visualsCount?: number;
+    error?: any;
+  } | null>(null);
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -166,8 +174,6 @@ export default function VisualsStep({
         insertedVisuals: data.visuals?.insertedVisuals || [],
         dimension: data.visuals?.dimension || "square"
       };
-      console.log('🎨 Generating visuals with params:', params);
-      
       // Set debug info before API call
       setDebugInfo({
         timestamp: new Date().toISOString(),
@@ -188,7 +194,7 @@ export default function VisualsStep({
       
       // Update debug info with API response
       setDebugInfo(prev => ({
-        ...prev,
+        ...prev!,
         step: 'API_CALL_SUCCESS',
         apiResponse: visuals,
         visualsCount: visuals.length
@@ -201,7 +207,7 @@ export default function VisualsStep({
       
       // Update debug info with error
       setDebugInfo(prev => ({
-        ...prev,
+        ...prev!,
         step: 'API_CALL_ERROR',
         error: {
           message: error instanceof Error ? error.message : 'Unknown error',
@@ -247,76 +253,6 @@ export default function VisualsStep({
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
-      {/* Debug Toggle */}
-      <div className="flex justify-between items-center">
-        <div></div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowDebug(!showDebug)}
-          className="text-xs"
-        >
-          {showDebug ? 'Hide' : 'Show'} Debug
-        </Button>
-      </div>
-
-      {/* Debug Panel */}
-      {showDebug && (
-        <Card className="p-4 bg-muted/20 border-orange-200">
-          <h4 className="font-semibold text-sm mb-3 text-orange-700">Debug Information</h4>
-          <div className="space-y-3 text-xs">
-            <div>
-              <strong>Form Data:</strong>
-              <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
-                {JSON.stringify({
-                  category: data.category,
-                  subcategory: data.subcategory,
-                  theme: data.theme,
-                  text: data.text,
-                  vibe: data.vibe,
-                  visuals: data.visuals,
-                  selectedCustomVisualStyle,
-                  hasSelectedStyle,
-                  hasSelectedDimension,
-                  showGenerateButton,
-                  showVisualOptions,
-                  isComplete
-                }, null, 2)}
-              </pre>
-            </div>
-            
-            {debugInfo && (
-              <div>
-                <strong>Last API Debug:</strong>
-                <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </div>
-            )}
-            
-            <div>
-              <strong>Generated Visuals State:</strong>
-              <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
-                {JSON.stringify({
-                  count: generatedVisuals.length,
-                  selectedOption: selectedVisualOption,
-                  isGenerating: isGeneratingVisuals,
-                  error: error,
-                  visuals: generatedVisuals.map((v, i) => ({
-                    index: i,
-                    visualStyle: v.visualStyle,
-                    layout: v.layout,
-                    description: v.description?.substring(0, 100) + '...',
-                    props: v.props,
-                    interpretation: v.interpretation?.substring(0, 100) + '...'
-                  }))
-                }, null, 2)}
-              </pre>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Category Breadcrumb */}
       {data.category && data.subcategory && (
         <div className="text-left mb-2">
@@ -477,16 +413,34 @@ export default function VisualsStep({
           </div>
         </>}
 
-      {/* Visual Selection */}
-      {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && <>
-          <div className="text-center mb-6 pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              Select a visual recommendation
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Select one of these AI-generated recommendations:
-            </p>
-          </div>
+          {/* Visual Selection */}
+          {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && <>
+              {/* Debug Panel for Visuals Generation */}
+              {debugInfo && (
+                <DebugPanel
+                  title="Visual Generation Debug"
+                  model="server-selected"
+                  status={debugInfo.step === 'API_CALL_START' ? 'sending...' : 
+                         debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
+                         debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}
+                  endpoint="generate-visuals"
+                  timestamp={debugInfo.timestamp}
+                  requestPayload={debugInfo.params}
+                  responseData={debugInfo.apiResponse}
+                  formData={debugInfo.formData}
+                  error={debugInfo.error}
+                  className="mb-6"
+                />
+              )}
+
+              <div className="text-center mb-6 pt-6">
+                <h2 className="text-xl font-semibold text-foreground mb-2">
+                  Select a visual recommendation
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Select one of these AI-generated recommendations:
+                </p>
+              </div>
 
           {generatedVisuals.length > 0 ? <div className="grid grid-cols-1 gap-4">
               {generatedVisuals.map((visual, index) => <Card key={index} className={cn("cursor-pointer transition-all duration-200 border-2 p-4", selectedVisualOption === index ? "border-primary bg-accent" : "border-border hover:border-primary/50")} onClick={() => handleVisualOptionSelect(index)}>
