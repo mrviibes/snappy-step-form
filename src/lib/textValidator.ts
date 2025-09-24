@@ -34,7 +34,8 @@ const LEX: Record<string, string[]> = {
   hockey: ["puck","ice","rink","goalie","stick","net","season"],
   music: ["song","lyrics","concert","stage","band","playlist"],
   movies: ["movie","film","screen","popcorn","theater","trailer"],
-  tv: ["show","series","episode","streaming","channel","binge"]
+  tv: ["show","series","episode","streaming","channel","binge"],
+  "dad-jokes": ["pun","groan","eye roll","lawn","grill","thermostat","cargo shorts","socks","sandals","minivan","coupon","garage","toolbox"]
 };
 
 // Rating language gates
@@ -49,15 +50,20 @@ const norm = (s: string) => s.replace(/\s+/g, " ").trim();
 // Utility: count punctuation marks that end or split clauses
 const punctCount = (s: string) => (s.match(/[.!?,:"]/g) || []).length;
 
-// Flexible insert tag matcher
-// Allows simple inflections like plural "s" or "es", past "ed", gerund "ing" when it reads naturally.
+// Flexible/Exact insert tag matcher
+function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function hasInsertOnceExact(text: string, tag: string): boolean {
+  const t = norm(text);
+  const base = esc(tag.trim());
+  const re = new RegExp(`(^|\\W)${base}(?=\\W|$)`, "i");
+  const reAll = new RegExp(`(^|\\W)${base}(?=\\W|$)`, "ig");
+  const hits = t.match(reAll)?.length || 0;
+  return re.test(t) && hits === 1;
+}
 function hasInsertOnceFlexible(text: string, tag: string): boolean {
   const t = norm(text);
   const base = tag.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern =
-    tag.includes(" ")
-      ? base.replace(/\s+/g, "\\s+")                       // multi-word tag: keep words in order
-      : `${base}(?:s|es|ed|ing)?`;                         // single word: simple inflections
+  const pattern = tag.includes(" ") ? base.replace(/\s+/g, "\\s+") : `${base}(?:s|es|ed|ing)?`;
   const re = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "i");
   const reAll = new RegExp(`(^|\\W)${pattern}(?=\\W|$)`, "ig");
   return re.test(t) && ((t.match(reAll) || []).length === 1);
@@ -84,7 +90,8 @@ function anchoredToCategory(text: string, subcat: string): boolean {
     hockey: /\b(power play|faceoff|hat trick|ice|rink|fans|season|playoffs|cup|league)\b/i,
     music: /\b(setlist|encore|crowd surf|concert|performance|stage|audience|fans|sound|rhythm|melody)\b/i,
     movies: /\b(red carpet|credits rolled|director's cut|cinema|theater|screen|premiere|hollywood|entertainment|film)\b/i,
-    tv: /\b(season finale|binge|remote|streaming|episode|series|show|entertainment|television|screen)\b/i
+    tv: /\b(season finale|binge|remote|streaming|episode|series|show|entertainment|television|screen)\b/i,
+    'dad-jokes': /\b(pun|groan|eye roll|lawn|grill|thermostat|cargo shorts|socks|sandals|minivan|coupon|garage|toolbox)\b/i
   };
   return cues[subcat]?.test(text) || false;
 }
@@ -117,12 +124,14 @@ export function validateLine(line: string, scenario: Scenario): { ok: true } | {
   // 3) forbidden punctuation
   if (FORBIDDEN_PUNCT.test(text)) return { ok: false, reason: "forbidden_punctuation" };
 
-  // 4) insert tags once each (flex)
-  if (scenario.insertTags?.length) {
-    for (const tag of scenario.insertTags) {
-      if (!hasInsertOnceFlexible(text, tag)) return { ok: false, reason: `insert_not_once:${tag}` };
-    }
+// 4) insert tags once each (flex or exact for proper names)
+if (scenario.insertTags?.length) {
+  for (const tag of scenario.insertTags) {
+    const isProperName = /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)*$/.test(tag.trim());
+    const ok = isProperName ? hasInsertOnceExact(text, tag) : hasInsertOnceFlexible(text, tag);
+    if (!ok) return { ok: false, reason: `insert_not_once:${tag}` };
   }
+}
 
   // 5) category anchoring (flex)
   if (!anchoredToCategory(text, scenario.subcategory)) return { ok: false, reason: "category_anchor_missing" };

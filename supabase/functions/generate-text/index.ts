@@ -34,7 +34,8 @@ const MASTER_CONFIG = {
     hockey: ["puck","ice","rink","goalie","stick","net","season"],
     music: ["song","lyrics","concert","stage","band","playlist"],
     movies: ["movie","film","screen","popcorn","theater","trailer"],
-    tv: ["show","series","episode","streaming","channel","binge"]
+    tv: ["show","series","episode","streaming","channel","binge"],
+    "dad-jokes": ["pun","groan","eye roll","lawn","grill","thermostat","cargo shorts","socks","sandals","minivan","coupon","garage","toolbox"]
   },
   
   // Rating Definitions
@@ -407,7 +408,17 @@ function buildInsertWordInstruction(insertWords: string[]): string {
 }
 
 const TONE_SEED_TEMPLATES = {
-  'playful': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
+  'playful': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => {
+    if ((subcategory || '').toLowerCase() === 'dad-jokes') {
+      return `
+Write 4 playful one-sentence dad jokes.
+Each line must be 50–120 characters, exactly one sentence, punchy.
+At most two punctuation marks. No em dashes, semicolons, ellipses.
+${buildInsertWordInstruction(insertWords)}
+Use dad-joke cues like puns, groans, eye-roll humor, lawn, grill, thermostat, cargo shorts, socks with sandals.
+Return each line on its own line with no numbering or extra formatting.`;
+    }
+    return `
 Write 4 playful one-sentence jokes for a ${subcategory} celebration.
 Each must be EXACTLY one sentence, 55-115 characters total, punchy and quotable.
 Use at most 2 punctuation marks per line. NO em dashes, semicolons, or ellipses.
@@ -415,7 +426,8 @@ Include ${subcategory} context with words like: ${getLexiconFor(subcategory).sli
 ${buildInsertWordInstruction(insertWords)}
 ${getRatingGuidance(rating, tone)}
 Keep them short, crisp, and memorable. No rambling or complex clauses.
-Return each line on a separate line with no numbering or formatting.`,
+Return each line on a separate line with no numbering or formatting.`;
+  },
 
   'romantic': (subcategory: string, config: any, insertWords: string[], rating: string, tone: string) => `
 Write 4 romantic one-sentence lines for a ${subcategory} celebration.
