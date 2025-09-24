@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, RefreshCw, Zap } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
-import { drawOverlay, mapLayoutToOverlay, canvasToBlob, type OverlayOpts } from "@/lib/imageOverlay";
+
 
 interface SummaryStepProps {
   data: any;
@@ -26,7 +26,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [compositeImage, setCompositeImage] = useState<string | null>(null);
+  
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   
@@ -153,17 +153,12 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           safetyTimeoutRef.current = null;
         }
         
-        // Generate composite image with text overlay
-        const finalImage = await applyTextOverlay(response.imageData, template);
-        
         setGeneratedImage(response.imageData);
-        setCompositeImage(finalImage);
         updateData({
           generation: {
             ...data.generation,
             images: [response.imageData],
-            compositeImages: [finalImage],
-            selectedImage: finalImage,
+            selectedImage: response.imageData,
             selectedTemplate: template,
             isComplete: true
           }
@@ -220,17 +215,12 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             safetyTimeoutRef.current = null;
           }
           
-          // Generate composite image with text overlay
-          const finalImage = await applyTextOverlay(status.imageData, template);
-          
           setGeneratedImage(status.imageData);
-          setCompositeImage(finalImage);
           updateData({
             generation: {
               ...data.generation,
               images: [status.imageData],
-              compositeImages: [finalImage],
-              selectedImage: finalImage,
+              selectedImage: status.imageData,
               selectedTemplate: template,
               isComplete: true
             }
@@ -297,37 +287,12 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     };
   }, []);
 
-  // Apply text overlay to background image
-  const applyTextOverlay = async (backgroundImage: string, template: PromptTemplate): Promise<string> => {
-    try {
-      const finalText = data.text?.generatedText || data.text?.customText || '';
-      const layout = data.text?.layout || 'lower-banner';
-      
-      const overlayOpts: OverlayOpts = {
-        text: finalText,
-        layout: mapLayoutToOverlay(layout),
-        maxFraction: 0.25,
-        fontFamily: "Inter, Arial, sans-serif", 
-        weight: 800,
-        padding: 24,
-        stroke: true
-      };
-      
-      const canvas = await drawOverlay(backgroundImage, overlayOpts);
-      return canvas.toDataURL('image/png');
-    } catch (error) {
-      console.error('Error applying text overlay:', error);
-      // Return original image if overlay fails
-      return backgroundImage;
-    }
-  };
 
   const handleDownloadImage = () => {
-    const imageToDownload = compositeImage || generatedImage;
-    if (!imageToDownload) return;
+    if (!generatedImage) return;
     
     const link = document.createElement('a');
-    link.href = imageToDownload;
+    link.href = generatedImage;
     link.download = 'viibe-generated-image.png';
     document.body.appendChild(link);
     link.click();
@@ -407,11 +372,11 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
               Try Again
             </Button>
           </div>
-        ) : compositeImage ? (
+        ) : generatedImage ? (
           <div className="space-y-3">
             <div className="relative">
               <img 
-                src={compositeImage} 
+                src={generatedImage} 
                 alt="Generated viibe image" 
                 className="w-full rounded-lg shadow-lg"
               />

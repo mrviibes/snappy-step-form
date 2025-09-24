@@ -119,11 +119,11 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   
   console.log('🎨 Mapped values:', { textLayout, dimensions, chosenRecommendedText });
 
-  // Your exact positive prompt template
-  const positivePrompt = `MANDATORY: "${finalText}" with ${textLayout}. ${visualStyle} with the ${dimensions}, ${chosenRecommendedText} with ${visualStyle}`;
+  // Enhanced positive prompt with specific text placement instructions
+  const positivePrompt = `Create a ${visualStyle} style image with ${dimensions}. IMPORTANT: The text "${finalText}" MUST be prominently displayed using ${textLayout} placement. Ensure the text is clearly readable, well-positioned, and integrated into the ${chosenRecommendedText} composition. Use bold, high-contrast typography that complements the ${visualStyle} aesthetic.`;
   
-  // Your exact negative prompt
-  const negativePrompt = `* extra/missing/misplaced/duplicate text * distorted/low-contrast/overlapping fonts * subtitles, captions, logos, memes * blurry, pixelated, oversaturated, glitch, poor composition`;
+  // Enhanced negative prompt to prevent text issues
+  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed`;
 
   console.log('✅ Generated positive prompt:', positivePrompt);
   console.log('❌ Generated negative prompt:', negativePrompt);
