@@ -1,85 +1,77 @@
 /* ================================
-   Tone-Category Compatibility System
-   Prevents contradictory combinations like "puns + serious"
+   Universal Tone-Category Compatibility System
+   Prevents contradictory combinations + provides fallbacks
    ================================ */
 
 export type ToneId = 'humorous' | 'savage' | 'sentimental' | 'nostalgic' | 'romantic' | 'inspirational' | 'playful' | 'serious';
 export type CategoryType = 'celebrations' | 'sports' | 'daily_life' | 'pop_culture';
+export type Rating = 'G' | 'PG' | 'PG-13' | 'R';
 
-// Define tone-category compatibility matrix
-const TONE_CATEGORY_COMPATIBILITY: Record<ToneId, {
-  compatible: string[]; // subcategories that work well
-  incompatible: string[]; // subcategories that clash
-  warning?: string[]; // subcategories that might not work well but aren't forbidden
-}> = {
-  'humorous': {
-    compatible: ['*'], // works with everything
-    incompatible: [],
-    warning: []
-  },
-  'savage': {
-    compatible: ['*'], 
-    incompatible: [],
-    warning: ['baby-shower', 'wedding'] // might be too harsh for some celebrations
-  },
-  'romantic': {
-    compatible: ['wedding', 'engagement', 'anniversary', 'valentines'],
-    incompatible: ['puns', 'dad-jokes', 'roast'], // romantic puns/roasts are contradictory
-    warning: ['work', 'graduation'] // romantic tone might not fit professional/academic contexts
-  },
-  'playful': {
-    compatible: ['*'],
-    incompatible: [],
-    warning: []
-  },
-  'inspirational': {
-    compatible: ['graduation', 'promotion', 'achievement', 'retirement', 'new-job'],
-    incompatible: ['puns', 'dad-jokes'], // inspirational puns don't make sense
-    warning: ['roast'] // inspirational roasts are contradictory
-  },
-  'sentimental': {
-    compatible: ['wedding', 'engagement', 'baby-shower', 'graduation', 'birthday', 'anniversary', 'retirement'],
-    incompatible: ['puns', 'dad-jokes', 'roast'], // sentimental puns/roasts are contradictory
-    warning: ['work'] // might be too soft for workplace humor
-  },
-  'nostalgic': {
-    compatible: ['graduation', 'birthday', 'anniversary', 'retirement', 'reunion'],
-    incompatible: ['puns', 'dad-jokes'], // nostalgic puns don't make sense
-    warning: ['work'] // workplace nostalgia can be hit or miss
-  },
-  'serious': {
-    compatible: ['graduation', 'promotion', 'achievement', 'new-job', 'retirement'],
-    incompatible: ['puns', 'dad-jokes'], // serious puns are contradictory by nature
-    warning: ['birthday', 'party'] // serious tone might kill the party vibe
-  }
+// Comprehensive subcategory-tone compatibility map
+const SUBCATEGORY_COMPATIBILITY: Record<string, ToneId[]> = {
+  // Jokes subcategories
+  'puns': ['humorous', 'playful', 'nostalgic'],
+  'dad-jokes': ['humorous', 'playful', 'sentimental'],
+  'roast': ['savage', 'humorous', 'playful'],
+  
+  // Celebrations subcategories
+  'birthday': ['playful', 'humorous', 'savage', 'sentimental'],
+  'wedding': ['romantic', 'sentimental', 'playful', 'savage'],
+  'engagement': ['romantic', 'playful', 'sentimental'],
+  'graduation': ['playful', 'humorous', 'sentimental', 'nostalgic'],
+  'baby-shower': ['playful', 'sentimental', 'humorous'],
+  'anniversary': ['romantic', 'sentimental', 'nostalgic', 'humorous'],
+  'retirement': ['nostalgic', 'sentimental', 'humorous'],
+  
+  // Sports subcategories
+  'basketball': ['humorous', 'savage', 'romantic'],
+  'tennis': ['humorous', 'playful'],
+  'soccer': ['humorous', 'savage', 'playful'],
+  'football': ['savage', 'humorous', 'playful'],
+  
+  // Work/Daily Life subcategories
+  'work': ['savage', 'humorous', 'playful'],
+  'dating': ['humorous', 'savage', 'romantic', 'playful'],
+  'family': ['sentimental', 'humorous', 'playful'],
+  
+  // Pop Culture subcategories
+  'movies': ['humorous', 'savage', 'playful'],
+  'music': ['humorous', 'nostalgic', 'playful'],
+  'celebrities': ['savage', 'humorous', 'playful']
 };
 
-// Special subcategory rules that override general compatibility
-const SUBCATEGORY_TONE_RULES: Record<string, {
-  forbidden: ToneId[];
-  recommended: ToneId[];
-  explanation?: string;
-}> = {
-  'puns': {
-    forbidden: ['sentimental', 'nostalgic', 'serious'],
-    recommended: ['playful', 'humorous', 'savage'],
-    explanation: 'Puns are inherently light and wordplay-focused. Serious or emotional tones create contradictions.'
-  },
-  'dad-jokes': {
-    forbidden: ['sentimental', 'nostalgic', 'serious'], 
-    recommended: ['playful', 'humorous', 'savage'],
-    explanation: 'Dad jokes are meant to be groan-worthy and light. Emotional tones don\'t fit the format.'
-  },
-  'roast': {
-    forbidden: ['sentimental', 'romantic'],
-    recommended: ['savage', 'humorous', 'playful'],
-    explanation: 'Roasts require sharp, cutting humor. Sentimental tones defeat the purpose.'
-  },
-  'baby-shower': {
-    forbidden: [],
-    recommended: ['playful', 'sentimental', 'humorous'],
-    explanation: 'Baby celebrations work best with gentle, warm humor.'
-  }
+// Safe default content banks (never fail)
+const DEFAULT_CONTENT: Record<string, string[]> = {
+  jokes: [
+    "I used to hate puns, but then they groan on me.",
+    "Why did the dad joke cross the road? To get to the pun side.",
+    "I'm reading a book on anti-gravity. It's impossible to put down.",
+    "Parallel lines have so much in common — it's a shame they'll never meet."
+  ],
+  celebrations: [
+    "Here's to more candles, more laughs, and fewer regrets.",
+    "Every year older, every year bolder.",
+    "Cheers to love, cake, and slightly embarrassing dance moves.",
+    "Memories made today will outlast the frosting."
+  ],
+  sports: [
+    "Winning isn't everything — but it sure feels good.",
+    "Sports: the only place yelling at strangers is encouraged.",
+    "Defense wins championships, offense wins the crowd.",
+    "Some play for points, some play for pride."
+  ],
+  daily_life: [
+    "Life's too short for bad coffee and boring conversations.",
+    "Some days you're the pigeon, some days you're the statue.",
+    "Adulting is just making it up as you go along.",
+    "The best part of waking up is going back to sleep."
+  ],
+  pop_culture: [
+    "Reality TV: where common sense goes to die.",
+    "Social media: connecting people through shared judgment.",
+    "Celebrity news: because regular people aren't dramatic enough.",
+    "Streaming services: where your free time goes to disappear."
+  ]
 };
 
 export interface CompatibilityResult {
@@ -89,74 +81,104 @@ export interface CompatibilityResult {
   recommendedTones?: ToneId[];
 }
 
+// Get recommended tones for a subcategory
+export function getRecommendedTones(subcategory: string): ToneId[] {
+  const validTones = SUBCATEGORY_COMPATIBILITY[subcategory];
+  if (validTones) {
+    return validTones;
+  }
+  
+  // Default safe recommendations
+  return ['humorous', 'playful', 'savage'];
+}
+
+// Legacy compatibility check function (for existing UI)
 export function checkToneCompatibility(
   toneId: ToneId, 
   category: CategoryType, 
   subcategory: string
 ): CompatibilityResult {
+  const validTones = SUBCATEGORY_COMPATIBILITY[subcategory];
   
-  // Check specific subcategory rules first
-  const subcatRule = SUBCATEGORY_TONE_RULES[subcategory];
-  if (subcatRule) {
-    if (subcatRule.forbidden.includes(toneId)) {
-      return {
-        compatible: false,
-        level: 'incompatible',
-        message: `${toneId} tone doesn't work well with ${subcategory}. ${subcatRule.explanation}`,
-        recommendedTones: subcatRule.recommended
-      };
-    }
-  }
-  
-  // Check general tone compatibility matrix
-  const toneRules = TONE_CATEGORY_COMPATIBILITY[toneId];
-  if (!toneRules) {
-    return { compatible: true, level: 'compatible' };
-  }
-  
-  // If incompatible list includes this subcategory
-  if (toneRules.incompatible.includes(subcategory)) {
+  if (validTones && !validTones.includes(toneId)) {
     return {
       compatible: false,
-      level: 'incompatible', 
-      message: `${toneId} tone creates contradictions with ${subcategory} content.`,
-      recommendedTones: subcatRule?.recommended || ['playful', 'humorous', 'savage']
+      level: 'incompatible',
+      message: `${toneId} tone doesn't work well with ${subcategory}. Try ${validTones.join(', ')} instead.`,
+      recommendedTones: validTones
     };
   }
   
-  // If warning list includes this subcategory
-  if (toneRules.warning?.includes(subcategory)) {
-    return {
-      compatible: true,
-      level: 'warning',
-      message: `${toneId} tone might not be the best fit for ${subcategory}. Consider a different approach.`
-    };
-  }
-  
-  // If compatible list includes '*' (everything) or specific subcategory
-  if (toneRules.compatible.includes('*') || toneRules.compatible.includes(subcategory)) {
-    return { compatible: true, level: 'compatible' };
-  }
-  
-  // Default to compatible if no specific rules found
   return { compatible: true, level: 'compatible' };
 }
 
-export function getRecommendedTones(subcategory: string): ToneId[] {
-  const subcatRule = SUBCATEGORY_TONE_RULES[subcategory];
-  if (subcatRule?.recommended) {
-    return subcatRule.recommended;
+// Rating override logic - Rating always wins
+function applyRatingOverride(tone: ToneId, rating: Rating): ToneId {
+  if (rating === 'G' && tone === 'savage') return 'humorous'; // soften savage
+  if (rating === 'G' && tone === 'romantic') return 'sentimental'; // keep it wholesome
+  if (rating === 'R' && tone === 'sentimental') return 'savage'; // spice it up
+  if (rating === 'PG' && tone === 'savage') return 'humorous'; // mild roast only
+  return tone;
+}
+
+export interface ScenarioInput {
+  category: CategoryType;
+  subcategory: string;
+  tone: ToneId;
+  rating: Rating;
+}
+
+export interface PreparedScenario {
+  tone: ToneId;
+  rating: Rating;
+  wasAdjusted: boolean;
+  adjustmentReason?: string;
+}
+
+// Universal fallback - ensures valid tone/category combos
+export function prepareScenario(input: ScenarioInput): PreparedScenario {
+  const key = input.subcategory;
+  const validTones = SUBCATEGORY_COMPATIBILITY[key];
+  
+  let tone = input.tone;
+  let wasAdjusted = false;
+  let adjustmentReason = '';
+  
+  // Check if tone is valid for this subcategory
+  if (validTones && !validTones.includes(input.tone)) {
+    tone = validTones[0]; // fallback to first valid tone
+    wasAdjusted = true;
+    adjustmentReason = `Tone adjusted from ${input.tone} to ${tone} to fit ${input.subcategory}`;
+  } else if (!validTones) {
+    // Unknown subcategory - use safe default
+    tone = 'humorous';
+    wasAdjusted = true;
+    adjustmentReason = `Using safe default tone for ${input.subcategory}`;
   }
   
-  // Default recommendations based on subcategory type
-  const defaultRecommendations: Record<string, ToneId[]> = {
-    'wedding': ['sentimental', 'humorous', 'romantic'],
-    'birthday': ['playful', 'humorous', 'savage'],
-    'graduation': ['nostalgic', 'sentimental', 'humorous'],
-    'work': ['savage', 'humorous', 'playful'],
-    'puns': ['playful', 'humorous', 'savage'],
-    'dad-jokes': ['playful', 'humorous', 'savage']
-  };
+  // Apply rating override
+  const originalTone = tone;
+  tone = applyRatingOverride(tone, input.rating);
+  if (originalTone !== tone) {
+    wasAdjusted = true;
+    adjustmentReason = adjustmentReason || `Tone adjusted from ${originalTone} to ${tone} for ${input.rating} rating`;
+  }
   
-  return defaultRecommendations[subcategory] || ['humorous', 'playful', 'savage'];
+  return {
+    tone,
+    rating: input.rating,
+    wasAdjusted,
+    adjustmentReason: wasAdjusted ? adjustmentReason : undefined
+  };
+}
+
+// Get safe fallback content when generation fails completely
+export function getDefaultContent(category: CategoryType): string[] {
+  return DEFAULT_CONTENT[category] || DEFAULT_CONTENT.jokes;
+}
+
+// Check if a tone-subcategory combo is valid
+export function isValidCombination(tone: ToneId, subcategory: string): boolean {
+  const validTones = SUBCATEGORY_COMPATIBILITY[subcategory];
+  return !validTones || validTones.includes(tone);
 }

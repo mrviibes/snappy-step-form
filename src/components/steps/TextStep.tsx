@@ -14,6 +14,8 @@ import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions } from '@/lib/api';
+import { generateTextWithFallback, type GenerationInput } from '@/lib/textGenerationFallback';
+import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
 import { checkToneCompatibility, getRecommendedTones, type ToneId, type CategoryType } from '@/lib/toneCompatibility';
 interface TextStepProps {
@@ -70,6 +72,7 @@ export default function TextStep({
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
   const [compatibilityResult, setCompatibilityResult] = useState<ReturnType<typeof checkToneCompatibility> | null>(null);
+  const { toast } = useToast();
 
   // Check compatibility when category, subcategory, or tone changes
   useEffect(() => {
@@ -85,83 +88,72 @@ export default function TextStep({
     }
   }, [data.category, data.subcategory, data.text?.tone]);
   const handleGenerate = async () => {
-    // Check tone compatibility before attempting generation
-    if (data.category && data.subcategory && data.text?.tone) {
-      const compatibility = checkToneCompatibility(
-        data.text.tone as ToneId,
-        data.category as CategoryType,
-        data.subcategory
-      );
-      
-      if (!compatibility.compatible) {
-        setGenerationError(
-          `${compatibility.message} Try these tones instead: ${compatibility.recommendedTones?.join(', ')}`
-        );
-        return;
-      }
-    }
+    if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
 
     setIsGenerating(true);
     setGenerationError(null);
+    
     try {
-      // ... keep existing code (generation logic)
-      const insertWords = Array.isArray(data.text?.specificWords) ? data.text?.specificWords : data.text?.specificWords ? [data.text?.specificWords] : [];
-
-      const options = await generateTextOptions({
-        category: data.category || 'celebrations',
+      // Use the new fallback system
+      const generationInput: GenerationInput = {
+        category: data.category as any,
         subcategory: data.subcategory,
-        tone: data.text?.tone,
-        rating: data.text?.rating || 'PG',
-        insertWords, // Can be empty array now
-        comedianStyle: data.text?.comedianStyle ? {
-          name: data.text.comedianStyle,
-          flavor: ''
-        } : null,
-        userId: 'anonymous'
-      });
+        tone: data.text.tone as any,
+        rating: data.text.rating as any,
+        insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
+        style: data.text?.style || 'generic'
+      };
 
-      // Client-side guard: ensure 50–120 chars and validate with master rules
-      const safe = options.filter(o => o?.line && o?.comedian && o.line.length >= 50 && o.line.length <= 120);
-      
-      // Apply master rules validation if we have enough options
-      if (safe.length >= 4) {
-        const validationResult = validateBatch({
-          scenario: {
-            category: data.category === 'celebrations' ? 'celebrations' : 
-                     data.category === 'sports' ? 'sports' :
-                     data.category === 'daily_life' ? 'daily_life' : 'pop_culture',
-            subcategory: data.subcategory,
-            rating: (data.text?.rating || 'PG') as "G" | "PG" | "PG-13" | "R",
-            insertTags: insertWords
-          },
-          lines: safe.slice(0, 4).map(o => o.line)
+      // Create adapter function for existing API
+      const generateFunction = async (params: any) => {
+        const options = await generateTextOptions({
+          category: params.category || 'celebrations',
+          subcategory: params.subcategory,
+          tone: params.tone,
+          rating: params.rating,
+          insertWords: params.insertWords || [],
+          comedianStyle: data.text?.comedianStyle ? {
+            name: data.text.comedianStyle,
+            flavor: ''
+          } : null,
+          userId: 'anonymous'
         });
+        return options.map(opt => opt.line);
+      };
+
+      const result = await generateTextWithFallback(generationInput, generateFunction);
+      
+      if (result.success && result.lines.length > 0) {
+        // Convert back to expected format
+        const formattedOptions = result.lines.map((line, index) => ({
+          line,
+          comedian: `Option ${index + 1}`
+        }));
         
-        if (validationResult.ok) {
-          setTextOptions(safe.slice(0, 4));
-        } else {
-          console.log('Validation failed:', 'details' in validationResult ? validationResult.details : 'unknown error');
-          // Use safe options anyway but log the validation failure
-          setTextOptions(safe.slice(0, 4));
-        }
-      } else {
-        // Pad with existing safe options or show what we have
-        const finalOptions = safe.length > 0 ? safe : options.slice(0, 4);
+        // Client-side validation
+        const safe = formattedOptions.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
+        const finalOptions = safe.length > 0 ? safe.slice(0, 4) : formattedOptions.slice(0, 4);
+        
         setTextOptions(finalOptions);
+        setShowTextOptions(true);
+        
+        // Show adjustment notification if settings were changed
+        if (result.wasAdjusted && result.adjustmentReason) {
+          toast({
+            title: "Settings Adjusted",
+            description: result.adjustmentReason,
+            duration: 4000,
+          });
+        }
+        
+      } else {
+        // This should never happen with the fallback system, but just in case
+        throw new Error('No content generated');
       }
-      setShowTextOptions(true);
+      
     } catch (error) {
       console.error('Text generation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Generation failed';
-      let userFriendlyMessage = 'Failed to generate text options. ';
-      if (errorMessage.includes('timeout') || errorMessage.includes('Request timeout')) {
-        userFriendlyMessage += 'The request took too long - please try again or simplify your requirements.';
-      } else if (errorMessage.includes('validation')) {
-        userFriendlyMessage += 'Generated content didn\'t meet quality standards - please try different settings.';
-      } else {
-        userFriendlyMessage += errorMessage || 'Please try again.';
-      }
-      setGenerationError(userFriendlyMessage);
+      setGenerationError('Could not generate text options. Please try again.');
     } finally {
       setIsGenerating(false);
     }
