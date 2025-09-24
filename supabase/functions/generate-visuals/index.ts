@@ -214,27 +214,104 @@ function extractVisualElements(text: string, category: string, insertWords: stri
   
   // Extract specific types of visual elements from the joke text
   
-  // NOUNS (things that can be visualized)
+  // Get category-specific props first, then fall back to common arrays
+  const categoryKey = category.toLowerCase().replace(/\s+/g, '-')
+  const categoryLexicon = CATEGORY_LEXICONS[categoryKey] || CATEGORY_LEXICONS['general']
+  
+  // NOUNS (things that can be visualized) - enhanced with all categories
   const visualNouns = meaningfulWords.filter(word => {
-    const objectWords = ['cake', 'car', 'beer', 'cup', 'flag', 'track', 'pit', 'crew', 'wheels', 'helmet', 'engine', 'trophy', 'hat', 'shirt', 'glasses', 'phone', 'table', 'chair', 'microphone', 'stage', 'camera', 'crowd', 'stands', 'infield', 'garage', 'toolbox', 'grill', 'cooler', 'tent', 'banner', 'sign', 'uniform', 'mascot', 'scoreboard', 'fence', 'gate', 'parking', 'tailgate', 'barbecue', 'soda', 'hotdog', 'nachos', 'popcorn', 'pretzel']
+    // Check category lexicon first
+    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
+      return true
+    }
+    
+    const objectWords = [
+      // Graduation
+      'cap', 'gown', 'diploma', 'degree', 'certificate', 'tassel', 'mortarboard',
+      // Wedding  
+      'dress', 'suit', 'ring', 'bouquet', 'veil', 'tuxedo', 'cake', 'flower',
+      // Birthday
+      'cake', 'candle', 'balloon', 'gift', 'present', 'hat', 'party',
+      // Sports/NASCAR
+      'car', 'beer', 'cup', 'flag', 'track', 'pit', 'crew', 'wheels', 'helmet', 'engine', 'trophy', 'uniform',
+      // Work/Dating
+      'desk', 'computer', 'laptop', 'phone', 'table', 'chair', 'microphone', 'stage', 'camera',
+      // General objects
+      'glasses', 'shirt', 'costume', 'outfit', 'sign', 'banner', 'tent', 'cooler', 'grill',
+      'soda', 'hotdog', 'nachos', 'popcorn', 'pretzel', 'barbecue'
+    ]
     return objectWords.some(obj => word.includes(obj.substring(0, 3)) || obj.includes(word))
   })
   
-  // VERBS/ACTIONS (what's happening in the joke)
+  // VERBS/ACTIONS (what's happening in the joke) - enhanced with all categories
   const actionVerbs = meaningfulWords.filter(word => {
-    const actionWords = ['drink', 'drinking', 'sip', 'chug', 'pour', 'spill', 'race', 'racing', 'drive', 'driving', 'crash', 'speed', 'accelerate', 'brake', 'turn', 'lap', 'qualify', 'finish', 'win', 'lose', 'cheer', 'shout', 'wave', 'celebrate', 'party', 'tailgate', 'grill', 'cook', 'eat', 'laugh', 'smile', 'dance', 'sing', 'fall', 'trip', 'stumble', 'run', 'walk', 'sit', 'stand', 'jump', 'climb', 'lean', 'point', 'grab', 'hold', 'carry', 'throw', 'catch']
+    // Check category lexicon first
+    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
+      return true
+    }
+    
+    const actionWords = [
+      // Graduation actions
+      'graduate', 'graduating', 'march', 'receive', 'earn', 'achieve', 'study', 'learn', 'thought', 'wielding',
+      // Wedding actions
+      'marry', 'wed', 'kiss', 'dance', 'vow', 'exchange', 'celebrate',
+      // Birthday actions
+      'blow', 'wish', 'unwrap', 'surprise', 'sing',
+      // Sports/NASCAR actions
+      'drink', 'drinking', 'sip', 'chug', 'pour', 'spill', 'race', 'racing', 'drive', 'driving', 
+      'crash', 'speed', 'brake', 'turn', 'lap', 'qualify', 'finish', 'win', 'lose', 'dribble',
+      // General actions
+      'cheer', 'shout', 'wave', 'party', 'tailgate', 'grill', 'cook', 'eat', 'laugh', 'smile',
+      'dance', 'sing', 'fall', 'trip', 'stumble', 'run', 'walk', 'sit', 'stand', 'jump', 'climb',
+      'lean', 'point', 'grab', 'hold', 'carry', 'throw', 'catch', 'text', 'call', 'work', 'help'
+    ]
     return actionWords.some(action => word.includes(action.substring(0, 4)) || action.includes(word))
   })
   
-  // SETTINGS/PLACES (where the joke takes place)
+  // SETTINGS/PLACES (where the joke takes place) - enhanced with all categories
   const settingWords = meaningfulWords.filter(word => {
-    const placeWords = ['track', 'speedway', 'infield', 'stands', 'garage', 'pit', 'lane', 'victory', 'circle', 'parking', 'lot', 'tailgate', 'area', 'grandstand', 'paddock', 'media', 'center', 'concession', 'restroom', 'entrance', 'exit', 'tunnel', 'bridge', 'tower', 'booth', 'tent', 'trailer', 'hauler', 'motorhome', 'campground', 'hotel', 'restaurant', 'bar', 'pub', 'club', 'store', 'shop', 'museum', 'hall', 'fame']
+    // Check category lexicon first
+    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
+      return true
+    }
+    
+    const placeWords = [
+      // Graduation settings
+      'ceremony', 'auditorium', 'campus', 'commencement', 'hall', 'classroom', 'university', 'college', 'school', 'stage',
+      // Wedding settings
+      'church', 'chapel', 'altar', 'aisle', 'reception', 'venue',
+      // Birthday settings
+      'party', 'home', 'restaurant',
+      // Sports/NASCAR settings
+      'track', 'speedway', 'infield', 'stands', 'garage', 'pit', 'lane', 'victory', 'circle', 'parking', 'lot',
+      'tailgate', 'area', 'grandstand', 'paddock', 'concession', 'entrance', 'exit',
+      // General settings
+      'office', 'desk', 'meeting', 'hotel', 'bar', 'pub', 'club', 'store', 'shop', 'museum',
+      'tent', 'trailer', 'motorhome', 'campground', 'play'
+    ]
     return placeWords.some(place => word.includes(place.substring(0, 3)) || place.includes(word))
   })
   
-  // PEOPLE (characters in the joke)
+  // PEOPLE (characters in the joke) - enhanced with all categories
   const peopleWords = meaningfulWords.filter(word => {
-    const personWords = ['driver', 'fan', 'crew', 'chief', 'mechanic', 'engineer', 'spotter', 'owner', 'sponsor', 'announcer', 'reporter', 'official', 'marshal', 'flagman', 'security', 'usher', 'vendor', 'spectator', 'photographer', 'cameraman', 'interviewer', 'commentator', 'analyst', 'expert', 'legend', 'rookie', 'veteran', 'champion', 'winner', 'loser', 'competitor', 'participant', 'attendee', 'guest', 'family', 'friend']
+    // Check category lexicon first for people terms
+    if (categoryLexicon.some(prop => word.includes(prop.substring(0, 3)) || prop.includes(word))) {
+      return true
+    }
+    
+    const personWords = [
+      // Education people
+      'graduate', 'student', 'professor', 'dean', 'valedictorian',
+      // Wedding people
+      'bride', 'groom', 'minister', 'priest', 'guest',
+      // Sports/NASCAR people
+      'driver', 'fan', 'crew', 'chief', 'mechanic', 'engineer', 'spotter', 'owner', 'sponsor',
+      'announcer', 'reporter', 'official', 'marshal', 'flagman', 'vendor', 'spectator',
+      // General people
+      'security', 'usher', 'photographer', 'cameraman', 'boss', 'colleague', 'client',
+      'expert', 'legend', 'rookie', 'veteran', 'champion', 'winner', 'loser', 'competitor',
+      'participant', 'attendee', 'guest', 'family', 'friend', 'mom', 'dad', 'sister', 'brother'
+    ]
     return personWords.some(person => word.includes(person.substring(0, 4)) || person.includes(word)) ||
            word.length <= 6 && /^[A-Z][a-z]+$/.test(text.split(/\W+/).find(w => w.toLowerCase() === word) || '')  // Proper names like "Jesse"
   })
