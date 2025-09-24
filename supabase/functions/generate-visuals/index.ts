@@ -192,30 +192,32 @@ interface GenerateVisualsResponse {
 
 // ============= VIIBE GENERATOR STEP-3 IMPLEMENTATION (SIMPLIFIED) =============
 
-// Prop extractor - simplified and more reliable
+// Enhanced prop extractor that filters generic words
 function extractProps(text: string, max = 8): string[] {
-  // naive noun/verb tokenization that works well enough
-  const words = text
+  const raw = text
     .toLowerCase()
-    .replace(/["""'']/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[""''"']/g, "")
+    .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
 
   const STOP = new Set([
-    "the","a","an","and","or","but","if","then","so","to","of","in","on","for",
-    "with","at","by","as","it","is","was","are","be","this","that","these","those",
-    "i","you","he","she","they","we","me","him","her","them","my","your","his","her","their",
-    "why","did","get","got","do","does","didn","t","than"
+    "the","a","an","and","or","but","to","of","in","on","for","with","at","by","as",
+    "it","is","was","are","be","this","that","these","those","i","you","he","she","we","they",
+    "my","your","his","her","their","our","why","did","does","do","get","got","than","then",
+    "very","really","so","just","like",
+    // Filter out generic words that cause "think celebration" bug
+    "think","celebration","moment","thing","stuff","going","want","see","know","time"
   ]);
 
-  // crude POS-ish pick based on suffixes and length
-  const candidates = words.filter(w => w.length > 2 && !STOP.has(w));
   const uniq: string[] = [];
-  for (const w of candidates) {
+  for (const w of raw) {
+    if (w.length < 3) continue;
+    if (STOP.has(w)) continue;
     if (!uniq.includes(w)) uniq.push(w);
+    if (uniq.length === max) break;
   }
-  return uniq.slice(0, max);
+  return uniq;
 }
 
 // Style-aware negative builder
@@ -261,18 +263,33 @@ function buildVisualConcepts(
   // 1) extract props
   const props = extractProps(text);
   
-  // ensure at least some anchors for common joke cases
-  const fallbackAnchors: Record<string, string[]> = {
-    "jokes": ["road","sign","wordplay","crossing","stage","audience"],
-    "celebrations": ["cake","candles","balloons","party"],
-    "graduation": ["cap","gown","diploma","ceremony"],
-    "wedding": ["rings","vows","altar","reception"],
-    "sports": ["field","game","player","team"],
-    "work": ["office","desk","meeting","computer"]
+  // Category-specific anchors for when props are insufficient
+  const categoryAnchors: Record<string, string[]> = {
+    "celebrations:wedding": ["ring","vows","altar","cake","dance floor","bouquet"],
+    "celebrations:birthday": ["cake","candles","balloons","confetti","party table"],
+    "jokes:puns": ["road","crossing","sign","wordplay","side"],
+    "jokes:roasts:celebrities": ["stage","microphone","spotlight","audience"],
+    "sports:basketball": ["court","hoop","ball","dunk","fans"],
+    "sports": ["field","game","player","team","ball"],
+    "work": ["office","desk","meeting","computer","boss"],
+    "dating": ["restaurant","flowers","dinner","conversation","couple"],
+    "graduation": ["cap","gown","diploma","ceremony","stage"],
+    "general": ["scene","sign","crowd","subject"]
   };
   
-  const categoryKey = category.split(':')[0] || category.toLowerCase();
-  const bank = props.length ? props : (fallbackAnchors[categoryKey] || ["stage","audience","sign"]);
+  // Use full category key first, then fallback to main category
+  const fullCategoryKey = category.toLowerCase();
+  const mainCategoryKey = category.split(':')[0] || category.toLowerCase();
+  const anchors = categoryAnchors[fullCategoryKey] || categoryAnchors[mainCategoryKey] || [];
+  
+  // Top up props with category anchors if we're light on props
+  let bank = props.slice();
+  if (bank.length < 4) {
+    for (const anchor of anchors) {
+      if (!bank.includes(anchor)) bank.push(anchor);
+    }
+  }
+  if (bank.length === 0) bank = ["scene","sign","crowd","subject"];
   
   const [a, b, c, d, e, f] = dedupeWords(
     pick(bank, 2), 
@@ -904,138 +921,124 @@ async function saveToVisualHistory(visuals: VisualRecommendation[], payload: any
   }
 }
 
-// Enhanced visual generation with timeout and retry
+// Deterministic visual generation using joke-aware template system
 async function generateVisuals(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
-  console.log('🎨 Starting visual generation with timeout protection...');
+  console.log('🎨 Starting deterministic visual generation...');
   console.log('📝 Input params:', { text: params.finalText.substring(0, 50) + '...', style: params.visualStyle, category: params.category });
   
   const expectedStyle = visualStyles[params.visualStyle.toLowerCase().replace(/\s+/g, '-')]?.name || 'General'
-  const { allProps } = extractVisualElements(params.finalText, params.category, params.insertWords)
   
   try {
-    // Use specific content-aware prompt for better visual concepts
-    const { system, user } = buildSpecificVisualPrompt(params)
+    // Extract props from joke text
+    let props = extractProps(params.finalText, 8);
+    console.log('🔍 Extracted props from joke:', props);
     
-    // Call OpenAI with timeout and retry
-    const rawResponse = await callOpenAIWithRetry(system, user, 2)
-    console.log(`🎯 Got response:`, rawResponse.substring(0, 200) + '...')
+    // Use full category key first, then fallback to main category
+    const fullCategoryKey = params.category.toLowerCase();
+    const mainCategoryKey = params.category.split(':')[0] || params.category.toLowerCase();
+    const categoryAnchors: Record<string, string[]> = {
+      "celebrations:wedding": ["ring","vows","altar","cake","dance floor","bouquet"],
+      "celebrations:birthday": ["cake","candles","balloons","confetti","party table"],
+      "jokes:puns": ["road","crossing","sign","wordplay","side"],
+      "jokes:roasts:celebrities": ["stage","microphone","spotlight","audience"],
+      "sports:basketball": ["court","hoop","ball","dunk","fans"],
+      "sports": ["field","game","player","team","ball"],
+      "work": ["office","desk","meeting","computer","boss"],
+      "dating": ["restaurant","flowers","dinner","conversation","couple"],
+      "graduation": ["cap","gown","diploma","ceremony","stage"],
+      "general": ["scene","sign","crowd","subject"]
+    };
     
-    // Parse JSON response with error handling
-    let parsed
-    try {
-      // Extract and clean JSON
-      let jsonText = rawResponse.trim()
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        jsonText = jsonMatch[0]
-      }
-      
-      // Clean common JSON issues
-      jsonText = jsonText.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}')
-      parsed = JSON.parse(jsonText)
-      
-    } catch (parseError) {
-      console.error('❌ JSON parse failed:', parseError.message)
-      console.log('📄 Raw response:', rawResponse.substring(0, 500))
-      // Don't throw - fall back to emergency visuals
-      console.log('🚨 JSON parsing failed, using emergency fallback visuals...')
-      return createFallbackVisuals(params, expectedStyle, allProps)
-    }
+    const anchors = categoryAnchors[fullCategoryKey] || categoryAnchors[mainCategoryKey] || [];
     
-    // Validate and process visuals
-    if (!parsed.visuals || !Array.isArray(parsed.visuals)) {
-      console.log('🚨 Invalid response structure, using emergency fallback visuals...')
-      return createFallbackVisuals(params, expectedStyle, allProps)
-    }
-    
-    console.log(`🔍 Processing ${parsed.visuals.length} visual candidates...`)
-    
-    const validVisuals: VisualRecommendation[] = []
-    const usedInterpretations = new Set<string>()
-    
-    // Process each visual with relaxed validation for speed
-    for (const [index, rec] of parsed.visuals.entries()) {
-      try {
-        const validated = validateVisualRec(rec, expectedStyle, allProps)
-        if (validated && !usedInterpretations.has(validated.interpretation)) {
-          validVisuals.push(validated)
-          usedInterpretations.add(validated.interpretation)
-          console.log(`✅ Visual ${index + 1}: ${validated.interpretation} - "${validated.description.substring(0, 40)}..."`)
-        } else {
-          console.log(`❌ Visual ${index + 1} rejected: ${validated ? 'duplicate mode' : 'invalid format'}`)
-        }
-      } catch (validationError) {
-        console.log(`❌ Visual ${index + 1} validation failed:`, validationError.message)
+    // Top up with category anchors if we are light on props
+    if (props.length < 4) {
+      for (const anchor of anchors) {
+        if (!props.includes(anchor)) props.push(anchor);
       }
     }
+    if (props.length === 0) props = ["scene","sign","crowd","subject"];
     
-    // Return results (even if not perfect 6, but ensure we have at least something)
-    if (validVisuals.length >= 2) {
-      console.log(`🎉 Generated ${validVisuals.length} valid visuals with modes: [${[...usedInterpretations].join(', ')}]`)
-      
-      // If we have some but not enough, fill with fallbacks
-      if (validVisuals.length < 6) {
-        const fallbacks = createFallbackVisuals(params, expectedStyle, allProps)
-        const remainingSlots = 6 - validVisuals.length
-        validVisuals.push(...fallbacks.slice(0, remainingSlots))
-        console.log(`🔧 Topped up with ${remainingSlots} fallback visuals`)
+    console.log('🎯 Final props after anchoring:', props);
+    
+    // Distribute props across four distinct modes
+    const [p1, p2, p3, p4, p5, p6] = padProps(props, 6);
+    
+    const baseDim = (params.dimension || "Square").toLowerCase();
+    const baseSty = expectedStyle.toLowerCase();
+    const negatives = buildNegatives(params.visualStyle);
+    
+    const concepts = [
+      {
+        variation: "Cinematic",
+        description: `${baseDim} ${baseSty} style. Wide scene with ${p1} and ${p2}, playful humor, cinematic framing.`,
+        interpretation: "cinematic"
+      },
+      {
+        variation: "Close-up", 
+        description: `${baseDim} ${baseSty} style. Close shot of ${p3}, shallow depth of field, detailed textures.`,
+        interpretation: "close-up"
+      },
+      {
+        variation: "Crowd",
+        description: `${baseDim} ${baseSty} style. Group reacting to ${p4}, candid laughter, expressive faces.`,
+        interpretation: "crowd-reaction"
+      },
+      {
+        variation: "Minimalist",
+        description: `${baseDim} ${baseSty} style. Minimal composition, single ${p5}, clean background, strong lighting.`,
+        interpretation: "minimalist"
       }
-      
-      return validVisuals.slice(0, 6)
-    }
+    ];
     
-    // If we got fewer than 2 valid visuals, use fallbacks
-    console.log(`🚨 Only got ${validVisuals.length} valid visuals, using emergency fallback visuals...`)
-    return createFallbackVisuals(params, expectedStyle, allProps)
+    console.log(`🎉 Generated ${concepts.length} deterministic visual concepts`);
+    
+    return concepts.map((c, index) => ({
+      visualStyle: expectedStyle,
+      layout: layouts[index % layouts.length],
+      description: c.description,
+      props: props.slice(0, 3),
+      interpretation: c.interpretation,
+      mood: TONE_TO_MOOD[params.tone] || 'humorous mood',
+      palette: ['vibrant'],
+      negativePrompt: negatives,
+      aspect: (params.dimension === "Square" ? "1:1" : params.dimension === "Portrait" ? "9:16" : "16:9")
+    }));
     
   } catch (error) {
     console.error('💥 Visual generation failed:', error.message)
     
-    // Always return fallback visuals instead of throwing
-    console.log('🚨 Using emergency fallback visuals...')
-    return createFallbackVisuals(params, expectedStyle, allProps)
+    // Fallback to basic template system
+    console.log('🚨 Using basic template fallback...')
+    return buildFinalImagePrompts(
+      params.finalText,
+      params.visualStyle as any,
+      (params.dimension as any) || "Square",
+      params.category
+    );
   }
 }
 
-// Fast fallback visual generation
-function createFallbackVisuals(params: GenerateVisualsParams, expectedStyle: string, props: string[]): VisualRecommendation[] {
-  const modes = ['cinematic', 'close-up', 'crowd-reaction', 'minimalist', 'exaggerated-proportions', 'goofy-absurd']
-  const primaryProp = props[0] || params.category || 'celebration'
-  const moodKeywords = TONE_TO_MOOD[params.tone] || 'cheerful mood'
+function padProps(arr: string[], n: number): string[] {
+  const out = [...arr];
+  const seed = ["road","sign","ring","cake","ball","microphone","text"];
+  let i = 0;
+  while (out.length < n) out.push(seed[i++ % seed.length]);
+  return out;
+}
+
+// DEPRECATED: This function is no longer used - replaced with deterministic template system
+// Keeping for reference only
+function createFallbackVisuals_DEPRECATED(params: GenerateVisualsParams, expectedStyle: string, props: string[]): VisualRecommendation[] {
+  console.log('⚠️ DEPRECATED fallback called - this should not happen with new deterministic system');
   
-  return modes.slice(0, 6).map((mode, index) => {
-    let description = ''
-    
-    switch (mode) {
-      case 'cinematic':
-        description = `Wide ${expectedStyle.toLowerCase()} shot of ${primaryProp} celebration, dramatic lighting, full scene visible, ${moodKeywords}`
-        break
-      case 'close-up': 
-        description = `Detailed ${expectedStyle.toLowerCase()} close-up of ${primaryProp}, shallow focus, intimate view, warm lighting`
-        break
-      case 'crowd-reaction':
-        description = `Group celebrating ${primaryProp} moment, people smiling and reacting, ${expectedStyle.toLowerCase()} style, joyful expressions`
-        break
-      case 'minimalist':
-        description = `Simple ${expectedStyle.toLowerCase()} composition of ${primaryProp}, clean background, minimal elements, elegant lighting`
-        break
-      case 'exaggerated-proportions':
-        description = `Oversized ${primaryProp} with cartoon proportions, ${expectedStyle.toLowerCase()} style, visual comedy through scale`
-        break
-      case 'goofy-absurd':
-        description = `Silly ${primaryProp} arrangement, maximum comedy chaos, ${expectedStyle.toLowerCase()} style, pure absurd energy`
-        break
-    }
-    
-    return {
-      visualStyle: expectedStyle,
-      layout: layouts[index % layouts.length],
-      description,
-      props: props.slice(0, 3),
-      interpretation: mode,
-      mood: moodKeywords
-    }
-  })
+  // Use the new deterministic system instead
+  return buildFinalImagePrompts(
+    params.finalText,
+    params.visualStyle as any,
+    (params.dimension as any) || "Square", 
+    params.category
+  );
 }
 
 // Enhanced visual generation with 6-mode validation
