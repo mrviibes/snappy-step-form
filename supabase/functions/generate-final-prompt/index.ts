@@ -21,6 +21,7 @@ interface FinalPromptRequest {
   text_layout: string;
   image_dimensions: string;
   composition_modes?: string[];
+  visual_recommendation?: string;
 }
 
 interface PromptTemplate {
@@ -93,7 +94,8 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     image_style,
     text_layout,
     image_dimensions,
-    composition_modes = []
+    composition_modes = [],
+    visual_recommendation
   } = params;
 
   // Map layout to text layout descriptions
@@ -154,7 +156,8 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   });
 
   // Enhanced positive prompt with ALL context
-  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone. Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
+  const visualRecommendationText = visual_recommendation ? `Visual recommendation: ${visual_recommendation}. ` : '';
+  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText}Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   
   // Enhanced negative prompt with category-specific exclusions
   const categoryNegatives = getCategoryNegatives(category, rating);
