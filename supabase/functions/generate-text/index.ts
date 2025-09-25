@@ -1,40 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { text_rules } from './data/create_text_rules.ts';
 
-// Text generation rules
-const text_rules = `SYSTEM INSTRUCTIONS:
 
-GENERAL
-- Always generate text with a humor baseline, even if Serious tone is chosen.
-- Exact spelling required. No substitutions or missing letters.
-- Insert words must appear exactly as written in every line.
-- No em dashes. Replace with commas.
-- Maximum 1 punctuation mark per line (. , ? !).
-- Text length must be between 50 and 90 characters.
-- Always produce 4 distinct outputs.
-
-STRUCTURE
-- Category provides broad context (e.g., Celebrations, Sports, Pop Culture).
-- Subcategory narrows context (e.g., Birthday, Movies, Dad Jokes).
-- Tone determines style of humor (see below).
-- Rating determines intensity and profanity rules (see below).
-- All four must be respected when generating lines.
-
-TONES
-- Humorous → Witty jokes, wordplay, exaggeration. Never serious.
-- Savage → Blunt, cutting, roast-style. No soft language.
-- Sentimental → Warm, heartfelt, touching. No sarcasm.
-- Nostalgic → References to the past, reflective. No modern slang.
-- Romantic → Affectionate, loving, playful. No mean jokes.
-- Inspirational → Uplifting, motivating, bold. No negativity or irony.
-- Playful → Cheeky, silly, mischievous. No formal tone.
-- Serious → Dry, deadpan wit, formal and weighty.
-
-RATINGS
-- G (Wholesome/Playful): Family-friendly. No profanity, no adult references. Light, goofy humor.
-- PG (Sharper Sarcasm): Snarky sarcasm with bite. Allowed: censored swears (f***, sh*t). No uncensored profanity.
-- PG-13 (Edgy, Sharp): Strong sarcasm, irony, edgy humor. Allowed swears: hell, damn. No stronger profanity.
-- R (Raw, Unfiltered): Must include profanity (fuck, shit, bastard, ass, bullshit, goddamn). Can be hype or roast. Avoid extreme violence or illegal themes.`;
 
 // Get model from environment with fallback - Using GPT-4o-mini for step #2
 const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-4o-mini';
