@@ -1,6 +1,41 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Text generation rules
+const text_rules = `SYSTEM INSTRUCTIONS:
+
+GENERAL
+- Always generate text with a humor baseline, even if Serious tone is chosen.
+- Exact spelling required. No substitutions or missing letters.
+- Insert words must appear exactly as written in every line.
+- No em dashes. Replace with commas.
+- Maximum 1 punctuation mark per line (. , ? !).
+- Text length must be between 50 and 90 characters.
+- Always produce 4 distinct outputs.
+
+STRUCTURE
+- Category provides broad context (e.g., Celebrations, Sports, Pop Culture).
+- Subcategory narrows context (e.g., Birthday, Movies, Dad Jokes).
+- Tone determines style of humor (see below).
+- Rating determines intensity and profanity rules (see below).
+- All four must be respected when generating lines.
+
+TONES
+- Humorous → Witty jokes, wordplay, exaggeration. Never serious.
+- Savage → Blunt, cutting, roast-style. No soft language.
+- Sentimental → Warm, heartfelt, touching. No sarcasm.
+- Nostalgic → References to the past, reflective. No modern slang.
+- Romantic → Affectionate, loving, playful. No mean jokes.
+- Inspirational → Uplifting, motivating, bold. No negativity or irony.
+- Playful → Cheeky, silly, mischievous. No formal tone.
+- Serious → Dry, deadpan wit, formal and weighty.
+
+RATINGS
+- G (Wholesome/Playful): Family-friendly. No profanity, no adult references. Light, goofy humor.
+- PG (Sharper Sarcasm): Snarky sarcasm with bite. Allowed: censored swears (f***, sh*t). No uncensored profanity.
+- PG-13 (Edgy, Sharp): Strong sarcasm, irony, edgy humor. Allowed swears: hell, damn. No stronger profanity.
+- R (Raw, Unfiltered): Must include profanity (fuck, shit, bastard, ass, bullshit, goddamn). Can be hype or roast. Avoid extreme violence or illegal themes.`;
+
 // Get model from environment with fallback - Using GPT-4o-mini for step #2
 const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-4o-mini';
 
@@ -359,40 +394,19 @@ serve(async (req) => {
       console.log(`📋 Using rules: ${rules.id} v${rules.version}`);
     }
 
-    // Build comprehensive prompt using rules
-    let systemPrompt = `You are a comedy writer. Generate exactly 4 funny sentences.`;
+    // Build comprehensive prompt using the text rules
+    let systemPrompt = text_rules;
     
-    // Length requirements from rules
-    if (rules?.length) {
-      systemPrompt += ` Each sentence must be ${rules.length.min_chars}-${rules.length.max_chars} characters.`;
-    } else {
-      systemPrompt += ` Each sentence must be 50-100 characters.`;
-    }
-    
-    if (category) systemPrompt += ` Topic: ${category}`;
+    // Add dynamic context
+    if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
-    
-    // Apply tone rules
-    if (tone && rules) {
-      const toneInstructions = buildToneInstructions(tone, rules);
-      if (toneInstructions) systemPrompt += ` ${toneInstructions}`;
-    } else if (tone) {
-      systemPrompt += ` Tone: ${tone}`;
-    }
-    
-    // Apply rating rules  
-    if (rating && rules) {
-      const profanityInstructions = buildProfanityInstructions(rating, rules);
-      if (profanityInstructions) systemPrompt += ` ${profanityInstructions}`;
-    } else if (rating) {
-      systemPrompt += ` Rating: ${rating}`;
-    }
-    
+    if (tone) systemPrompt += `\nTONE: ${tone}`;
+    if (rating) systemPrompt += `\nRATING: ${rating}`;
     if (insertWords && insertWords.length > 0) {
-      systemPrompt += ` MUST include these words: ${insertWords.join(', ')}`;
+      systemPrompt += `\nINSERT WORDS: ${insertWords.join(', ')}`;
     }
     
-    systemPrompt += ` Return only the 4 sentences, one per line.`;
+    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
     const userPrompt = "Generate 4 funny sentences now.";
 
