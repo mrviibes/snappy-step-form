@@ -418,12 +418,33 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const generateCustomPrompt = () => {
     const completedText = data.text?.generatedText || data.text?.customText || '[text not set]';
     const tone = data.text?.tone || '[tone not set]';
-    const textLayout = data.text?.layout || '[layout not set]';
-    const imageDimensions = data.visuals?.dimension || '[dimensions not set]';
+    const rawTextLayout = data.text?.layout || '[layout not set]';
+    const rawImageDimensions = data.visuals?.dimension || '[dimensions not set]';
     const imageStyle = data.visuals?.style || '[style not set]';
     const visualDescription = data.visuals?.selectedVisualRecommendation?.description || 
                               data.visuals?.selectedVisualRecommendation?.interpretation || 
                               '[visual description not set]';
+
+    // Map layout to text layout descriptions
+    const layoutMap: Record<string, string> = {
+      "meme-text": "top and bottom text banners",
+      "lower-banner": "lower third banner", 
+      "side-bar": "side banner layout",
+      "badge-callout": "badge callout design",
+      "subtle-caption": "subtle caption placement",
+      "negative-space": "negative space text layout",
+      "open-space": "open space layout"
+    };
+
+    // Map image dimensions to proper format
+    const dimensionMap: Record<string, string> = {
+      "square": "1:1 aspect ratio",
+      "portrait": "9:16 aspect ratio", 
+      "landscape": "16:9 aspect ratio"
+    };
+
+    const textLayout = layoutMap[rawTextLayout] || rawTextLayout;
+    const imageDimensions = dimensionMap[rawImageDimensions] || rawImageDimensions;
 
     return `MANDATORY TEXT: ${completedText} with a ${tone} ${textLayout}. 
 
