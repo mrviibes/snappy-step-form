@@ -157,9 +157,9 @@ serve(async (req) => {
 
     // Map dimensions to Ideogram aspect ratios
     const aspectRatioMap: Record<string, string> = {
-      square: 'ASPECT_1_1',
-      portrait: 'ASPECT_9_16', 
-      landscape: 'ASPECT_16_9'
+      square: '1x1',
+      portrait: '9x16', 
+      landscape: '16x9'
     };
 
     // Map quality to Ideogram model (v3)
