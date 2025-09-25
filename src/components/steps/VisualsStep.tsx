@@ -167,7 +167,6 @@ export default function VisualsStep({
         category: data.category || "",
         subcategory: data.subcategory || "",
         tone: data.vibe?.tone || "Humorous",
-        textStyle: data.vibe?.style || "Sarcastic",
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         image_style: data.visuals?.style || "general",

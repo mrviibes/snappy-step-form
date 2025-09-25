@@ -28,7 +28,6 @@ type GenerateVisualsParams = {
   category: string;
   subcategory?: string;
   tone: string;
-  textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];
   image_style: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
@@ -44,7 +43,6 @@ type GenerateFinalPromptParams = {
   category: string;
   subcategory?: string;
   tone: string;
-  textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];
   image_style: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";

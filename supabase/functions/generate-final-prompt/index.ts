@@ -15,7 +15,6 @@ interface FinalPromptRequest {
   category: string;
   subcategory?: string;
   tone: string;
-  textStyle: string;
   rating: string;
   insertWords?: string[];
   image_style: string;
@@ -89,7 +88,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     category,
     subcategory,
     tone,
-    textStyle,
     rating,
     insertWords = [],
     image_style,

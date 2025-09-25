@@ -74,7 +74,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           category: data.category || '',
           subcategory: data.subcategory || '',
           tone: data.text?.tone || 'Humorous',
-          textStyle: data.text?.style || 'Generic',
           rating: data.text?.rating || 'PG',
           insertWords: data.text?.specificWords || [],
           image_style: data.visuals?.style || 'general',
