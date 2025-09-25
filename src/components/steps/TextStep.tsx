@@ -16,6 +16,7 @@ import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
+import { getRules, enforceBasicRules, validateLength } from '@/lib/rulesEngine';
 
 interface TextStepProps {
   data: any;
@@ -73,25 +74,29 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     
-    // Create debug info
-    const requestPayload = {
-      category: data.category || 'celebrations',
-      subcategory: data.subcategory,
-      tone: data.text.tone,
-      rating: data.text.rating,
-      insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-      userId: 'anonymous'
-    };
-    
-    setDebugInfo({
-      model: 'server-selected',
-      endpoint: 'generate-text',
-      requestPayload,
-      timestamp: new Date().toISOString(),
-      status: 'sending...'
-    });
-    
     try {
+      // Get rules for enforcement
+      const rules = await getRules();
+      
+      // Create debug info
+      const requestPayload = {
+        category: data.category || 'celebrations',
+        subcategory: data.subcategory,
+        tone: data.text.tone,
+        rating: data.text.rating,
+        insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
+        userId: 'anonymous',
+        rules_id: rules.id
+      };
+      
+      setDebugInfo({
+        model: 'server-selected',
+        endpoint: 'generate-text',
+        requestPayload,
+        timestamp: new Date().toISOString(),
+        status: 'sending...'
+      });
+      
       const response = await generateTextOptions(requestPayload);
       
       // Handle response format and extract model information
@@ -119,13 +124,20 @@ export default function TextStep({
           rawResponse: response
         }));
         
-        // Format options for display
-        const formattedOptions = options.map((option: { line: string }) => ({
-          line: option.line
-        }));
+        // Format options and apply rule enforcement
+        const formattedOptions = options.map((option: { line: string }) => {
+          let line = option.line;
+          
+          // Apply rule enforcement
+          line = enforceBasicRules(line, rules);
+          
+          return {
+            line: line
+          };
+        }).filter(o => validateLength(o.line, rules));
         
-        // Client-side validation to match server filtering
-        const finalOptions = formattedOptions.filter(o => o?.line && o.line.length >= 35 && o.line.length <= 140);
+        // Ensure we have exactly 4 options
+        const finalOptions = formattedOptions.slice(0, 4);
         
         setTextOptions(finalOptions);
         setShowTextOptions(true);
