@@ -547,17 +547,26 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       </div>
 
       {/* Values Table */}
-      <Card className="p-4">
-        <h3 className="font-semibold text-sm mb-4 text-foreground">Your Choices</h3>
-        <div className="space-y-1">
+      <Card className="p-0 overflow-hidden">
+        <div className="p-4 border-b border-border bg-muted/30">
+          <h3 className="font-semibold text-foreground">Your Choices</h3>
+        </div>
+        <div className="divide-y divide-border">
           {summaryData.map((item, index) => (
-            <div key={index} className="flex items-start gap-4 text-sm">
-              <span className="font-medium text-muted-foreground min-w-0">
-                {item.label}:
-              </span>
-              <span className="text-foreground break-words">
-                {item.value || 'Not set'}
-              </span>
+            <div key={index} className="flex items-center justify-between p-4 hover:bg-muted/20 transition-colors">
+              <div className="flex flex-col">
+                <span className="font-medium text-foreground text-sm">
+                  {item.label.replace(/^\d+\.\s*/, '')}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {item.label.match(/^\d+/)?.[0] ? `Step ${item.label.match(/^\d+/)?.[0]}` : ''}
+                </span>
+              </div>
+              <div className="text-right max-w-[60%]">
+                <span className="text-sm text-foreground break-words">
+                  {item.value || 'Not set'}
+                </span>
+              </div>
             </div>
           ))}
         </div>
