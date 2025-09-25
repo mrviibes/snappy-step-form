@@ -555,5 +555,5 @@ export default function VisualsStep({
             </Button>
           </div>
         </Card>}
-      </div>;
+      </div>
 }
