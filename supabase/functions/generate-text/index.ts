@@ -79,7 +79,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ c
   const model = getTextModel();
   console.log(`🤖 Using model: ${model}`);
   
-  const maxTokens = model.startsWith('gpt-5') ? 800 : 200; // Increased tokens for GPT-5 reasoning + response
+  const maxTokens = model.startsWith('gpt-5') ? 2000 : 200; // Much higher limit for GPT-5 reasoning + response
   
   const requestBody = buildOpenAIRequest(
     model,

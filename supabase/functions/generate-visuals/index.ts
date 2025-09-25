@@ -121,7 +121,7 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.completed_text}` }
       ],
-      { maxTokens: 800 } // Increased tokens for GPT-5 reasoning + response
+      { maxTokens: 2000 } // Much higher limit for GPT-5 reasoning + response
     );
 
     console.log('📤 OpenAI request:', JSON.stringify(requestBody, null, 2));
