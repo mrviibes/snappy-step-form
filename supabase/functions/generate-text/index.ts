@@ -27,7 +27,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
         cachedRules = await response.json();
         return cachedRules;
       }
-    } catch (_e) {/* ignore, fallback below */}
+    } catch { /* ignore, fallback below */ }
   }
 
   // Fallback embedded rules (v5)
@@ -42,20 +42,20 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       max_marks_per_line: 1
     },
     tones: {
-      "Humorous": { rules: ["witty","wordplay","exaggeration"] },
-      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
+      "Humorous":    { rules: ["witty","wordplay","exaggeration"] },
+      "Savage":      { rules: ["blunt","cutting","roast_style","no_soft_language"] },
       "Sentimental": { rules: ["warm","affectionate","no_sarcasm"] },
-      "Nostalgic": { rules: ["past_refs","no_modern_slang"] },
-      "Romantic": { rules: ["affectionate","playful","no_mean"] },
+      "Nostalgic":   { rules: ["past_refs","no_modern_slang"] },
+      "Romantic":    { rules: ["affectionate","playful","no_mean"] },
       "Inspirational": { rules: ["uplifting","no_negativity_or_irony"] },
-      "Playful": { rules: ["cheeky","silly","no_formal"] },
-      "Serious": { rules: ["dry","deadpan","formal_weight"] }
+      "Playful":     { rules: ["cheeky","silly","no_formal"] },
+      "Serious":     { rules: ["dry","deadpan","formal_weight"] }
     },
     ratings: {
-      "G": { allow_profanity: false, allow_censored_swears: false },
-      "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
+      "G":     { allow_profanity: false, allow_censored_swears: false },
+      "PG":    { allow_profanity: false, allow_censored_swears: true,  censored_forms: ["f***","sh*t"] },
       "PG-13": { allow_profanity: true, mild_only: ["hell","damn"], block_stronger_profanity: true },
-      "R": { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
+      "R":     { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
     },
     spelling: {
       auto_substitutions: { "you’ve":"you have", "you've":"you have" }
@@ -100,7 +100,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ c
     const content = data.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error("Empty content");
     return { content, model: data.model || model };
-  } catch (_e) {
+  } catch {
     // fallback
     model = "gpt-4o-mini";
     maxTokens = 200;
@@ -154,6 +154,15 @@ function varyInsertPositions(lines: string[], insert: string) {
     if (i % 2 === 0) return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`;
     return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `);
   });
+}
+
+function deTagInsert(line: string, insert: string) {
+  const tag = new RegExp(`,\\s*${insert}\\.?$`, "i");
+  if (tag.test(line) && !new RegExp(`^${insert}\\b`, "i").test(line)) {
+    const core = line.replace(tag, "").trim().replace(/\s+/g, " ");
+    return `${insert}, ${core}`;
+  }
+  return line;
 }
 
 function ensureProfanityVariation(lines: string[]) {
@@ -212,7 +221,7 @@ function enforceRules(
 
     // punctuation normalization and limit to 1
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
-    t = t.replace(/[:;…]/g, ",").replace(/[“”"']/g, "");
+    t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
     if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 1)) {
       let kept = 0;
       t = t.replace(/[.,?!]/g, (m) => (++kept <= 1 ? m : ""));
@@ -243,8 +252,9 @@ function enforceRules(
     return t;
   });
 
-  // vary insert word positions if a single insert
+  // avoid end-tagged insert; vary positions too
   if (insertWords?.length === 1) {
+    processed = processed.map(l => deTagInsert(l, insertWords[0]));
     const varied = varyInsertPositions(processed, insertWords[0]);
     if (varied.join("|") !== processed.join("|")) enforcement.push("Varied insert word positions across outputs");
     processed = varied;
@@ -305,6 +315,26 @@ function enforceRules(
   return { lines: unique, enforcement };
 }
 
+// ===================== BACKFILL (guarantee 4 lines) =====================
+async function backfillLines(
+  missing: number,
+  systemPrompt: string,
+  accepted: string[],
+  tone: string,
+  rating: string,
+  insertWords: string[]
+) {
+  const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
+  const user = `We still need ${missing} additional one-liners that satisfy ALL constraints.
+Do not repeat word pairs used in:
+${block}
+Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
+Return exactly ${missing} new lines, one per line.`;
+
+  const { content } = await callOpenAI(systemPrompt, user);
+  return parseLines(content);
+}
+
 // ===================== HTTP HANDLER =====================
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -330,16 +360,36 @@ serve(async (req) => {
 
     // Parse raw → candidate lines
     let candidates = parseLines(rawResponse);
-    // If too few, keep raw splitting as backup
     if (candidates.length < 4) {
       candidates = rawResponse.split(/\r?\n+/).map(cleanLine).filter(Boolean);
     }
 
     // Enforce rules
-    const enforced = enforceRules(candidates, rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} }, rating || "PG-13", insertWords);
-    let lines = enforced.lines.slice(0, 4);
+    const enforced = enforceRules(
+      candidates,
+      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+      rating || "PG-13",
+      insertWords
+    );
+    let lines = enforced.lines;
 
-    // Final validity flagging
+    // Backfill to guarantee 4
+    let attempts = 0;
+    while (lines.length < 4 && attempts < 2) {
+      const need = 4 - lines.length;
+      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
+      const enforcedMore = enforceRules(
+        more,
+        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+        rating || "PG-13",
+        insertWords
+      );
+      lines = [...lines, ...enforcedMore.lines];
+      attempts++;
+    }
+    lines = lines.slice(0, 4);
+
+    // Final validity flags
     const minLength = rules?.length?.min_chars ?? 50;
     const maxLength = rules?.length?.max_chars ?? 90;
 
@@ -356,7 +406,9 @@ serve(async (req) => {
       enforcement: enforced.enforcement
     };
 
-    return new Response(JSON.stringify(response), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
 
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
@@ -365,6 +417,7 @@ serve(async (req) => {
     });
   }
 });
+
 /*import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { text_rules } from "../_shared/text-rules.ts";
