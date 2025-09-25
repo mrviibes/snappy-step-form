@@ -76,48 +76,94 @@ function parseLines(rawResponse: string): string[] {
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ content: string; model: string }> {
-  const model = getTextModel();
+  let model = getTextModel();
   console.log(`🤖 Using model: ${model}`);
   
-  const maxTokens = model.startsWith('gpt-5') ? 2000 : 200; // Much higher limit for GPT-5 reasoning + response
+  let maxTokens = model.startsWith('gpt-5') ? 4000 : 200; // Very high limit for GPT-5 reasoning + response
   
-  const requestBody = buildOpenAIRequest(
-    model,
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    { maxTokens }
-  );
-  
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
+  // First attempt with GPT-5
+  try {
+    const requestBody = buildOpenAIRequest(
+      model,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      { maxTokens }
+    );
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-  console.log('📡 Response Status:', response.status);
-  
-  const data = await response.json();
-  console.log('📄 Response Data:', JSON.stringify(data, null, 2));
-  
-  if (data.error) {
-    console.error('❌ API Error:', data.error);
-    throw new Error(`OpenAI API Error: ${data.error.message}`);
+    console.log('📡 Response Status:', response.status);
+    
+    const data = await response.json();
+    console.log('📄 Response Data:', JSON.stringify(data, null, 2));
+    
+    if (data.error) {
+      console.error('❌ API Error:', data.error);
+      throw new Error(`OpenAI API Error: ${data.error.message}`);
+    }
+    
+    const content = data.choices?.[0]?.message?.content;
+    const actualModel = data.model || model; // Use actual model from response or fallback to requested model
+    
+    if (!content || content.trim() === '') {
+      console.warn('⚠️ GPT-5 returned empty content - falling back to GPT-4o-mini');
+      throw new Error('GPT-5 returned empty content');
+    }
+    
+    return { content, model: actualModel };
+    
+  } catch (error) {
+    // Fallback to GPT-4o-mini if GPT-5 fails
+    console.log('🔄 Falling back to GPT-4o-mini due to GPT-5 failure');
+    model = 'gpt-4o-mini';
+    maxTokens = 200;
+    
+    const requestBody = buildOpenAIRequest(
+      model,
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      { maxTokens, temperature: 0.8 }
+    );
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('📡 Fallback Response Status:', response.status);
+    
+    const data = await response.json();
+    console.log('📄 Fallback Response Data:', JSON.stringify(data, null, 2));
+    
+    if (data.error) {
+      console.error('❌ Fallback API Error:', data.error);
+      throw new Error(`OpenAI API Error: ${data.error.message}`);
+    }
+    
+    const content = data.choices?.[0]?.message?.content;
+    const actualModel = data.model || model;
+    
+    if (!content || content.trim() === '') {
+      throw new Error('Both GPT-5 and fallback model returned empty content');
+    }
+    
+    return { content, model: actualModel };
   }
-  
-  const content = data.choices?.[0]?.message?.content;
-  const actualModel = data.model || model; // Use actual model from response or fallback to requested model
-  
-  if (!content || content.trim() === '') {
-    console.warn('⚠️ GPT-5 returned empty content - this may indicate the prompt needs adjustment');
-    throw new Error('GPT-5 returned empty content');
-  }
-  
-  return { content, model: actualModel };
 }
 
 serve(async (req) => {

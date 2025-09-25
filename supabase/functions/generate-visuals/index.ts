@@ -121,7 +121,7 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.completed_text}` }
       ],
-      { maxTokens: 2000 } // Much higher limit for GPT-5 reasoning + response
+      { maxTokens: 4000 } // Very high limit for GPT-5 reasoning + response
     );
 
     console.log('📤 OpenAI request:', JSON.stringify(requestBody, null, 2));
@@ -146,6 +146,68 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;
 
     const generatedText = data.choices[0].message.content;
     console.log('✨ Generated content:', generatedText);
+
+    // Check if content is empty and retry with fallback if needed
+    if (!generatedText || generatedText.trim() === '') {
+      console.warn('⚠️ GPT-5 returned empty content - falling back to GPT-4o-mini');
+      
+      // Fallback to GPT-4o-mini
+      const fallbackModel = 'gpt-4o-mini';
+      const fallbackRequestBody = buildOpenAIRequest(
+        fallbackModel,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.completed_text}` }
+        ],
+        { maxTokens: 200 }
+      );
+
+      console.log('🔄 Retrying with fallback model:', fallbackModel);
+
+      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fallbackRequestBody),
+      });
+
+      if (!fallbackResponse.ok) {
+        const errorText = await fallbackResponse.text();
+        console.error('❌ Fallback API error:', fallbackResponse.status, errorText);
+        throw new Error(`Fallback API error: ${fallbackResponse.status} ${errorText}`);
+      }
+
+      const fallbackData = await fallbackResponse.json();
+      const fallbackText = fallbackData.choices[0].message.content;
+      
+      if (!fallbackText || fallbackText.trim() === '') {
+        throw new Error('Both GPT-5 and fallback model returned empty content');
+      }
+      
+      // Use fallback content
+      const scenes = fallbackText
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 4);
+
+      console.log('🎬 Fallback scenes:', scenes);
+
+      const lengths = scenes.map((scene: string) => scene.split(' ').length);
+      const validCount = lengths.filter((len: number) => len >= 10 && len <= 15).length;
+
+      return {
+        success: true,
+        visuals: scenes.map((scene: string) => ({ description: scene })),
+        model: fallbackModel,
+        debug: {
+          lengths,
+          validCount
+        }
+      };
+    }
 
     // Parse the response into individual scenes
     const scenes = generatedText
