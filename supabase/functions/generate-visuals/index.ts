@@ -96,14 +96,21 @@ INPUTS:
 - Image Style: ${params.image_style}
 - Completed Text: "${params.completed_text}"
 
+REQUIREMENTS:
 - Generate exactly 4 distinct visual scene descriptions.
 - Each description must be 7–12 words long, no fewer, no more.
 - Each must reflect the ${params.subcategory} context (${subcategoryContext}).
 - All insertWords (${insertWords.join(', ')}) must appear in every description.
 - Each must include the composition_modes (${composition_modes.join(', ')}).
-- Each scene must use a unique setting and props, no repetition across outputs.
+- Each scene must use a unique setting and unique props. 
+  Do NOT reuse the same props across outputs.
+- Visuals must also reflect the selected tone (${params.tone}) 
+  through mood, exaggeration, or props.
 - Sentences must be short, vivid, and concrete.
 - Do NOT mention the image style (${params.image_style}) in the descriptions.
+
+OUTPUT:
+- Return ONLY the 4 scene descriptions, one per line, nothing else.
 
 `;
 
