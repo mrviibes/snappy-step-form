@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
@@ -17,7 +18,6 @@ import animeImage from "@/assets/visual-style-anime-new.jpg";
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
-  onNext: () => void;
 }
 const visualStyles = [{
   id: "auto",
@@ -98,6 +98,7 @@ export default function VisualsStep({
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
   const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
+  const [showWritingProcessModal, setShowWritingProcessModal] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -267,15 +268,42 @@ export default function VisualsStep({
       }
     });
     setEditingDimension(false);
+    // Show writing process modal after dimension selection
+    setShowWritingProcessModal(true);
   };
   // Initialize with no default style to force selection
+  
+  const handleWritingProcessSelect = (process: 'ai' | 'manual') => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        writingProcess: process
+      }
+    });
+    setShowWritingProcessModal(false);
+    
+    // If user selects "Write Myself", skip to next step
+    if (process === 'manual') {
+      // Set some default values and proceed
+      updateData({
+        visuals: {
+          ...data.visuals,
+          writingProcess: 'manual',
+          isComplete: true
+        }
+      });
+      // Would need navigation logic here - for now just mark as complete
+    }
+    // If "AI Assist", continue with current flow (visual tags section will show)
+  };
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedDimension = !!data.visuals?.dimension;
   const showGenerateButton = hasSelectedStyle && hasSelectedDimension;
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* Category Breadcrumb */}
       {data.category && data.subcategory && <div className="text-left mb-2">
           <div className="text-sm text-muted-foreground">
@@ -493,5 +521,37 @@ export default function VisualsStep({
             </Button>
           </div>
         </Card>}
-    </div>;
-}
+        
+        {/* Writing Process Modal */}
+        <Dialog open={showWritingProcessModal} onOpenChange={setShowWritingProcessModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogTitle className="text-center text-xl font-semibold mb-6">
+              Choose Your Writing Process
+            </DialogTitle>
+            
+            <div className="space-y-4">
+              <Card 
+                className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4"
+                onClick={() => handleWritingProcessSelect('ai')}
+              >
+                <div className="text-center">
+                  <div className="text-lg font-medium text-foreground">AI Assist</div>
+                  <div className="text-sm text-muted-foreground mt-1">Let AI help generate your content</div>
+                </div>
+              </Card>
+              
+              <Card 
+                className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4"
+                onClick={() => handleWritingProcessSelect('manual')}
+              >
+                <div className="text-center">
+                  <div className="text-lg font-medium text-foreground">Write Myself</div>
+                  <div className="text-sm text-muted-foreground mt-1">Create your own custom content</div>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
