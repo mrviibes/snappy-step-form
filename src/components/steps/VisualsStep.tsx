@@ -27,7 +27,7 @@ const visualStyles = [{
   id: "realistic",
   title: "Realistic",
   description: "True photo",
-  preview: realisticImage
+  preview: realisticImageOptional - any specific visuals?
 }, {
   id: "general",
   title: "General",
@@ -401,7 +401,7 @@ export default function VisualsStep({
             <h2 className="text-xl font-semibold text-foreground">Choose Your Visual Process</h2>
           </div>
           
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('ai')}>
               <div className="text-lg font-medium text-foreground">AI Assist</div>
               <div className="text-sm text-muted-foreground mt-2">Let AI help generate your content</div>
@@ -457,7 +457,7 @@ export default function VisualsStep({
                 
                 <Select value={selectedCustomVisualStyle} onValueChange={handleCustomVisualStyleChange}>
                   <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-50">
-                    <SelectValue placeholder="e.g., dogs, mountains, cars..." />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background border border-border shadow-lg z-50">
                     {customVisualStyles.map(style => <SelectItem key={style.value} value={style.value} className="hover:bg-accent">
