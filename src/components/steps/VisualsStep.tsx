@@ -162,16 +162,16 @@ export default function VisualsStep({
     try {
       const finalText = data.text.generatedText || data.text.customText;
       const params = {
-        finalText,
+        completed_text: finalText,
         category: data.category || "",
         subcategory: data.subcategory || "",
         tone: data.vibe?.tone || "Humorous",
         textStyle: data.vibe?.style || "Sarcastic",
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
-        visualStyle: data.visuals?.style || "general",
-        insertedVisuals: data.visuals?.insertedVisuals || [],
-        dimension: data.visuals?.dimension || "square"
+        image_style: data.visuals?.style || "general",
+        composition_modes: data.visuals?.insertedVisuals || [],
+        image_dimensions: data.visuals?.dimension || "square"
       };
       // Set debug info before API call
       setDebugInfo({

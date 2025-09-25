@@ -27,7 +27,7 @@ interface FormData {
     option: string;
     customVisuals?: string;
     dimension?: string;
-    customVisualDescription?: string;
+    completed_visual_description?: string;
   };
   generation?: {
     prompts?: any;
@@ -109,7 +109,7 @@ export default function MultiStepForm() {
 
         // Additional requirements based on option type
         if (formData.visuals.option === 'design-myself') {
-          return !!formData.visuals.customVisualDescription;
+          return !!formData.visuals.completed_visual_description;
         }
         // For ai-assist and no-visuals, basic requirements are enough
         return true;

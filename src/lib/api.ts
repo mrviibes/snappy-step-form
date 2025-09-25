@@ -24,33 +24,33 @@ export interface VisualRecommendation {
 }
 
 type GenerateVisualsParams = {
-  finalText: string;
+  completed_text: string;
   category: string;
   subcategory?: string;
   tone: string;
   textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];
-  visualStyle: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
+  image_style: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
   visualTaste?: string;
-  insertedVisuals?: string[];
-  dimension: "Square"|"Portrait"|"Landscape";
+  composition_modes?: string[];
+  image_dimensions: "Square"|"Portrait"|"Landscape";
 };
 
 type GenerateVisualsResponse = { success: true; visuals: VisualRecommendation[] } | { success: false; error: string };
 
 type GenerateFinalPromptParams = {
-  finalText: string;
+  completed_text: string;
   category: string;
   subcategory?: string;
   tone: string;
   textStyle: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];
-  visualStyle: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
-  layout: string;
-  dimension: "Square"|"Portrait"|"Landscape";
-  insertedVisuals?: string[];
+  image_style: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
+  text_layout: string;
+  image_dimensions: "Square"|"Portrait"|"Landscape";
+  composition_modes?: string[];
 };
 
 type GenerateFinalPromptResponse = { 
@@ -69,7 +69,7 @@ type GenerateFinalPromptResponse = {
 export interface GenerateImageParams {
   prompt: string;
   negativePrompt?: string;
-  dimension?: 'square' | 'portrait' | 'landscape';
+  image_dimensions?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
 }
 

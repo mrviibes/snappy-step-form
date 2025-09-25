@@ -9,7 +9,7 @@ const corsHeaders = {
 interface GenerateImageRequest {
   prompt: string;
   negativePrompt?: string;
-  dimension?: 'square' | 'portrait' | 'landscape';
+  image_dimensions?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
 }
 
@@ -102,7 +102,7 @@ serve(async (req) => {
 
   console.log('Image generation request received:', {
     prompt: requestBody.prompt?.substring(0, 100) + '...',
-    dimension: requestBody.dimension,
+    image_dimensions: requestBody.image_dimensions,
     quality: requestBody.quality,
     hasNegativePrompt: !!requestBody.negativePrompt
   });
@@ -133,15 +133,15 @@ serve(async (req) => {
       }, 400);
     }
 
-    const { prompt, negativePrompt, dimension = 'square', quality = 'high' } = requestBody;
+    const { prompt, negativePrompt, image_dimensions = 'square', quality = 'high' } = requestBody;
 
-    // Validate dimension
+    // Validate image dimensions
     const validDimensions = ['square', 'portrait', 'landscape'];
-    if (!validDimensions.includes(dimension)) {
+    if (!validDimensions.includes(image_dimensions)) {
       return jsonResponse({
         success: false,
-        error: 'Invalid dimension',
-        details: `Dimension must be one of: ${validDimensions.join(', ')}`
+        error: 'Invalid image dimensions',
+        details: `Image dimensions must be one of: ${validDimensions.join(', ')}`
       }, 400);
     }
 
@@ -178,9 +178,9 @@ serve(async (req) => {
 
     console.log('Generating image with Ideogram:', { 
       promptLength: prompt.length, 
-      dimension, 
+      image_dimensions, 
       quality,
-      aspectRatio: aspectRatioMap[dimension],
+      aspectRatio: aspectRatioMap[image_dimensions],
       model: modelMap[quality]
     });
 
@@ -202,14 +202,14 @@ serve(async (req) => {
       console.log('Sending request to Ideogram API (v3 multipart)...');
       console.log('V3 request details:', {
         endpoint: 'https://api.ideogram.ai/v3/generate',
-        resolution: resolutionMap[dimension],
+        resolution: resolutionMap[image_dimensions],
         renderingSpeed: speedMap[quality]
       });
       
       const form = new FormData();
       form.append('prompt', prompt.trim());
       if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
-      form.append('resolution', resolutionMap[dimension]);
+      form.append('resolution', resolutionMap[image_dimensions]);
       form.append('rendering_speed', speedMap[quality]);
       form.append('magic_prompt', 'AUTO');
       form.append('style_type', 'AUTO');
@@ -236,7 +236,7 @@ serve(async (req) => {
           model: legacyModelMap[quality],
           prompt: prompt.trim(),
           negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
-          aspect_ratio: aspectRatioMap[dimension],
+          aspect_ratio: aspectRatioMap[image_dimensions],
           magic_prompt_option: "ON",
           seed: Math.floor(Math.random() * 1000000),
           style_type: "AUTO"

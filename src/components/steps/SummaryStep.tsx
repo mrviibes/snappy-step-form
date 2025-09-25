@@ -67,20 +67,20 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       
       try {
         // Build the final prompt parameters from all collected data
-        const finalText = data.text?.generatedText || data.text?.customText || '';
+        const completed_text = data.text?.generatedText || data.text?.customText || '';
         
         const params = {
-          finalText,
+          completed_text,
           category: data.category || '',
           subcategory: data.subcategory || '',
           tone: data.text?.tone || 'Humorous',
           textStyle: data.text?.style || 'Generic',
           rating: data.text?.rating || 'PG',
           insertWords: data.text?.specificWords || [],
-          visualStyle: data.visuals?.style || 'general',
-          layout: data.text?.layout || 'lower-banner',
-          dimension: data.visuals?.dimension || 'square',
-          insertedVisuals: Array.isArray(data.visuals?.customVisuals) ? data.visuals.customVisuals : 
+          image_style: data.visuals?.style || 'general',
+          text_layout: data.text?.layout || 'lower-banner',
+          image_dimensions: data.visuals?.dimension || 'square',
+          composition_modes: Array.isArray(data.visuals?.customVisuals) ? data.visuals.customVisuals : 
                             (data.visuals?.customVisuals ? data.visuals.customVisuals.split(',').map(s => s.trim()) : [])
         };
 
@@ -181,7 +181,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       const imageParams = {
         prompt: template.positive,
         negativePrompt: template.negative,
-        dimension: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
+        image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high' as const
       };
       

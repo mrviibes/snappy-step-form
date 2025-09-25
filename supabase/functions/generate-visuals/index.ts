@@ -37,9 +37,9 @@ interface GenerateVisualsParams {
   tone: string
   rating: string
   insertWords?: string[]
-  insertedVisuals?: string[]
-  visualStyle: string
-  finalText: string
+  composition_modes?: string[]
+  image_style: string
+  completed_text: string
   count: number
 }
 
@@ -82,7 +82,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   
   // Build the system prompt
   const insertWords = params.insertWords || [];
-  const insertedVisuals = params.insertedVisuals || [];
+  const composition_modes = params.composition_modes || [];
   
   const systemPrompt = `You are generating exactly 4 visual scene descriptions for AI image generation.
 
@@ -92,19 +92,19 @@ INPUTS:
 - Tone: ${params.tone}
 - Rating: ${params.rating}
 - Insert Words: ${insertWords.join(', ')}
-- Inserted Visuals: ${insertedVisuals.join(', ')}
-- Visual Style: ${params.visualStyle}
-- Final Text: "${params.finalText}"
+- Composition Modes: ${composition_modes.join(', ')}
+- Image Style: ${params.image_style}
+- Completed Text: "${params.completed_text}"
 
 REQUIREMENTS:
 - Generate exactly 4 distinct visual scene descriptions
 - Each description must be 10-15 words long
 - Each must reflect the ${params.subcategory} context (${subcategoryContext})
-- Each must include the insertWords (${insertWords.join(', ')}) and insertedVisuals (${insertedVisuals.join(', ')})
-- If insertWords = ["Jesse"] and insertedVisuals = ["old man yelling"], then Jesse is the old man yelling in each scene
+- Each must include the insertWords (${insertWords.join(', ')}) and composition_modes (${composition_modes.join(', ')})
+- If insertWords = ["Jesse"] and composition_modes = ["old man yelling"], then Jesse is the old man yelling in each scene
 - Each scene should be different (different locations/settings within the subcategory context)
 - Keep sentences short, vivid, and concrete
-- Do NOT mention the visual style (${params.visualStyle}) in the descriptions - that's applied later
+- Do NOT mention the image style (${params.image_style}) in the descriptions - that's applied later
 
 Example format:
 Jesse yelling at messy table, guests frozen mid-laugh, balloons drifting upward.
@@ -119,7 +119,7 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;
       model,
       [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.finalText}` }
+        { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.completed_text}` }
       ],
       { maxTokens: 500 }
     );

@@ -11,17 +11,17 @@ const corsHeaders = {
 };
 
 interface FinalPromptRequest {
-  finalText: string;
+  completed_text: string;
   category: string;
   subcategory?: string;
   tone: string;
   textStyle: string;
   rating: string;
   insertWords?: string[];
-  visualStyle: string;
-  layout: string;
-  dimension: string;
-  insertedVisuals?: string[];
+  image_style: string;
+  text_layout: string;
+  image_dimensions: string;
+  composition_modes?: string[];
 }
 
 interface PromptTemplate {
@@ -51,10 +51,10 @@ serve(async (req) => {
     console.log("Request received:", body);
     
     // Validate required fields
-    if (!body.finalText || !body.visualStyle || !body.layout || !body.dimension) {
+    if (!body.completed_text || !body.image_style || !body.text_layout || !body.image_dimensions) {
       return json({ 
         success: false, 
-        error: "Missing required fields: finalText, visualStyle, layout, dimension" 
+        error: "Missing required fields: completed_text, image_style, text_layout, image_dimensions" 
       }, 400);
     }
     
@@ -85,17 +85,17 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   console.log('🔄 Starting prompt generation with params:', params);
   
   const {
-    finalText,
+    completed_text,
     category,
     subcategory,
     tone,
     textStyle,
     rating,
     insertWords = [],
-    visualStyle,
-    layout,
-    dimension,
-    insertedVisuals = []
+    image_style,
+    text_layout,
+    image_dimensions,
+    composition_modes = []
   } = params;
 
   // Map layout to text layout descriptions
@@ -109,7 +109,7 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     "open-space": "open space layout"
   };
 
-  // Map dimension to proper format
+  // Map image dimensions to proper format
   const dimensionMap: Record<string, string> = {
     "square": "1:1 aspect ratio",
     "portrait": "9:16 aspect ratio", 
@@ -138,13 +138,13 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const categoryContext = [category, subcategory].filter(Boolean).join(' ');
   
   // Get mapped values
-  const textLayout = layoutMap[layout] || layout;
-  const dimensions = dimensionMap[dimension] || dimension;
+  const textLayout = layoutMap[text_layout] || text_layout;
+  const dimensions = dimensionMap[image_dimensions] || image_dimensions;
   const toneDescriptor = toneMap[tone.toLowerCase()] || tone.toLowerCase();
   const ratingGuideline = ratingMap[rating] || "appropriate for general audiences";
   
   // Use first visual scene as context or create category-based scene
-  const visualScene = insertedVisuals[0] || `${categoryContext} scene`;
+  const visualScene = composition_modes[0] || `${categoryContext} scene`;
   
   // Build emphasis for specific words
   const wordEmphasis = insertWords.length > 0 
@@ -162,7 +162,7 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   });
 
   // Enhanced positive prompt with ALL context
-  const positivePrompt = `Create a ${visualStyle} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${finalText}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone.${wordEmphasis} Ensure excellent readability, professional typography, and visual appeal that matches the ${visualStyle} aesthetic.`;
+  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone.${wordEmphasis} Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   
   // Enhanced negative prompt with category-specific exclusions
   const categoryNegatives = getCategoryNegatives(category, rating);
