@@ -29,5 +29,6 @@ RATINGS
 - G → no profanity or adult refs.
 - PG → censored swears allowed (f***, sh*t), no uncensored profanity.
 - PG-13 → only “hell”, “damn”; nothing stronger.
-- R → include at least one of: fuck, shit, bastard, ass, bullshit, goddamn.
-      Vary profanity across outputs (no repeats).`;
+- R → R rating must sound raw, harsh, unfiltered. 
+Each output must include different profanity terms. 
+Keep humor blunt, cutting, savage.
