@@ -170,10 +170,11 @@ export default function VisualsStep({
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         image_style: data.visuals?.style || "general",
-        composition_modes: [
-          selectedCustomVisualStyle, // Include the selected visual style from dropdown
-          ...(data.visuals?.insertedVisuals || []) // Include any additional visual tags
-        ].filter(Boolean), // Remove any empty values
+        composition_modes: [selectedCustomVisualStyle,
+        // Include the selected visual style from dropdown
+        ...(data.visuals?.insertedVisuals || []) // Include any additional visual tags
+        ].filter(Boolean),
+        // Remove any empty values
         image_dimensions: data.visuals?.dimension || "square"
       };
       // Set debug info before API call
@@ -195,14 +196,14 @@ export default function VisualsStep({
       updateData({
         visuals: {
           ...data.visuals,
-          selectedCompositionStyle: selectedCustomVisualStyle, // Save the dropdown selection
+          selectedCompositionStyle: selectedCustomVisualStyle,
+          // Save the dropdown selection
           insertedVisuals: [...(data.visuals?.insertedVisuals || []), selectedCustomVisualStyle].filter(Boolean)
         }
       });
-
       const visuals = await generateVisualOptions(params);
       console.log('📥 Received visuals from API:', visuals);
-      
+
       // Update debug info with API response
       setDebugInfo(prev => ({
         ...prev!,
@@ -211,12 +212,11 @@ export default function VisualsStep({
         visualsCount: visuals.length,
         model: (visuals as any).model || 'gpt-4o-mini' // Extract model from API response
       }));
-      
       setGeneratedVisuals(visuals);
       console.log('💾 Set generatedVisuals to:', visuals);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
-      
+
       // Update debug info with error
       setDebugInfo(prev => ({
         ...prev!,
@@ -228,7 +228,6 @@ export default function VisualsStep({
           raw: error
         }
       }));
-      
       setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setGeneratedVisuals([]);
     } finally {
@@ -266,13 +265,11 @@ export default function VisualsStep({
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
       {/* Category Breadcrumb */}
-      {data.category && data.subcategory && (
-        <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-2">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}{data.theme ? ` > ${data.theme}` : ''}
           </div>
-        </div>
-      )}
+        </div>}
 
       {/* Text Summary */}
       <div className="text-left mb-6">
@@ -371,7 +368,7 @@ export default function VisualsStep({
           {/* Optional Visual Tags */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">insert_visuals</h3>
+              <h3 className="text-lg font-semibold text-foreground">Optional - any specific visuals?</h3>
             </div>
             
             <div className="flex gap-2">
@@ -428,22 +425,7 @@ export default function VisualsStep({
           {/* Visual Selection */}
           {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && <>
               {/* Debug Panel for Visuals Generation */}
-              {debugInfo && (
-                <DebugPanel
-                  title="Visual Generation Debug"
-                  model={debugInfo.model || "gpt-4o-mini"}
-                  status={debugInfo.step === 'API_CALL_START' ? 'sending...' : 
-                         debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
-                         debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}
-                  endpoint="generate-visuals"
-                  timestamp={debugInfo.timestamp}
-                  requestPayload={debugInfo.params}
-                  responseData={debugInfo.apiResponse}
-                  formData={debugInfo.formData}
-                  error={debugInfo.error}
-                  className="mb-6"
-                />
-              )}
+              {debugInfo && <DebugPanel title="Visual Generation Debug" model={debugInfo.model || "gpt-4o-mini"} status={debugInfo.step === 'API_CALL_START' ? 'sending...' : debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' : debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'} endpoint="generate-visuals" timestamp={debugInfo.timestamp} requestPayload={debugInfo.params} responseData={debugInfo.apiResponse} formData={debugInfo.formData} error={debugInfo.error} className="mb-6" />}
 
               <div className="text-center mb-6 pt-6">
                 <h2 className="text-xl font-semibold text-foreground mb-2">
