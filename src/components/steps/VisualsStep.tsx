@@ -158,7 +158,6 @@ export default function VisualsStep({
       setSelectedCustomVisualStyle("");
     }
   };
-  
   const handleRemoveTag = (visualToRemove: string) => {
     const currentVisuals = data.visuals?.insertedVisuals || [];
     updateData({
@@ -268,7 +267,7 @@ export default function VisualsStep({
     setEditingDimension(false);
   };
   // Initialize with no default style to force selection
-  
+
   const handleWritingProcessSelect = (process: 'ai' | 'manual') => {
     updateData({
       visuals: {
@@ -276,7 +275,7 @@ export default function VisualsStep({
         writingProcess: process
       }
     });
-    
+
     // If user selects "Write Myself", skip to next step
     if (process === 'manual') {
       // Set some default values and proceed
@@ -298,8 +297,7 @@ export default function VisualsStep({
   const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai';
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Category Breadcrumb */}
       {data.category && data.subcategory && <div className="text-left mb-2">
           <div className="text-sm text-muted-foreground">
@@ -400,26 +398,20 @@ export default function VisualsStep({
       {/* Writing Process Selection - appears after dimension selection */}
       {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
           <div className="text-center pt-6 pb-2">
-            <h2 className="text-xl font-semibold text-foreground">
-              Choose Your Writing Process
-            </h2>
+            <h2 className="text-xl font-semibold text-foreground">Choose Your Visual Process</h2>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <Card 
-              className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center"
-              onClick={() => handleWritingProcessSelect('ai')}
-            >
+            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center" onClick={() => handleWritingProcessSelect('ai')}>
               <div className="text-lg font-medium text-foreground">AI Assist</div>
               <div className="text-sm text-muted-foreground mt-2">Let AI help generate your content</div>
             </Card>
             
-            <Card 
-              className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center"
-              onClick={() => handleWritingProcessSelect('manual')}
-            >
-              <div className="text-lg font-medium text-foreground">Write Myself</div>
-              <div className="text-sm text-muted-foreground mt-2">Create your own custom content</div>
+            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center" onClick={() => handleWritingProcessSelect('manual')}>
+              <div className="text-lg font-medium text-foreground">Create Myself</div>
+              <div className="text-sm text-muted-foreground mt-2">Create your own custom visuals
+
+          </div>
             </Card>
           </div>
         </>}
@@ -544,6 +536,5 @@ export default function VisualsStep({
             </Button>
           </div>
         </Card>}
-      </div>
-    );
-  }
+      </div>;
+}
