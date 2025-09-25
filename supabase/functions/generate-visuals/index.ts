@@ -113,18 +113,6 @@ Return ONLY the 4 descriptions, one per line, nothing else.`;*/
 
   const systemPrompt = `VISUAL GENERATION RULES
 
-You are generating exactly 4 visual scene descriptions for AI image generation.
-
-INPUTS:
-- Category: ${params.category}
-- Subcategory: ${params.subcategory} 
-- Tone: ${params.tone}
-- Rating: ${params.rating}
-- Insert Words: ${insertWords.join(', ')}
-- Composition Modes: ${composition_modes.join(', ')}
-- Image Style: ${params.image_style}
-- Completed Text: "${params.completed_text}"
-
 GENERAL
 - All visuals must clearly support the completed_text.
 - Insert words (e.g., names, phrases) must appear in the text overlay if required, not forced into objects.
