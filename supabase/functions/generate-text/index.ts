@@ -1,8 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Get model from environment with fallback - Always use GPT-5
-const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5-2025-08-07';
+// Get model from environment with fallback - Always use GPT-5 Nano (fastest)
+const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5-nano-2025-08-07';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
