@@ -161,7 +161,7 @@ export function validateBatch(input: BatchInput): { ok: true } | { ok: false; de
   // rhythm: require at least one short (<70), one long (>=100)
   const lens = lines.map(l => norm(l).length);
   const hasShort = lens.some(n => n < 70);
-  const hasLong = lens.some(n => n >= 100);
+  const hasLong = lens.some(n => n >= 120);
   if (!hasShort || !hasLong) return { ok: false, details: "rhythm_variety_missing" };
 
   // LOOSENED RULE: batch-level anchoring - at least 2 of 4 lines should contain a direct lexicon hit
