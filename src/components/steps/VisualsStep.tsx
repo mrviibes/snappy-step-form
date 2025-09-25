@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +96,6 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
-  const [selectedCompositionMode, setSelectedCompositionMode] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -107,6 +106,18 @@ export default function VisualsStep({
     model?: string;
     error?: any;
   } | null>(null);
+
+  // Set default composition mode to "minimalist" if not already set
+  useEffect(() => {
+    if (!data.visuals?.compositionMode) {
+      updateData({
+        visuals: {
+          ...data.visuals,
+          compositionMode: "minimalist"
+        }
+      });
+    }
+  }, []); // Only run on mount
   const handleStyleChange = (styleId: string) => {
     updateData({
       visuals: {
@@ -150,8 +161,6 @@ export default function VisualsStep({
           compositionMode: value
         }
       });
-      // Clear the dropdown selection after setting
-      setSelectedCompositionMode("");
     }
   };
   const handleRemoveTag = (visualToRemove: string) => {
@@ -454,7 +463,7 @@ export default function VisualsStep({
                  <label className="text-sm font-medium text-foreground mb-2 block">
                    Composition Mode (Optional)
                  </label>
-                 <Select value={selectedCompositionMode} onValueChange={handleCompositionModeChange}>
+                 <Select value={data.visuals?.compositionMode || ""} onValueChange={handleCompositionModeChange}>
                    <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-[100]">
                      <SelectValue placeholder="Select composition mode (optional)" />
                    </SelectTrigger>
