@@ -79,7 +79,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           image_style: data.visuals?.style || 'general',
           text_layout: data.text?.layout || 'lower-banner',
           image_dimensions: data.visuals?.dimension || 'square',
-          composition_modes: data.visuals?.selectedCompositionStyle ? [data.visuals.selectedCompositionStyle] : []
+          composition_modes: data.visuals?.insertedVisuals || []
         };
 
         console.log('Generating templates with params:', params);
@@ -409,8 +409,8 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     { label: '6. text_layout', value: data.text?.layout },
     { label: '7. image_style', value: data.visuals?.style },
     { label: '8. image_dimensions', value: data.visuals?.dimension },
-    { label: '9. composition_modes', value: data.visuals?.selectedCompositionStyle || 'None' },
-    { label: '10. completed_visual_description', value: data.visuals?.completed_visual_description || 'None' },
+    { label: '9. composition_modes', value: formatArrayValue(data.visuals?.insertedVisuals) },
+    { label: '10. visual_recommendation', value: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation || 'None' },
   ];
 
   return (
