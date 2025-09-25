@@ -10,7 +10,7 @@ GENERAL
 - Insert words must appear exactly as written in every line.
 - No em dashes. Replace with commas.
 - Maximum 1 punctuation mark per sentence (. , ? !).
-- Text length must be between 50 and 90 characters.
+- Text length must be between 50 and 120 characters.
 - Always produce 4 distinct outputs.
 - Do not use any of the same word combinations in any of the 4 outputs.
 
@@ -35,7 +35,10 @@ RATINGS
 - G (Wholesome/Playful): Family-friendly. No profanity, no adult references. Light, goofy humor.
 - PG (Sharper Sarcasm): Snarky sarcasm with bite. Allowed: censored swears (f***, sh*t). No uncensored profanity.
 - PG-13 (Edgy, Sharp): Strong sarcasm, irony, edgy humor. Allowed swears: hell, damn. No stronger profanity.
-- R (Raw, Unfiltered): Must include profanity (fuck, shit, bastard, ass, bullshit, goddamn). Can be hype or roast. Avoid extreme violence or illegal themes.`;
+- R (Raw, Unfiltered): Must include profanity (fuck, shit, bastard, ass, bullshit, goddamn).
+  Profanity must vary across all 4 outputs. Can be hype or roast.
+  Avoid extreme violence or illegal themes.
+
 
 
 
