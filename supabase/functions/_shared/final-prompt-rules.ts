@@ -1,6 +1,3 @@
-Yes. Update the rules and add a builder that **auto-splits meme text** and **standardizes meme styling**. Use this drop-in TypeScript.
-
-```ts
 // ===== RULES =====
 export const final_prompt_rules = `FINAL PROMPT GENERATION RULES
 
@@ -166,6 +163,3 @@ export function buildTextImagePrompts(opts: {
 
   return { positivePrompt, negativePrompt: negatives };
 }
-```
-
-
