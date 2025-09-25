@@ -410,17 +410,6 @@ export default function VisualsStep({
             </div>
           )}
 
-          {/* Visual Concept Row */}
-          {isComplete && data.visuals?.selectedVisualRecommendation && (
-            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
-              <div className="text-sm text-foreground">
-                <span className="font-semibold">Visual Concept</span> - Option {(data.visuals?.selectedVisualOption ?? 0) + 1}
-              </div>
-              <button onClick={handleEditVisualConcept} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          )}
 
           {/* Specific Words Row (if any) */}
           {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && (
@@ -441,6 +430,18 @@ export default function VisualsStep({
                 <span className="font-semibold">Layout</span> - {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label?.split(' – ')[0] || data.visuals.compositionMode}
               </div>
               <button onClick={handleEditLayout} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          )}
+
+          {/* Visual Concept Row - moved below Layout */}
+          {isComplete && data.visuals?.selectedVisualRecommendation && (
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0) || data.visuals?.compositionMode) && "border-t border-border")}>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Visual Concept</span> - Option {(data.visuals?.selectedVisualOption ?? 0) + 1}
+              </div>
+              <button onClick={handleEditVisualConcept} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
                 Edit
               </button>
             </div>
