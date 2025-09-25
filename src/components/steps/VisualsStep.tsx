@@ -321,12 +321,12 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Compact Style Summary - Consistent with other edit sections */}
-      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400 rounded-lg">
+      {/* Style Summary Card */}
+      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
-              <div className="text-xs text-muted-foreground">{selectedStyle?.description}</div>
+              <div className="text-base font-medium text-foreground">Style: {selectedStyle?.title}</div>
+              <div className="text-sm text-muted-foreground">{selectedStyle?.description}</div>
             </div>
             <button onClick={() => setEditingStyle(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
@@ -360,12 +360,12 @@ export default function VisualsStep({
           </div>
         </>}
 
-      {/* Compact Dimension Summary */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400 rounded-lg">
+      {/* Dimension Summary Card */}
+      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-base font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
+              <div className="text-sm text-muted-foreground">
                 {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.description}
               </div>
             </div>
@@ -400,6 +400,49 @@ export default function VisualsStep({
               </Card>)}
           </div>
         </>}
+
+      {/* Writing Process Summary Card */}
+      {hasSelectedWritingProcess && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-base font-medium text-foreground">Process: {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}</div>
+              <div className="text-sm text-muted-foreground">
+                {data.visuals?.writingProcess === 'ai' ? 'Let AI help generate your content' : 
+                 data.visuals?.writingProcess === 'manual' ? 'Create your own custom visuals' : 
+                 'Generate instantly'}
+              </div>
+            </div>
+            <button onClick={() => updateData({ visuals: { ...data.visuals, writingProcess: undefined } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </Card>}
+
+      {/* Specific Visuals Summary Card */}
+      {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-base font-medium text-foreground">Specific Words: {data.visuals.insertedVisuals.join(', ')}</div>
+              <div className="text-sm text-muted-foreground">Visual elements to include</div>
+            </div>
+            <button onClick={() => updateData({ visuals: { ...data.visuals, insertedVisuals: [] } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </Card>}
+
+      {/* Layout/Composition Summary Card */}
+      {data.visuals?.compositionMode && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-base font-medium text-foreground">Layout: {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label?.split(' – ')[0] || data.visuals.compositionMode}</div>
+              <div className="text-sm text-muted-foreground">Composition style</div>
+            </div>
+            <button onClick={() => updateData({ visuals: { ...data.visuals, compositionMode: undefined } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </Card>}
 
       {/* Writing Process Selection - appears after dimension selection */}
       {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
@@ -536,24 +579,50 @@ export default function VisualsStep({
             </div>}
         </>}
 
-      {/* Completion State - Compact Summary */}
-      {isComplete && <Card className="cursor-pointer border-2 border-primary bg-accent/50 p-4" onClick={resetToStyleSelection}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-primary rounded-full" />
-              <div className="text-left">
-                <div className="text-sm font-medium text-foreground">
-                  Style: {selectedStyle?.title} • Dimension: {data.visuals?.dimension}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Visual Concept {(data.visuals?.selectedVisualOption ?? 0) + 1} selected
+      {/* Completion State - Clean Summary Cards */}
+      {isComplete && <div className="space-y-4">
+          {/* Style Card */}
+          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-base font-medium text-foreground">Style: {selectedStyle?.title}</div>
+                <div className="text-sm text-muted-foreground">{selectedStyle?.description}</div>
+              </div>
+              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          </Card>
+
+          {/* Dimension Card */}
+          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-base font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
+                <div className="text-sm text-muted-foreground">
+                  {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.description}
                 </div>
               </div>
+              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs">
-              Edit
-            </Button>
-          </div>
-        </Card>}
+          </Card>
+
+          {/* Visual Concept Card */}
+          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-base font-medium text-foreground">Visual Concept: {(data.visuals?.selectedVisualOption ?? 0) + 1} selected</div>
+                <div className="text-sm text-muted-foreground">
+                  {data.visuals?.selectedVisualRecommendation?.description || 'AI-generated visual recommendation'}
+                </div>
+              </div>
+              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          </Card>
+        </div>}
       </div>
 }
