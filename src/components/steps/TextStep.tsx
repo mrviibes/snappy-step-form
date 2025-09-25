@@ -852,8 +852,17 @@ export default function TextStep({
                 <div>
                   <div className="font-semibold mb-2">Raw Response ({debugInfo.responseLength} options):</div>
                   <pre className="bg-background p-2 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">
-                    {JSON.stringify(debugInfo.rawResponse.slice(0, 2), null, 2)}
-                    {debugInfo.rawResponse.length > 2 && '\n... and ' + (debugInfo.rawResponse.length - 2) + ' more'}
+                    {(() => {
+                      // Handle both object (new format) and array (legacy format)
+                      if (Array.isArray(debugInfo.rawResponse)) {
+                        const preview = debugInfo.rawResponse.slice(0, 2);
+                        return JSON.stringify(preview, null, 2) + 
+                          (debugInfo.rawResponse.length > 2 ? '\n... and ' + (debugInfo.rawResponse.length - 2) + ' more' : '');
+                      } else {
+                        // Object format - show the full response
+                        return JSON.stringify(debugInfo.rawResponse, null, 2);
+                      }
+                    })()}
                   </pre>
                 </div>
               )}
