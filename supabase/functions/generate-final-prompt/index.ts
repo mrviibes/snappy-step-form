@@ -158,11 +158,11 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
 
   // Enhanced positive prompt with ALL context
   const visualRecommendationText = visual_recommendation ? `Visual recommendation: ${visual_recommendation}. ` : '';
-  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText}Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
+  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. Text must be spelled exactly as written, with no substitutions or missing letters. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText}Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   
   // Enhanced negative prompt with category-specific exclusions
   const categoryNegatives = getCategoryNegatives(category, rating);
-  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed, ${categoryNegatives}`;
+  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed, misspelled words, missing letters, substituted letters, broken words, uneven spacing, jumbled text, overlapping characters, inconsistent capitalization, warped text, garbled phrases, ${categoryNegatives}`;
 
   console.log('✅ Generated positive prompt:', positivePrompt);
   console.log('❌ Generated negative prompt:', negativePrompt);
