@@ -12,7 +12,14 @@
   },
   "text_layout": {
     "text_area_max_pct": 25,
-    "placements": ["open_space","meme_text","lower_banner","side_bar","badge_callout","caption"]
+    "placements": [
+      "open_space",
+      "meme_text",
+      "lower_banner",
+      "side_bar",
+      "badge_callout",
+      "caption"
+    ]
   },
   "tones": {
     "Humorous": { "rules": ["witty","wordplay","exaggeration","no_serious"] },
@@ -22,7 +29,7 @@
     "Romantic": { "rules": ["affectionate","playful_love","no_mean"] },
     "Inspirational": { "rules": ["uplifting","motivating","no_negativity_or_irony"] },
     "Playful": { "rules": ["cheeky","silly","mischievous","no_formal"] },
-    "Serious": { "rules": ["dry","deadpan","formal_weight","no_jokes_exaggeration_blocked_to_dry_wit_only"] }
+    "Serious": { "rules": ["dry","deadpan","formal_weight","no_jokes_except_dry_wit"] }
   },
   "ratings": {
     "G": {
@@ -38,8 +45,7 @@
       "allow_censored_swears": true,
       "censored_forms": ["f***","sh*t","a**","b****"],
       "allow_adult_refs": false,
-      "insult_strength": "light_to_medium",
-      "notes": ["snarky_ok","mock_situations_over_people"]
+      "insult_strength": "light_to_medium"
     },
     "PG-13": {
       "desc": "Edgy, Ironic, Sharp",
@@ -47,23 +53,32 @@
       "profanity_whitelist": ["hell","damn"],
       "block_stronger_profanity": true,
       "allow_adult_refs": false,
-      "insult_strength": "medium",
-      "notes": ["edgy_jokes_ok","no_sexual_content","no_slurs"]
+      "insult_strength": "medium"
     },
     "R": {
       "desc": "Raw, Unfiltered",
       "allow_profanity": true,
       "require_profanity": true,
-      "profanity_whitelist": ["fuck","shit","bastard","ass","bullshit","goddamn"],
+      "profanity_whitelist": [
+        "fuck",
+        "shit",
+        "bastard",
+        "ass",
+        "bullshit",
+        "goddamn"
+      ],
       "allow_adult_refs": true,
       "insult_strength": "heavy",
-      "notes": ["can_be_positive_hype_or_roast","avoid_extreme_violence_or_illegal_themes"]
+      "notes": [
+        "can_be_positive_hype_or_roast",
+        "avoid_extreme_violence_or_illegal_themes"
+      ]
     }
   },
   "spelling": {
     "require_exact_quotes": true,
-    "avoid_fragile_words": ["of","on","than","you've"],
-    "auto_substitutions": { "you've": "you have" }
+    "avoid_fragile_words": ["of","on","than","you’ve"],
+    "auto_substitutions": { "you’ve": "you have" }
   },
   "render_hints": {
     "force_typography": ["bold","high_contrast","sans_serif_block"],
