@@ -113,7 +113,8 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   const dimensionMap: Record<string, string> = {
     "square": "1:1 aspect ratio",
     "portrait": "9:16 aspect ratio", 
-    "landscape": "16:9 aspect ratio"
+    "landscape": "16:9 aspect ratio",
+    "custom": "1:1 aspect ratio" // Default to square for custom dimensions
   };
 
   // Map tone to descriptive words
