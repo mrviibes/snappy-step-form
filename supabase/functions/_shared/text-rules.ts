@@ -37,5 +37,3 @@ RATINGS
   - Can be savage roast or celebratory hype.
   - Sentimental + R must combine warmth/affection with raw profanity.
   - Avoid only extreme violence or illegal themes.`;
-
-`;
