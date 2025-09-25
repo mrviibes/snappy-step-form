@@ -296,14 +296,14 @@ export default function VisualsStep({
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
       {/* Category Breadcrumb */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}{data.theme ? ` > ${data.theme}` : ''}
           </div>
         </div>}
 
       {/* Text Summary */}
-      <div className="text-left mb-6">
+      <div className="text-left mb-4">
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold">Your text: </span>
           <span>

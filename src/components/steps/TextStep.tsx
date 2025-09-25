@@ -339,7 +339,7 @@ export default function TextStep({
   if (!data.text?.tone) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
@@ -366,7 +366,7 @@ export default function TextStep({
   if (data.text?.tone && !data.text?.rating) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
@@ -419,7 +419,7 @@ export default function TextStep({
   if (!data.text?.writingPreference) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
@@ -467,7 +467,7 @@ export default function TextStep({
   if (data.text?.writingPreference === 'no-text') {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
@@ -515,7 +515,7 @@ export default function TextStep({
   // Show selected preferences and specific words input
   return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-2">
+      {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
           </div>
