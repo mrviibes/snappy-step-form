@@ -12,6 +12,7 @@ GENERAL
 - Maximum 1 punctuation mark per sentence (. , ? !).
 - Text length must be between 50 and 90 characters.
 - Always produce 4 distinct outputs.
+- Do not use any of the same word combinations in any of the 4 outputs.
 
 STRUCTURE
 - Category provides broad context (e.g., Celebrations, Sports, Pop Culture).
