@@ -28,6 +28,7 @@ interface FormData {
     customVisuals?: string;
     dimension?: string;
     completed_visual_description?: string;
+    isComplete?: boolean;
   };
   generation?: {
     prompts?: any;
@@ -103,16 +104,8 @@ export default function MultiStepForm() {
         // For "ai-assist" - need tone, preference, generated text, and layout
         return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.generatedText && !!formData.text.layout;
       case 3:
-        // Different completion requirements based on visual option
-        const basicRequirements = !!formData.visuals.style && !!formData.visuals.option && !!formData.visuals.dimension;
-        if (!basicRequirements) return false;
-
-        // Additional requirements based on option type
-        if (formData.visuals.option === 'design-myself') {
-          return !!formData.visuals.completed_visual_description;
-        }
-        // For ai-assist and no-visuals, basic requirements are enough
-        return true;
+        // Check if visuals step is marked as complete
+        return !!formData.visuals?.isComplete;
       case 4:
         // Step 4 is summary - always complete once reached
         return true;
