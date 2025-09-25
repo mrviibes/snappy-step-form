@@ -171,7 +171,10 @@ export default function VisualsStep({
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         image_style: data.visuals?.style || "general",
-        composition_modes: data.visuals?.insertedVisuals || [],
+        composition_modes: [
+          selectedCustomVisualStyle, // Include the selected visual style from dropdown
+          ...(data.visuals?.insertedVisuals || []) // Include any additional visual tags
+        ].filter(Boolean), // Remove any empty values
         image_dimensions: data.visuals?.dimension || "square"
       };
       // Set debug info before API call
@@ -186,6 +189,15 @@ export default function VisualsStep({
           text: data.text,
           vibe: data.vibe,
           visuals: data.visuals
+        }
+      });
+
+      // Update form data to save the selected composition modes
+      updateData({
+        visuals: {
+          ...data.visuals,
+          selectedCompositionStyle: selectedCustomVisualStyle, // Save the dropdown selection
+          insertedVisuals: [...(data.visuals?.insertedVisuals || []), selectedCustomVisualStyle].filter(Boolean)
         }
       });
 
