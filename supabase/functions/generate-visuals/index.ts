@@ -84,7 +84,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   const insertWords = params.insertWords || [];
   const composition_modes = params.composition_modes || [];
   
-  /*const systemPrompt = `You are generating exactly 4 visual scene descriptions for AI image generation.
+  const systemPrompt = `You are generating exactly 4 visual scene descriptions for AI image generation.
 
 INPUTS:
 - Category: ${params.category}
@@ -95,6 +95,15 @@ INPUTS:
 - Composition Modes: ${composition_modes.join(', ')}
 - Image Style: ${params.image_style}
 - Completed Text: "${params.completed_text}"
+
+- Generate exactly 4 distinct visual scene descriptions.
+- Each description must be 10–15 words long, no fewer, no more.
+- Each must reflect the ${params.subcategory} context (${subcategoryContext}).
+- All insertWords (${insertWords.join(', ')}) must appear in every description.
+- Each must include the composition_modes (${composition_modes.join(', ')}).
+- Each scene must use a unique setting and props, no repetition across outputs.
+- Sentences must be short, vivid, and concrete.
+- Do NOT mention the image style (${params.image_style}) in the descriptions.
 
 REQUIREMENTS:
 - Generate exactly 4 distinct visual scene descriptions
@@ -109,9 +118,9 @@ REQUIREMENTS:
 Example format:
 Character yelling at messy table, guests frozen mid-laugh, balloons drifting upward.
 
-Return ONLY the 4 descriptions, one per line, nothing else.`;*/
+Return ONLY the 4 descriptions, one per line, nothing else.`;
 
-  const systemPrompt = `VISUAL GENERATION RULES
+  /*const systemPrompt = `VISUAL GENERATION RULES
 
 GENERAL
 - All visuals must clearly support the completed_text.
@@ -156,7 +165,7 @@ COMPOSITION MODES
 OUTPUT
 - Always return 4 visual concepts per request.
 - Each concept must be distinct (different props, scene framing, or mood).
-- No duplicate object arrangements across the 4 outputs.`;
+- No duplicate object arrangements across the 4 outputs.`;*/
 
   console.log('🎨 Generating visuals with model:', model);
   console.log('📝 System prompt:', systemPrompt);
