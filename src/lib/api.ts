@@ -11,7 +11,19 @@ type GenerateTextParams = {
   userId?: string;
 };
 
-type GenerateTextResponse = { success: true; options: Array<{line: string}> } | { success: false; error: string };
+type GenerateTextResponse = { 
+  success: true; 
+  options: Array<{line: string}> 
+} | { 
+  success: false; 
+  error: string 
+} | {
+  lines: Array<{ line: string; length?: number; index?: number; valid?: boolean }>;
+  model: string;
+  count: number;
+} | Array<{line: string}>; // Legacy array format
+
+export type TextOptionsResponse = GenerateTextResponse;
 
 export interface VisualRecommendation {
   visualStyle: string
@@ -118,7 +130,7 @@ export async function getServerModels(): Promise<{ text: string; visuals: string
   }
 }
 
-export async function generateTextOptions(params: GenerateTextParams): Promise<Array<{line: string}>> {
+export async function generateTextOptions(params: GenerateTextParams): Promise<TextOptionsResponse> {
   // Normalize insertWords to array
   const insertWords = Array.isArray(params.insertWords)
     ? params.insertWords.filter(Boolean)
@@ -140,7 +152,24 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<A
   try {
     const res = await ctlFetch<GenerateTextResponse>("generate-text", payload);
     
-    // The edge function returns a direct array of {line} objects
+    // Handle new response format with model information
+    if (res && typeof res === 'object' && 'lines' in res && 'model' in res) {
+      // New format with model information
+      const options = (res as any).lines as Array<{line: string}>;
+      if (!Array.isArray(options) || options.length === 0) {
+        throw new Error("No options returned");
+      }
+      
+      // Client-side guard: ensure basic validation
+      const validated = options.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
+      if (validated.length === 0) {
+        throw new Error("All generated options failed validation");
+      }
+      
+      return res; // Return full response with model info
+    }
+    
+    // Legacy array format
     if (Array.isArray(res)) {
       const options = res as Array<{line: string}>;
       if (options.length === 0) {

@@ -75,7 +75,7 @@ function parseLines(rawResponse: string): string[] {
   return cleanedLines;
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ content: string; model: string }> {
   const model = getTextModel();
   console.log(`🤖 Using model: ${model}`);
   
@@ -110,6 +110,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
   }
   
   const content = data.choices?.[0]?.message?.content;
+  const actualModel = data.model || model; // Use actual model from response or fallback to requested model
   
   if (!content || content.trim() === '') {
     console.log('⚠️ Empty content, falling back to gpt-4o-mini');
@@ -132,10 +133,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<str
     });
     
     const fallbackData = await fallbackResponse.json();
-    return fallbackData.choices?.[0]?.message?.content || '';
+    const fallbackContent = fallbackData.choices?.[0]?.message?.content || '';
+    const fallbackModel = fallbackData.model || 'gpt-4o-mini';
+    
+    return { content: fallbackContent, model: fallbackModel };
   }
   
-  return content;
+  return { content, model: actualModel };
 }
 
 serve(async (req) => {
@@ -166,7 +170,7 @@ serve(async (req) => {
     const userPrompt = "Generate 4 funny sentences now.";
 
     // Call OpenAI
-    const rawResponse = await callOpenAI(systemPrompt, userPrompt);
+    const { content: rawResponse, model: usedModel } = await callOpenAI(systemPrompt, userPrompt);
     console.log('🎭 Raw AI Response:', rawResponse);
 
     // Parse and clean lines
@@ -180,15 +184,19 @@ serve(async (req) => {
       console.warn(`⚠️ Only generated ${finalLines.length} lines, expected 4`);
     }
 
-    // Format response with debug info
-    const response = finalLines.map((line, index) => ({
-      line,
-      length: line.length,
-      index: index + 1,
-      valid: line.length >= 40 && line.length <= 120
-    }));
+    // Format response with debug info and model information
+    const response = {
+      lines: finalLines.map((line, index) => ({
+        line,
+        length: line.length,
+        index: index + 1,
+        valid: line.length >= 40 && line.length <= 120
+      })),
+      model: usedModel,
+      count: finalLines.length
+    };
 
-    console.log(`✅ Generated ${response.length} text options`);
+    console.log(`✅ Generated ${response.lines.length} text options using model: ${usedModel}`);
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

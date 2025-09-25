@@ -13,7 +13,7 @@ import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
 import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
 import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
-import { generateTextOptions } from '@/lib/api';
+import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
 
@@ -92,15 +92,31 @@ export default function TextStep({
     });
     
     try {
-      const options = await generateTextOptions(requestPayload);
+      const response = await generateTextOptions(requestPayload);
+      
+      // Handle response format and extract model information
+      let options;
+      let usedModel = 'unknown';
+      
+      if (response && typeof response === 'object' && 'lines' in response) {
+        // New format with model information
+        options = response.lines;
+        usedModel = (response as any).model || 'unknown';
+      } else if (response && Array.isArray(response)) {
+        // Legacy format - just an array
+        options = response;
+      } else {
+        options = [];
+      }
       
       if (options && options.length > 0) {
-        // Update debug info with success
+        // Update debug info with success and actual model
         setDebugInfo(prev => ({
           ...prev,
+          model: usedModel,
           status: 'success',
           responseLength: options.length,
-          rawResponse: options
+          rawResponse: response
         }));
         
         // Format options for display
