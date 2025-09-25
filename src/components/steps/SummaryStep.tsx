@@ -5,8 +5,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, RefreshCw, Zap, Maximize, X } from "lucide-react";
-import { generateFinalPrompt, generateImage } from "@/lib/api";
+import { Download, RefreshCw, Zap, Maximize, X, Bug } from "lucide-react";
+import { generateFinalPrompt, generateImage, testGeminiAPI } from "@/lib/api";
 import DebugPanel from "@/components/DebugPanel";
 
 
@@ -29,6 +29,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<'ideogram' | 'gemini'>('ideogram');
+  const [testResult, setTestResult] = useState<any>(null);
   
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -401,6 +402,18 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     }
   };
 
+  const handleTestGemini = async () => {
+    try {
+      console.log('Testing Gemini API...');
+      const result = await testGeminiAPI();
+      console.log('Gemini test result:', result);
+      setTestResult(result);
+    } catch (error) {
+      console.error('Gemini test error:', error);
+      setTestResult({ error: error instanceof Error ? error.message : 'Test failed' });
+    }
+  };
+
   const formatArrayValue = (value: any) => {
     if (Array.isArray(value) && value.length > 0) {
       return value.join(', ');
@@ -453,6 +466,26 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
               <SelectItem value="gemini">Gemini 2.5 Flash Image</SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Test Gemini Button */}
+          <div className="mt-2 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestGemini}
+              className="flex items-center gap-2"
+            >
+              <Bug className="h-4 w-4" />
+              Test Gemini API
+            </Button>
+            {testResult && (
+              <div className="text-xs p-2 bg-muted rounded">
+                <pre className="whitespace-pre-wrap">
+                  {JSON.stringify(testResult, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
         {isLoadingImage ? (
           <div className="space-y-3">

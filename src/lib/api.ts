@@ -298,3 +298,14 @@ export async function pollImageStatus(jobId: string, provider: 'ideogram' | 'ope
     };
   }
 }
+
+// Test function for Gemini API
+export async function testGeminiAPI(): Promise<any> {
+  try {
+    const response = await ctlFetch<any>("test-gemini", {}, 15000);
+    return response;
+  } catch (error) {
+    console.error('Error testing Gemini API:', error);
+    throw error;
+  }
+}

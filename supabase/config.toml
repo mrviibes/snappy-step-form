@@ -19,3 +19,6 @@ verify_jwt = false
 
 [functions.poll-image-status]
 verify_jwt = false
+
+[functions.test-gemini]
+verify_jwt = false
