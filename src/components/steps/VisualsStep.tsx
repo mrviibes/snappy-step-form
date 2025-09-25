@@ -97,7 +97,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
-  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("cinematic");
+  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -143,6 +143,23 @@ export default function VisualsStep({
       setTagInput('');
     }
   };
+  const handleCustomVisualStyleChange = (value: string) => {
+    if (value) {
+      const currentVisuals = data.visuals?.insertedVisuals || [];
+      // Add to insertedVisuals if not already present
+      if (!currentVisuals.includes(value)) {
+        updateData({
+          visuals: {
+            ...data.visuals,
+            insertedVisuals: [...currentVisuals, value]
+          }
+        });
+      }
+      // Clear the dropdown selection after adding
+      setSelectedCustomVisualStyle("");
+    }
+  };
+  
   const handleRemoveTag = (visualToRemove: string) => {
     const currentVisuals = data.visuals?.insertedVisuals || [];
     updateData({
@@ -170,10 +187,7 @@ export default function VisualsStep({
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         image_style: data.visuals?.style || "general",
-        composition_modes: [selectedCustomVisualStyle,
-        // Include the selected visual style from dropdown
-        ...(data.visuals?.insertedVisuals || []) // Include any additional visual tags
-        ].filter(Boolean),
+        composition_modes: data.visuals?.insertedVisuals || [],
         // Remove any empty values
         image_dimensions: data.visuals?.dimension || "square"
       };
@@ -192,13 +206,11 @@ export default function VisualsStep({
         }
       });
 
-      // Update form data to save the selected composition modes
+      // Update form data to save the current state
       updateData({
         visuals: {
           ...data.visuals,
-          selectedCompositionStyle: selectedCustomVisualStyle,
-          // Save the dropdown selection
-          insertedVisuals: [...(data.visuals?.insertedVisuals || []), selectedCustomVisualStyle].filter(Boolean)
+          isGeneratingVisuals: true
         }
       });
       const visuals = await generateVisualOptions(params);
@@ -397,9 +409,9 @@ export default function VisualsStep({
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 
-                <Select value={selectedCustomVisualStyle} onValueChange={setSelectedCustomVisualStyle}>
+                <Select value={selectedCustomVisualStyle} onValueChange={handleCustomVisualStyleChange}>
                   <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-50">
-                    <SelectValue placeholder="Visual Style" />
+                    <SelectValue placeholder="e.g., dogs, mountains, cars..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background border border-border shadow-lg z-50">
                     {customVisualStyles.map(style => <SelectItem key={style.value} value={style.value} className="hover:bg-accent">
