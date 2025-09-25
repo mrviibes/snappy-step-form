@@ -854,6 +854,12 @@ serve(async (req) => {
       enforcement: enforcement.length > 0 ? enforcement : undefined
     };
 
+    // Debug: Log each line's validation status
+    console.log(`📏 Length constraints: min=${minLength}, max=${maxLength}`);
+    response.lines.forEach((item, index) => {
+      console.log(`📝 Line ${index + 1}: "${item.line}" (${item.length} chars, valid: ${item.valid})`);
+    });
+
     console.log(`✅ Generated ${response.lines.length} text options using model: ${usedModel}`);
     if (rules) {
       console.log(`📋 Applied rules: ${rules.id} v${rules.version}`);
