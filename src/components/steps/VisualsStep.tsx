@@ -371,7 +371,7 @@ export default function VisualsStep({
           {/* Optional Visual Tags */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">Optional - any specific visuals?</h3>
+              <h3 className="text-lg font-semibold text-foreground">insert_visuals</h3>
             </div>
             
             <div className="flex gap-2">
