@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Get model from environment with fallback
-const getVisualsModel = () => Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-5-2025-08-07';
+const getVisualsModel = () => Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-4o-mini';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
@@ -186,7 +186,7 @@ OUTPUT
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Generate 4 visual scene descriptions for: ${params.completed_text}` }
       ],
-      { maxTokens: 4000 } // Very high limit for GPT-5 reasoning + response
+      { maxTokens: 200 } // Optimal for 4 visual descriptions
     );
 
     console.log('📤 OpenAI request:', JSON.stringify(requestBody, null, 2));
