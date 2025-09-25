@@ -341,16 +341,23 @@ serve(async (req) => {
       console.log('Response data keys:', Object.keys(data || {}));
 
       if (provider === 'gemini') {
-        // Handle Gemini response format
         if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
-          const part = data.candidates[0].content.parts.find((p: any) => p.inlineData);
-          if (part && part.inlineData && part.inlineData.data) {
-            imageData = `data:image/png;base64,${part.inlineData.data}`;
-            console.log('Successfully processed Gemini image data');
+          const parts = data.candidates[0].content.parts;
+          const part = parts.find((p: any) => (p.inlineData && p.inlineData.data) || (p.inline_data && p.inline_data.data));
+          if (part) {
+            const b64 = part.inlineData?.data || part.inline_data?.data;
+            if (b64) {
+              imageData = `data:image/png;base64,${b64}`;
+              console.log('Successfully processed Gemini image data');
+            } else {
+              throw new Error('Gemini response had inline data without base64 content');
+            }
           } else {
+            console.error('Gemini response did not include inline image data. Full keys:', Object.keys(data || {}));
             throw new Error('No image data found in Gemini response');
           }
         } else {
+          console.error('Unexpected Gemini response structure:', JSON.stringify(data).substring(0, 500));
           throw new Error('Invalid Gemini response format');
         }
       } else {
