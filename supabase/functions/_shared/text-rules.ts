@@ -32,3 +32,4 @@ RATINGS
 - R → R rating must sound raw, harsh, unfiltered. 
 Each output must include different profanity terms. 
 Keep humor blunt, cutting, savage.
+`;
