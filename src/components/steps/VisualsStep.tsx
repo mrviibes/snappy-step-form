@@ -27,7 +27,7 @@ const visualStyles = [{
   id: "realistic",
   title: "Realistic",
   description: "True photo",
-  preview: realisticImageOptional - any specific visuals?
+  preview: realisticImage
 }, {
   id: "general",
   title: "General",
