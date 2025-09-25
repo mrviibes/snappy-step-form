@@ -201,7 +201,7 @@ serve(async (req) => {
     try {
       console.log('Sending request to Ideogram API (v3 multipart)...');
       console.log('V3 request details:', {
-        endpoint: 'https://api.ideogram.ai/v3/generate',
+        endpoint: 'https://api.ideogram.ai/generate',
         resolution: resolutionMap[image_dimensions],
         renderingSpeed: speedMap[quality]
       });
@@ -216,7 +216,7 @@ serve(async (req) => {
       form.append('num_images', '1');
 
       response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/v3/generate', {
+        const fetchPromise = fetch('https://api.ideogram.ai/generate', {
           method: 'POST',
           headers: { 'Api-Key': ideogramApiKey },
           body: form,
