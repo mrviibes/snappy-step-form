@@ -73,7 +73,7 @@ function parseLines(rawResponse: string): string[] {
   
   const cleanedLines = lines
     .map(line => cleanLine(line))
-    .filter(line => line.length >= 40 && line.length <= 120);
+    .filter(line => line.length >= 35 && line.length <= 140);
   
   return cleanedLines;
 }
