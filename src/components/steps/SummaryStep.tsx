@@ -693,18 +693,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             </p>
           </Card>
 
-          {/* Original Template Prompt (for reference) */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                Original Template Prompt ({selectedTemplate.name})
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {selectedTemplate.positive}
-            </p>
-          </Card>
-
           {/* Negative Prompt */}
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
