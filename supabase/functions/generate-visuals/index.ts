@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 // Get model from environment with fallback
-const getVisualsModel = () => Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-4o-mini';
+const getVisualsModel = () => Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-5-2025-08-07';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
