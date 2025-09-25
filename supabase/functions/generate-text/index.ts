@@ -1,5 +1,411 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+// ===================== SYSTEM RULES =====================
+export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+
+GOAL
+- Generate 4 distinct humorous one-liners.
+
+HARD CONSTRAINTS
+- Exact spelling. Insert words must appear exactly as written in every line.
+- Insert words must vary position across the 4 outputs (start, middle, end).
+- Length 50–90 characters per line, no fewer, no more.
+- One sentence only. Max 1 punctuation mark total (. , ? !).
+- No greetings (e.g., "Happy birthday,"). No emojis.
+- No em dashes, colons, semicolons. Replace with commas or end the sentence.
+- No filler phrases: finally, trust me, here's to, may your, another year of.
+- Avoid padding with "that/which" unless essential.
+- No duplicate word pairs across the 4 outputs.
+- Apply selected Tone and Rating precisely.
+
+TONES
+- Humorous → witty wordplay and exaggeration.
+- Savage → blunt roast, no soft language.
+- Sentimental → warm and affectionate, even if raw.
+- Nostalgic → references to past; avoid modern slang.
+- Romantic → affectionate and playful, no meanness.
+- Inspirational → uplifting, no negativity or irony.
+- Playful → cheeky and silly, not formal.
+- Serious → dry, deadpan wit, formal.
+
+RATINGS
+- G → no profanity or adult refs.
+- PG → censored swears allowed (f***, sh*t), no uncensored profanity.
+- PG-13 → only "hell", "damn"; nothing stronger.
+- R (Raw, Unfiltered) →
+  - Must include uncensored profanity in every line.
+  - Profanity must vary across the 4 outputs.
+  - Profanity is not limited to a fixed list; any strong language that fits tone.
+  - Can be savage roast or celebratory hype.
+  - Sentimental + R must combine warmth/affection with raw profanity.
+  - Avoid only extreme violence or illegal themes.`;
+
+// ===================== MODEL PICKER =====================
+const getTextModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
+const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+
+// ===================== CORS =====================
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// ===================== RULES CACHE/LOADER =====================
+let cachedRules: any = null;
+
+async function loadRules(rulesId: string, origin?: string): Promise<any> {
+  if (cachedRules && cachedRules.id === rulesId) return cachedRules;
+
+  // Try loading from caller origin (/public/config/<rulesId>.json)
+  if (origin) {
+    try {
+      const rulesUrl = `${origin}/config/${rulesId}.json`;
+      const response = await fetch(rulesUrl);
+      if (response.ok) {
+        cachedRules = await response.json();
+        return cachedRules;
+      }
+    } catch (_e) {/* ignore, fallback below */}
+  }
+
+  // Fallback embedded rules (v5)
+  cachedRules = {
+    id: rulesId,
+    version: 5,
+    length: { min_chars: 50, max_chars: 90 },
+    punctuation: {
+      ban_em_dash: true,
+      replacement: { "—": "," },
+      allowed: [".", ",", "?", "!"],
+      max_marks_per_line: 1
+    },
+    tones: {
+      "Humorous": { rules: ["witty","wordplay","exaggeration"] },
+      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
+      "Sentimental": { rules: ["warm","affectionate","no_sarcasm"] },
+      "Nostalgic": { rules: ["past_refs","no_modern_slang"] },
+      "Romantic": { rules: ["affectionate","playful","no_mean"] },
+      "Inspirational": { rules: ["uplifting","no_negativity_or_irony"] },
+      "Playful": { rules: ["cheeky","silly","no_formal"] },
+      "Serious": { rules: ["dry","deadpan","formal_weight"] }
+    },
+    ratings: {
+      "G": { allow_profanity: false, allow_censored_swears: false },
+      "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
+      "PG-13": { allow_profanity: true, mild_only: ["hell","damn"], block_stronger_profanity: true },
+      "R": { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
+    },
+    spelling: {
+      auto_substitutions: { "you’ve":"you have", "you've":"you have" }
+    }
+  };
+  return cachedRules;
+}
+
+// ===================== OPENAI CALL =====================
+function buildOpenAIRequest(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; maxTokens: number }
+) {
+  const body: any = { model, messages };
+  if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
+    body.max_completion_tokens = options.maxTokens;
+  } else {
+    body.max_tokens = options.maxTokens;
+    if (options.temperature !== undefined) body.temperature = options.temperature;
+  }
+  return body;
+}
+
+async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ content: string; model: string }> {
+  let model = getTextModel();
+  let maxTokens = model.startsWith("gpt-5") ? 4000 : 200;
+
+  try {
+    const requestBody = buildOpenAIRequest(
+      model,
+      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      { maxTokens }
+    );
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("Empty content");
+    return { content, model: data.model || model };
+  } catch (_e) {
+    // fallback
+    model = "gpt-4o-mini";
+    maxTokens = 200;
+    const requestBody = buildOpenAIRequest(
+      model,
+      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+      { maxTokens, temperature: 0.8 }
+    );
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("Empty content (fallback)");
+    return { content, model };
+  }
+}
+
+// ===================== PARSING / VALIDATION HELPERS =====================
+const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
+
+function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
+function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
+
+function trimToRange(s: string, min=50, max=90) {
+  let out = s.trim().replace(/\s+/g, " ");
+  // remove filler phrases
+  out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
+  // if still long, keep first clause before comma
+  if (out.length > max && out.includes(",")) out = out.split(",")[0];
+  // hard clip if needed
+  if (out.length > max) out = out.slice(0, max).trim();
+  return out;
+}
+
+function bigramSet(s: string) {
+  const words = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
+  const set = new Set<string>();
+  for (let i=0;i<words.length-1;i++) set.add(words[i]+" "+words[i+1]);
+  return set;
+}
+
+function varyInsertPositions(lines: string[], insert: string) {
+  const lower = insert.toLowerCase();
+  const allStart = lines.every(l => l.trim().toLowerCase().startsWith(lower));
+  if (!allStart) return lines;
+  return lines.map((l, i) => {
+    if (i % 2 === 0) return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`;
+    return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `);
+  });
+}
+
+function ensureProfanityVariation(lines: string[]) {
+  const grabs = lines.map(l => (l.match(STRONG_SWEARS) || [""])[0].toLowerCase());
+  const seen = new Set<string>();
+  return lines.map((l, i) => {
+    const sw = grabs[i];
+    if (sw && !seen.has(sw)) { seen.add(sw); return l; }
+    const pool = ["fuck","shit","bastard","ass","bullshit","goddamn","prick","crap","motherfucker","hell"];
+    for (const w of pool) {
+      if (!seen.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(l)) {
+        const replaced = sw ? l.replace(new RegExp(sw, "i"), w) : `${l.split(/[.,?!]/)[0]}, ${w}.`;
+        seen.add(w);
+        return replaced;
+      }
+    }
+    return l;
+  });
+}
+
+// ===================== CLEAN / PARSE =====================
+function cleanLine(rawText: string): string {
+  let t = rawText.trim();
+  t = t.replace(/^\s*[\d\-\*•]+[.)-]?\s*/, "");
+  t = t.replace(/^["'`]/, "").replace(/["'`]$/, "");
+  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/`(.*?)`/g, "$1");
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+function parseLines(rawResponse: string): string[] {
+  const candidates = rawResponse.split(/\r?\n+/)
+    .map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim())
+    .filter(Boolean);
+
+  const lines = candidates.filter(s =>
+    s.length >= 40 && s.length <= 140 && oneSentence(s)
+  );
+
+  return lines.map(cleanLine);
+}
+
+// ===================== ENFORCEMENT =====================
+function enforceRules(
+  lines: string[],
+  rules: any,
+  rating: string,
+  insertWords: string[] = []
+): { lines: string[]; enforcement: string[] } {
+  const enforcement: string[] = [];
+  const minLen = rules.length?.min_chars ?? 50;
+  const maxLen = rules.length?.max_chars ?? 90;
+
+  let processed = lines.map((raw, idx) => {
+    let t = raw.trim();
+
+    // punctuation normalization and limit to 1
+    if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
+    t = t.replace(/[:;…]/g, ",").replace(/[“”"']/g, "");
+    if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 1)) {
+      let kept = 0;
+      t = t.replace(/[.,?!]/g, (m) => (++kept <= 1 ? m : ""));
+      enforcement.push(`Line ${idx+1}: limited punctuation to 1`);
+    }
+
+    // keep as one sentence
+    if (!oneSentence(t)) {
+      const first = t.split(/[.?!]/)[0].trim();
+      t = first + (/[.,?!]$/.test(first) ? "" : ".");
+      enforcement.push(`Line ${idx+1}: trimmed to one sentence`);
+    }
+
+    // compress/trim to range
+    const before = t.length;
+    t = trimToRange(t, minLen, maxLen);
+    if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
+
+    // ensure insert words present
+    for (const w of insertWords) {
+      if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
+        t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
+        enforcement.push(`Line ${idx+1}: appended insert word '${w}'`);
+        break;
+      }
+    }
+
+    return t;
+  });
+
+  // vary insert word positions if a single insert
+  if (insertWords?.length === 1) {
+    const varied = varyInsertPositions(processed, insertWords[0]);
+    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied insert word positions across outputs");
+    processed = varied;
+  }
+
+  // profanity per rating
+  if (rating === "R") {
+    processed = processed.map((t, i) => {
+      if (!STRONG_SWEARS.test(t)) {
+        t = `${t.split(/[.,?!]/)[0]} fuck.`;
+        enforcement.push(`Line ${i+1}: injected profanity for R`);
+      }
+      return t;
+    });
+    const varied = ensureProfanityVariation(processed);
+    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied profanity across R outputs");
+    processed = varied;
+  }
+
+  if (rating === "PG-13") {
+    processed = processed.map((t, i) => {
+      const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)/gi, "damn");
+      if (cleaned !== t) enforcement.push(`Line ${i+1}: downgraded strong profanity to mild`);
+      return cleaned;
+    });
+  }
+
+  if (rating === "PG") {
+    processed = processed.map((t, i) => {
+      const cleaned = t.replace(STRONG_SWEARS, "sh*t");
+      if (cleaned !== t) enforcement.push(`Line ${i+1}: censored to PG`);
+      return cleaned;
+    });
+  }
+
+  if (rating === "G") {
+    processed = processed.map((t, i) => {
+      const cleaned = t.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
+      if (cleaned !== t) enforcement.push(`Line ${i+1}: removed profanity for G`);
+      return cleaned;
+    });
+  }
+
+  // de-duplicate near copies via bigrams
+  const unique: string[] = [];
+  const seenPairs = new Set<string>();
+  for (const l of processed) {
+    const pairs = bigramSet(l);
+    let clash = false;
+    for (const p of pairs) {
+      if (seenPairs.has(p)) { clash = true; break; }
+    }
+    if (!clash) {
+      for (const p of pairs) seenPairs.add(p);
+      unique.push(l);
+    }
+  }
+  return { lines: unique, enforcement };
+}
+
+// ===================== HTTP HANDLER =====================
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const payload = await req.json();
+    const { category, subcategory, tone, rating, insertWords = [], rules_id } = payload;
+
+    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
+    const rules = rules_id ? await loadRules(rules_id, origin) : null;
+
+    let systemPrompt = text_rules;
+    if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
+    if (subcategory) systemPrompt += ` > ${subcategory}`;
+    if (tone)        systemPrompt += `\nTONE: ${tone}`;
+    if (rating)      systemPrompt += `\nRATING: ${rating}`;
+    if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
+    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+
+    const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+
+    const { content: rawResponse, model: usedModel } = await callOpenAI(systemPrompt, userPrompt);
+
+    // Parse raw → candidate lines
+    let candidates = parseLines(rawResponse);
+    // If too few, keep raw splitting as backup
+    if (candidates.length < 4) {
+      candidates = rawResponse.split(/\r?\n+/).map(cleanLine).filter(Boolean);
+    }
+
+    // Enforce rules
+    const enforced = enforceRules(candidates, rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} }, rating || "PG-13", insertWords);
+    let lines = enforced.lines.slice(0, 4);
+
+    // Final validity flagging
+    const minLength = rules?.length?.min_chars ?? 50;
+    const maxLength = rules?.length?.max_chars ?? 90;
+
+    const response = {
+      lines: lines.map((line, i) => ({
+        line,
+        length: line.length,
+        index: i + 1,
+        valid: line.length >= minLength && line.length <= maxLength && countPunc(line) <= 1 && oneSentence(line)
+      })),
+      model: usedModel,
+      count: lines.length,
+      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 5 },
+      enforcement: enforced.enforcement
+    };
+
+    return new Response(JSON.stringify(response), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+});
+/*import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { text_rules } from "../_shared/text-rules.ts";
 
 
@@ -442,4 +848,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+});*/
