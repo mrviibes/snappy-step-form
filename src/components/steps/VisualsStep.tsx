@@ -322,7 +322,7 @@ export default function VisualsStep({
       </div>
 
       {/* Compact Style Summary - Consistent with other edit sections */}
-      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
+      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-foreground">Style: {selectedStyle?.title}</div>
@@ -361,7 +361,7 @@ export default function VisualsStep({
         </>}
 
       {/* Compact Dimension Summary */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400">
+      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-card border-2 border-cyan-400 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
