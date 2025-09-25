@@ -177,7 +177,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       
       // Set image debug info
       const imageParams = {
-        prompt: template.positive,
+        prompt: generateCustomPrompt(),
         negativePrompt: template.negative,
         image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high' as const
