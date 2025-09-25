@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, RefreshCw, Zap } from "lucide-react";
+import { Download, RefreshCw, Zap, Maximize, X } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
 import DebugPanel from "@/components/DebugPanel";
 
@@ -30,6 +30,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Request token to prevent concurrent generations and late responses
   const currentRequestRef = useRef<string | null>(null);
@@ -468,12 +469,21 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           </div>
         ) : generatedImage ? (
           <div className="space-y-3">
-            <div className="relative">
+            <div className="relative group">
               <img 
                 src={generatedImage} 
                 alt="Generated viibe image" 
                 className="w-full rounded-lg shadow-lg"
               />
+              {/* Fullscreen Button */}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsFullscreen(true)}
+                className="absolute top-2 right-2 opacity-80 hover:opacity-100 transition-opacity z-10"
+              >
+                <Maximize className="h-4 w-4" />
+              </Button>
             </div>
             <div className="flex gap-2 justify-center">
               <Button 
@@ -502,6 +512,44 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           </div>
         )}
       </Card>
+
+      {/* Fullscreen Modal */}
+      {isFullscreen && generatedImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setIsFullscreen(false)}
+        >
+          <div className="relative max-w-full max-h-full">
+            <img 
+              src={generatedImage} 
+              alt="Generated viibe image - Fullscreen" 
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsFullscreen(false)}
+              className="absolute top-4 right-4 z-10 bg-white/20 hover:bg-white/30"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            {/* Download button in fullscreen mode */}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadImage();
+              }}
+              className="absolute bottom-4 right-4 z-10 bg-white/20 hover:bg-white/30 flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Separator />
 
