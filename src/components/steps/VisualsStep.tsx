@@ -296,6 +296,43 @@ export default function VisualsStep({
     }
     // If "AI Assist", continue with current flow (visual tags section will show)
   };
+
+  const handleEditStyle = () => {
+    setEditingStyle(true);
+    setEditingDimension(false);
+  };
+
+  const handleEditDimension = () => {
+    setEditingDimension(true);
+    setEditingStyle(false);
+  };
+
+  const handleEditProcess = () => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        writingProcess: undefined
+      }
+    });
+  };
+
+  const handleEditSpecificWords = () => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        insertedVisuals: []
+      }
+    });
+  };
+
+  const handleEditLayout = () => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        compositionMode: undefined
+      }
+    });
+  };
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedDimension = !!data.visuals?.dimension;
@@ -321,18 +358,64 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Style Summary Card */}
-      {hasSelectedStyle && !editingStyle && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-base font-medium text-foreground">Style: {selectedStyle?.title}</div>
-              <div className="text-sm text-muted-foreground">{selectedStyle?.description}</div>
+      {/* Consolidated Summary Card - Shows when basic selections are complete */}
+      {hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && !editingStyle && !editingDimension && (
+        <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Style Row */}
+          <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Style</span> - {selectedStyle?.title}
             </div>
-            <button onClick={() => setEditingStyle(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            <button onClick={handleEditStyle} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
-        </Card>}
+
+          {/* Dimension Row */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Dimension</span> - {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}
+            </div>
+            <button onClick={handleEditDimension} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Process Row */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Process</span> - {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}
+            </div>
+            <button onClick={handleEditProcess} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Specific Words Row (if any) */}
+          {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Specific Words</span> - {data.visuals.insertedVisuals.join(', ')}
+              </div>
+              <button onClick={handleEditSpecificWords} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          )}
+
+          {/* Layout Row (if set) */}
+          {data.visuals?.compositionMode && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Layout</span> - {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label?.split(' – ')[0] || data.visuals.compositionMode}
+              </div>
+              <button onClick={handleEditLayout} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Visual Style Selection - Always show first, more prominent */}
       {(!hasSelectedStyle || editingStyle) && <>
@@ -360,20 +443,6 @@ export default function VisualsStep({
           </div>
         </>}
 
-      {/* Dimension Summary Card */}
-      {hasSelectedDimension && !editingDimension && hasSelectedStyle && !editingStyle && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-base font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
-              <div className="text-sm text-muted-foreground">
-                {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.description}
-              </div>
-            </div>
-            <button onClick={() => setEditingDimension(true)} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-        </Card>}
 
       {/* Dimensions Selection */}
       {hasSelectedStyle && !editingStyle && (!hasSelectedDimension || editingDimension) && <>
@@ -401,48 +470,8 @@ export default function VisualsStep({
           </div>
         </>}
 
-      {/* Writing Process Summary Card */}
-      {hasSelectedWritingProcess && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-base font-medium text-foreground">Process: {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}</div>
-              <div className="text-sm text-muted-foreground">
-                {data.visuals?.writingProcess === 'ai' ? 'Let AI help generate your content' : 
-                 data.visuals?.writingProcess === 'manual' ? 'Create your own custom visuals' : 
-                 'Generate instantly'}
-              </div>
-            </div>
-            <button onClick={() => updateData({ visuals: { ...data.visuals, writingProcess: undefined } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-        </Card>}
 
-      {/* Specific Visuals Summary Card */}
-      {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-base font-medium text-foreground">Specific Words: {data.visuals.insertedVisuals.join(', ')}</div>
-              <div className="text-sm text-muted-foreground">Visual elements to include</div>
-            </div>
-            <button onClick={() => updateData({ visuals: { ...data.visuals, insertedVisuals: [] } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-        </Card>}
 
-      {/* Layout/Composition Summary Card */}
-      {data.visuals?.compositionMode && !editingStyle && !editingDimension && <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-base font-medium text-foreground">Layout: {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label?.split(' – ')[0] || data.visuals.compositionMode}</div>
-              <div className="text-sm text-muted-foreground">Composition style</div>
-            </div>
-            <button onClick={() => updateData({ visuals: { ...data.visuals, compositionMode: undefined } })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-        </Card>}
 
       {/* Writing Process Selection - appears after dimension selection */}
       {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
