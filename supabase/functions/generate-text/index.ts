@@ -9,7 +9,7 @@ GENERAL
 - Exact spelling required. No substitutions or missing letters.
 - Insert words must appear exactly as written in every line.
 - No em dashes. Replace with commas.
-- Maximum 1 punctuation mark per line (. , ? !).
+- Maximum 1 punctuation mark per response (. , ? !).
 - Text length must be between 50 and 90 characters.
 - Always produce 4 distinct outputs.
 
