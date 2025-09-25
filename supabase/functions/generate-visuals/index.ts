@@ -105,7 +105,9 @@ INPUTS:
 - Sentences must be short, vivid, and concrete.
 - Do NOT mention the image style (${params.image_style}) in the descriptions.
 
-REQUIREMENTS:
+`;
+
+  /*REQUIREMENTS:
 - Generate exactly 4 distinct visual scene descriptions
 - Each description must be 10-15 words long
 - Each must reflect the ${params.subcategory} context (${subcategoryContext})
