@@ -1,8 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Get model from environment with fallback
-const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5';
+// Get model from environment with fallback - Always use GPT-5
+const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5-2025-08-07';
 
 // Helper function to build OpenAI request body with correct parameters
 function buildOpenAIRequest(
@@ -79,7 +79,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ c
   const model = getTextModel();
   console.log(`🤖 Using model: ${model}`);
   
-  const maxTokens = model.startsWith('gpt-5') ? 400 : 200;
+  const maxTokens = model.startsWith('gpt-5') ? 800 : 200; // Increased tokens for GPT-5 reasoning + response
   
   const requestBody = buildOpenAIRequest(
     model,
@@ -113,30 +113,8 @@ async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ c
   const actualModel = data.model || model; // Use actual model from response or fallback to requested model
   
   if (!content || content.trim() === '') {
-    console.log('⚠️ Empty content, falling back to gpt-4o-mini');
-    const fallbackBody = buildOpenAIRequest(
-      'gpt-4o-mini',
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      { maxTokens: 200, temperature: 0.9 }
-    );
-    
-    const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(fallbackBody),
-    });
-    
-    const fallbackData = await fallbackResponse.json();
-    const fallbackContent = fallbackData.choices?.[0]?.message?.content || '';
-    const fallbackModel = fallbackData.model || 'gpt-4o-mini';
-    
-    return { content: fallbackContent, model: fallbackModel };
+    console.warn('⚠️ GPT-5 returned empty content - this may indicate the prompt needs adjustment');
+    throw new Error('GPT-5 returned empty content');
   }
   
   return { content, model: actualModel };
