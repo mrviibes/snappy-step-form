@@ -215,18 +215,14 @@ serve(async (req) => {
       const requestBody = {
         contents: [{
           parts: [{
-            text: `Generate an image with the following description: ${prompt.trim()}`
+            text: prompt.trim()
           }]
-        }],
-        generationConfig: {
-          outputMimeType: 'image/png',
-          imageDimensions: dimensionMap[image_dimensions]
-        }
+        }]
       };
 
       try {
         response = await withRetry(async () => {
-          const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-image:generateContent?key=${googleApiKey}`, {
+          const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${googleApiKey}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
