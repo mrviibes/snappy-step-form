@@ -1572,8 +1572,6 @@ export const fitnessGoals: CategoryItem[] = [{
     { id: "lamb", title: "Lamb" },
     { id: "fish", title: "Fish" },
     { id: "shrimp", title: "Shrimp" },
-    { id: "lobster", title: "Lobster" },
-    { id: "crab", title: "Crab" },
     { id: "clam", title: "Clam" },
     { id: "mussel", title: "Mussel" },
     { id: "scallop", title: "Scallop" },
