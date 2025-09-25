@@ -268,7 +268,7 @@ export default function VisualsStep({
   };
   // Initialize with no default style to force selection
 
-  const handleWritingProcessSelect = (process: 'ai' | 'manual') => {
+  const handleWritingProcessSelect = (process: 'ai' | 'manual' | 'random') => {
     updateData({
       visuals: {
         ...data.visuals,
@@ -276,13 +276,13 @@ export default function VisualsStep({
       }
     });
 
-    // If user selects "Write Myself", skip to next step
-    if (process === 'manual') {
+    // If user selects "Write Myself" or "Random", skip to next step
+    if (process === 'manual' || process === 'random') {
       // Set some default values and proceed
       updateData({
         visuals: {
           ...data.visuals,
-          writingProcess: 'manual',
+          writingProcess: process,
           isComplete: true
         }
       });
@@ -401,17 +401,20 @@ export default function VisualsStep({
             <h2 className="text-xl font-semibold text-foreground">Choose Your Visual Process</h2>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center" onClick={() => handleWritingProcessSelect('ai')}>
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('ai')}>
               <div className="text-lg font-medium text-foreground">AI Assist</div>
               <div className="text-sm text-muted-foreground mt-2">Let AI help generate your content</div>
             </Card>
             
-            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center" onClick={() => handleWritingProcessSelect('manual')}>
+            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('manual')}>
               <div className="text-lg font-medium text-foreground">Create Myself</div>
-              <div className="text-sm text-muted-foreground mt-2">Create your own custom visuals
+              <div className="text-sm text-muted-foreground mt-2">Create your own custom visuals</div>
+            </Card>
 
-          </div>
+            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('random')}>
+              <div className="text-lg font-medium text-foreground">Random</div>
+              <div className="text-sm text-muted-foreground mt-2">Generate instantly</div>
             </Card>
           </div>
         </>}
