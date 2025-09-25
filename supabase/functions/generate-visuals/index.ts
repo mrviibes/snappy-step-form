@@ -97,7 +97,7 @@ INPUTS:
 - Completed Text: "${params.completed_text}"
 
 - Generate exactly 4 distinct visual scene descriptions.
-- Each description must be 10–15 words long, no fewer, no more.
+- Each description must be 7–12 words long, no fewer, no more.
 - Each must reflect the ${params.subcategory} context (${subcategoryContext}).
 - All insertWords (${insertWords.join(', ')}) must appear in every description.
 - Each must include the composition_modes (${composition_modes.join(', ')}).
