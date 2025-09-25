@@ -124,9 +124,8 @@ export default function TextStep({
           line: option.line
         }));
         
-        // Client-side validation
-        const safe = formattedOptions.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
-        const finalOptions = safe.length > 0 ? safe.slice(0, 4) : formattedOptions.slice(0, 4);
+        // Client-side validation to match server filtering
+        const finalOptions = formattedOptions.filter(o => o?.line && o.line.length >= 35 && o.line.length <= 140);
         
         setTextOptions(finalOptions);
         setShowTextOptions(true);
