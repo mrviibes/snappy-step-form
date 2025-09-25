@@ -201,22 +201,22 @@ serve(async (req) => {
     try {
       console.log('Sending request to Ideogram API (v3 multipart)...');
       console.log('V3 request details:', {
-        endpoint: 'https://api.ideogram.ai/generate',
-        resolution: resolutionMap[image_dimensions],
+        endpoint: 'https://api.ideogram.ai/v3/generate',
+        aspectRatio: aspectRatioMap[image_dimensions],
         renderingSpeed: speedMap[quality]
       });
       
       const form = new FormData();
       form.append('prompt', prompt.trim());
       if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
-      form.append('resolution', resolutionMap[image_dimensions]);
+      form.append('aspect_ratio', aspectRatioMap[image_dimensions]);
       form.append('rendering_speed', speedMap[quality]);
       form.append('magic_prompt', 'OFF');
       form.append('style_type', 'GENERAL');
       form.append('num_images', '1');
 
       response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/generate', {
+        const fetchPromise = fetch('https://api.ideogram.ai/v3/generate', {
           method: 'POST',
           headers: { 'Api-Key': ideogramApiKey },
           body: form,
@@ -229,32 +229,9 @@ serve(async (req) => {
       response = new Response(null, { status: 599, statusText: 'V3 prefetch failed' });
     }
 
-    // If V3 failed or returned non-2xx, fall back to legacy JSON endpoint
+    // If V3 failed or returned non-2xx, do NOT fall back. Return error handling below.
     if (!response.ok) {
-      const ideogramRequestBody = {
-        image_request: {
-          model: legacyModelMap[quality],
-          prompt: prompt.trim(),
-          negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
-          aspect_ratio: aspectRatioMap[image_dimensions],
-          magic_prompt_option: "OFF",
-          seed: Math.floor(Math.random() * 1000000),
-          style_type: "GENERAL"
-        }
-      };
-
-      console.log('V3 non-OK (status ' + response.status + '). Falling back to legacy /generate JSON...');
-      response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/generate', {
-          method: 'POST',
-          headers: {
-            'Api-Key': ideogramApiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(ideogramRequestBody),
-        });
-        return await Promise.race([fetchPromise, timeoutPromise(30000)]);
-      }, 3, 2000);
+      console.warn(`V3 non-OK (status ${response.status}). Not falling back to legacy; will return error.`);
     }
 
     console.log(`Ideogram API response status: ${response.status}`);
