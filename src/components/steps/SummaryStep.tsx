@@ -177,7 +177,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       
       // Set image debug info
       const imageParams = {
-        prompt: generateCustomPrompt(),
+        prompt: template.positive,
         negativePrompt: template.negative,
         image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high' as const
@@ -415,69 +415,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   ];
 
   // Generate custom prompt using user's format
-  const generateCustomPrompt = () => {
-    const completedText = data.text?.generatedText || data.text?.customText || '[text not set]';
-    const tone = data.text?.tone || '[tone not set]';
-    const textLayout = data.text?.layout || '[layout not set]';
-    const imageDimensions = data.visuals?.dimension || '[dimensions not set]';
-    const imageStyle = data.visuals?.style || '[style not set]';
-    const category = data.category?.name || 'general';
-    const subcategory = data.category?.subcategory || '';
-    const rating = data.text?.rating || 'PG';
-    const insertWords = data.text?.insertWords || [];
-    const visualDescription = data.visuals?.selectedVisualRecommendation?.description || 
-                              data.visuals?.selectedVisualRecommendation?.interpretation || 
-                              '[visual description not set]';
-
-    // Map dimensions to aspect ratio format
-    const dimensionMap: Record<string, string> = {
-      "square": "1:1 aspect ratio",
-      "portrait": "9:16 aspect ratio", 
-      "landscape": "16:9 aspect ratio"
-    };
-
-    // Map layout to text layout descriptions
-    const layoutMap: Record<string, string> = {
-      "meme-text": "top and bottom text banners",
-      "lower-banner": "lower third banner", 
-      "side-bar": "side banner layout",
-      "badge-callout": "badge callout design",
-      "subtle-caption": "subtle caption placement",
-      "negative-space": "negative space text layout",
-      "open-space": "open space layout"
-    };
-
-    // Map tone to descriptive words
-    const toneMap: Record<string, string> = {
-      "humorous": "funny, witty, playful",
-      "savage": "aggressive, intense, bold, cutting",
-      "sarcastic": "witty, ironic, sharp",
-      "wholesome": "warm, positive, uplifting",
-      "dark": "edgy, moody, dramatic",
-      "inspirational": "motivating, uplifting, powerful"
-    };
-
-    // Map rating to content guidelines
-    const ratingMap: Record<string, string> = {
-      "G": "family-friendly, innocent, wholesome",
-      "PG": "mild content, suitable for general audiences", 
-      "PG-13": "moderate content, some mature themes",
-      "R": "adult content, intense themes, mature audiences"
-    };
-
-    const aspectRatio = dimensionMap[imageDimensions] || imageDimensions;
-    const textLayoutDescription = layoutMap[textLayout] || textLayout;
-    const toneDescription = toneMap[tone.toLowerCase()] || tone.toLowerCase();
-    const ratingDescription = ratingMap[rating] || "appropriate for general audiences";
-    const categoryContext = [category, subcategory].filter(Boolean).join(' ');
-    
-    // Build emphasis for specific words
-    const wordEmphasis = insertWords.length > 0 
-      ? ` Pay special attention to prominently featuring these key words: ${insertWords.join(', ')}.`
-      : '';
-
-    return `Create a ${imageStyle} style ${categoryContext} image with ${aspectRatio}. The scene should be ${toneDescription} and ${ratingDescription}. MANDATORY TEXT: "${completedText}" must be prominently displayed using ${textLayoutDescription} placement with bold, high-contrast typography. The image should feature a ${visualDescription} that complements the ${tone} tone.${wordEmphasis} Ensure excellent readability, professional typography, and visual appeal that matches the ${imageStyle} aesthetic.`;
-  };
+  // Note: Using template.positive from generate-final-prompt endpoint instead of custom prompt generation
 
   return (
     <div className="space-y-6">
@@ -643,11 +581,11 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="default" className="bg-green-100 text-green-800">
-                Custom Positive Prompt
+                Positive Prompt (from Generate-Final-Prompt)
               </Badge>
             </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
-              {generateCustomPrompt()}
+              {selectedTemplate.positive}
             </p>
           </Card>
 
