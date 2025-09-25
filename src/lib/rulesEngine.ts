@@ -62,6 +62,13 @@ export function enforceBasicRules(line: string, rules: ViiibesRules): string {
     line = line.replace(new RegExp(`\\b${from}\\b`, 'gi'), to);
   });
   
+  // Clean up empty punctuation patterns
+  line = line.replace(/\(\s*\)/g, ''); // Remove empty parentheses
+  line = line.replace(/\[\s*\]/g, ''); // Remove empty brackets
+  line = line.replace(/\{\s*\}/g, ''); // Remove empty braces
+  line = line.replace(/['"]\s*['"]/g, ''); // Remove empty quotes
+  line = line.replace(/\s+/g, ' '); // Normalize whitespace
+  
   // Count and limit punctuation marks
   const allowedPattern = rules.punctuation.allowed.map(p => `\\${p}`).join('');
   const punctuationRegex = new RegExp(`[${allowedPattern}]`, 'g');
@@ -74,14 +81,15 @@ export function enforceBasicRules(line: string, rules: ViiibesRules): string {
       count++;
       return count <= rules.punctuation.max_marks_per_line ? match : '';
     });
-    
-    // Ensure line ends with proper punctuation if it doesn't already
-    if (!line.match(/[.!?]$/)) {
-      line = line.trim() + '.';
-    }
   }
   
-  return line.trim();
+  // Clean up any trailing spaces and ensure proper ending punctuation
+  line = line.trim();
+  if (line && !line.match(/[.!?]$/)) {
+    line = line + '.';
+  }
+  
+  return line;
 }
 
 export function validateLength(line: string, rules: ViiibesRules): boolean {
