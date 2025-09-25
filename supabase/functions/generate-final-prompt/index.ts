@@ -1,4 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { 
+  final_prompt_rules, 
+  layoutMap, 
+  dimensionMap, 
+  toneMap, 
+  ratingMap, 
+  textQualityNegatives,
+  getCategoryNegatives 
+} from "../_shared/final-prompt-rules.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
@@ -98,47 +107,10 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     visual_recommendation
   } = params;
 
-  // Map layout to text layout descriptions
-  const layoutMap: Record<string, string> = {
-    "meme-text": "top and bottom text banners",
-    "lower-banner": "lower third banner", 
-    "side-bar": "side banner layout",
-    "badge-callout": "badge callout design",
-    "subtle-caption": "subtle caption placement",
-    "negative-space": "negative space text layout",
-    "open-space": "open space layout"
-  };
-
-  // Map image dimensions to proper format
-  const dimensionMap: Record<string, string> = {
-    "square": "1:1 aspect ratio",
-    "portrait": "9:16 aspect ratio", 
-    "landscape": "16:9 aspect ratio",
-    "custom": "1:1 aspect ratio" // Default to square for custom dimensions
-  };
-
-  // Map tone to descriptive words
-  const toneMap: Record<string, string> = {
-    "humorous": "funny, witty, playful",
-    "savage": "aggressive, intense, bold, cutting",
-    "sarcastic": "witty, ironic, sharp",
-    "wholesome": "warm, positive, uplifting",
-    "dark": "edgy, moody, dramatic",
-    "inspirational": "motivating, uplifting, powerful"
-  };
-
-  // Map rating to content guidelines
-  const ratingMap: Record<string, string> = {
-    "G": "family-friendly, innocent, wholesome",
-    "PG": "mild content, suitable for general audiences", 
-    "PG-13": "moderate content, some mature themes",
-    "R": "adult content, intense themes, mature audiences"
-  };
-
   // Build category context
   const categoryContext = [category, subcategory].filter(Boolean).join(' ');
   
-  // Get mapped values
+  // Get mapped values from imported rules
   const textLayout = layoutMap[text_layout] || text_layout;
   const dimensions = dimensionMap[image_dimensions] || image_dimensions;
   const toneDescriptor = toneMap[tone.toLowerCase()] || tone.toLowerCase();
@@ -162,8 +134,8 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   // Enhanced positive prompt with ALL context
   const positivePrompt = `MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. Text must be spelled exactly as written, with no substitutions or missing letters. Create a ${image_style} style ${categoryContext} image with ${dimensions} and scene should be ${toneDescriptor} and ${ratingGuideline}. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText} Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   
-  // Simple negative prompt focusing only on text quality issues
-  const negativePrompt = `misspelled text, blurry text, illegible text, cut-off or overlapping text, distorted fonts, poor typography, low contrast`;
+  // Simple negative prompt using imported text quality negatives
+  const negativePrompt = textQualityNegatives;
 
   console.log('✅ Generated positive prompt:', positivePrompt);
   console.log('❌ Generated negative prompt:', negativePrompt);
@@ -181,24 +153,4 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   return templates;
 }
 
-function getCategoryNegatives(category: string, rating: string): string {
-  const baseNegatives: Record<string, string> = {
-    "sports": "blurry motion, incorrect anatomy, floating objects, unnatural poses",
-    "celebration": "sad expressions, dark moods, negative emotions",
-    "workplace": "unprofessional content, inappropriate behavior",
-    "relationships": "toxic behavior, harmful stereotypes",
-    "animals": "distorted animals, unnatural animal features"
-  };
-
-  const ratingNegatives: Record<string, string> = {
-    "G": "violence, adult themes, inappropriate content, mature themes",
-    "PG": "explicit violence, strong adult themes, inappropriate language",
-    "PG-13": "extreme violence, explicit adult content", 
-    "R": "illegal content, extreme graphic violence"
-  };
-
-  const categoryNeg = baseNegatives[category.toLowerCase()] || "";
-  const ratingNeg = ratingNegatives[rating] || "";
-  
-  return [categoryNeg, ratingNeg].filter(Boolean).join(', ');
-}
+// getCategoryNegatives function is now imported from shared rules
