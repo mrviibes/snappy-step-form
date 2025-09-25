@@ -147,9 +147,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   // Use first visual scene as context or create category-based scene
   const visualScene = composition_modes[0] || `${categoryContext} scene`;
 
-  // Create visual recommendation text
-  const visualRecommendationText = visual_recommendation ? `${visual_recommendation} ` : '';
-
   console.log('🎨 Mapped values:', { 
     textLayout, 
     dimensions, 
@@ -163,7 +160,7 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. Text must be spelled exactly as written, with no substitutions or missing letters. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText}Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   // Enhanced negative prompt with category-specific exclusions
   const categoryNegatives = getCategoryNegatives(category, rating);
-  const negativePrompt = `blurry text, illegible text, cut-off text, overlapping text, distorted fonts, low contrast text, missing text, extra text, duplicate text, subtitles, watermarks, logos, poor typography, pixelated text, compressed text, unreadable fonts, text outside frame, misaligned text, poor composition, low quality, overexposed, underexposed, misspelled words, missing letters, substituted letters, broken words, uneven spacing, jumbled text, overlapping characters, inconsistent capitalization, warped text, garbled phrases, ${categoryNegatives}`;
+  const negativePrompt = `misspelled text, blurry text, illegible text, cut-off or overlapping text, distorted fonts, poor typography, low contrast';
 
   console.log('✅ Generated positive prompt:', positivePrompt);
   console.log('❌ Generated negative prompt:', negativePrompt);
