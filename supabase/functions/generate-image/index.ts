@@ -201,7 +201,7 @@ serve(async (req) => {
     try {
       console.log('Sending request to Ideogram API (v3 multipart)...');
       console.log('V3 request details:', {
-        endpoint: 'https://api.ideogram.ai/v3/generate',
+        endpoint: 'https://api.ideogram.ai/v1/ideogram-v3/generate',
         aspectRatio: aspectRatioMap[image_dimensions],
         renderingSpeed: speedMap[quality]
       });
@@ -216,7 +216,7 @@ serve(async (req) => {
       form.append('num_images', '1');
 
       response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/v3/generate', {
+        const fetchPromise = fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
           method: 'POST',
           headers: { 'Api-Key': ideogramApiKey },
           body: form,
@@ -392,15 +392,15 @@ serve(async (req) => {
 
     // Collect debug info about exact Ideogram API parameters
     const debugInfo = {
-      ideogramApiEndpoint: response.url.includes('v3/generate') ? 'V3 Multipart' : 'Legacy JSON',
+      ideogramApiEndpoint: response.url.includes('/v1/ideogram-v3/generate') ? 'V3 Multipart (v1/ideogram-v3)' : 'Legacy JSON',
       exactPrompt: prompt.trim(),
       negativePrompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
       magicPrompt: 'OFF',
       styleType: 'GENERAL',
-      model: response.url.includes('v3/generate') ? modelMap[quality] : legacyModelMap[quality],
+      model: response.url.includes('/v1/ideogram-v3/generate') ? modelMap[quality] : legacyModelMap[quality],
       aspectRatio: aspectRatioMap[image_dimensions],
-      resolution: response.url.includes('v3/generate') ? resolutionMap[image_dimensions] : 'N/A',
-      renderingSpeed: response.url.includes('v3/generate') ? speedMap[quality] : 'N/A',
+      resolution: response.url.includes('/v1/ideogram-v3/generate') ? resolutionMap[image_dimensions] : 'N/A',
+      renderingSpeed: response.url.includes('/v1/ideogram-v3/generate') ? speedMap[quality] : 'N/A',
       timestamp: new Date().toISOString()
     };
 
