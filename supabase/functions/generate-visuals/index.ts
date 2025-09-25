@@ -101,13 +101,13 @@ REQUIREMENTS:
 - Each description must be 10-15 words long
 - Each must reflect the ${params.subcategory} context (${subcategoryContext})
 - Each must include the insertWords (${insertWords.join(', ')}) and composition_modes (${composition_modes.join(', ')})
-- If insertWords = ["Jesse"] and composition_modes = ["old man yelling"], then Jesse is the old man yelling in each scene
+- If insertWords = ["example"] and composition_modes = ["old man yelling"], then use the example in the old man yelling scene
 - Each scene should be different (different locations/settings within the subcategory context)
 - Keep sentences short, vivid, and concrete
 - Do NOT mention the image style (${params.image_style}) in the descriptions - that's applied later
 
 Example format:
-Jesse yelling at messy table, guests frozen mid-laugh, balloons drifting upward.
+Character yelling at messy table, guests frozen mid-laugh, balloons drifting upward.
 
 Return ONLY the 4 descriptions, one per line, nothing else.`;
 
