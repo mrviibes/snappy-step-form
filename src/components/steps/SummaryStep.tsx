@@ -82,6 +82,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           text_layout: data.text?.layout || 'lower-banner',
           image_dimensions: data.visuals?.dimension || 'square',
           composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
+          visual_recommendation: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation,
         };
 
         console.log('Generating templates with params:', params);

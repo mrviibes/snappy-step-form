@@ -59,8 +59,9 @@ type GenerateFinalPromptParams = {
   insertWords?: string[];
   image_style: "Auto"|"General"|"Realistic"|"Design"|"3D Render"|"Anime";
   text_layout: string;
-  image_dimensions: "Square"|"Portrait"|"Landscape";
+  image_dimensions: "square"|"portrait"|"landscape"|"custom";
   composition_modes?: string[];
+  visual_recommendation?: string;
 };
 
 type GenerateFinalPromptResponse = { 
