@@ -3,7 +3,7 @@
   "version": 4,
   "humor_baseline": true,
   "allow_positive_and_roast": true,
-  "length": { "min_chars": 50, "max_chars": 120 },
+  "length": { "min_chars": 50, "max_chars": 100 },
   "punctuation": {
     "ban_em_dash": true,
     "replacement": { "—": "," },

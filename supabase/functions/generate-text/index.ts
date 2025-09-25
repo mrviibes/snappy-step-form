@@ -66,7 +66,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
   cachedRules = {
     id: rulesId,
     version: 4,
-    length: { min_chars: 50, max_chars: 120 },
+    length: { min_chars: 50, max_chars: 100 },
     punctuation: {
       ban_em_dash: true,
       replacement: { "—": "," },
@@ -366,7 +366,7 @@ serve(async (req) => {
     if (rules?.length) {
       systemPrompt += ` Each sentence must be ${rules.length.min_chars}-${rules.length.max_chars} characters.`;
     } else {
-      systemPrompt += ` Each sentence must be 50-120 characters.`;
+      systemPrompt += ` Each sentence must be 50-100 characters.`;
     }
     
     if (category) systemPrompt += ` Topic: ${category}`;

@@ -90,8 +90,8 @@ export const aiRulesConfig: AIRulesConfig = {
     }
   },
   lengthRules: {
-    minChars: 60,
-    maxChars: 120,
+    minChars: 50,
+    maxChars: 100,
     enforceRange: true
   },
   formattingRules: {
