@@ -579,13 +579,6 @@ export default function VisualsStep({
                  </Select>
                </div>
 
-               {/* Show selected composition mode */}
-               {data.visuals?.compositionMode && (
-                 <div className="bg-primary/10 text-primary px-3 py-2 rounded-lg text-sm">
-                   <span className="font-medium">Selected: </span>
-                   {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label || data.visuals.compositionMode}
-                 </div>
-               )}
                
                <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
                  {isGeneratingVisuals ? <>
