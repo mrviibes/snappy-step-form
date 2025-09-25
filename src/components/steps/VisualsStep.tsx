@@ -333,6 +333,19 @@ export default function VisualsStep({
       }
     });
   };
+
+  const handleEditVisualConcept = () => {
+    setGeneratedVisuals([]);
+    setSelectedVisualOption(null);
+    updateData({
+      visuals: {
+        ...data.visuals,
+        selectedVisualOption: undefined,
+        selectedVisualRecommendation: undefined,
+        isComplete: false
+      }
+    });
+  };
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedDimension = !!data.visuals?.dimension;
@@ -358,42 +371,60 @@ export default function VisualsStep({
         </div>
       </div>
 
-      {/* Consolidated Summary Card - Shows when basic selections are complete */}
-      {hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && !editingStyle && !editingDimension && (
+      {/* Consolidated Summary Card - Shows when selections are made */}
+      {(hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || isComplete) && !editingStyle && !editingDimension && (
         <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Style Row */}
-          <div className="flex items-center justify-between p-4">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Style</span> - {selectedStyle?.title}
+          {hasSelectedStyle && (
+            <div className="flex items-center justify-between p-4">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Style</span> - {selectedStyle?.title}
+              </div>
+              <button onClick={handleEditStyle} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
             </div>
-            <button onClick={handleEditStyle} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
+          )}
 
           {/* Dimension Row */}
-          <div className="flex items-center justify-between p-4 border-t border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Dimension</span> - {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}
+          {hasSelectedDimension && (
+            <div className={cn("flex items-center justify-between p-4", hasSelectedStyle && "border-t border-border")}>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Dimension</span> - {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}
+              </div>
+              <button onClick={handleEditDimension} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
             </div>
-            <button onClick={handleEditDimension} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
+          )}
 
           {/* Process Row */}
-          <div className="flex items-center justify-between p-4 border-t border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Process</span> - {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}
+          {hasSelectedWritingProcess && (
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension) && "border-t border-border")}>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Process</span> - {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}
+              </div>
+              <button onClick={handleEditProcess} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
             </div>
-            <button onClick={handleEditProcess} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
+          )}
+
+          {/* Visual Concept Row */}
+          {isComplete && data.visuals?.selectedVisualRecommendation && (
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Visual Concept</span> - Option {(data.visuals?.selectedVisualOption ?? 0) + 1}
+              </div>
+              <button onClick={handleEditVisualConcept} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>
+          )}
 
           {/* Specific Words Row (if any) */}
           {data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0 && (
-            <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (isComplete && data.visuals?.selectedVisualRecommendation)) && "border-t border-border")}>
               <div className="text-sm text-foreground">
                 <span className="font-semibold">Specific Words</span> - {data.visuals.insertedVisuals.join(', ')}
               </div>
@@ -405,7 +436,7 @@ export default function VisualsStep({
 
           {/* Layout Row (if set) */}
           {data.visuals?.compositionMode && (
-            <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (isComplete && data.visuals?.selectedVisualRecommendation) || (data.visuals?.insertedVisuals && data.visuals.insertedVisuals.length > 0)) && "border-t border-border")}>
               <div className="text-sm text-foreground">
                 <span className="font-semibold">Layout</span> - {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label?.split(' – ')[0] || data.visuals.compositionMode}
               </div>
@@ -608,50 +639,5 @@ export default function VisualsStep({
             </div>}
         </>}
 
-      {/* Completion State - Clean Summary Cards */}
-      {isComplete && <div className="space-y-4">
-          {/* Style Card */}
-          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-base font-medium text-foreground">Style: {selectedStyle?.title}</div>
-                <div className="text-sm text-muted-foreground">{selectedStyle?.description}</div>
-              </div>
-              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          </Card>
-
-          {/* Dimension Card */}
-          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-base font-medium text-foreground">Dimension: {data.visuals?.dimension?.charAt(0).toUpperCase() + data.visuals?.dimension?.slice(1)}</div>
-                <div className="text-sm text-muted-foreground">
-                  {dimensionOptions.find(d => d.id === data.visuals?.dimension)?.description}
-                </div>
-              </div>
-              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          </Card>
-
-          {/* Visual Concept Card */}
-          <Card className="p-4 bg-background border-2 border-cyan-400 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-base font-medium text-foreground">Visual Concept: {(data.visuals?.selectedVisualOption ?? 0) + 1} selected</div>
-                <div className="text-sm text-muted-foreground">
-                  {data.visuals?.selectedVisualRecommendation?.description || 'AI-generated visual recommendation'}
-                </div>
-              </div>
-              <button onClick={resetToStyleSelection} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          </Card>
-        </div>}
       </div>
 }
