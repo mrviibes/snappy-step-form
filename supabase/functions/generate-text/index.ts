@@ -623,18 +623,43 @@ function enforceRules(lines: string[], rules: any, rating: string): { lines: str
 function cleanLine(rawText: string): string {
   let cleaned = rawText.trim();
   
-  // Remove common prefixes: numbers, bullets, quotes
-  cleaned = cleaned.replace(/^\s*[\d+\-\*•]\s*[\.\)\-]?\s*/, '');
-  cleaned = cleaned.replace(/^["'"'`]/, '');
-  cleaned = cleaned.replace(/["'"'`]$/, '');
+  // Remove numbered list prefixes
+  const digits = '0123456789';
+  while (cleaned.length > 0 && digits.includes(cleaned[0])) {
+    let i = 0;
+    while (i < cleaned.length && digits.includes(cleaned[i])) {
+      i++;
+    }
+    if (i < cleaned.length && (cleaned[i] === '.' || cleaned[i] === ')')) {
+      cleaned = cleaned.substring(i + 1).trim();
+    } else {
+      break;
+    }
+  }
   
-  // Remove markdown formatting
-  cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1');
-  cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
-  cleaned = cleaned.replace(/`(.*?)`/g, '$1');
+  // Remove bullet points
+  if (cleaned.startsWith('- ') || cleaned.startsWith('* ') || cleaned.startsWith('+ ')) {
+    cleaned = cleaned.substring(2).trim();
+  }
   
-  // Normalize whitespace
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  // Remove quotes
+  if (cleaned.startsWith('"') || cleaned.startsWith("'") || cleaned.startsWith('`')) {
+    cleaned = cleaned.substring(1);
+  }
+  if (cleaned.endsWith('"') || cleaned.endsWith("'") || cleaned.endsWith('`')) {
+    cleaned = cleaned.substring(0, cleaned.length - 1);
+  }
+  
+  // Remove markdown formatting using string replacement
+  while (cleaned.includes('**')) {
+    cleaned = cleaned.replace('**', '');
+  }
+  while (cleaned.includes('`')) {
+    cleaned = cleaned.replace('`', '');
+  }
+  
+  // Normalize whitespace by splitting and joining
+  cleaned = cleaned.split(/\s+/).filter(part => part.length > 0).join(' ');
   
   return cleaned;
 }
