@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
@@ -98,7 +97,6 @@ export default function VisualsStep({
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
   const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
-  const [showWritingProcessModal, setShowWritingProcessModal] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -268,8 +266,6 @@ export default function VisualsStep({
       }
     });
     setEditingDimension(false);
-    // Show writing process modal after dimension selection
-    setShowWritingProcessModal(true);
   };
   // Initialize with no default style to force selection
   
@@ -280,7 +276,6 @@ export default function VisualsStep({
         writingProcess: process
       }
     });
-    setShowWritingProcessModal(false);
     
     // If user selects "Write Myself", skip to next step
     if (process === 'manual') {
@@ -299,7 +294,8 @@ export default function VisualsStep({
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedDimension = !!data.visuals?.dimension;
-  const showGenerateButton = hasSelectedStyle && hasSelectedDimension;
+  const hasSelectedWritingProcess = !!data.visuals?.writingProcess;
+  const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai';
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
   return (
@@ -398,6 +394,33 @@ export default function VisualsStep({
                 </h4>
                 <p className="text-xs text-muted-foreground">{dimension.description}</p>
               </Card>)}
+          </div>
+        </>}
+
+      {/* Writing Process Selection - appears after dimension selection */}
+      {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
+          <div className="text-center pt-6 pb-2">
+            <h2 className="text-xl font-semibold text-foreground">
+              Choose Your Writing Process
+            </h2>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <Card 
+              className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center"
+              onClick={() => handleWritingProcessSelect('ai')}
+            >
+              <div className="text-lg font-medium text-foreground">AI Assist</div>
+              <div className="text-sm text-muted-foreground mt-2">Let AI help generate your content</div>
+            </Card>
+            
+            <Card 
+              className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-6 text-center"
+              onClick={() => handleWritingProcessSelect('manual')}
+            >
+              <div className="text-lg font-medium text-foreground">Write Myself</div>
+              <div className="text-sm text-muted-foreground mt-2">Create your own custom content</div>
+            </Card>
           </div>
         </>}
 
@@ -521,37 +544,6 @@ export default function VisualsStep({
             </Button>
           </div>
         </Card>}
-        
-        {/* Writing Process Modal */}
-        <Dialog open={showWritingProcessModal} onOpenChange={setShowWritingProcessModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogTitle className="text-center text-xl font-semibold mb-6">
-              Choose Your Writing Process
-            </DialogTitle>
-            
-            <div className="space-y-4">
-              <Card 
-                className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4"
-                onClick={() => handleWritingProcessSelect('ai')}
-              >
-                <div className="text-center">
-                  <div className="text-lg font-medium text-foreground">AI Assist</div>
-                  <div className="text-sm text-muted-foreground mt-1">Let AI help generate your content</div>
-                </div>
-              </Card>
-              
-              <Card 
-                className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4"
-                onClick={() => handleWritingProcessSelect('manual')}
-              >
-                <div className="text-center">
-                  <div className="text-lg font-medium text-foreground">Write Myself</div>
-                  <div className="text-sm text-muted-foreground mt-1">Create your own custom content</div>
-                </div>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
