@@ -402,17 +402,16 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   };
 
   const summaryData = [
-    { label: 'Category', value: data.category },
-    { label: 'Subcategory', value: data.subcategory },
-    { label: 'Final Text', value: data.text?.generatedText || data.text?.customText || 'No text' },
-    { label: 'Tone', value: data.text?.tone },
-    { label: 'Text Style', value: data.text?.style },
-    { label: 'Layout', value: data.text?.layout },
-    { label: 'Rating', value: data.text?.rating },
-    { label: 'Specific Words', value: formatArrayValue(data.text?.specificWords) },
-    { label: 'Visual Style', value: data.visuals?.style },
-    { label: 'Dimension', value: data.visuals?.dimension },
-    { label: 'Custom Visuals', value: formatArrayValue(data.visuals?.customVisuals) },
+    { label: '1. category', value: data.category },
+    { label: '2. subcategory', value: data.subcategory },
+    { label: '3. tone', value: data.text?.tone },
+    { label: '4. rating', value: data.text?.rating },
+    { label: '5. completed_text', value: data.text?.generatedText || data.text?.customText || 'No text' },
+    { label: '6. text_layout', value: data.text?.layout },
+    { label: '7. image_style', value: data.visuals?.style },
+    { label: '8. image_dimensions', value: data.visuals?.dimension },
+    { label: '9. composition_modes', value: formatArrayValue(data.visuals?.customVisuals) },
+    { label: '10. completed_visual_description', value: data.visuals?.completed_visual_description || 'None' },
   ];
 
   return (
@@ -552,11 +551,11 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         <h3 className="font-semibold text-sm mb-4 text-foreground">Your Choices</h3>
         <div className="space-y-1">
           {summaryData.map((item, index) => (
-            <div key={index} className="flex justify-between items-start gap-4 text-sm">
-              <span className="font-medium text-muted-foreground min-w-0 flex-shrink-0">
+            <div key={index} className="flex items-start gap-4 text-sm">
+              <span className="font-medium text-muted-foreground min-w-0">
                 {item.label}:
               </span>
-              <span className="text-foreground text-right break-words">
+              <span className="text-foreground break-words">
                 {item.value || 'Not set'}
               </span>
             </div>
