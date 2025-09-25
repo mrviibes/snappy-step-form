@@ -83,6 +83,7 @@ export interface GenerateImageParams {
   negativePrompt?: string;
   image_dimensions?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
+  provider?: 'ideogram' | 'gemini';
 }
 
 type GenerateImageResponse = {
@@ -92,7 +93,7 @@ type GenerateImageResponse = {
   success: true;
   jobId: string;
   status: 'pending';
-  provider: 'ideogram' | 'openai';
+  provider: 'ideogram' | 'openai' | 'gemini';
 } | {
   success: false;
   error: string;
@@ -272,7 +273,7 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
   }
 }
 
-export async function pollImageStatus(jobId: string, provider: 'ideogram' | 'openai'): Promise<{
+export async function pollImageStatus(jobId: string, provider: 'ideogram' | 'openai' | 'gemini'): Promise<{
   success: boolean;
   status: 'pending' | 'completed' | 'failed';
   imageData?: string;

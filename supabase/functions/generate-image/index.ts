@@ -11,6 +11,7 @@ interface GenerateImageRequest {
   negativePrompt?: string;
   image_dimensions?: 'square' | 'portrait' | 'landscape';
   quality?: 'high' | 'medium' | 'low';
+  provider?: 'ideogram' | 'gemini';
 }
 
 interface GenerateImageResponse {
@@ -104,16 +105,30 @@ serve(async (req) => {
     prompt: requestBody.prompt?.substring(0, 100) + '...',
     image_dimensions: requestBody.image_dimensions,
     quality: requestBody.quality,
+    provider: requestBody.provider || 'ideogram',
     hasNegativePrompt: !!requestBody.negativePrompt
   });
 
   try {
-    const ideogramApiKey = Deno.env.get('IDEOGRAM_API_KEY');
-    if (!ideogramApiKey) {
-      return jsonResponse({
-        success: false,
-        error: 'Server configuration error: IDEOGRAM_API_KEY not set'
-      }, 500);
+    const { prompt, negativePrompt, image_dimensions = 'square', quality = 'high', provider = 'ideogram' } = requestBody;
+    
+    // Check API keys based on provider
+    if (provider === 'ideogram') {
+      const ideogramApiKey = Deno.env.get('IDEOGRAM_API_KEY');
+      if (!ideogramApiKey) {
+        return jsonResponse({
+          success: false,
+          error: 'Server configuration error: IDEOGRAM_API_KEY not set'
+        }, 500);
+      }
+    } else if (provider === 'gemini') {
+      const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+      if (!googleApiKey) {
+        return jsonResponse({
+          success: false,
+          error: 'Server configuration error: GOOGLE_AI_API_KEY not set'
+        }, 500);
+      }
     }
 
     // Input validation with detailed error messages
@@ -132,8 +147,6 @@ serve(async (req) => {
         details: 'Prompt must be at least 10 characters long'
       }, 400);
     }
-
-    const { prompt, negativePrompt, image_dimensions = 'square', quality = 'high' } = requestBody;
 
     // Validate image dimensions
     const validDimensions = ['square', 'portrait', 'landscape'];
@@ -176,57 +189,100 @@ serve(async (req) => {
       low: 'V_2_TURBO'
     };
 
-    console.log('Generating image with Ideogram:', { 
+    console.log(`Generating image with ${provider}:`, { 
       promptLength: prompt.length, 
       image_dimensions, 
       quality,
       aspectRatio: aspectRatioMap[image_dimensions],
-      model: modelMap[quality]
+      model: provider === 'ideogram' ? modelMap[quality] : 'gemini-2.5-flash-image'
     });
 
-    // First try Ideogram V3 (multipart form) endpoint
-    const resolutionMap: Record<string, string> = {
+    let response: Response;
+    
+    // Define dimension maps that might be used later in debug info
+    const dimensionMap: Record<string, string> = {
       square: '1024x1024',
       landscape: '1536x1024',
       portrait: '1024x1536'
     };
-    const speedMap: Record<string, string> = {
-      high: 'QUALITY',
-      medium: 'DEFAULT',
-      low: 'TURBO'
-    };
 
-    let response: Response;
-
-    try {
-      console.log('Sending request to Ideogram API (v3 multipart)...');
-      console.log('V3 request details:', {
-        endpoint: 'https://api.ideogram.ai/v1/ideogram-v3/generate',
-        aspectRatio: aspectRatioMap[image_dimensions],
-        renderingSpeed: speedMap[quality]
-      });
+    if (provider === 'gemini') {
+      // Gemini 2.5 Flash Image generation
+      console.log('Sending request to Gemini 2.5 Flash Image API...');
       
-      const form = new FormData();
-      form.append('prompt', prompt.trim());
-      if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
-      form.append('aspect_ratio', aspectRatioMap[image_dimensions]);
-      form.append('rendering_speed', speedMap[quality]);
-      form.append('magic_prompt', 'OFF');
-      form.append('style_type', 'GENERAL');
-      form.append('num_images', '1');
+      const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+      
+      const requestBody = {
+        contents: [{
+          parts: [{
+            text: `Generate an image with the following description: ${prompt.trim()}`
+          }]
+        }],
+        generationConfig: {
+          outputMimeType: 'image/png',
+          imageDimensions: dimensionMap[image_dimensions]
+        }
+      };
 
-      response = await withRetry(async () => {
-        const fetchPromise = fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
-          method: 'POST',
-          headers: { 'Api-Key': ideogramApiKey },
-          body: form,
+      try {
+        response = await withRetry(async () => {
+          const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-image:generateContent?key=${googleApiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+          return await Promise.race([fetchPromise, timeoutPromise(30000)]);
+        }, 3, 2000);
+      } catch (e) {
+        console.error('Gemini request failed:', e instanceof Error ? e.message : e);
+        throw new Error('Gemini API request failed');
+      }
+    } else {
+      // Ideogram V3 (multipart form) endpoint
+      const resolutionMap: Record<string, string> = {
+        square: '1024x1024',
+        landscape: '1536x1024',
+        portrait: '1024x1536'
+      };
+      const speedMap: Record<string, string> = {
+        high: 'QUALITY',
+        medium: 'DEFAULT',
+        low: 'TURBO'
+      };
+
+      try {
+        console.log('Sending request to Ideogram API (v3 multipart)...');
+        console.log('V3 request details:', {
+          endpoint: 'https://api.ideogram.ai/v1/ideogram-v3/generate',
+          aspectRatio: aspectRatioMap[image_dimensions],
+          renderingSpeed: speedMap[quality]
         });
-        return await Promise.race([fetchPromise, timeoutPromise(30000)]);
-      }, 3, 2000);
-    } catch (e) {
-      console.warn('V3 request failed before response, will fall back to legacy:', e instanceof Error ? e.message : e);
-      // Create a dummy non-ok Response-like object to force legacy fallback
-      response = new Response(null, { status: 599, statusText: 'V3 prefetch failed' });
+        
+        const ideogramApiKey = Deno.env.get('IDEOGRAM_API_KEY')!; // We know it exists from validation above
+        const form = new FormData();
+        form.append('prompt', prompt.trim());
+        if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
+        form.append('aspect_ratio', aspectRatioMap[image_dimensions]);
+        form.append('rendering_speed', speedMap[quality]);
+        form.append('magic_prompt', 'OFF');
+        form.append('style_type', 'GENERAL');
+        form.append('num_images', '1');
+
+        response = await withRetry(async () => {
+          const fetchPromise = fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+            method: 'POST',
+            headers: { 'Api-Key': ideogramApiKey },
+            body: form,
+          });
+          return await Promise.race([fetchPromise, timeoutPromise(30000)]);
+        }, 3, 2000);
+      } catch (e) {
+        console.warn('V3 request failed before response, will fall back to legacy:', e instanceof Error ? e.message : e);
+        // Create a dummy non-ok Response-like object to force legacy fallback
+        response = new Response(null, { status: 599, statusText: 'V3 prefetch failed' });
+      }
     }
 
     // If V3 failed or returned non-2xx, do NOT fall back. Return error handling below.
@@ -234,7 +290,7 @@ serve(async (req) => {
       console.warn(`V3 non-OK (status ${response.status}). Not falling back to legacy; will return error.`);
     }
 
-    console.log(`Ideogram API response status: ${response.status}`);
+    console.log(`${provider.toUpperCase()} API response status: ${response.status}`);
 
     if (!response.ok) {
       let errorData = '';
@@ -244,7 +300,7 @@ serve(async (req) => {
         errorData = 'Unable to read error response';
       }
 
-      console.error('Ideogram API error:', {
+      console.error(`${provider.toUpperCase()} API error:`, {
         status: response.status,
         statusText: response.statusText,
         errorData: errorData.substring(0, 500)
@@ -281,36 +337,99 @@ serve(async (req) => {
     }
 
     let data: any;
+    let imageData: string;
+
     try {
       data = await response.json();
-      console.log('Ideogram API response received, checking structure...');
+      console.log(`${provider.toUpperCase()} API response received, checking structure...`);
       console.log('Response data keys:', Object.keys(data || {}));
-      
-      // Check if this is an async job response
-      if (data.job_id || data.id) {
-        const jobId = data.job_id || data.id;
-        console.log(`Ideogram returned job ID: ${jobId}`);
-        
-        return jsonResponse({
-          success: true,
-          jobId,
-          status: 'pending',
-          provider: 'ideogram'
-        });
-      }
-      
-      // Legacy sync response handling
-      if (data.data && Array.isArray(data.data)) {
-        console.log(`Ideogram response structure: { hasData: true, dataType: "array", dataLength: ${data.data.length} }`);
+
+      if (provider === 'gemini') {
+        // Handle Gemini response format
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
+          const part = data.candidates[0].content.parts.find((p: any) => p.inlineData);
+          if (part && part.inlineData && part.inlineData.data) {
+            imageData = `data:image/png;base64,${part.inlineData.data}`;
+            console.log('Successfully processed Gemini image data');
+          } else {
+            throw new Error('No image data found in Gemini response');
+          }
+        } else {
+          throw new Error('Invalid Gemini response format');
+        }
       } else {
-        console.log('Ideogram response structure:', {
-          hasData: !!data.data,
-          dataType: typeof data.data,
-          keys: Object.keys(data)
-        });
+        // Handle Ideogram response format
+        // Check if this is an async job response
+        if (data.job_id || data.id) {
+          const jobId = data.job_id || data.id;
+          console.log(`Ideogram returned job ID: ${jobId}`);
+          
+          return jsonResponse({
+            success: true,
+            jobId,
+            status: 'pending',
+            provider: 'ideogram'
+          });
+        }
+        
+        // Legacy sync response handling
+        if (data.data && Array.isArray(data.data)) {
+          console.log(`Ideogram response structure: { hasData: true, dataType: "array", dataLength: ${data.data.length} }`);
+        } else {
+          console.log('Ideogram response structure:', {
+            hasData: !!data.data,
+            dataType: typeof data.data,
+            keys: Object.keys(data)
+          });
+        }
+
+        // Validate response structure for Ideogram
+        if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+          console.error('Invalid Ideogram response structure:', {
+            data: data.data,
+            keys: Object.keys(data)
+          });
+          throw new Error('No image data in API response');
+        }
+
+        // Get the first generated image from Ideogram
+        const imageResult = data.data[0];
+        if (!imageResult.url && !imageResult.b64_json) {
+          console.error('No image URL or base64 data in response:', imageResult);
+          throw new Error('No image data found');
+        }
+
+        if (imageResult.b64_json) {
+          // If we have base64 data, use it directly
+          imageData = `data:image/png;base64,${imageResult.b64_json}`;
+          console.log('Using base64 image data from Ideogram');
+        } else if (imageResult.url) {
+          console.log('Fetching image from URL:', imageResult.url);
+          
+          // If we have a URL, fetch and convert to base64 with timeout
+          const imageResponse = await withRetry(async () => {
+            const fetchPromise = fetch(imageResult.url);
+            return await Promise.race([
+              fetchPromise,
+              timeoutPromise(15000) // 15 second timeout for image download
+            ]);
+          }, 2, 1000); // 2 retries for image download
+          
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image from URL: ${imageResponse.status} ${imageResponse.statusText}`);
+          }
+          
+          const imageBuffer = await imageResponse.arrayBuffer();
+          console.log(`Image buffer size: ${imageBuffer.byteLength} bytes`);
+          const imageBase64 = arrayBufferToBase64(imageBuffer);
+          imageData = `data:image/png;base64,${imageBase64}`;
+          console.log('Successfully converted image URL to base64');
+        } else {
+          throw new Error('No valid image data format found in response');
+        }
       }
     } catch (error) {
-      console.error('Failed to parse Ideogram response as JSON:', error);
+      console.error(`Failed to parse ${provider.toUpperCase()} response as JSON:`, error);
       return jsonResponse({
         success: false,
         error: 'Invalid response format from image API',
@@ -318,80 +437,18 @@ serve(async (req) => {
       }, 502);
     }
 
-    console.log('Ideogram response structure:', {
-      hasData: !!data.data,
-      dataType: Array.isArray(data.data) ? 'array' : typeof data.data,
-      dataLength: Array.isArray(data.data) ? data.data.length : 'N/A'
-    });
-    
-    // Validate response structure
-    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
-      console.error('Invalid Ideogram response structure:', {
-        data: data.data,
-        keys: Object.keys(data)
-      });
-      return jsonResponse({
-        success: false,
-        error: 'No image data in API response',
-        details: 'The image generation API returned an empty or invalid result'
-      }, 502);
-    }
+    console.log(`Image generated successfully via ${provider.toUpperCase()}`);
 
-    // Get the first generated image
-    const imageResult = data.data[0];
-    if (!imageResult.url && !imageResult.b64_json) {
-      console.error('No image URL or base64 data in response:', imageResult);
-      return jsonResponse({
-        success: false,
-        error: 'No image data found',
-        details: 'API returned result without image URL or base64 data'
-      }, 502);
-    }
-
-    let imageData: string;
-    
-    try {
-      if (imageResult.b64_json) {
-        // If we have base64 data, use it directly
-        imageData = `data:image/png;base64,${imageResult.b64_json}`;
-        console.log('Using base64 image data from Ideogram');
-      } else if (imageResult.url) {
-        console.log('Fetching image from URL:', imageResult.url);
-        
-        // If we have a URL, fetch and convert to base64 with timeout
-        const imageResponse = await withRetry(async () => {
-          const fetchPromise = fetch(imageResult.url);
-          return await Promise.race([
-            fetchPromise,
-            timeoutPromise(15000) // 15 second timeout for image download
-          ]);
-        }, 2, 1000); // 2 retries for image download
-        
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch image from URL: ${imageResponse.status} ${imageResponse.statusText}`);
-        }
-        
-        const imageBuffer = await imageResponse.arrayBuffer();
-        console.log(`Image buffer size: ${imageBuffer.byteLength} bytes`);
-        const imageBase64 = arrayBufferToBase64(imageBuffer);
-        imageData = `data:image/png;base64,${imageBase64}`;
-        console.log('Successfully converted image URL to base64');
-      } else {
-        throw new Error('No valid image data format found in response');
-      }
-    } catch (error) {
-      console.error('Error processing image data:', error);
-      return jsonResponse({
-        success: false,
-        error: 'Failed to process generated image',
-        details: error instanceof Error ? error.message : 'Unknown image processing error'
-      }, 500);
-    }
-
-    console.log('Image generated successfully via Ideogram');
-
-    // Collect debug info about exact Ideogram API parameters
-    const debugInfo = {
+    // Collect debug info about exact API parameters
+    const debugInfo = provider === 'gemini' ? {
+      provider: 'gemini',
+      model: 'gemini-2.5-flash-image',
+      exactPrompt: prompt.trim(),
+      imageDimensions: `${image_dimensions} (${dimensionMap[image_dimensions] || 'auto'})`,
+      outputMimeType: 'image/png',
+      timestamp: new Date().toISOString()
+    } : {
+      provider: 'ideogram',
       ideogramApiEndpoint: response.url.includes('/v1/ideogram-v3/generate') ? 'V3 Multipart (v1/ideogram-v3)' : 'Legacy JSON',
       exactPrompt: prompt.trim(),
       negativePrompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
@@ -399,8 +456,8 @@ serve(async (req) => {
       styleType: 'GENERAL',
       model: response.url.includes('/v1/ideogram-v3/generate') ? modelMap[quality] : legacyModelMap[quality],
       aspectRatio: aspectRatioMap[image_dimensions],
-      resolution: response.url.includes('/v1/ideogram-v3/generate') ? resolutionMap[image_dimensions] : 'N/A',
-      renderingSpeed: response.url.includes('/v1/ideogram-v3/generate') ? speedMap[quality] : 'N/A',
+      resolution: response.url.includes('/v1/ideogram-v3/generate') ? '1024x1024' : 'N/A',
+      renderingSpeed: response.url.includes('/v1/ideogram-v3/generate') ? 'QUALITY' : 'N/A',
       timestamp: new Date().toISOString()
     };
 

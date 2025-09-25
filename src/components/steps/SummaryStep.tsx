@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, RefreshCw, Zap, Maximize, X } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
 import DebugPanel from "@/components/DebugPanel";
@@ -27,6 +28,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'ideogram' | 'gemini'>('ideogram');
   
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -183,7 +185,8 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         prompt: template.positive,
         negativePrompt: template.negative,
         image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
-        quality: 'high' as const
+        quality: 'high' as const,
+        provider: selectedProvider
       };
       
       setImageDebugInfo({
@@ -280,7 +283,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     }
   };
 
-  const pollForImageCompletion = async (jobId: string, provider: 'ideogram' | 'openai', template: PromptTemplate, requestToken: string) => {
+  const pollForImageCompletion = async (jobId: string, provider: 'ideogram' | 'openai' | 'gemini', template: PromptTemplate, requestToken: string) => {
     const maxAttempts = 20; // Max 20 attempts (up to 1 minute)
     let attempts = 0;
     
@@ -436,6 +439,21 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
 
       {/* Generated Image Section */}
       <Card className="p-4">
+        {/* Provider Selection */}
+        <div className="mb-4">
+          <label className="text-sm font-medium text-foreground mb-2 block">
+            Image Generation Provider
+          </label>
+          <Select value={selectedProvider} onValueChange={(value: 'ideogram' | 'gemini') => setSelectedProvider(value)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ideogram">Ideogram V3</SelectItem>
+              <SelectItem value="gemini">Gemini 2.5 Flash Image</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {isLoadingImage ? (
           <div className="space-y-3">
             <div className="relative aspect-square w-full rounded-lg bg-muted flex items-center justify-center">
@@ -445,10 +463,10 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
                   <Zap className="h-12 w-12 animate-pulse" />
                   <div className="absolute -inset-2 border-2 border-primary/20 rounded-full animate-ping" />
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium">Generating your image...</p>
-                  <p className="text-xs opacity-70">Using Ideogram V3</p>
-                </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Generating your image...</p>
+                    <p className="text-xs opacity-70">Using {selectedProvider === 'gemini' ? 'Gemini 2.5 Flash' : 'Ideogram V3'}</p>
+                  </div>
               </div>
             </div>
           </div>
@@ -574,7 +592,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         {imageDebugInfo && (
           <DebugPanel
             title="Image Generation Debug"
-            model="ideogram-v3"
+            model={selectedProvider === 'gemini' ? 'gemini-2.5-flash-image' : 'ideogram-v3'}
             status={imageDebugInfo.step === 'API_CALL_START' ? 'sending...' : 
                    imageDebugInfo.step === 'POLLING_START' ? 'polling...' :
                    imageDebugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
