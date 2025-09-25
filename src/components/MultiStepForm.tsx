@@ -29,6 +29,8 @@ interface FormData {
     dimension?: string;
     completed_visual_description?: string;
     isComplete?: boolean;
+    insertedVisuals?: string[];
+    compositionMode?: string;
   };
   generation?: {
     prompts?: any;

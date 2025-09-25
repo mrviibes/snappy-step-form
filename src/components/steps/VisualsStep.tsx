@@ -96,7 +96,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
-  const [selectedCustomVisualStyle, setSelectedCustomVisualStyle] = useState<string>("");
+  const [selectedCompositionMode, setSelectedCompositionMode] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -142,20 +142,16 @@ export default function VisualsStep({
       setTagInput('');
     }
   };
-  const handleCustomVisualStyleChange = (value: string) => {
+  const handleCompositionModeChange = (value: string) => {
     if (value) {
-      const currentVisuals = data.visuals?.insertedVisuals || [];
-      // Add to insertedVisuals if not already present
-      if (!currentVisuals.includes(value)) {
-        updateData({
-          visuals: {
-            ...data.visuals,
-            insertedVisuals: [...currentVisuals, value]
-          }
-        });
-      }
-      // Clear the dropdown selection after adding
-      setSelectedCustomVisualStyle("");
+      updateData({
+        visuals: {
+          ...data.visuals,
+          compositionMode: value
+        }
+      });
+      // Clear the dropdown selection after setting
+      setSelectedCompositionMode("");
     }
   };
   const handleRemoveTag = (visualToRemove: string) => {
@@ -185,7 +181,8 @@ export default function VisualsStep({
         rating: data.vibe?.rating || "PG",
         insertWords: data.vibe?.insertWords || [],
         image_style: data.visuals?.style || "general",
-        composition_modes: data.visuals?.insertedVisuals || [],
+        composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
+        specific_visuals: data.visuals?.insertedVisuals || [],
         // Remove any empty values
         image_dimensions: data.visuals?.dimension || "square"
       };
@@ -443,41 +440,51 @@ export default function VisualsStep({
               </div>}
           </div>
 
-          {/* Generate Section with Dropdown */}
-          <div className="pt-4 space-y-4">
-            {error && <Alert className="mb-4 border-destructive bg-destructive/10">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-destructive">
-                  {error}
-                </AlertDescription>
-              </Alert>}
-            
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                
-                <Select value={selectedCustomVisualStyle} onValueChange={handleCustomVisualStyleChange}>
-                  <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border shadow-lg z-50">
-                    {customVisualStyles.map(style => <SelectItem key={style.value} value={style.value} className="hover:bg-accent">
-                        {style.label}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="flex-1 h-12 text-base font-medium">
-                {isGeneratingVisuals ? <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </> : <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate 4 AI Visuals
-                  </>}
-              </Button>
-            </div>
-          </div>
+           {/* Generate Section with Composition Mode Dropdown */}
+           <div className="pt-4 space-y-4">
+             {error && <Alert className="mb-4 border-destructive bg-destructive/10">
+                 <AlertCircle className="h-4 w-4" />
+                 <AlertDescription className="text-destructive">
+                   {error}
+                 </AlertDescription>
+               </Alert>}
+             
+             <div className="space-y-3">
+               <div>
+                 <label className="text-sm font-medium text-foreground mb-2 block">
+                   Composition Mode (Optional)
+                 </label>
+                 <Select value={selectedCompositionMode} onValueChange={handleCompositionModeChange}>
+                   <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-[100]">
+                     <SelectValue placeholder="Select composition mode (optional)" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-background border border-border shadow-lg z-[100] max-h-48">
+                     {customVisualStyles.map(style => <SelectItem key={style.value} value={style.value} className="hover:bg-accent focus:bg-accent cursor-pointer">
+                         {style.label}
+                       </SelectItem>)}
+                   </SelectContent>
+                 </Select>
+               </div>
+
+               {/* Show selected composition mode */}
+               {data.visuals?.compositionMode && (
+                 <div className="bg-primary/10 text-primary px-3 py-2 rounded-lg text-sm">
+                   <span className="font-medium">Selected: </span>
+                   {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label || data.visuals.compositionMode}
+                 </div>
+               )}
+               
+               <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
+                 {isGeneratingVisuals ? <>
+                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                     Generating...
+                   </> : <>
+                     <Sparkles className="w-4 h-4 mr-2" />
+                     Generate 4 AI Visuals
+                   </>}
+               </Button>
+             </div>
+           </div>
         </>}
 
           {/* Visual Selection */}
