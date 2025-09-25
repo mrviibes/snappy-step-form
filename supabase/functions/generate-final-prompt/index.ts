@@ -147,6 +147,9 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   // Use first visual scene as context or create category-based scene
   const visualScene = composition_modes[0] || `${categoryContext} scene`;
 
+  // Create visual recommendation text
+  const visualRecommendationText = visual_recommendation ? `${visual_recommendation} ` : '';
+
   console.log('🎨 Mapped values:', { 
     textLayout, 
     dimensions, 
