@@ -50,6 +50,9 @@ function cleanLine(rawText: string): string {
   cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
   cleaned = cleaned.replace(/`(.*?)`/g, '$1');
   
+  // Replace em dashes with commas (post-processing filter)
+  cleaned = cleaned.replace(/—/g, ',');
+  
   // Normalize whitespace
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   
