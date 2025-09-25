@@ -506,7 +506,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         {promptDebugInfo && (
           <DebugPanel
             title="Final Prompt Generation Debug"
-            model="server-selected"
+            model="gpt-4o-mini"
             status={promptDebugInfo.step === 'API_CALL_START' ? 'sending...' : 
                    promptDebugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
                    promptDebugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}

@@ -105,6 +105,7 @@ export default function VisualsStep({
     formData?: any;
     apiResponse?: any;
     visualsCount?: number;
+    model?: string;
     error?: any;
   } | null>(null);
   const handleStyleChange = (styleId: string) => {
@@ -196,7 +197,8 @@ export default function VisualsStep({
         ...prev!,
         step: 'API_CALL_SUCCESS',
         apiResponse: visuals,
-        visualsCount: visuals.length
+        visualsCount: visuals.length,
+        model: (visuals as any).model || 'gpt-4o-mini' // Extract model from API response
       }));
       
       setGeneratedVisuals(visuals);
@@ -418,7 +420,7 @@ export default function VisualsStep({
               {debugInfo && (
                 <DebugPanel
                   title="Visual Generation Debug"
-                  model="server-selected"
+                  model={debugInfo.model || "gpt-4o-mini"}
                   status={debugInfo.step === 'API_CALL_START' ? 'sending...' : 
                          debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
                          debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'}
