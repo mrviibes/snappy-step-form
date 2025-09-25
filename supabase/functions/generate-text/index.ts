@@ -37,7 +37,7 @@ RATINGS
 - PG-13 (Edgy, Sharp): Strong sarcasm, irony, edgy humor. Allowed swears: hell, damn. No stronger profanity.
 - R (Raw, Unfiltered): Must include profanity (fuck, shit, bastard, ass, bullshit, goddamn).
   Profanity must vary across all 4 outputs. Can be hype or roast.
-  Avoid extreme violence or illegal themes.';
+  Avoid extreme violence or illegal themes.`;
 
 
 
