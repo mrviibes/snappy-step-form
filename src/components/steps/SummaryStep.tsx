@@ -53,6 +53,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     params?: any;
     apiResponse?: any;
     error?: any;
+    ideogramDebugInfo?: any;
   } | null>(null);
 
   // Generate templates on mount and auto-generate with first template
@@ -190,7 +191,8 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           name: template.name,
           description: template.description
         },
-        params: imageParams
+        params: imageParams,
+        ideogramDebugInfo: null // Will be populated after API call
       });
 
       const response = await generateImage(imageParams);
@@ -217,7 +219,8 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         setImageDebugInfo(prev => ({
           ...prev!,
           step: 'API_CALL_SUCCESS',
-          apiResponse: { imageData: response.imageData.substring(0, 100) + '...' }
+          apiResponse: { imageData: response.imageData.substring(0, 100) + '...' },
+          ideogramDebugInfo: (response as any).debugInfo || null
         }));
         
         setGeneratedImage(response.imageData);
@@ -534,6 +537,58 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             formData={imageDebugInfo.template}
             error={imageDebugInfo.error}
           />
+        )}
+
+        {/* Ideogram API Parameters Debug Panel */}
+        {imageDebugInfo?.ideogramDebugInfo && (
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                Ideogram API Parameters (Exact Settings)
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <strong>API Endpoint:</strong> {imageDebugInfo.ideogramDebugInfo.ideogramApiEndpoint}
+              </div>
+              <div>
+                <strong>Model:</strong> {imageDebugInfo.ideogramDebugInfo.model}
+              </div>
+              <div>
+                <strong>Magic Prompt:</strong> <span className="font-mono bg-red-100 px-1 rounded">{imageDebugInfo.ideogramDebugInfo.magicPrompt}</span>
+              </div>
+              <div>
+                <strong>Style Type:</strong> <span className="font-mono bg-green-100 px-1 rounded">{imageDebugInfo.ideogramDebugInfo.styleType}</span>
+              </div>
+              <div>
+                <strong>Aspect Ratio:</strong> {imageDebugInfo.ideogramDebugInfo.aspectRatio}
+              </div>
+              <div>
+                <strong>Resolution:</strong> {imageDebugInfo.ideogramDebugInfo.resolution}
+              </div>
+              {imageDebugInfo.ideogramDebugInfo.renderingSpeed !== 'N/A' && (
+                <div>
+                  <strong>Rendering Speed:</strong> {imageDebugInfo.ideogramDebugInfo.renderingSpeed}
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <div className="mb-2">
+                <strong>Exact Prompt Sent to Ideogram:</strong>
+              </div>
+              <pre className="text-xs bg-white p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+                {imageDebugInfo.ideogramDebugInfo.exactPrompt}
+              </pre>
+            </div>
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <div className="mb-2">
+                <strong>Negative Prompt Sent to Ideogram:</strong>
+              </div>
+              <pre className="text-xs bg-white p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+                {imageDebugInfo.ideogramDebugInfo.negativePrompt}
+              </pre>
+            </div>
+          </Card>
         )}
       </div>
 

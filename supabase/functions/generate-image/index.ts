@@ -211,8 +211,8 @@ serve(async (req) => {
       if (negativePrompt?.trim()) form.append('negative_prompt', negativePrompt.trim());
       form.append('resolution', resolutionMap[image_dimensions]);
       form.append('rendering_speed', speedMap[quality]);
-      form.append('magic_prompt', 'AUTO');
-      form.append('style_type', 'AUTO');
+      form.append('magic_prompt', 'OFF');
+      form.append('style_type', 'GENERAL');
       form.append('num_images', '1');
 
       response = await withRetry(async () => {
@@ -237,9 +237,9 @@ serve(async (req) => {
           prompt: prompt.trim(),
           negative_prompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
           aspect_ratio: aspectRatioMap[image_dimensions],
-          magic_prompt_option: "ON",
+          magic_prompt_option: "OFF",
           seed: Math.floor(Math.random() * 1000000),
-          style_type: "AUTO"
+          style_type: "GENERAL"
         }
       };
 
@@ -413,9 +413,24 @@ serve(async (req) => {
 
     console.log('Image generated successfully via Ideogram');
 
+    // Collect debug info about exact Ideogram API parameters
+    const debugInfo = {
+      ideogramApiEndpoint: response.url.includes('v3/generate') ? 'V3 Multipart' : 'Legacy JSON',
+      exactPrompt: prompt.trim(),
+      negativePrompt: negativePrompt?.trim() || "poor quality, blurry, distorted, watermarks, extra text, spelling errors",
+      magicPrompt: 'OFF',
+      styleType: 'GENERAL',
+      model: response.url.includes('v3/generate') ? modelMap[quality] : legacyModelMap[quality],
+      aspectRatio: aspectRatioMap[image_dimensions],
+      resolution: response.url.includes('v3/generate') ? resolutionMap[image_dimensions] : 'N/A',
+      renderingSpeed: response.url.includes('v3/generate') ? speedMap[quality] : 'N/A',
+      timestamp: new Date().toISOString()
+    };
+
     return jsonResponse({
       success: true,
-      imageData
+      imageData,
+      debugInfo
     });
 
   } catch (error) {
