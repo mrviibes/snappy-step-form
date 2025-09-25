@@ -143,11 +143,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
   
   // Use first visual scene as context or create category-based scene
   const visualScene = composition_modes[0] || `${categoryContext} scene`;
-  
-  // Build emphasis for specific words
-  const wordEmphasis = insertWords.length > 0 
-    ? ` Pay special attention to prominently featuring these key words: ${insertWords.join(', ')}.`
-    : '';
 
   console.log('🎨 Mapped values:', { 
     textLayout, 
@@ -155,12 +150,11 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     toneDescriptor, 
     ratingGuideline,
     categoryContext,
-    visualScene,
-    wordEmphasis
+    visualScene
   });
 
   // Enhanced positive prompt with ALL context
-  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone.${wordEmphasis} Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
+  const positivePrompt = `Create a ${image_style} style ${categoryContext} image with ${dimensions}. The scene should be ${toneDescriptor} and ${ratingGuideline}. MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. The image should feature a ${visualScene} that complements the ${tone} tone. Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
   
   // Enhanced negative prompt with category-specific exclusions
   const categoryNegatives = getCategoryNegatives(category, rating);
