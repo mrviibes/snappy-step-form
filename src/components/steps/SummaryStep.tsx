@@ -414,6 +414,22 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     { label: '11. visual_recommendation', value: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation || 'None' },
   ];
 
+  // Generate custom prompt using user's format
+  const generateCustomPrompt = () => {
+    const completedText = data.text?.generatedText || data.text?.customText || '[text not set]';
+    const tone = data.text?.tone || '[tone not set]';
+    const textLayout = data.text?.layout || '[layout not set]';
+    const imageDimensions = data.visuals?.dimension || '[dimensions not set]';
+    const imageStyle = data.visuals?.style || '[style not set]';
+    const visualDescription = data.visuals?.selectedVisualRecommendation?.description || 
+                              data.visuals?.selectedVisualRecommendation?.interpretation || 
+                              '[visual description not set]';
+
+    return `MANDATORY TEXT: ${completedText} with a ${tone} ${textLayout}. 
+
+A ${imageDimensions} ${tone} ${imageStyle} of ${visualDescription}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -574,14 +590,26 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         <div className="space-y-4">
           <h3 className="font-semibold text-foreground">Selected Template Details</h3>
           
-          {/* Positive Prompt */}
+          {/* Custom Positive Prompt */}
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="default" className="bg-green-100 text-green-800">
-                Positive Prompt ({selectedTemplate.name})
+                Custom Positive Prompt
               </Badge>
             </div>
-            <p className="text-sm text-foreground leading-relaxed">
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+              {generateCustomPrompt()}
+            </p>
+          </Card>
+
+          {/* Original Template Prompt (for reference) */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                Original Template Prompt ({selectedTemplate.name})
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {selectedTemplate.positive}
             </p>
           </Card>
