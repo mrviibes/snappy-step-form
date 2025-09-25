@@ -558,9 +558,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
                 <span className="font-medium text-foreground text-sm">
                   {item.label.replace(/^\d+\.\s*/, '')}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {item.label.match(/^\d+/)?.[0] ? `Step ${item.label.match(/^\d+/)?.[0]}` : ''}
-                </span>
               </div>
               <div className="text-right max-w-[60%]">
                 <span className="text-sm text-foreground break-words">
