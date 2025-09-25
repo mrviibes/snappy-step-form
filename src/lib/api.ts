@@ -227,7 +227,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
 
 export async function generateVisualOptions(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
   try {
-    const res = await ctlFetch<GenerateVisualsResponse>("generate-visuals", params);
+    const res = await ctlFetch<GenerateVisualsResponse>("generate-visuals", params, 60000); // 60 second timeout for visual generation
     if (!res || (res as any).success !== true) {
       throw new Error((res as any)?.error || "Visual generation failed");
     }
