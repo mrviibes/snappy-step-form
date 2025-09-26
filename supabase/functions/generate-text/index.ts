@@ -28,10 +28,10 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     } catch {}
   }
 
-  // Fallback rules v7 (natural R placement, 60–120 chars, max 3 punctuation)
+  // Fallback rules v8 (category-aware jokes, natural R placement)
   cachedRules = {
     id: rulesId || "fallback",
-    version: 7,
+    version: 8,
     length: { min_chars: 60, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
@@ -53,8 +53,8 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
         require_profanity: true,
         open_profanity: true,
         require_variation: true,
-        max_swears_per_line: 1,     // default = 1; bump to 2 if you want the occasional double
-        extra_swear_chance: 0.0     // 0..1 chance to add a second swear when max_swears_per_line > current
+        max_swears_per_line: 1,      // default = 1; bump if you want doubles
+        extra_swear_chance: 0.0      // 0..1 chance to add a second swear
       }
     },
     spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
@@ -143,12 +143,7 @@ function extractSwears(s: string): string[] {
   return [...out];
 }
 
-// Better RNG than Math.random for Deno
-function rand() {
-  const b = new Uint32Array(1);
-  crypto.getRandomValues(b);
-  return b[0] / 2 ** 32;
-}
+function rand() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 2 ** 32; }
 function choice<T>(arr: T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
@@ -158,16 +153,8 @@ function choice<T>(arr: T[], weights?: number[]) {
 }
 
 function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
-function rejoinClauses(clauses: string[]) {
-  let out = clauses.join(", ");
-  out = out.replace(/[.?!]\s*$/, "") + ".";
-  return out.replace(/\s+/g, " ").trim();
-}
-
-function parseLines(content: string): string[] {
-  return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
-}
-
+function rejoinClauses(clauses: string[]) { let out = clauses.join(", "); out = out.replace(/[.?!]\s*$/, "") + "."; return out.replace(/\s+/g, " ").trim(); }
+function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean); }
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
@@ -185,8 +172,6 @@ function bigramSet(s: string) {
   for (let i = 0; i < words.length - 1; i++) set.add(words[i] + " " + words[i + 1]);
   return set;
 }
-
-// fuzzy overlap instead of "share one bigram = dead"
 function bigramOverlap(a: string, b: string) {
   const A = bigramSet(a), B = bigramSet(b);
   const inter = [...A].filter(x => B.has(x)).length;
@@ -209,7 +194,6 @@ function varyInsertPositions(lines: string[], insert: string) {
     ? l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`
     : l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `));
 }
-
 function deTagInsert(line: string, insert: string) {
   const tag = new RegExp(`,\\s*${insert}\\.?$`, "i");
   if (tag.test(line) && !new RegExp(`^${insert}\\b`, "i").test(line)) {
@@ -219,7 +203,16 @@ function deTagInsert(line: string, insert: string) {
   return line;
 }
 
-// natural-looking anchors
+// Joke-mode helpers
+function isJokesCategory(category?: string) {
+  return typeof category === "string" && category.toLowerCase().startsWith("jokes");
+}
+function isMetaLine(s: string) {
+  const lower = s.toLowerCase();
+  return /^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/.test(lower);
+}
+
+// natural anchors
 const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|ship|book|call|try|push|fake|score|win|lose|cook|build|haul|dump|clean|move|save|spend|cost|is|are|was|were|do|does|did)\b/i;
 const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
 const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
@@ -261,7 +254,7 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"];
+  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"] as const;
   const weights    = [0.15,   0.15,        0.15,        0.30,             0.10,               0.15];
   const strat = choice(strategies, weights);
 
@@ -306,10 +299,15 @@ function enforceRules(
   const minLen = rules.length?.min_chars ?? 60;
   const maxLen = rules.length?.max_chars ?? 120;
 
-  let processed = lines.map((raw, idx) => {
-    let t = raw.trim();
+  // Strip meta and clean
+  let processed = lines
+    .map((raw) => raw.trim())
+    .filter((l) => l && !isMetaLine(l))
+    .map((t) => t.replace(/["`]+/g, "").replace(/\s+/g, " ").trim());
+
+  processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
-    t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
+    t = t.replace(/[:;…]/g, ",").replace(/[“”'’]/g, "'");
 
     const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
     if (countPunc(t) > maxPunc) {
@@ -328,7 +326,6 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
-    // ensure insert word present (first one wins if missing)
     for (const w of insertWords) {
       if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
         t = `${t.replace(/[.?!]\s*$/,"")}, ${w}.`;
@@ -355,7 +352,7 @@ function enforceRules(
     const extraChance = Math.max(0, Math.min(1, cfg.extra_swear_chance ?? 0));
 
     processed = processed.map((t, i) => {
-      // ensure at least one swear with varied lead across lines
+      // ensure at least one swear with varied lead
       let lead = SWEAR_WORDS.find(w => !usedLead.has(w)) || SWEAR_WORDS[0];
       const had = extractSwears(t);
 
@@ -370,16 +367,12 @@ function enforceRules(
             lead = alt;
             t = placeNaturalProfanity(t, insertWords, rules, lead);
             enforcement.push(`Line ${i+1}: varied lead profanity`);
-          } else {
-            lead = first;
-          }
-        } else {
-          lead = first;
-        }
+          } else lead = first;
+        } else lead = first;
       }
       usedLead.add(lead.toLowerCase());
 
-      // Optional: a tasteful second swear if allowed
+      // Optional tasteful second swear
       let current = extractSwears(t);
       const wantsExtra = (current.length < maxPer) || (current.length < 2 && Math.random() < extraChance);
       if (wantsExtra) {
@@ -388,9 +381,7 @@ function enforceRules(
           const puncts = countPunc(t);
           const roomP = puncts < (rules.punctuation?.max_marks_per_line ?? 3);
           const roomC = (t.length + cand.length + 2) <= (rules.length?.max_chars ?? 120);
-          if (roomP && roomC) {
-            t = t.replace(/[.?!]\s*$/,"") + ", " + cand + ".";
-          }
+          if (roomP && roomC) t = t.replace(/[.?!]\s*$/,"") + ", " + cand + ".";
         }
       }
 
@@ -438,10 +429,14 @@ async function backfillLines(
   accepted: string[],
   tone: string,
   rating: string,
-  insertWords: string[]
+  insertWords: string[],
+  category?: string,
+  subcategory?: string
 ) {
   const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const user = `We still need ${missing} additional one-liners that satisfy ALL constraints.
+  const mode = isJokesCategory(category) ? "jokes" : "one-liners";
+  const jokeHint = isJokesCategory(category) ? ` in the style '${subcategory || "jokes"}'` : "";
+  const user = `We still need ${missing} additional ${mode}${jokeHint} that satisfy ALL constraints.
 Do not repeat word pairs used in:
 ${block}
 Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
@@ -462,15 +457,23 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
     const rules = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
 
+    const jokeMode = isJokesCategory(category);
     let systemPrompt = text_rules;
+
+    // Context lines
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
+    if (jokeMode)    systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    systemPrompt += `\n\nReturn exactly 4 lines, one per line.`;
 
-    const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+    // Prompt wording to avoid meta output
+    const userPrompt = jokeMode
+      ? "Write 12 candidate jokes in the specified joke style, then return 4 that best satisfy all constraints. No explanations."
+      : "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
@@ -490,7 +493,7 @@ serve(async (req) => {
     let tries = 0;
     while (lines.length < 4 && tries < 5) {
       const need = 4 - lines.length;
-      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
+      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords, category, subcategory);
       const enforcedMore = enforceRules(more, rules, rating || "PG-13", insertWords);
       lines = [...lines, ...enforcedMore.lines].slice(0, 4);
       enforcement = enforcement.concat(enforcedMore.enforcement);
