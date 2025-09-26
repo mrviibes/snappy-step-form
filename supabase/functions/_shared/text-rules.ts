@@ -3,6 +3,7 @@ export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 GOAL
 - Generate 4 distinct outputs that satisfy all constraints below.
 - If category starts with "jokes", write 4 jokes in the requested joke style.
+- If category starts with "pop-culture", write 4 context-aware one-liners or quips in that subcategory style.
 - Otherwise, write 4 humorous one-liners.
 
 GLOBAL HARD CONSTRAINTS
@@ -28,11 +29,25 @@ JOKE MODE (applies when category starts with "jokes")
   • roasts/stand-up-comedy → performance tone, setup→tag→punch
 - Do not include any prefaces like "Here are jokes" or "As requested".
 
+POP-CULTURE MODE (applies when category starts with "pop-culture")
+- Use the subcategory as the cultural frame (movies, celebrities, music, sports icons, memes, influencers, etc).
+- Write lines that feel aware of that space:
+  • movies → mention characters, scenes, motifs, or props
+  • celebrities → gossip tone, red carpet, scandals, fan takes
+  • sports icons → highlight feats, records, quirks
+  • video games → levels, bosses, combos, grinding
+  • influencers/social → trends, hashtags, drama, “link in bio”
+  • memes/TikTok → templates, loops, trends, viral vibe
+- Do not narrate instructions. No “here are 4 lines”.
+- Reference tokens (e.g. “Billy Madison”) with scene- or persona-level detail.
+
 ROLE-AWARE TOKENS
-- Tokens are given as text with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme).
+- Tokens are given as text with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme, title).
 - Use ALL tokens naturally, exactly as written, in EVERY line.
 - Placement should fit the role:
   • person/character → subject or tag after a clause
+  • title=movie/show/song → scene-aware mention, not generic
+  • celebrity → gossip/spotlight framing
   • venue/city/timeslot → opener tag, parenthetical, or setting mid-clause
   • topic/brand/meme → mid-setup or punch
   • callback/catchphrase → punchline or echo tag
