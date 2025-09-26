@@ -5,35 +5,52 @@ import { text_rules } from "../_shared/text-rules.ts";
 // ============== MODEL ==============
 const getTextModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
 const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+const openAIBase = Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com";
 
 // ============== CORS ==============
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 // ============== RULES LOADER ==============
-let cachedRules: any = null;
+let cachedRules: { id?: string; version?: number } | null = null;
+
 async function loadRules(rulesId: string, origin?: string): Promise<any> {
+  // if the cached object matches the requested id, reuse it
   if (cachedRules && cachedRules.id === rulesId) return cachedRules;
 
   if (origin) {
     try {
-      const rulesUrl = `${origin}/config/${rulesId}.json`;
-      const res = await fetch(rulesUrl);
+      const rulesUrl = `${origin.replace(/\/+$/,"")}/config/${rulesId}.json`;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(rulesUrl, { signal: controller.signal });
+      clearTimeout(t);
       if (res.ok) {
         cachedRules = await res.json();
+        // sanity: force id so later comparisons work
+        (cachedRules as any).id ||= rulesId;
         return cachedRules;
       }
-    } catch {}
+    } catch {
+      // remote rules fetch failed; fall through to fallback
+    }
   }
 
-  // Fallback rules v9 (jokes-aware, tokens, natural R placement, spellcheck support)
+  // Fallback rules v10 (smarter natural R placement, stricter punctuation, spellcheck support)
   cachedRules = {
     id: rulesId || "fallback",
-    version: 9,
+    version: 10,
     length: { min_chars: 60, max_chars: 120 },
-    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
+    punctuation: {
+      ban_em_dash: true,
+      replacement: { "—": "," },
+      allowed: [".", ",", "?", "!"],
+      max_marks_per_line: 3
+    },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
       "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
@@ -69,6 +86,7 @@ function buildOpenAIRequest(
   options: { temperature?: number; maxTokens: number }
 ) {
   const body: any = { model, messages };
+  // Chat Completions: handle both legacy and newer models
   if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
     body.max_completion_tokens = options.maxTokens;
   } else {
@@ -82,36 +100,31 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   let model = getTextModel();
   let maxTokens = model.startsWith("gpt-5") ? 4000 : 300;
 
-  try {
-    const req = buildOpenAIRequest(model, [
+  const makeReq = (m: string, opts: { maxTokens: number; temperature?: number }) =>
+    buildOpenAIRequest(m, [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
-    ], { maxTokens });
+    ], opts);
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+  try {
+    const r = await fetch(`${openAIBase}/v1/chat/completions`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(req)
+      body: JSON.stringify(makeReq(model, { maxTokens }))
     });
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
     const content = d.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error("Empty content");
     return { content, model: d.model || model };
-
   } catch {
+    // fallback with slightly higher temperature to escape decode ruts
     model = "gpt-4o-mini";
     maxTokens = 220;
-
-    const req = buildOpenAIRequest(model, [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ], { maxTokens, temperature: 0.8 });
-
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await fetch(`${openAIBase}/v1/chat/completions`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(req)
+      body: JSON.stringify(makeReq(model, { maxTokens, temperature: 0.8 }))
     });
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
@@ -238,10 +251,18 @@ function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
   return out;
 }
 
-// ====== Profanity placement ======
+// ====== Profanity placement (v10 smarter) ======
 const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|ship|book|call|try|push|fake|score|win|lose|cook|build|haul|dump|clean|move|save|spend|cost|is|are|was|were|do|does|did)\b/i;
 const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
 const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
+
+// keep a small margin so the swear doesn't glue directly to a token
+function hasTokenAdjacent(target: string, tokens: Token[]) {
+  return tokens.some(t =>
+    new RegExp(`\\b${t.text.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b\\s*$`, "i").test(target) ||
+    new RegExp(`^\\s*\\b${t.text.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b`, "i").test(target)
+  );
+}
 
 function softTrimToFit(s: string, maxLen: number, maxPunc: number) {
   let punc = countPunc(s);
@@ -264,14 +285,21 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   const clauses = splitClauses(line);
   if (!clauses.length) return line;
 
-  // Prefer clause that contains any token
-  const tokenTexts = tokens.map(t => t.text);
-  let idx = clauses.findIndex(c => tokenTexts.some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(c)));
-  if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
+  // Target a clause that contains a verb or adjective and at least one non-token noun-ish word
+  const candidates = clauses.map((c, i) => ({
+    i,
+    score:
+      (VERBISH.test(c) ? 2 : 0) +
+      (ADJECTIVEISH.test(c) ? 1 : 0) +
+      (hasTokenAdjacent(c, tokens) ? -1 : 0) +
+      (c.length / 80) // prefer meatier clause a bit
+  }));
+  candidates.sort((a,b)=>b.score-a.score);
+  const idx = candidates[0]?.i ?? 0;
 
   let target = clauses[idx];
   const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
-  const weights    = [0.2,    0.4,             0.15,               0.25];
+  const weights    = [0.25,    0.4,             0.15,               0.20];
   const strat = choice(strategies, weights);
 
   const glue = () => (countPunc(line) < punctBudget ? ", " : " ");
@@ -287,8 +315,11 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
 
   clauses[idx] = target;
   let out = rejoinClauses(clauses);
-  out = out.replace(/[?!]/g, "."); // keep one sentence sane
-  return softTrimToFit(out, maxLen, punctBudget);
+
+  // keep one sentence, but allow the final period
+  out = out.replace(/[?!](?=.*\.)/g, "");
+  out = softTrimToFit(out, maxLen, punctBudget);
+  return out;
 }
 
 // ============== SPELLCHECK (local fuzzy, optional hints) ==============
@@ -322,7 +353,7 @@ function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>
     const { suggestion, distance } = bestHintMatch(t.text, hints);
     if (suggestion && distance > 0 && distance <= Math.max(1, Math.floor(t.text.length * 0.3))) {
       suggestions.push({ original: t.text, role: t.role, suggestion });
-      return { ...t, text: suggestion }; // choose to auto-correct; remove if you prefer to just suggest
+      return { ...t, text: suggestion }; // auto-correct
     }
     return t;
   });
@@ -417,7 +448,7 @@ function enforceRules(
       }
       usedLead.add(lead.toLowerCase());
 
-      // Optional second swear
+      // Optional second swear, but never exceed budget
       let current = extractSwears(t);
       const wantsExtra = (current.length < maxPer) || (current.length < 2 && Math.random() < extraChance);
       if (wantsExtra) {
@@ -479,10 +510,10 @@ async function backfillLines(
   subcategory?: string
 ) {
   const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const mode = (typeof category === "string" && category.toLowerCase().startsWith("jokes")) ? "jokes" : "one-liners";
-  const jokeHint = mode === "jokes" ? ` in the style '${subcategory || "jokes"}'` : "";
+  const jokeMode = typeof category === "string" && /^jokes/i.test(category);
+  const styleHint = jokeMode && subcategory ? ` in the style '${subcategory}'` : "";
   const tokenHint = tokens.length ? "\nTOKENS: " + tokens.map(t => `${t.role}=${t.text}`).join(" | ") : "";
-  const user = `We still need ${missing} additional ${mode}${jokeHint} that satisfy ALL constraints.${tokenHint}
+  const user = `We still need ${missing} additional ${jokeMode ? "jokes" : "one-liners"}${styleHint} that satisfy ALL constraints.${tokenHint}
 Do not repeat word pairs used in:
 ${block}
 Tone=${tone}; Rating=${rating}.
@@ -504,10 +535,11 @@ serve(async (req) => {
       insertTokens = [],                // preferred: [{text, role}]
       rules_id,
       entity_hints                       // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
-    } = payload;
+    } = payload ?? {};
 
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
-    const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
+    const origin = req.headers.get("origin")
+      || req.headers.get("referer")?.split("/").slice(0,3).join("/");
+    const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback", origin);
 
     // Normalize to tokens (default role = "topic")
     let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
@@ -518,7 +550,7 @@ serve(async (req) => {
     const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
     tokens = corrected;
 
-    const jokeMode = typeof category === "string" && category.toLowerCase().startsWith("jokes");
+    const jokeMode = typeof category === "string" && /^jokes/i.test(category);
     let systemPrompt = text_rules;
 
     // Context lines
@@ -552,7 +584,7 @@ serve(async (req) => {
 
     // backfill to guarantee 4
     let tries = 0;
-    while (lines.length < 4 && tries < 5) {
+    while (lines.length < 4 && tries < 4) {
       const need = 4 - lines.length;
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", tokens, category, subcategory);
       const enforcedMore = enforceRules(more, rules, rating || "PG-13", tokens);
