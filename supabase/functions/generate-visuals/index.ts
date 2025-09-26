@@ -42,7 +42,7 @@ interface GenerateVisualsResponse {
   success: boolean;
   visuals: { description: string }[];
   model: string;
-  debug?: { lengths: number[]; validCount: number };
+  debug?: { lengths: number[]; validCount: number; literalCount: number; keywords: string[] };
   error?: string;
 }
 
@@ -53,7 +53,7 @@ function getSubcategoryContext(sub: string): string {
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 function toneHint(tone: string) {
-  const t = tone.toLowerCase();
+  const t = (tone || "").toLowerCase();
   if (t.includes("savage") || t.includes("dark")) return "edgy, biting, chaotic energy";
   if (t.includes("sentimental")) return "warm, gentle, soft mood";
   if (t.includes("playful") || t.includes("humorous")) return "cheeky, lively, mischievous vibe";
@@ -62,12 +62,28 @@ function toneHint(tone: string) {
   return "match tone naturally";
 }
 
+// Simple keyword extractor from completed_text: keep nouns-ish content words
+function extractLiteralKeywords(text: string): string[] {
+  const stop = new Set([
+    "the","a","an","and","or","but","with","without","into","onto","over","under","about","around",
+    "in","on","of","to","for","from","by","as","at","is","are","was","were","be","been","being",
+    "you","your","yours","he","she","it","they","them","his","her","their","this","that","these","those",
+    "will","would","should","could","can","may","might","must","just","like","than","then","there","here",
+    "have","has","had","do","does","did","not","no","yes","if","so","such","very","more","less","most","least",
+    "missed","seem","seems","seemed" // verbs that don’t help visuals
+  ]);
+  return (text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s'-]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !stop.has(w))
+    .slice(0, 6); // keep first few content words
+}
+
 function ensureAllInserts(line: string, inserts: string[]) {
   let out = line.trim();
   for (const w of inserts) {
-    if (!new RegExp(`\\b${w}\\b`, "i").test(out)) {
-      out = `${out} with ${w}`;
-    }
+    if (!new RegExp(`\\b${w}\\b`, "i").test(out)) out = `${out} with ${w}`;
   }
   return out;
 }
@@ -78,26 +94,31 @@ function ensureModeMention(line: string, modes: string[]) {
   return `${line}, ${modes[0]}`;
 }
 
+function meetsLiteral(line: string, keywords: string[]) {
+  return keywords.some(k => new RegExp(`\\b${k}\\b`, "i").test(line));
+}
+
 function enforceVisualRules(rawLines: string[], opts: {
   inserts: string[];
   modes: string[];
+  literalKeywords: string[];
+  requireLiteralCount: number; // e.g., 2
   min?: number;
   max?: number;
 }) {
   const min = opts.min ?? 7;
   const max = opts.max ?? 12;
   const modes = (opts.modes || []).filter(Boolean);
-  const out: string[] = [];
 
+  // Normalize and enforce base rules
+  const processed: string[] = [];
   for (let l of rawLines) {
     l = l.replace(/\s+/g, " ").trim();
     if (!l) continue;
-
-    // enforce inserts + mode mention
     l = ensureAllInserts(l, opts.inserts);
     l = ensureModeMention(l, modes);
 
-    // 7–12 words window
+    // 7–12 words
     let wc = words(l);
     if (wc < min) continue;
     if (wc > max) {
@@ -108,29 +129,69 @@ function enforceVisualRules(rawLines: string[], opts: {
       }
       if (words(l) > max) l = l.split(/\s+/).slice(0, max).join(" ");
     }
-
-    out.push(l);
-    if (out.length === 8) break; // grab extras for dedupe
+    processed.push(l);
+    if (processed.length === 12) break; // limit
   }
 
-  // dedupe near-identical lines
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const l of out) {
-    const k = l.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    unique.push(l);
-    if (unique.length === 4) break;
+  // Split into literal vs creative buckets
+  const literal: string[] = [];
+  const creative: string[] = [];
+  for (const l of processed) {
+    if (meetsLiteral(l, opts.literalKeywords)) literal.push(l);
+    else creative.push(l);
   }
-  return unique;
+
+  // Assemble 2 literal + 2 creative with uniqueness
+  const pickUnique = (arr: string[], n: number, taken = new Set<string>()) => {
+    const out: string[] = [];
+    for (const s of arr) {
+      const key = s.toLowerCase();
+      if (taken.has(key)) continue;
+      taken.add(key);
+      out.push(s);
+      if (out.length === n) break;
+    }
+    return out;
+  };
+
+  const taken = new Set<string>();
+  let result = [
+    ...pickUnique(literal, Math.min(opts.requireLiteralCount, 2), taken),
+    ...pickUnique(creative, 2, taken)
+  ];
+
+  // If not enough literal, convert some creative by appending a literal keyword subtly
+  let needLiteral = Math.max(0, opts.requireLiteralCount - result.filter(s => meetsLiteral(s, opts.literalKeywords)).length);
+  if (needLiteral > 0 && creative.length) {
+    for (let i = 0; i < result.length && needLiteral > 0; i++) {
+      if (!meetsLiteral(result[i], opts.literalKeywords)) {
+        const k = opts.literalKeywords[0];
+        result[i] = `${result[i]} (${k} reference)`;
+        needLiteral--;
+      }
+    }
+  }
+
+  // If still <4, fill from whichever bucket has content
+  if (result.length < 4) {
+    const pool = [...literal, ...creative];
+    for (const s of pool) {
+      const key = s.toLowerCase();
+      if (taken.has(key)) continue;
+      taken.add(key);
+      result.push(s);
+      if (result.length === 4) break;
+    }
+  }
+
+  return result.slice(0, 4);
 }
 
 async function callOpenAI(model: string, systemPrompt: string, userPrompt: string) {
   const req = buildOpenAIRequest(model, [
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt }
-  ], { maxTokens: 220 });
+  ], { maxTokens: 240 });
 
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -159,6 +220,9 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   const subCtx = getSubcategoryContext(subcategory);
   const tHint = toneHint(tone);
 
+  // extract literal keywords from completed_text for the "literal" scenes
+  const literalKeywords = extractLiteralKeywords(completed_text).slice(0, 3);
+
   // Compact system prompt (Gemini-friendly too)
   const systemPrompt = `${visual_rules}
 
@@ -166,78 +230,4 @@ INPUTS
 - Category: ${category}
 - Subcategory: ${subcategory}
 - Tone: ${tone} (${tHint})
-- Rating: ${rating}
-- Insert Words: ${insertWords.join(", ")}
-- Composition Modes: ${composition_modes.join(", ")}
-- Image Style: ${image_style}
-- Completed Text: "${completed_text}"
-- Context: ${subCtx}
-
-OUTPUT FORMAT
-- Only 4 lines, each 7–12 words. No numbering, no extra text.`;
-
-  const userPrompt =
-    `Generate 8 candidate scene descriptions (7–12 words each). ` +
-    `Each must include all insert words and mention at least one composition mode. ` +
-    `Avoid repeating the same props list.`;
-
-  let { content, model: usedModel } = await callOpenAI(model, systemPrompt, userPrompt);
-  let lines = content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
-
-  let visuals = enforceVisualRules(lines, { inserts: insertWords, modes: composition_modes });
-
-  // Backfill to guarantee 4
-  let tries = 0;
-  while (visuals.length < 4 && tries < 2) {
-    const missing = 4 - visuals.length;
-    const supplementUser =
-      `We need ${missing} new descriptions, 7–12 words, each including insert words (${insertWords.join(", ")}), ` +
-      `mentioning at least one mode (${composition_modes.join(", ")}), and not repeating prior scenes:\n` +
-      visuals.map((v, i) => `${i + 1}. ${v}`).join("\n");
-    const add = await callOpenAI(model, systemPrompt, supplementUser);
-    const more = add.content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
-    const enforcedMore = enforceVisualRules(more, { inserts: insertWords, modes: composition_modes });
-    const mergeSet = new Set<string>(visuals.map(v => v.toLowerCase()));
-    for (const m of enforcedMore) {
-      if (!mergeSet.has(m.toLowerCase())) {
-        visuals.push(m);
-        mergeSet.add(m.toLowerCase());
-      }
-      if (visuals.length === 4) break;
-    }
-    tries++;
-  }
-
-  const lengths = visuals.map(v => words(v));
-  const validCount = lengths.filter(n => n >= 7 && n <= 12).length;
-
-  return {
-    success: true,
-    visuals: visuals.map(v => ({ description: v })),
-    model: usedModel,
-    debug: { lengths, validCount }
-  };
-}
-
-// ---------- HTTP ----------
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const params: GenerateVisualsParams = await req.json();
-    const result = await generateVisuals(params);
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({
-      success: false,
-      visuals: [],
-      model: getVisualsModel(),
-      error: e instanceof Error ? e.message : String(e)
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+- Rating: ${
