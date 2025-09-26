@@ -5,8 +5,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, RefreshCw, Zap, Maximize, X, Bug } from "lucide-react";
-import { generateFinalPrompt, generateImage, testGeminiAPI } from "@/lib/api";
+import { Download, RefreshCw, Zap, Maximize, X } from "lucide-react";
+import { generateFinalPrompt, generateImage } from "@/lib/api";
 import DebugPanel from "@/components/DebugPanel";
 
 
@@ -28,8 +28,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<'ideogram' | 'gemini'>('ideogram');
-  const [testResult, setTestResult] = useState<any>(null);
   
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -187,7 +185,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         negativePrompt: template.negative,
         image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high' as const,
-        provider: selectedProvider
+        provider: 'gemini' as const
       };
       
       setImageDebugInfo({
@@ -402,17 +400,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     }
   };
 
-  const handleTestGemini = async () => {
-    try {
-      console.log('Testing Gemini API...');
-      const result = await testGeminiAPI();
-      console.log('Gemini test result:', result);
-      setTestResult(result);
-    } catch (error) {
-      console.error('Gemini test error:', error);
-      setTestResult({ error: error instanceof Error ? error.message : 'Test failed' });
-    }
-  };
 
   const formatArrayValue = (value: any) => {
     if (Array.isArray(value) && value.length > 0) {
@@ -446,46 +433,17 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           Your Generated Image
         </h2>
         <p className="text-sm text-muted-foreground">
-          Choose a template and generate your final image
+          Generate your final image using Gemini 2.5 Flash Image
         </p>
       </div>
 
       {/* Generated Image Section */}
       <Card className="p-4">
-        {/* Provider Selection */}
+        {/* Template Selection */}
         <div className="mb-4">
           <label className="text-sm font-medium text-foreground mb-2 block">
-            Image Generation Provider
+            Choose Template ({templates.length} available) - Provider: Gemini 2.5 Flash Image
           </label>
-          <Select value={selectedProvider} onValueChange={(value: 'ideogram' | 'gemini') => setSelectedProvider(value)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ideogram">Ideogram V3</SelectItem>
-              <SelectItem value="gemini">Gemini 2.5 Flash Image</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {/* Test Gemini Button */}
-          <div className="mt-2 flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestGemini}
-              className="flex items-center gap-2"
-            >
-              <Bug className="h-4 w-4" />
-              Test Gemini API
-            </Button>
-            {testResult && (
-              <div className="text-xs p-2 bg-muted rounded">
-                <pre className="whitespace-pre-wrap">
-                  {JSON.stringify(testResult, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
         </div>
         {isLoadingImage ? (
           <div className="space-y-3">
@@ -498,7 +456,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
                 </div>
                   <div className="text-center">
                     <p className="text-sm font-medium">Generating your image...</p>
-                    <p className="text-xs opacity-70">Using {selectedProvider === 'gemini' ? 'Gemini 2.5 Flash' : 'Ideogram V3'}</p>
+                    <p className="text-xs opacity-70">Using Gemini 2.5 Flash</p>
                   </div>
               </div>
             </div>
@@ -625,7 +583,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         {imageDebugInfo && (
           <DebugPanel
             title="Image Generation Debug"
-            model={selectedProvider === 'gemini' ? 'gemini-2.5-flash-image' : 'ideogram-v3'}
+            model="gemini-2.5-flash-image"
             status={imageDebugInfo.step === 'API_CALL_START' ? 'sending...' : 
                    imageDebugInfo.step === 'POLLING_START' ? 'polling...' :
                    imageDebugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
@@ -639,57 +597,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           />
         )}
 
-        {/* Ideogram API Parameters Debug Panel */}
-        {imageDebugInfo?.ideogramDebugInfo && (
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                Ideogram API Parameters (Exact Settings)
-              </Badge>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div>
-                <strong>API Endpoint:</strong> {imageDebugInfo.ideogramDebugInfo.ideogramApiEndpoint}
-              </div>
-              <div>
-                <strong>Model:</strong> {imageDebugInfo.ideogramDebugInfo.model}
-              </div>
-              <div>
-                <strong>Magic Prompt:</strong> <span className="font-mono bg-red-100 px-1 rounded">{imageDebugInfo.ideogramDebugInfo.magicPrompt}</span>
-              </div>
-              <div>
-                <strong>Style Type:</strong> <span className="font-mono bg-green-100 px-1 rounded">{imageDebugInfo.ideogramDebugInfo.styleType}</span>
-              </div>
-              <div>
-                <strong>Aspect Ratio:</strong> {imageDebugInfo.ideogramDebugInfo.aspectRatio}
-              </div>
-              <div>
-                <strong>Resolution:</strong> {imageDebugInfo.ideogramDebugInfo.resolution}
-              </div>
-              {imageDebugInfo.ideogramDebugInfo.renderingSpeed !== 'N/A' && (
-                <div>
-                  <strong>Rendering Speed:</strong> {imageDebugInfo.ideogramDebugInfo.renderingSpeed}
-                </div>
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-blue-200">
-              <div className="mb-2">
-                <strong>Exact Prompt Sent to Ideogram:</strong>
-              </div>
-              <pre className="text-xs bg-white p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-                {imageDebugInfo.ideogramDebugInfo.exactPrompt}
-              </pre>
-            </div>
-            <div className="mt-3 pt-3 border-t border-blue-200">
-              <div className="mb-2">
-                <strong>Negative Prompt Sent to Ideogram:</strong>
-              </div>
-              <pre className="text-xs bg-white p-2 rounded border overflow-x-auto whitespace-pre-wrap">
-                {imageDebugInfo.ideogramDebugInfo.negativePrompt}
-              </pre>
-            </div>
-          </Card>
-        )}
       </div>
 
       <Separator />
