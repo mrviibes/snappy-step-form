@@ -96,3 +96,6 @@ export const subcategory_contexts: Record<string, string> = {
   soccer:       "goal net, corner flag, boots, scarf crowd, scoreboard",
   golf:         "tee box, fairway, cart, pin flag, clubhouse patio",
 };
+
+// Back-compat alias for text generation rules
+export const text_rules = visual_rules;
