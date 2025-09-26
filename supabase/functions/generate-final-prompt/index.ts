@@ -92,7 +92,7 @@ function json(obj: any, status = 200) {
 }
 
 async function generatePromptTemplates(params: FinalPromptRequest): Promise<PromptTemplate[]> {
-  console.log('🔄 Starting prompt generation with params:', params);
+  console.log('🔄 Starting Gemini 2.5 prompt generation with params:', params);
   
   const {
     completed_text,
@@ -100,7 +100,6 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     subcategory,
     tone,
     rating,
-    insertWords = [],
     image_style,
     text_layout,
     image_dimensions,
@@ -108,46 +107,59 @@ async function generatePromptTemplates(params: FinalPromptRequest): Promise<Prom
     visual_recommendation
   } = params;
 
+  // Handle meme-text splitting logic
+  let textFormatted = completed_text;
+  if (text_layout === 'meme-text') {
+    const commaIndex = completed_text.indexOf(',');
+    if (commaIndex !== -1) {
+      const topText = completed_text.substring(0, commaIndex).trim();
+      const bottomText = completed_text.substring(commaIndex + 1).trim();
+      textFormatted = `Top text = ${topText}\nBottom text = ${bottomText}`;
+    }
+  }
+
   // Build category context
-  const categoryContext = [category, subcategory].filter(Boolean).join(' ');
+  const categoryContext = [category, subcategory].filter(Boolean).join('/');
   
-  // Get mapped values from imported rules
-  const textLayout = layoutMap[text_layout] || text_layout;
-  const dimensions = dimensionMap[image_dimensions] || image_dimensions;
-  const toneDescriptor = toneMap[tone.toLowerCase()] || tone.toLowerCase();
-  const ratingGuideline = ratingMap[rating] || "appropriate for general audiences";
+  // Get composition mode (use first one or empty string)
+  const composition_mode = composition_modes[0] || '';
   
-  // Use first visual scene as context or create category-based scene
-  const visualScene = composition_modes[0] || `${categoryContext} scene`;
-
   // Build visual recommendation text
-  const visualRecommendationText = visual_recommendation ? `${visual_recommendation} ` : '';
+  const visualText = visual_recommendation ? `Visuals: ${visual_recommendation}.` : '';
 
-  console.log('🎨 Mapped values:', { 
-    textLayout, 
-    dimensions, 
-    toneDescriptor, 
-    ratingGuideline,
+  console.log('🎨 Building Gemini 2.5 prompt with:', { 
+    textFormatted,
+    text_layout,
     categoryContext,
-    visualScene
+    composition_mode,
+    visualText
   });
 
-  // Enhanced positive prompt with ALL context
-  const positivePrompt = `MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. Text must be spelled exactly as written, with no substitutions or missing letters. Create a ${image_style} style ${categoryContext} image with ${dimensions} and scene should be ${toneDescriptor} and ${ratingGuideline}. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText} Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
-  
-  // Simple negative prompt using imported text quality negatives
-  const negativePrompt = textQualityNegatives;
+  // New Gemini 2.5 prompt structure
+  const geminiPrompt = `MANDATORY TEXT: "${completed_text}"
 
-  console.log('✅ Generated positive prompt:', positivePrompt);
-  console.log('❌ Generated negative prompt:', negativePrompt);
+Layout: ${text_layout}.${text_layout === 'meme-text' ? `
+${textFormatted}.` : ''}
 
-  // Return enhanced template
+Typography: ALL CAPS, bold, white text with thin black outline, directly over image.
+Do not use black background banners.
+Add padding so top text sits slightly below top edge, bottom text sits slightly above bottom edge.
+
+Scene: ${categoryContext}, ${image_style}, ${image_dimensions}, tone = ${tone}, rating = ${rating}.${composition_mode ? `
+Composition: ${composition_mode}.` : ''}${visual_recommendation ? `
+${visualText}` : ''}
+
+Look: bright key light, high saturation, crisp focus, strong contrast, vivid colors.`;
+
+  console.log('✅ Generated Gemini 2.5 prompt:', geminiPrompt);
+
+  // Return Gemini template
   const templates: PromptTemplate[] = [
     {
-      name: "Ideogram Template",
+      name: "Gemini 2.5 Template",
       description: `Optimized ${categoryContext} template with ${tone} tone for ${rating} content`,
-      positive: positivePrompt,
-      negative: negativePrompt
+      positive: geminiPrompt,
+      negative: textQualityNegatives
     }
   ];
 
