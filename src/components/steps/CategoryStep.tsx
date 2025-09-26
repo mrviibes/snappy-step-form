@@ -277,7 +277,7 @@ export default function CategoryStep({
         </div>
 
         {/* Specific Item Input for Pop Culture subcategories */}
-        {data.category === "pop-culture" && data.subcategory && 
+        {data.category === "pop-culture" && data.subcategory && specificItems.length === 0 &&
          ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (
           <div className="mt-8 space-y-4">
             <div className="text-center">
@@ -299,26 +299,6 @@ export default function CategoryStep({
                 spellCheck={true}
                 className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
               />
-              
-              {/* Display added items as tags */}
-              {specificItems.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground text-center">Added {subcategoryData?.title?.toLowerCase() || 'items'}:</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {specificItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-3 py-1 rounded-full text-sm">
-                        {item}
-                        <button 
-                          onClick={() => handleRemoveItem(item)}
-                          className="hover:text-cyan-600 dark:hover:text-cyan-400 ml-1"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
               
               <div className="text-center">
                 <Button
