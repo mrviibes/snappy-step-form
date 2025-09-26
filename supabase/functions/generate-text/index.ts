@@ -28,10 +28,10 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     } catch {}
   }
 
-  // Fallback rules v9 (jokes-aware, tokens, natural R placement, spellcheck support)
+  // Fallback rules v10 (jokes + pop-culture aware, tokens, natural R placement, spellcheck support)
   cachedRules = {
     id: rulesId || "fallback",
-    version: 9,
+    version: 10,
     length: { min_chars: 60, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
@@ -143,6 +143,7 @@ function extractSwears(s: string): string[] {
   return [...out];
 }
 
+// rand/choice
 function rand() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 2 ** 32; }
 function choice<T>(arr: T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
@@ -152,20 +153,42 @@ function choice<T>(arr: T[], weights?: number[]) {
   return arr[arr.length - 1];
 }
 
+// ============== CLEANUP/HELPERS ==============
+function cleanLine(raw: string) {
+  let t = raw.trim();
+  t = t.replace(/^\s*(\d+[\).]|[-*•])\s+/, "");           // strip numbering/bullets
+  t = t.replace(/^["'`]+|["'`]+$/g, "");                  // strip quotes
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+function fixPunctuation(s: string) {
+  let t = s.replace(/\s+([,?.!])/g, "$1")
+           .replace(/([,?.!])([^\s])/g, "$1 $2")
+           .replace(/,([.?!])/g, "$1")
+           .replace(/([.?!])[.?!]+$/g, "$1");
+  t = t.replace(/[.?!]\s*$/,"") + ".";
+  return t.replace(/\s+/g, " ").trim();
+}
+function stripLongQuotes(s: string) {
+  return s.replace(/"([^"]+)"/g, (m, inner) => {
+    const words = inner.trim().split(/\s+/).length;
+    return words > 8 ? '"' + inner.split(/\s+/).slice(0,8).join(" ") + '..."' : m;
+  });
+}
+
 function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
 function rejoinClauses(clauses: string[]) { let out = clauses.join(", "); out = out.replace(/[.?!]\s*$/, "") + "."; return out.replace(/\s+/g, " ").trim(); }
-function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean); }
+function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(cleanLine).filter(Boolean).filter(s => s.length >= 40); }
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
-
 function trimToRange(s: string, min = 60, max = 120) {
   let out = s.trim().replace(/\s+/g, " ");
+  out = stripLongQuotes(out);
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
   if (out.length > max) out = out.slice(0, max).trim();
   return out;
 }
-
 function bigramSet(s: string) {
   const words = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
   const set = new Set<string>();
@@ -186,25 +209,21 @@ function dedupeFuzzy(lines: string[], threshold = 0.6) {
   }
   return out;
 }
-
-function varyInsertPositions(lines: string[], insert: string) {
-  const allStart = lines.every(l => l.trim().toLowerCase().startsWith(insert.toLowerCase()));
-  if (!allStart) return lines;
-  return lines.map((l, i) => i % 2 === 0
-    ? l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`
-    : l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `));
-}
-function deTagInsert(line: string, insert: string) {
-  const tag = new RegExp(`,\\s*${insert}\\.?$`, "i");
-  if (tag.test(line) && !new RegExp(`^${insert}\\b`, "i").test(line)) {
-    const core = line.replace(tag, "").trim().replace(/\s+/g, " ");
-    return `${insert}, ${core}`;
-  }
-  return line;
+function isMetaLine(s: string) {
+  const lower = s.toLowerCase();
+  return /(?:\bhere (?:are|is)\b|candidate\b|best satisfy all constraints|as requested|generate again|return 4|choose your text|tone:|rating:|context:)/.test(lower);
 }
 
-// ====== Role-aware TOKENS ======
-type Token = { text: string; role: string };
+// Category detectors
+function isJokesCategory(category?: string) {
+  return typeof category === "string" && category.toLowerCase().startsWith("jokes");
+}
+function isPopCulture(category?: string) {
+  return typeof category === "string" && category.toLowerCase().startsWith("pop-culture");
+}
+
+// ============== TOKEN PLACEMENT (role-aware) ==============
+type Token = { text: string; role: string; subtype?: string };
 
 const TOKEN_STRATEGIES = ["coldOpen","midAfterVerb","tagAfterComma","venueBracket","endPunch","beforeAdjNoun"] as const;
 
@@ -217,7 +236,6 @@ function applyTokenStrategy(line: string, token: string, strat: typeof TOKEN_STR
   if (strat === "venueBracket")   return line.replace(/[.?!]\s*$/, "") + ` (${token}).`;
   if (strat === "endPunch")       return line.replace(/[.?!]\s*$/, "") + glue + `${token}.`;
   if (strat === "beforeAdjNoun")  return line.replace(/\b(great|wild|messy|clean|quick|slow|big|small|fresh|late|early|crazy|smart|loud|tight)\b/i, (m) => `${token} ${m}`);
-  // default mid-after-verb
   return line.replace(/\b(get|make|did|tried|went|saw|heard|ate|dated|dumped|texted|scrolled|streamed)\b/i, (m) => `${m} ${token}`);
 }
 
@@ -226,14 +244,22 @@ function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
   for (const tok of tokens) {
     const present = new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(out);
     if (present) continue;
-    const strat =
+
+    let strat: typeof TOKEN_STRATEGIES[number] =
       tok.role === "venue"     ? "venueBracket" :
       tok.role === "city"      ? "coldOpen"     :
       tok.role === "timeslot"  ? "venueBracket" :
       tok.role === "person"    ? "tagAfterComma":
       tok.role === "callback"  ? "endPunch"     :
       "midAfterVerb";
-    out = applyTokenStrategy(out, tok.text, strat as any, rules);
+
+    // movie/TV titles like "Billy Madison" — bias to coldOpen/tag/endPunch
+    if (tok.role === "title" && (tok.subtype === "movie" || tok.subtype === "show")) {
+      const options: typeof TOKEN_STRATEGIES[number][] = ["coldOpen","tagAfterComma","endPunch","midAfterVerb"];
+      const weights = [0.35, 0.25, 0.2, 0.2];
+      strat = choice(options, weights) as any;
+    }
+    out = applyTokenStrategy(out, tok.text, strat, rules);
   }
   return out;
 }
@@ -270,7 +296,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
   const weights    = [0.2,    0.4,             0.15,               0.25];
   const strat = choice(strategies, weights);
 
@@ -302,7 +328,6 @@ function levenshtein(a: string, b: string) {
   }
   return dp[a.length][b.length];
 }
-
 function bestHintMatch(input: string, hints: string[]): {suggestion?: string, distance: number} {
   if (!hints?.length) return { distance: Infinity };
   let best: string | undefined; let bestD = Infinity;
@@ -312,8 +337,6 @@ function bestHintMatch(input: string, hints: string[]): {suggestion?: string, di
   }
   return { suggestion: best, distance: bestD };
 }
-
-// returns corrected tokens + suggestions without silently changing user intent
 function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>) {
   const suggestions: Array<{original:string; role:string; suggestion:string}> = [];
   const corrected = tokens.map(t => {
@@ -322,7 +345,7 @@ function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>
     const { suggestion, distance } = bestHintMatch(t.text, hints);
     if (suggestion && distance > 0 && distance <= Math.max(1, Math.floor(t.text.length * 0.3))) {
       suggestions.push({ original: t.text, role: t.role, suggestion });
-      return { ...t, text: suggestion }; // choose to auto-correct; remove if you prefer to just suggest
+      return { ...t, text: suggestion };
     }
     return t;
   });
@@ -342,9 +365,8 @@ function enforceRules(
 
   // cleanup + kill meta
   let processed = lines
-    .map((raw) => raw.trim())
-    .filter((l) => l && !/^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/i.test(l))
-    .map((t) => t.replace(/["`]+/g, "").replace(/\s+/g, " ").trim());
+    .map(cleanLine)
+    .filter((l) => l && !isMetaLine(l));
 
   processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
@@ -363,9 +385,7 @@ function enforceRules(
       enforcement.push(`Line ${idx+1}: trimmed to one sentence`);
     }
 
-    const before = t.length;
     t = trimToRange(t, minLen, maxLen);
-    if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
     // role-aware token placement (before profanity)
     t = placeTokensNaturally(t, insertTokens, rules);
@@ -378,10 +398,11 @@ function enforceRules(
       }
     }
 
+    t = fixPunctuation(t);
     return t;
   });
 
-  // vary a single-token case start/middle/end (legacy behavior)
+  // vary a single-token case start/middle/end
   if (insertTokens?.length === 1) {
     const w = insertTokens[0].text;
     processed = processed.map(l => deTagInsert(l, w));
@@ -417,7 +438,6 @@ function enforceRules(
       }
       usedLead.add(lead.toLowerCase());
 
-      // Optional second swear
       let current = extractSwears(t);
       const wantsExtra = (current.length < maxPer) || (current.length < 2 && Math.random() < extraChance);
       if (wantsExtra) {
@@ -439,7 +459,7 @@ function enforceRules(
     processed = processed.map((t, i) => {
       const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn|bitch|dickhead|knob|twat|tosser|wanker|bollocks|bugger)/gi, "damn");
       if (cleaned !== t) enforcement.push(`Line ${i+1}: downgraded strong profanity to mild`);
-      return cleaned;
+      return fixPunctuation(cleaned);
     });
   }
 
@@ -447,7 +467,7 @@ function enforceRules(
     processed = processed.map((t, i) => {
       const cleaned = t.replace(STRONG_SWEARS, "sh*t");
       if (cleaned !== t) enforcement.push(`Line ${i+1}: censored to PG`);
-      return cleaned;
+      return fixPunctuation(cleaned);
     });
   }
 
@@ -455,13 +475,22 @@ function enforceRules(
     processed = processed.map((t, i) => {
       const cleaned = t.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
       if (cleaned !== t) enforcement.push(`Line ${i+1}: removed profanity for G`);
-      return cleaned;
+      return fixPunctuation(cleaned);
     });
   }
 
-  // fuzzy de-dup; relax if needed
-  let unique = dedupeFuzzy(processed, 0.6);
-  if (unique.length < 4) unique = dedupeFuzzy(processed, 0.8);
+  // validity + fuzzy de-dup
+  const isValid = (s: string) =>
+    s.length >= (rules.length?.min_chars ?? 60) &&
+    s.length <= (rules.length?.max_chars ?? 120) &&
+    countPunc(s) <= (rules.punctuation?.max_marks_per_line ?? 3) &&
+    oneSentence(s) && !isMetaLine(s);
+
+  let valid = processed.filter(isValid);
+  if (valid.length === 0) valid = processed;
+
+  let unique = dedupeFuzzy(valid, 0.6);
+  if (unique.length < 4) unique = dedupeFuzzy(valid, 0.8);
   if (unique.length === 0) unique = processed.slice(0, 4);
 
   return { lines: unique, enforcement };
@@ -479,7 +508,7 @@ async function backfillLines(
   subcategory?: string
 ) {
   const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const mode = (typeof category === "string" && category.toLowerCase().startsWith("jokes")) ? "jokes" : "one-liners";
+  const mode = isJokesCategory(category) ? "jokes" : "one-liners";
   const jokeHint = mode === "jokes" ? ` in the style '${subcategory || "jokes"}'` : "";
   const tokenHint = tokens.length ? "\nTOKENS: " + tokens.map(t => `${t.role}=${t.text}`).join(" | ") : "";
   const user = `We still need ${missing} additional ${mode}${jokeHint} that satisfy ALL constraints.${tokenHint}
@@ -501,9 +530,10 @@ serve(async (req) => {
     const {
       category, subcategory, tone, rating,
       insertWords = [],                 // legacy array of strings
-      insertTokens = [],                // preferred: [{text, role}]
+      insertTokens = [],                // preferred: [{text, role, subtype?}]
       rules_id,
-      entity_hints                       // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
+      entity_hints,                     // optional: { role:[names], "*":[...] }
+      entity_meta                       // optional: { movie:{...}, celebrity:{...} }
     } = payload;
 
     const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
@@ -511,23 +541,55 @@ serve(async (req) => {
 
     // Normalize to tokens (default role = "topic")
     let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
-      ? insertTokens
+      ? insertTokens as Token[]
       : (Array.isArray(insertWords) ? insertWords.map((w: string) => ({ text: w, role: "topic" })) : []);
 
-    // Spellcheck tokens against optional hints
+    // Spellcheck tokens
     const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
     tokens = corrected;
 
-    const jokeMode = typeof category === "string" && category.toLowerCase().startsWith("jokes");
+    const jokeMode = isJokesCategory(category);
+    const popMode  = isPopCulture(category);
+    const isMovies = popMode && /movies?/i.test(subcategory || "");
+    const isCeleb  = popMode && /celebr/i.test(subcategory || "");
+
     let systemPrompt = text_rules;
 
     // Context lines
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
-    if (jokeMode)    systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
+    if (jokeMode) {
+      systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
+    } else if (popMode) {
+      systemPrompt += `\nMODE: POP-CULTURE\nWrite one-liners in this cultural style only. Do not explain.\nUse tokens as scene/persona-aware references.`;
+    }
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
-    if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}=${t.text}`).join(" | ")}`;
+    if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}${t.subtype?`(${t.subtype})`:""}=${t.text}`).join(" | ")}`;
+
+    // Optional: inject MOVIE or CELEBRITY micro-context if provided
+    if (isMovies && entity_meta?.movie) {
+      const m = entity_meta.movie;
+      const ctx: string[] = [];
+      ctx.push(`MOVIE: ${m.title || (tokens.find(t=>t.role==="title")?.text) || ""}${m.year ? " ("+m.year+")" : ""}`);
+      if (m.characters?.length) ctx.push(`KEY CHARACTERS: ${m.characters.join(", ")}`);
+      if (m.motifs?.length)     ctx.push(`MOTIFS: ${m.motifs.join(", ")}`);
+      if (m.scenes?.length)     ctx.push(`ICONIC SCENES: ${m.scenes.join("; ")}`);
+      if (m.props?.length)      ctx.push(`PROPS: ${m.props.join(", ")}`);
+      if (m.quotes_safe?.length)ctx.push(`PHRASE CUES (paraphrase): ${m.quotes_safe.join(" | ")}`);
+      systemPrompt += `\n\nMOVIE CONTEXT\n${ctx.join("\n")}\n\nSCENE RULES\n- Reference scenes/characters/props naturally.\n- No long quotes (>8 words); paraphrase.\n- Avoid spoilers.`;
+    }
+    if (isCeleb && entity_meta?.celebrity) {
+      const c = entity_meta.celebrity;
+      const ctx: string[] = [];
+      ctx.push(`CELEBRITY: ${c.name || (tokens.find(t=>t.role==="person")?.text) || ""}`);
+      if (c.roles?.length)        ctx.push(`ROLES: ${c.roles.join(", ")}`);
+      if (c.traits?.length)       ctx.push(`TRAITS: ${c.traits.join(", ")}`);
+      if (c.highlights?.length)   ctx.push(`HIGHLIGHTS: ${c.highlights.join("; ")}`);
+      if (c.scandals_safe?.length)ctx.push(`GOSSIP CUES (safe): ${c.scandals_safe.join(" | ")}`);
+      systemPrompt += `\n\nCELEBRITY CONTEXT\n${ctx.join("\n")}\n\nPERSONA RULES\n- Frame like entertainment media, no defamation.\n- Keep it playful; avoid claims of crimes or harmful rumors.`;
+    }
+
     systemPrompt += `\n\nReturn exactly 4 lines, one per line.`;
 
     // Prompt wording to avoid meta output
@@ -538,9 +600,7 @@ serve(async (req) => {
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
-    if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
-    }
+    if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
     // enforce rules and try to keep 4
     let { lines, enforcement } = enforceRules(
@@ -561,12 +621,12 @@ serve(async (req) => {
       tries++;
     }
 
-    // absolute last resort: fill from raw pool trimmed to range
+    // Last resort: fill from raw pool trimmed to range
     if (lines.length < 4) {
       for (const c of candidates) {
         if (lines.length >= 4) break;
         if (!lines.includes(c)) {
-          const trimmed = trimToRange(c, rules.length.min_chars, rules.length.max_chars);
+          const trimmed = fixPunctuation(trimToRange(c, rules.length.min_chars, rules.length.max_chars));
           if (oneSentence(trimmed) && countPunc(trimmed) <= rules.punctuation.max_marks_per_line) lines.push(trimmed);
         }
       }
@@ -587,7 +647,7 @@ serve(async (req) => {
       count: lines.length,
       rules_used: { id: rules.id, version: rules.version },
       enforcement,
-      token_spellcheck: suggestions   // {original, role, suggestion} entries if any were corrected
+      token_spellcheck: suggestions // {original, role, suggestion}
     };
 
     return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
