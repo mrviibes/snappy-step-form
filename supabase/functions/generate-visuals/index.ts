@@ -182,7 +182,7 @@ OUTPUT FORMAT
     `Avoid repeating the same props list.`;
 
   let { content, model: usedModel } = await callOpenAI(model, systemPrompt, userPrompt);
-  let lines = content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+  let lines = content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
 
   let visuals = enforceVisualRules(lines, { inserts: insertWords, modes: composition_modes });
 
@@ -195,7 +195,7 @@ OUTPUT FORMAT
       `mentioning at least one mode (${composition_modes.join(", ")}), and not repeating prior scenes:\n` +
       visuals.map((v, i) => `${i + 1}. ${v}`).join("\n");
     const add = await callOpenAI(model, systemPrompt, supplementUser);
-    const more = add.content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+    const more = add.content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     const enforcedMore = enforceVisualRules(more, { inserts: insertWords, modes: composition_modes });
     const mergeSet = new Set<string>(visuals.map(v => v.toLowerCase()));
     for (const m of enforcedMore) {
