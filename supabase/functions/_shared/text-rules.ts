@@ -1,91 +1,98 @@
-export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
+// Visual generation rules and subcategory contexts
+export const visual_rules = `VISUAL GENERATION RULES
 
 GOAL
-- Generate 4 distinct outputs that satisfy all constraints below.
-- If category starts with "jokes", write 4 jokes in the requested joke style.
-- If category starts with "pop-culture", write 4 context-aware one-liners or quips in that subcategory style.
-- Otherwise, write 4 humorous one-liners.
+- Generate exactly 4 concise scene descriptions for a meme image.
+- Each line must be 7–12 words.
 
-GLOBAL HARD CONSTRAINTS
-- Return exactly 4 lines, one per line. No numbering, bullets, or explanations.
-- Each "insert word" or token must appear exactly as provided in every line, naturally placed.
-- Vary token positions across the 4 outputs (collectively cover start, middle, end).
-- Length 60–120 characters per line.
-- One sentence per line. Max 3 punctuation marks total (. , ? !).
-- No greetings (e.g., "Happy birthday,"). No emojis.
-- No em dashes, colons, semicolons. Replace with commas or end the sentence.
-- Remove filler: finally, trust me, here's to, may your, another year of.
-- Avoid padding with "that/which" unless essential.
-- No duplicate word pairs across the 4 outputs (unique bigrams across lines).
-- Apply the selected Tone and Rating precisely.
+GENERAL
+- Describe only the visual scene; no on-image text or camera jargon.
+- Tie scenes to the completed_text theme with concrete, prop-level details.
+- Insert words/tokens must appear verbatim in every description, used naturally.
+- Reflect the selected tone via mood, props, expressions, or exaggeration.
+- Mention at least one composition mode in each line (minimalist, exaggerated, chaotic, surreal).
+- Use vivid, simple language; no run-ons, no meta commentary.
 
-JOKE MODE (applies when category starts with "jokes")
-- Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
-- Write jokes in that style, not general quips and not explanations.
-- Style intent examples:
-  • break-up-jokes → exes, endings, moving on, aftermath
-  • bar-jokes → “walks into a bar” setups or barroom scenarios
-  • dad-jokes → groaners, clean wordplay, silly puns
-  • roasts/stand-up-comedy → performance tone, setup→tag→punch
-- Do not include any prefaces like "Here are jokes" or "As requested".
+CATEGORY AWARENESS
+- If category starts with "jokes": scene must visually support the joke style.
+- If category starts with "pop-culture": use the subcategory as the cultural frame
+  (movies=characters/props/scenes, celebrities=red carpet/paparazzi/backstage, sports icons=stadiums/gear, influencers=social setups, video games=HUD-less props, etc.).
+- Otherwise: follow subcategory context hints from provided defaults.
 
-POP-CULTURE MODE (applies when category starts with "pop-culture")
-- Use the subcategory as the cultural frame (movies, celebrities, music, sports icons, memes, influencers, etc).
-- Write lines that feel aware of that space:
-  • movies → mention characters, scenes, motifs, or props
-  • celebrities → gossip tone, red carpet, scandals, fan takes
-  • sports icons → highlight feats, records, quirks
-  • video games → levels, bosses, combos, grinding
-  • influencers/social → trends, hashtags, drama, “link in bio”
-  • memes/TikTok → templates, loops, trends, viral vibe
-- Do not narrate instructions. No “here are 4 lines”.
-- Reference tokens (e.g. “Billy Madison”) with scene- or persona-level detail.
+VARIETY
+- Across 4 lines:
+  - 2 LITERAL → directly visualize the core idea in completed_text.
+  - 2 CREATIVE → alternate setting/props that still reinforce the same gag/tone.
+- All 4 must include insert words, composition mode, and distinct settings/props.
 
-ROLE-AWARE TOKENS
-- Tokens are given as text with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme, title).
-- Use ALL tokens naturally, exactly as written, in EVERY line.
-- Placement should fit the role:
-  • person/character → subject or tag after a clause
-  • title=movie/show/song → scene-aware mention, not generic
-  • celebrity → gossip/spotlight framing
-  • venue/city/timeslot → opener tag, parenthetical, or setting mid-clause
-  • topic/brand/meme → mid-setup or punch
-  • callback/catchphrase → punchline or echo tag
-- Vary token positions across the 4 outputs; do not always cluster them.
+RATING GUARDRAILS
+- G/PG: family-safe props; no alcohol/drugs/adult content.
+- PG-13: mild edge allowed; no gore or explicit sexual visuals.
+- R: adult humor props allowed; no explicit nudity or graphic violence.
 
-TONES
-- Humorous → witty wordplay and exaggeration.
-- Savage → blunt roast, no soft language.
-- Sentimental → warm and affectionate, even if raw.
-- Nostalgic → references to the past; avoid modern slang.
-- Romantic → affectionate and playful, no meanness.
-- Inspirational → uplifting, no negativity or irony.
-- Playful → cheeky and silly, not formal.
-- Serious → dry, deadpan wit with formal weight.
+REQUIREMENTS
+- Return 4 lines, each 7–12 words.
+- All insert words/tokens appear in every line, naturally.
+- At least one composition mode named per line (minimalist/exaggerated/chaotic/surreal).
+- Use unique settings/props per line; avoid repeating the same list.
+- Do NOT mention lenses, cameras, typography, watermarks, or file formats.
+- Do NOT include quotes from media; depict references visually instead.
 
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f***, sh*t), no uncensored profanity.
-- PG-13 → allow only mild words like "hell" and "damn"; block anything stronger.
-- R (Raw, Unfiltered) →
-  - Every line must include at least one uncensored profanity.
-  - Profanity must vary across the 4 outputs (different lead swear per line).
-  - Profanity may appear more than once per line only if still within 60–120 chars and ≤3 punctuation.
-  - Profanity should feel natural, not bolted beside a token. Prefer varied placements:
-      • start for emphasis
-      • mid-clause before/after a verb or adjective
-      • replace a bland intensifier (really/very/super/so/pretty)
-      • end as the punchline
-  - Sentimental + R must combine warmth/affection with raw profanity, not hostility.
+OUTPUT
+- Return ONLY the 4 scene descriptions, one per line, nothing else.`;
 
-PROFANITY POOL (50)
-fuck, fucking, fucker, motherfucker, shit, shitty, bullshit, asshole, arse, arsehole,
-bastard, bitch, son of a bitch, damn, goddamn, hell, crap, piss, pissed, dick,
-dickhead, prick, cock, knob, wanker, tosser, bollocks, bugger, bloody, git,
-twat, douche, douchebag, jackass, dumbass, dipshit, clusterfuck, shitshow, balls,
-tits, skank, tramp, slag, screw you, piss off, crapshoot, arsed, bloody hell,
-rat bastard, shithead
 
-OUTPUT FORMAT
-- Return exactly 4 lines, one per line, no numbering, no bullets, no meta text.
-`;
+// Default subcategory contexts (expanded for Pop Culture + common sets)
+// Keys should match your app's subcategory slugs.
+export const subcategory_contexts: Record<string, string> = {
+  // Everyday / General
+  birthday:     "party table, balloons, confetti, cake, candles, guests",
+  coffee:       "cafe counter, steaming mugs, pastries, cozy seating, morning light",
+  work:         "desk, laptop, meeting glass wall, whiteboard notes, office plants",
+  relationship: "restaurant booth, shared dessert, city lights, playful glances, split bill",
+  food:         "kitchen island, sizzling pan, chopping board, spices, plated dishes",
+  travel:       "suitcase, airport gate, departures board, street vendors, scenic overlook",
+  fitness:      "gym rack, dumbbells, treadmill, sweat towel, trail run, headband",
+  technology:   "monitors, neon UI glow, keyboards, notifications, tangled cables",
+  nature:       "forest path, river stones, mountain haze, sun shafts, wildflowers",
+  default:      "general scene, background props, ambient details, contextual elements",
+
+  // Jokes (visual scaffolds)
+  "break-up-jokes":   "packed boxes, torn photo frames, doorstep, friends consoling, ice cream tub",
+  "bar-jokes":        "neon bar sign, stools, sticky counter, pint glasses, jukebox",
+  "dad-jokes":        "suburban grill, apron, toolbox, lawn, smug grin, eye-rolls",
+  "stand-up-comedy":  "brick wall stage, mic stand, stool, small crowd, spotlight",
+
+  // Pop Culture: Movies/TV/Media
+  movies:       "marquee, ticket booth, theater seats, popcorn, iconic prop nods",
+  "tv-shows":   "living room set, couch, remote, episode poster, streaming overlay removed",
+  music:        "stage riser, mic, headphones, vinyl crate, setlist, studio foam",
+  celebrities:  "red carpet, flash bulbs, velvet rope, autograph pen, glam team",
+  fashion:      "runway, garment rack, lookbook, mirrors, tailor chalk, garment bags",
+  memes:        "reaction faces, templateable poses, absurd props, low-stakes chaos, empty captions area",
+  "video-games":"console controller, arcade cabinet, health bar implied props, loot chest, respawn point signage",
+  "sports-icons":"stadium lights, trophy case, jerseys, locker room bench, scoreboards",
+  streaming:    "couch binge, auto-play hint, snack pile, blanket fort, buffering wheel gag",
+  "tiktok-trends":"ring light, phone on tripod, quick-change outfits, transition hand, caption bubble space",
+  "youtube-culture":"studio desk, softbox glow, thumbnail wall, play button plaque, comment bubbles implied",
+  comics:       "speech bubble-shaped props (blank), panel frames, capes, utility belts, onomatopoeia signs",
+  anime:        "school rooftop fence, cherry blossoms, energy aura, bento, dramatic speed lines prop",
+  "awards-shows":"gold statue, envelope, teleprompter, orchestra pit, backstage curtain",
+  "internet-challenges":"countdown timer, obstacle props, taped markers, hype crowd, fail mats",
+  podcasts:     "boom mics, pop filters, waveform screen, comfy chairs, coffee mugs",
+  "celebrity-gossip":"tabloid rack, blurry long-lens prop, tea cup, rumor board, red string",
+  influencers:  "ring light, PR boxes, branded backdrop, selfie stick, affiliate QR card",
+  fandoms:      "merch wall, fan signs, cosplay accessories, midnight lineup, collectible shelves",
+  "reality-tv": "confessional chair, lower-third style card (blank), villa pool, rose tray, elimination board",
+  "social-media-drama":"notification storm, quote-tweet arrows, reply chains, blocked icon, DM door",
+  "stand-up":   "club stage, mic cable, drink stool, crowd silhouettes, brick wall",
+  "dance-trends":"studio mirror, tape marks, sneaker scuffs, portable speaker, choreography counts",
+  "tech-gadgets":"shiny device pedestal, unboxing table, cable spaghetti, spec sheet prop, update progress",
+  "streaming-music":"playlist cards (blank), headphones, equalizer lights, queue markers, album wall",
+  "fictional-characters":"costume silhouettes, prop replicas, portal doorway, catchphrase sign blank, theme colors",
+
+  // Sports specifics (optional granularity)
+  basketball:   "hardwood court, hoop, shot clock, bench towels, squeaky soles",
+  soccer:       "goal net, corner flag, boots, scarf crowd, scoreboard",
+  golf:         "tee box, fairway, cart, pin flag, clubhouse patio",
+};
