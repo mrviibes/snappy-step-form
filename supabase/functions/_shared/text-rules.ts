@@ -7,7 +7,7 @@ GOAL
 
 GLOBAL HARD CONSTRAINTS
 - Return exactly 4 lines, one per line. No numbering, bullets, or explanations.
-- Each "insert word" or token must appear exactly as provided in every line, naturally placed.
+- Each insert word/token must appear exactly as provided in every line, used naturally.
 - Vary token positions across the 4 outputs (collectively cover start, middle, end).
 - Length 60–120 characters per line.
 - One sentence per line. Max 3 punctuation marks total (. , ? !).
@@ -20,20 +20,19 @@ GLOBAL HARD CONSTRAINTS
 
 JOKE MODE (applies when category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
-- Write jokes in that style, not general quips and not explanations.
+- Write jokes in that style only, not general quips and not explanations.
 - Style intent examples:
   • break-up-jokes → exes, endings, moving on, aftermath
   • bar-jokes → “walks into a bar” setups or barroom scenarios
   • dad-jokes → groaners, clean wordplay, silly puns
   • roasts/stand-up-comedy → performance tone, setup→tag→punch
-- Do not include any prefaces like "Here are jokes" or "As requested".
 
 ROLE-AWARE TOKENS
-- Tokens are given as text with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme).
+- Tokens come with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme).
 - Use ALL tokens naturally, exactly as written, in EVERY line.
 - Placement should fit the role:
   • person/character → subject or tag after a clause
-  • venue/city/timeslot → opener tag, parenthetical, or setting mid-clause
+  • venue/city/timeslot → opener tag, parenthetical, or mid-clause setting
   • topic/brand/meme → mid-setup or punch
   • callback/catchphrase → punchline or echo tag
 - Vary token positions across the 4 outputs; do not always cluster them.
@@ -50,17 +49,17 @@ TONES
 
 RATINGS
 - G → no profanity or adult references.
-- PG → censored swears allowed (f***, sh*t), no uncensored profanity.
+- PG → censored swears allowed (f***, sh*t); no uncensored profanity.
 - PG-13 → allow only mild words like "hell" and "damn"; block anything stronger.
 - R (Raw, Unfiltered) →
   - Every line must include at least one uncensored profanity.
-  - Profanity must vary across the 4 outputs (different lead swear per line).
-  - Profanity may appear more than once per line only if still within 60–120 chars and ≤3 punctuation.
-  - Profanity should feel natural, not bolted beside a token. Prefer varied placements:
+  - Lead profanity must vary across the 4 lines (use different main swear per line).
+  - Profanity should feel integral, not bolted next to a token; prefer:
       • start for emphasis
       • mid-clause before/after a verb or adjective
-      • replace a bland intensifier (really/very/super/so/pretty)
+      • replacing a bland intensifier (really/very/super/so/pretty)
       • end as the punchline
+  - Max 1–2 swears per line total if still within 60–120 chars and ≤3 punctuation.
   - Sentimental + R must combine warmth/affection with raw profanity, not hostility.
 
 PROFANITY POOL (50)
