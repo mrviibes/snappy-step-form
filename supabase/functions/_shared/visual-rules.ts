@@ -21,6 +21,13 @@ STRUCTURE
 - Composition Modes → minimalist, exaggerated, chaotic, surreal (must be mentioned).
 - Image Style → applied by renderer; DO NOT mention in lines.
 
+VARIETY
+- Out of 4 lines:
+  - 2 must be LITERAL: directly visualize the main idea from completed_text
+    (e.g., if the text mentions “missed the bus,” show a bus, stop, or empty stop).
+  - 2 must be CREATIVE: support the same tone/humor with different props/settings.
+- Literal and creative lines must both satisfy the 7–12 word rule, insert words, and composition mode mention.
+
 REQUIREMENTS
 - Return 4 lines, each 7–12 words.
 - All insert words must be present in every line.
