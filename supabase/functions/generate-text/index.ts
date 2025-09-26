@@ -15,7 +15,7 @@ const corsHeaders = {
   "Vary": "Origin",
 };
 
-// ============== RULES LOADER ==============
+// ============== RULES LOADER (unchanged except typing) ==============
 let cachedRules: {
   id?: string;
   version?: number;
@@ -44,7 +44,6 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     } catch {}
   }
 
-  // Fallback rules v10
   cachedRules = {
     id: rulesId || "fallback",
     version: 10,
@@ -83,7 +82,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
   return cachedRules;
 }
 
-// ============== OPENAI CALL ==============
+// ============== OPENAI CALL (unchanged) ==============
 function buildOpenAIRequest(
   model: string,
   messages: Array<{ role: string; content: string }>,
@@ -136,7 +135,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   }
 }
 
-// ============== UTILITIES ==============
+// ============== UTILITIES (existing + a few helpers) ==============
 const SWEAR_WORDS = [
   "fuck","fucking","fucker","motherfucker","shit","shitty","bullshit","asshole","arse","arsehole",
   "bastard","bitch","son of a bitch","damn","goddamn","hell","crap","piss","pissed","dick",
@@ -175,7 +174,6 @@ function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 function stripLeadingNumber(s: string) {
   return s.replace(/^\s*\d+\s*[).:-]?\s*/, "").trim();
 }
-
 const META = /(^|\b)(here (are|is)|as requested|candidate(s)?|now,?\s+here (are|is)|satisfying the constraints|return 4|distinct outputs)/i;
 
 function trimToRange(s: string, min = 60, max = 120) {
@@ -250,6 +248,8 @@ function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
       tok.role === "city"      ? "coldOpen"     :
       tok.role === "timeslot"  ? "venueBracket" :
       tok.role === "person"    ? "tagAfterComma":
+      tok.role === "celebrity" ? "tagAfterComma":
+      tok.role === "character" ? "tagAfterComma":
       tok.role === "callback"  ? "endPunch"     :
       "midAfterVerb";
     out = applyTokenStrategy(out, tok.text, strat as any, rules);
@@ -257,7 +257,7 @@ function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
   return out;
 }
 
-// ====== Profanity placement (v10 smarter) ======
+// ====== Profanity placement (kept) ======
 const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|ship|book|call|try|push|fake|score|win|lose|cook|build|haul|dump|clean|move|save|spend|cost|is|are|was|were|do|does|did)\b/i;
 const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
 const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
@@ -268,7 +268,6 @@ function hasTokenAdjacent(target: string, tokens: Token[]) {
     new RegExp(`^\\s*\\b${t.text.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b`, "i").test(target)
   );
 }
-
 function softTrimToFit(s: string, maxLen: number, maxPunc: number) {
   let punc = countPunc(s);
   if (punc > maxPunc) {
@@ -281,7 +280,6 @@ function softTrimToFit(s: string, maxLen: number, maxPunc: number) {
   }
   return s;
 }
-
 function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSwear: string) {
   const punctBudget = rules.punctuation?.max_marks_per_line ?? 3;
   const maxLen = rules.length?.max_chars ?? 120;
@@ -322,7 +320,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   return out;
 }
 
-// ============== SPELLCHECK ==============
+// ============== SPELLCHECK (kept) ==============
 function levenshtein(a: string, b: string) {
   const dp = Array.from({length: a.length+1}, (_,i)=>Array(b.length+1).fill(0));
   for (let i=0;i<=a.length;i++) dp[i][0]=i;
@@ -333,7 +331,6 @@ function levenshtein(a: string, b: string) {
   }
   return dp[a.length][b.length];
 }
-
 function bestHintMatch(input: string, hints: string[]): {suggestion?: string, distance: number} {
   if (!hints?.length) return { distance: Infinity };
   let best: string | undefined; let bestD = Infinity;
@@ -343,7 +340,6 @@ function bestHintMatch(input: string, hints: string[]): {suggestion?: string, di
   }
   return { suggestion: best, distance: bestD };
 }
-
 function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>) {
   const suggestions: Array<{original:string; role:string; suggestion:string}> = [];
   const corrected = tokens.map(t => {
@@ -359,7 +355,74 @@ function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>
   return { corrected, suggestions };
 }
 
-// ============== ENFORCEMENT ==============
+// ============== NEW: selection → tokens inference ==============
+function leafLabel(...vals: Array<string | undefined>) {
+  for (const v of vals) {
+    if (!v) continue;
+    const s = String(v);
+    const parts = s.split(">").map(x => x.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+}
+
+function uniqTokens(toks: Token[]): Token[] {
+  const seen = new Set<string>();
+  const out: Token[] = [];
+  for (const t of toks) {
+    const key = `${t.role}|${t.text.toLowerCase()}`;
+    if (!seen.has(key)) { seen.add(key); out.push(t); }
+  }
+  return out;
+}
+
+/**
+ * Pulls structured choices from payload if present:
+ * - payload.movie_title, payload.celebrity_name, payload.character_name
+ * - payload.selection_path / category breadcrumb
+ * - payload.entities: { movie?:string, celebrity?:string|string[], character?:string|string[] }
+ */
+function inferEntityTokens(payload: Record<string, unknown>, category: string | undefined, subcategory: string | undefined): Token[] {
+  const toks: Token[] = [];
+  const p = payload || {};
+
+  // 1) entities blob
+  const ents = (p as any).entities || {};
+  const movie = (ents.movie ?? (p as any).movie_title) as string | undefined;
+  const celeb = (ents.celebrity ?? (p as any).celebrity_name) as string | string[] | undefined;
+  const character = (ents.character ?? (p as any).character_name) as string | string[] | undefined;
+
+  if (movie && String(movie).trim()) toks.push({ text: String(movie).trim(), role: "topic" });
+  if (character) {
+    const arr = Array.isArray(character) ? character : [character];
+    for (const c of arr) if (String(c).trim()) toks.push({ text: String(c).trim(), role: "character" });
+  }
+  if (celeb) {
+    const arr = Array.isArray(celeb) ? celeb : [celeb];
+    for (const c of arr) if (String(c).trim()) toks.push({ text: String(c).trim(), role: "celebrity" });
+  }
+
+  // 2) Leaf from selection path (e.g., "pop-culture > movies > Billy Madison")
+  const path = (p as any).selection_path || (p as any).path || `${category || ""} > ${subcategory || ""}`;
+  const leaf = leafLabel(String(path));
+  // Only add if it looks like a concrete title/name, not "movies"/"celebrity"
+  if (leaf && !/^(movies?|tv|shows?|celebrity|celebrities|music|sports?)$/i.test(leaf)) {
+    // If we already added a movie/topic, skip duplicate
+    if (!toks.some(t => t.text.toLowerCase() === leaf.toLowerCase())) {
+      // Guess role: if category mentions celebrity, call it celebrity; else topic
+      const role = /celebr/i.test(String(category)) ? "celebrity" : "topic";
+      toks.push({ text: leaf, role });
+    }
+  }
+
+  // If pop-culture and we still have nothing, fall back to subcategory as topic
+  if ((!toks.length) && /pop-?culture/i.test(String(category)) && subcategory) {
+    toks.push({ text: String(subcategory), role: "topic" });
+  }
+
+  return uniqTokens(toks);
+}
+
+// ============== ENFORCEMENT (unchanged except minor punctuation fix earlier) ==============
 function enforceRules(
   lines: string[],
   rules: any,
@@ -378,8 +441,6 @@ function enforceRules(
   processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”'’]/g, "'");
-
-    // fix “,.” or similar artifacts
     t = t.replace(/([,?!])\./g, ".").replace(/\s+[.?!]$/, m => m.trim());
 
     const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
@@ -495,7 +556,7 @@ function enforceRules(
   return { lines: unique, enforcement };
 }
 
-// ============== BACKFILL ==============
+// ============== BACKFILL (unchanged) ==============
 async function backfillLines(
   missing: number,
   systemPrompt: string,
@@ -538,15 +599,14 @@ serve(async (req) => {
       || req.headers.get("referer")?.split("/").slice(0,3).join("/");
     const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback", origin);
 
-    // Normalize to tokens
+    // Normalize provided tokens
     let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
       ? insertTokens
       : (Array.isArray(insertWords) ? insertWords.map((w: string) => ({ text: w, role: "topic" })) : []);
 
-    // Auto-inject topic token for pop-culture subcategory if user forgot to pass one
-    if ((!tokens || !tokens.length) && /pop-?culture/i.test(String(category)) && subcategory) {
-      tokens = [{ text: String(subcategory), role: "topic" }];
-    }
+    // Infer from selection path + explicit entity fields (movies, celebrity, character)
+    const inferred = inferEntityTokens(payload, category, subcategory);
+    if (inferred.length) tokens = uniqTokens([...(tokens || []), ...inferred]);
 
     // Spellcheck tokens against optional hints
     const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
