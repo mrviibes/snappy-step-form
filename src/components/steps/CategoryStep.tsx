@@ -243,31 +243,34 @@ export default function CategoryStep({
 
           {/* Specific Items Display for Pop Culture */}
           {data.category === "pop-culture" && specificItems.length > 0 && (
-            <div className="p-4 border-t border-border">
-              <div className="text-sm text-muted-foreground font-bold mb-2">
-                Specific {subcategoryData?.title || 'Items'}:
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {specificItems.map((item, index) => (
-                  <div key={index} className="flex items-center gap-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-2 py-1 rounded-full text-xs">
-                    {item}
-                    <button 
-                      onClick={() => handleRemoveItem(item)}
-                      className="hover:text-cyan-600 dark:hover:text-cyan-400"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
+            <div className="flex items-start justify-between p-4 border-t border-border">
+              <div className="flex-1">
+                <div className="text-sm text-muted-foreground font-bold mb-2">
+                  Specific {subcategoryData?.title || 'Items'}:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {specificItems.map((item, index) => (
+                    <div key={index} className="flex items-center gap-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-2 py-1 rounded-full text-xs">
+                      {item}
+                      <button 
+                        onClick={() => handleRemoveItem(item)}
+                        className="hover:text-cyan-600 dark:hover:text-cyan-400"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <button 
                 onClick={() => {
                   setSpecificItems([]);
                   updateData({ specificItem: "", specificItems: [] });
+                  setCurrentInput("");
                 }} 
-                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors mt-2"
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
               >
-                Clear All
+                Edit
               </button>
             </div>
           )}
