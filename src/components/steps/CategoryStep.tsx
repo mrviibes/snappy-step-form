@@ -89,6 +89,20 @@ export default function CategoryStep({
 
   // Handle direct subcategory selection from search results
   const handleDirectSubcategorySelection = (categoryId: string, subcategoryId: string) => {
+    // Check if this is Pop Culture and requires specific item input
+    if (categoryId === "pop-culture") {
+      const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
+      if (subcategoriesRequiringSpecificItem.includes(subcategoryId)) {
+        // Set category and subcategory but don't proceed - wait for specific item input
+        updateData({
+          category: categoryId,
+          subcategory: subcategoryId,
+          specificItem: ""
+        });
+        return;
+      }
+    }
+    
     updateData({
       category: categoryId,
       subcategory: subcategoryId
@@ -110,6 +124,22 @@ export default function CategoryStep({
   };
   
   const handleSubcategorySelection = (subcategoryId: string) => {
+    const categoryData = fitnessGoals.find(goal => goal.id === selectedCategory);
+    
+    // Check if this is Pop Culture and requires specific item input
+    if (selectedCategory === "pop-culture") {
+      const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
+      if (subcategoriesRequiringSpecificItem.includes(subcategoryId)) {
+        // Set subcategory but don't proceed - wait for specific item input
+        updateData({
+          category: selectedCategory,
+          subcategory: subcategoryId,
+          specificItem: ""
+        });
+        return;
+      }
+    }
+    
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
@@ -125,13 +155,15 @@ export default function CategoryStep({
     setSubcategorySearchQuery("");
     updateData({
       category: "",
-      subcategory: ""
+      subcategory: "",
+      specificItem: ""
     });
   };
   
   const handleEditSubcategory = () => {
     updateData({
-      subcategory: ""
+      subcategory: "",
+      specificItem: ""
     });
   };
 
@@ -169,6 +201,21 @@ export default function CategoryStep({
             Edit
           </button>
         </div>
+
+        {/* Specific Item Input for Pop Culture */}
+        {data.category === "pop-culture" && data.specificItem && (
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-bold text-muted-foreground">Specific {subcategoryData?.title?.slice(0, -1) || 'Item'}</span> - <span className="font-normal">{data.specificItem}</span>
+            </div>
+            <button 
+              onClick={() => updateData({ specificItem: "" })} 
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+        )}
 
       </div>
     );
@@ -234,6 +281,49 @@ export default function CategoryStep({
             </div>
           </div>
         </div>
+
+        {/* Specific Item Input for Pop Culture subcategories */}
+        {data.category === "pop-culture" && data.subcategory && !data.specificItem && (
+          <>
+            {["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (() => {
+              const categoryData = fitnessGoals.find(goal => goal.id === data.category);
+              const subcategoryData = (categoryData?.subcategories as SubcategoryItem[])?.find(sub => sub.id === data.subcategory);
+              
+              return (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-medium text-foreground mb-2">
+                      Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Enter a specific {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} name (optional but recommended)
+                    </p>
+                  </div>
+                  
+                  <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+                    <Input
+                      type="text"
+                      placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
+                      value={data.specificItem || ""}
+                      onChange={(e) => updateData({ specificItem: e.target.value })}
+                      spellCheck={true}
+                      className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                    />
+                    <div className="mt-3 text-center">
+                      <Button
+                        onClick={() => updateData({ specificItem: "any" })}
+                        variant="ghost"
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        Skip - Any {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} is fine
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        )}
       </div>;
   }
   return <div className="space-y-6">

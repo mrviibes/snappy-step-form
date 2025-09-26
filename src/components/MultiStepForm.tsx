@@ -10,6 +10,7 @@ interface FormData {
   category: string;
   subcategory: string;
   theme?: string;
+  specificItem?: string;
   text: {
     tone: string;
     writingPreference: string;
@@ -90,6 +91,13 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
+        // Check if Pop Culture category requires specific item
+        if (formData.category === "pop-culture" && formData.subcategory) {
+          const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
+          if (subcategoriesRequiringSpecificItem.includes(formData.subcategory)) {
+            return !!formData.category && !!formData.subcategory && !!formData.specificItem;
+          }
+        }
         return !!formData.category && !!formData.subcategory;
       case 2:
         // Special case for "no-text" - only need tone and writing preference
