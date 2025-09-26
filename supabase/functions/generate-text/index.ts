@@ -242,7 +242,7 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"] as const;
+  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"];
   const weights = [0.15, 0.2, 0.2, 0.25, 0.1, 0.1];
   const strat = choice(strategies, weights);
 
@@ -362,4 +362,99 @@ function enforceRules(
         const cand = SWEAR_WORDS.find(w => !current.includes(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
         if (!cand) break;
         const puncts = countPunc(t);
-        const roomP
+        const roomPunct = puncts < (rules.punctuation?.max_marks_per_line ?? 3);
+        const lengthOk = (t.length + cand.length + 2) <= maxLen;
+        
+        if (!roomPunct || !lengthOk) break;
+        
+        t = placeNaturalProfanity(t, insertWords, rules, cand);
+        current = extractSwears(t);
+        enforcement.push(`Line ${i+1}: added extra profanity '${cand}'`);
+      }
+
+      return t;
+    });
+  }
+
+  return { lines: processed, enforcement };
+}
+
+// ============== MAIN HANDLER ==============
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const body = await req.json();
+    const { text, tone, rating, insertWords, rulesId } = body;
+    
+    if (!text || !tone || !rating) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0, 3).join("/");
+    const rules = await loadRules(rulesId, origin);
+    
+    // Build system prompt
+    const toneRules = rules.tones?.[tone]?.rules?.join(", ") || "maintain appropriate tone";
+    const ratingRules = JSON.stringify(rules.ratings?.[rating] || {});
+    const lengthConstraints = `${rules.length?.min_chars || 60}-${rules.length?.max_chars || 120} characters`;
+    
+    const systemPrompt = `${text_rules}
+
+TONE: ${tone} (${toneRules})
+RATING: ${rating} (${ratingRules})
+LENGTH: ${lengthConstraints}
+INSERT WORDS: ${insertWords?.join(", ") || "none"}
+
+Generate exactly 4 clean text variations. Each line should be ${lengthConstraints}, appropriate for ${rating} rating, with ${tone} tone. No numbering, no markdown, no formatting - just the raw text lines.`;
+
+    const userPrompt = `Generate 4 variations of: "${text}"`;
+    
+    console.log("Calling OpenAI with:", { systemPrompt: systemPrompt.substring(0, 200) + "...", userPrompt });
+    
+    const { content } = await callOpenAI(systemPrompt, userPrompt);
+    
+    console.log("OpenAI response:", content);
+    
+    // Clean and process the response
+    const cleaned = parseLines(content);
+    console.log("Cleaned response:", cleaned);
+    
+    if (cleaned.length === 0) {
+      throw new Error("No valid text variations generated");
+    }
+    
+    // Apply rules enforcement
+    const { lines: processed, enforcement } = enforceRules(cleaned, rules, rating, insertWords);
+    
+    console.log("Final processed lines:", processed);
+    console.log("Enforcement actions:", enforcement);
+    
+    if (processed.length === 0) {
+      throw new Error("All generated variations were filtered out");
+    }
+
+    return new Response(JSON.stringify({ 
+      lines: processed,
+      enforcement,
+      debug: { original: content, cleaned, processed }
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+
+  } catch (error) {
+    console.error("Error in generate-text:", error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : "Unknown error",
+      details: "Text generation failed - check logs for details"
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+});
