@@ -6,7 +6,7 @@ GOAL
 HARD CONSTRAINTS
 - Exact spelling. Insert words must appear exactly as written in every line.
 - Insert words must vary position across the 4 outputs (start, middle, end).
-- Length 50–120 characters per line, no fewer, no more. MUST meet minimum 50 characters.
+- Length 50–90 characters per line, no fewer, no more.
 - One sentence only. Max 1 punctuation mark total (. , ? !).
 - No greetings (e.g., "Happy birthday,"). No emojis.
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
@@ -14,11 +14,6 @@ HARD CONSTRAINTS
 - Avoid padding with "that/which" unless essential.
 - No duplicate word pairs across the 4 outputs.
 - Apply selected Tone and Rating precisely.
-
-EXAMPLES OF PROPER LENGTH:
-- 50 chars: "This birthday deserves cake and celebration"
-- 75 chars: "Another year older means another year of questionable life choices"
-- 120 chars: "Here's to celebrating another trip around the sun with style, grace, and probably way too much wine tonight"
 
 TONES
 - Humorous → witty wordplay and exaggeration.
@@ -40,4 +35,4 @@ RATINGS
   - Profanity is not limited to a fixed list; any strong language that fits tone.
   - Can be savage roast or celebratory hype.
   - Sentimental + R must combine warmth/affection with raw profanity.
-  - Avoid only extreme violence or illegal themes.`;
+`;
