@@ -144,7 +144,7 @@ function extractSwears(s: string): string[] {
 }
 
 function rand() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 2 ** 32; }
-function choice<T>(arr: readonly T[], weights?: number[]) {
+function choice<T>(arr: T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;
@@ -204,16 +204,7 @@ function deTagInsert(line: string, insert: string) {
 }
 
 // ====== Role-aware TOKENS ======
-type Token = { text: string; role: string; subtype?: string };
-
-// naive role inference by subcategory when we only have insertWords
-function inferRole(subcategory?: string): {role: string; subtype?: string} {
-  const s = (subcategory || "").toLowerCase();
-  if (/(movie|movies|tv|show|anime|cartoon|video game|video-games|games?)/.test(s)) return { role: "title", subtype: /movie|movies|film/.test(s) ? "movie" : "title" };
-  if (/(celebrity|celebrities|sports icon|sports|influencer|stand-?up|comed(y|ian)|reality tv)/.test(s)) return { role: "person" };
-  if (/(music|song|tracks?|albums?|spotify|soundcloud|apple music)/.test(s)) return { role: "title", subtype: "song" };
-  return { role: "topic" };
-}
+type Token = { text: string; role: string };
 
 const TOKEN_STRATEGIES = ["coldOpen","midAfterVerb","tagAfterComma","venueBracket","endPunch","beforeAdjNoun"] as const;
 
@@ -235,23 +226,14 @@ function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
   for (const tok of tokens) {
     const present = new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(out);
     if (present) continue;
-
-    // smarter bias for titles/people
-    let strat: typeof TOKEN_STRATEGIES[number] =
+    const strat =
       tok.role === "venue"     ? "venueBracket" :
       tok.role === "city"      ? "coldOpen"     :
       tok.role === "timeslot"  ? "venueBracket" :
       tok.role === "person"    ? "tagAfterComma":
-      tok.role === "title"     ? "coldOpen"     :
       tok.role === "callback"  ? "endPunch"     :
       "midAfterVerb";
-
-    // add some variety for title tokens
-    if (tok.role === "title") {
-      strat = choice(["coldOpen","tagAfterComma","endPunch","midAfterVerb"], [0.35,0.25,0.2,0.2]) as any;
-    }
-
-    out = applyTokenStrategy(out, tok.text, strat, rules);
+    out = applyTokenStrategy(out, tok.text, strat as any, rules);
   }
   return out;
 }
@@ -331,6 +313,7 @@ function bestHintMatch(input: string, hints: string[]): {suggestion?: string, di
   return { suggestion: best, distance: bestD };
 }
 
+// returns corrected tokens + suggestions without silently changing user intent
 function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>) {
   const suggestions: Array<{original:string; role:string; suggestion:string}> = [];
   const corrected = tokens.map(t => {
@@ -339,7 +322,7 @@ function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>
     const { suggestion, distance } = bestHintMatch(t.text, hints);
     if (suggestion && distance > 0 && distance <= Math.max(1, Math.floor(t.text.length * 0.3))) {
       suggestions.push({ original: t.text, role: t.role, suggestion });
-      return { ...t, text: suggestion }; // change this to just suggest if you don't want auto-correct
+      return { ...t, text: suggestion }; // choose to auto-correct; remove if you prefer to just suggest
     }
     return t;
   });
@@ -398,6 +381,7 @@ function enforceRules(
     return t;
   });
 
+  // vary a single-token case start/middle/end (legacy behavior)
   if (insertTokens?.length === 1) {
     const w = insertTokens[0].text;
     processed = processed.map(l => deTagInsert(l, w));
@@ -508,14 +492,6 @@ Return exactly ${missing} new lines, one per line.`;
   return parseLines(content);
 }
 
-// ============== CATEGORY HELPERS ==============
-function isJokesCategory(category?: string) {
-  return typeof category === "string" && category.toLowerCase().startsWith("jokes");
-}
-function isPopCultureCategory(category?: string) {
-  return typeof category === "string" && category.toLowerCase().startsWith("pop-culture");
-}
-
 // ============== HTTP ==============
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -525,62 +501,33 @@ serve(async (req) => {
     const {
       category, subcategory, tone, rating,
       insertWords = [],                 // legacy array of strings
-      insertTokens = [],                // preferred: [{text, role, subtype?}]
+      insertTokens = [],                // preferred: [{text, role}]
       rules_id,
-      entity_hints,                     // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
-      entity_meta                       // optional: { movie: { title, year, characters[], motifs[], scenes[], props[], quotes_safe[] }, celebrity:{...}, etc. }
+      entity_hints                       // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
     } = payload;
 
     const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
     const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
 
-    // Normalize to tokens
+    // Normalize to tokens (default role = "topic")
     let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
       ? insertTokens
-      : (Array.isArray(insertWords)
-          ? insertWords.map((w: string) => {
-              const inferred = inferRole(subcategory);
-              // If it looks like a Title (Title Case with spaces), upgrade to title unless caller set a role
-              const looksTitle = /^[A-Z][a-z]+(?:\s+[A-Z0-9][a-z0-9']+)+$/.test(w);
-              if (looksTitle && inferred.role === "topic") return { text: w, role: "title" };
-              return { text: w, ...inferred };
-            })
-          : []);
+      : (Array.isArray(insertWords) ? insertWords.map((w: string) => ({ text: w, role: "topic" })) : []);
 
     // Spellcheck tokens against optional hints
     const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
     tokens = corrected;
 
-    const jokeMode = isJokesCategory(category);
-    const popMode  = isPopCultureCategory(category);
-
+    const jokeMode = typeof category === "string" && category.toLowerCase().startsWith("jokes");
     let systemPrompt = text_rules;
 
     // Context lines
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
     if (jokeMode)    systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
-    if (popMode)     systemPrompt += `\nMODE: POP-CULTURE\nWrite one-liners in this cultural style only. Do not explain. Use insert tokens as scene-aware references.`;
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
-    if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}${t.subtype ? `/${t.subtype}` : ""}=${t.text}`).join(" | ")}`;
-
-    // Optional: movie context for scene-aware references
-    const isMovies = popMode && /movie|movies/i.test(subcategory || "");
-    const movieTok = tokens.find(t => t.role === "title" && (t.subtype === "movie" || isMovies));
-    if (isMovies && movieTok) {
-      const m = entity_meta?.movie || {};
-      const parts: string[] = [];
-      parts.push(`MOVIE: ${movieTok.text}${m.year ? " ("+m.year+")" : ""}`);
-      if (Array.isArray(m.characters) && m.characters.length) parts.push(`KEY CHARACTERS: ${m.characters.join(", ")}`);
-      if (Array.isArray(m.motifs) && m.motifs.length)         parts.push(`MOTIFS: ${m.motifs.join(", ")}`);
-      if (Array.isArray(m.scenes) && m.scenes.length)         parts.push(`ICONIC SCENES: ${m.scenes.join("; ")}`);
-      if (Array.isArray(m.props) && m.props.length)           parts.push(`PROPS: ${m.props.join(", ")}`);
-      if (Array.isArray(m.quotes_safe) && m.quotes_safe.length) parts.push(`PHRASE CUES (paraphrase): ${m.quotes_safe.join(" | ")}`);
-
-      systemPrompt += `\n\nMOVIE CONTEXT\n${parts.join("\n")}\n\nSCENE RULES\n- Reference characters, scenes, props, or motifs naturally.\n- No meta commentary.\n- Do not reproduce quotes longer than ~8 words; paraphrase.\n- Avoid major spoilers.\n`;
-    }
-
+    if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}=${t.text}`).join(" | ")}`;
     systemPrompt += `\n\nReturn exactly 4 lines, one per line.`;
 
     // Prompt wording to avoid meta output
