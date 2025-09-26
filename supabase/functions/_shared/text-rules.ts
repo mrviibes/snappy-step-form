@@ -7,7 +7,7 @@ HARD CONSTRAINTS
 - Exact spelling. Insert words must appear exactly as written in every line.
 - Insert words must vary position across the 4 outputs (start, middle, end).
 - Length 50–90 characters per line, no fewer, no more.
-- One sentence only. Max 1 punctuation mark total (. , ? !).
+- One sentence only. Max 3 punctuation mark total (. , ? !).
 - No greetings (e.g., "Happy birthday,"). No emojis.
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
 - No filler phrases: finally, trust me, here's to, may your, another year of.
