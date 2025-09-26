@@ -53,8 +53,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
         require_profanity: true,
         open_profanity: true,
         require_variation: true,
-        place_near_insert: true,
-        max_swears_per_line: 3     // tune at runtime if you want 1–5
+        max_swears_per_line: 3 // tune at runtime if desired
       }
     },
     spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
@@ -123,11 +122,14 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
 // ============== SWEAR VOCAB + UTIL ==============
 const SWEAR_WORDS = [
-  "fuck","fucker","fucking","shit","shitty","ass","arse","bastard","bullshit",
-  "goddamn","prick","dick","cock","piss","wank","crap","motherfucker","hell",
-  "bloody","bollocks","jackass","dipshit","wanker"
+  "fuck","fucking","fucker","motherfucker","shit","shitty","bullshit","asshole","arse","arsehole",
+  "bastard","bitch","son of a bitch","damn","goddamn","hell","crap","piss","pissed","dick",
+  "dickhead","prick","cock","knob","wanker","tosser","bollocks","bugger","bloody","git",
+  "twat","douche","douchebag","jackass","dumbass","dipshit","clusterfuck","shitshow","balls",
+  "tits","skank","tramp","slag","screw you","piss off","crapshoot","arsed","bloody hell",
+  "rat bastard","shithead"
 ];
-const STRONG_SWEARS = new RegExp(`\\b(${SWEAR_WORDS.join("|")})\\b`, "i");
+const STRONG_SWEARS = new RegExp(`\\b(${SWEAR_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "i");
 
 function extractSwears(s: string): string[] {
   const out = new Set<string>();
@@ -159,13 +161,13 @@ function rejoinClauses(clauses: string[]) {
 }
 
 function parseLines(content: string): string[] {
-  return content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
+  // keep flexible, we re-enforce below
+  return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
 }
 
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-// updated defaults to 60–120
 function trimToRange(s: string, min = 60, max = 120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
@@ -240,15 +242,16 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"];
-  const weights = [0.35, 0.3, 0.25, 0.10];
+  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"] as const;
+  const weights = [0.15, 0.2, 0.2, 0.25, 0.1, 0.1];
   const strat = choice(strategies, weights);
 
   const insertRegex = hit ? new RegExp(`\\b${hit}\\b`, "i") : null;
-
   const glueComma = () => (countPunc(line) < punctBudget ? ", " : " ");
 
-  if (strat === "preInsert" && insertRegex && insertRegex.test(target)) {
+  if (strat === "start") {
+    target = `${leadSwear}${glueComma()}${target}`;
+  } else if (strat === "preInsert" && insertRegex && insertRegex.test(target)) {
     target = target.replace(insertRegex, m => `${leadSwear}${glueComma()}${m}`);
   } else if (strat === "postInsert" && insertRegex && insertRegex.test(target)) {
     target = target.replace(insertRegex, m => `${m}${glueComma()}${leadSwear}`);
@@ -259,7 +262,10 @@ function placeNaturalProfanity(
     else target = `${target}${glueComma()}${leadSwear}`;
   } else if (strat === "replaceIntensifier" && INTENSIFIERS.test(target)) {
     target = target.replace(INTENSIFIERS, leadSwear);
+  } else if (strat === "endPunchline") {
+    target = `${target}${glueComma()}${leadSwear}`;
   } else {
+    // fallback
     if (insertRegex && insertRegex.test(target)) target = target.replace(insertRegex, m => `${m}${glueComma()}${leadSwear}`);
     else target = `${target}${glueComma()}${leadSwear}`;
   }
@@ -336,7 +342,6 @@ function enforceRules(
         t = placeNaturalProfanity(t, insertWords, rules, lead);
         enforcement.push(`Line ${i+1}: placed profanity naturally`);
       } else {
-        // vary lead across outputs
         const first = had[0];
         if (usedLead.has(first)) {
           const alt = SWEAR_WORDS.find(w => !usedLead.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
@@ -357,152 +362,4 @@ function enforceRules(
         const cand = SWEAR_WORDS.find(w => !current.includes(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
         if (!cand) break;
         const puncts = countPunc(t);
-        const roomP = puncts < (rules.punctuation?.max_marks_per_line ?? 3);
-        const roomC = (t.length + cand.length + 2) <= (rules.length?.max_chars ?? 120);
-        if (!(roomP && roomC)) break;
-        t = t.replace(/[.?!]\s*$/,"") + ", " + cand + ".";
-        current = extractSwears(t);
-      }
-
-      // Guard: if somehow still none, force minimal append
-      if (extractSwears(t).length === 0) {
-        const puncts = countPunc(t);
-        const sep = puncts < (rules.punctuation?.max_marks_per_line ?? 3) ? ", " : " ";
-        t = `${t.replace(/[.?!]\s*$/,"")}${sep}${lead}.`;
-        enforcement.push(`Line ${i+1}: forced profanity fallback`);
-      }
-
-      // Keep final formatting in-bounds
-      t = softTrimToFit(t, rules.length?.max_chars ?? 120, rules.punctuation?.max_marks_per_line ?? 3);
-      return t;
-    });
-  }
-
-  if (rating === "PG-13") {
-    processed = processed.map((t, i) => {
-      const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)/gi, "damn");
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: downgraded strong profanity to mild`);
-      return cleaned;
-    });
-  }
-
-  if (rating === "PG") {
-    processed = processed.map((t, i) => {
-      const cleaned = t.replace(STRONG_SWEARS, "sh*t");
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: censored to PG`);
-      return cleaned;
-    });
-  }
-
-  if (rating === "G") {
-    processed = processed.map((t, i) => {
-      const cleaned = t.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: removed profanity for G`);
-      return cleaned;
-    });
-  }
-
-  // de-dup near copies by bigrams
-  const unique: string[] = [];
-  const seen = new Set<string>();
-  for (const l of processed) {
-    const pairs = bigramSet(l);
-    let clash = false;
-    for (const p of pairs) if (seen.has(p)) { clash = true; break; }
-    if (!clash) { for (const p of pairs) seen.add(p); unique.push(l); }
-  }
-
-  return { lines: unique, enforcement };
-}
-
-// ============== BACKFILL TO 4 ==============
-async function backfillLines(
-  missing: number,
-  systemPrompt: string,
-  accepted: string[],
-  tone: string,
-  rating: string,
-  insertWords: string[]
-) {
-  const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const user = `We still need ${missing} additional one-liners that satisfy ALL constraints.
-Do not repeat word pairs used in:
-${block}
-Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
-Return exactly ${missing} new lines, one per line.`;
-
-  const { content } = await callOpenAI(systemPrompt, user);
-  return parseLines(content);
-}
-
-// ============== HTTP ==============
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const payload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [], rules_id } = payload;
-
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
-    const rules = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
-
-    let systemPrompt = text_rules;
-    if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
-    if (subcategory) systemPrompt += ` > ${subcategory}`;
-    if (tone)        systemPrompt += `\nTONE: ${tone}`;
-    if (rating)      systemPrompt += `\nRATING: ${rating}`;
-    if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
-
-    const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
-    const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
-
-    let candidates = parseLines(raw);
-    if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
-    }
-
-    const enforced = enforceRules(
-      candidates,
-      rules,
-      rating || "PG-13",
-      insertWords
-    );
-    let lines = enforced.lines;
-
-    // backfill to guarantee 4
-    let tries = 0;
-    while (lines.length < 4 && tries < 2) {
-      const need = 4 - lines.length;
-      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(more, rules, rating || "PG-13", insertWords);
-      lines = [...lines, ...enforcedMore.lines];
-      tries++;
-    }
-    lines = lines.slice(0, 4);
-
-    const minL = (rules.length?.min_chars ?? 60);
-    const maxL = (rules.length?.max_chars ?? 120);
-
-    const resp = {
-      lines: lines.map((line, i) => ({
-        line,
-        length: line.length,
-        index: i + 1,
-        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= (rules.punctuation?.max_marks_per_line ?? 3) && oneSentence(line)
-      })),
-      model,
-      count: lines.length,
-      rules_used: { id: rules.id, version: rules.version },
-      enforcement: enforced.enforcement
-    };
-
-    return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-});
+        const roomP
