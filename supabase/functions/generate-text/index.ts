@@ -34,7 +34,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
   cachedRules = {
     id: rulesId,
     version: 5,
-    length: { min_chars: 50, max_chars: 90 },
+    length: { min_chars: 50, max_chars: 120 },
     punctuation: {
       ban_em_dash: true,
       replacement: { "—": "," },
@@ -128,10 +128,19 @@ const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bull
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-function trimToRange(s: string, min=50, max=90) {
+function trimToRange(s: string, min=50, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   // remove filler phrases
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
+  
+  // If too short, try to extend with relevant content
+  if (out.length < min) {
+    // Add simple extension if possible
+    if (!out.endsWith('.') && !out.endsWith('!') && !out.endsWith('?')) {
+      out += " today";
+    }
+  }
+  
   // if still long, keep first clause before comma
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
   // hard clip if needed
@@ -199,7 +208,7 @@ function parseLines(rawResponse: string): string[] {
     .filter(Boolean);
 
   const lines = candidates.filter(s =>
-    s.length >= 40 && s.length <= 140 && oneSentence(s)
+    s.length >= 50 && s.length <= 120 && oneSentence(s)
   );
 
   return lines.map(cleanLine);
@@ -367,7 +376,7 @@ serve(async (req) => {
     // Enforce rules
     const enforced = enforceRules(
       candidates,
-      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+      rules ?? { length:{min_chars:50,max_chars:120}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
       rating || "PG-13",
       insertWords
     );
@@ -380,7 +389,7 @@ serve(async (req) => {
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
       const enforcedMore = enforceRules(
         more,
-        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+        rules ?? { length:{min_chars:50,max_chars:120}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
         rating || "PG-13",
         insertWords
       );
@@ -391,7 +400,7 @@ serve(async (req) => {
 
     // Final validity flags
     const minLength = rules?.length?.min_chars ?? 50;
-    const maxLength = rules?.length?.max_chars ?? 90;
+    const maxLength = rules?.length?.max_chars ?? 120;
 
     const response = {
       lines: lines.map((line, i) => ({
