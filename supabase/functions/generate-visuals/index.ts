@@ -230,4 +230,83 @@ INPUTS
 - Category: ${category}
 - Subcategory: ${subcategory}
 - Tone: ${tone} (${tHint})
-- Rating: ${
+- Rating: ${rating}
+- Style: ${image_style}
+- Insert words: ${insertWords.join(", ") || "none"}
+- Composition modes: ${composition_modes.join(", ") || "none"}
+- Text content: "${completed_text}"
+- Literal keywords extracted: ${literalKeywords.join(", ") || "none"}
+
+CONTEXT: ${subCtx}
+
+Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules above.`;
+
+  const userPrompt = "Generate 4 distinct visual scenes based on the inputs and rules provided.";
+
+  try {
+    const { content } = await callOpenAI(model, systemPrompt, userPrompt);
+    
+    let lines = content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
+    
+    // Try to get additional content if not enough
+    if (lines.length < 4) {
+      const add = await callOpenAI(model, systemPrompt, `Generate ${4 - lines.length} more visual scenes.`);
+      const more = add.content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
+      lines = [...lines, ...more];
+    }
+
+    const finalLines = enforceVisualRules(lines, {
+      inserts: insertWords,
+      modes: composition_modes,
+      literalKeywords,
+      requireLiteralCount: 2
+    });
+
+    const visuals = finalLines.map(description => ({ description }));
+    const lengths = finalLines.map(l => words(l));
+    const validCount = finalLines.length;
+    const literalCount = finalLines.filter(l => meetsLiteral(l, literalKeywords)).length;
+
+    return {
+      success: true,
+      visuals,
+      model,
+      debug: { lengths, validCount, literalCount, keywords: literalKeywords }
+    };
+  } catch (error) {
+    console.error("Error generating visuals:", error);
+    return {
+      success: false,
+      visuals: [],
+      model,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+// ---------- Main handler ----------
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const params = await req.json();
+    const result = await generateVisuals(params);
+    
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in generate-visuals function:', error);
+    return new Response(JSON.stringify({ 
+      success: false,
+      visuals: [],
+      model: getVisualsModel(),
+      error: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
