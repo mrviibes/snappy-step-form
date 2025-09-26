@@ -16,9 +16,9 @@ const corsHeaders = {
 };
 
 // ============== RULES LOADER ==============
-let cachedRules: { 
-  id?: string; 
-  version?: number; 
+let cachedRules: {
+  id?: string;
+  version?: number;
   length?: { min_chars: number; max_chars: number };
   punctuation?: any;
   tones?: any;
@@ -27,7 +27,6 @@ let cachedRules: {
 } | null = null;
 
 async function loadRules(rulesId: string, origin?: string): Promise<any> {
-  // if the cached object matches the requested id, reuse it
   if (cachedRules && cachedRules.id === rulesId) return cachedRules;
 
   if (origin) {
@@ -39,16 +38,13 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       clearTimeout(t);
       if (res.ok) {
         cachedRules = await res.json();
-        // sanity: force id so later comparisons work
         (cachedRules as any).id ||= rulesId;
         return cachedRules;
       }
-    } catch {
-      // remote rules fetch failed; fall through to fallback
-    }
+    } catch {}
   }
 
-  // Fallback rules v10 (smarter natural R placement, stricter punctuation, spellcheck support)
+  // Fallback rules v10
   cachedRules = {
     id: rulesId || "fallback",
     version: 10,
@@ -94,7 +90,6 @@ function buildOpenAIRequest(
   options: { temperature?: number; maxTokens: number }
 ) {
   const body: any = { model, messages };
-  // Chat Completions: handle both legacy and newer models
   if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
     body.max_completion_tokens = options.maxTokens;
   } else {
@@ -126,7 +121,6 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
     if (!content) throw new Error("Empty content");
     return { content, model: d.model || model };
   } catch {
-    // fallback with slightly higher temperature to escape decode ruts
     model = "gpt-4o-mini";
     maxTokens = 220;
     const r = await fetch(`${openAIBase}/v1/chat/completions`, {
@@ -142,7 +136,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   }
 }
 
-// ============== SWEAR VOCAB + UTIL ==============
+// ============== UTILITIES ==============
 const SWEAR_WORDS = [
   "fuck","fucking","fucker","motherfucker","shit","shitty","bullshit","asshole","arse","arsehole",
   "bastard","bitch","son of a bitch","damn","goddamn","hell","crap","piss","pissed","dick",
@@ -159,8 +153,7 @@ const STRONG_SWEARS = new RegExp(
 function extractSwears(s: string): string[] {
   const out = new Set<string>();
   const re = new RegExp(STRONG_SWEARS, "gi");
-  let m;
-  while ((m = re.exec(s)) !== null) out.add(m[0].toLowerCase());
+  let m; while ((m = re.exec(s)) !== null) out.add(m[0].toLowerCase());
   return [...out];
 }
 
@@ -178,6 +171,12 @@ function rejoinClauses(clauses: string[]) { let out = clauses.join(", "); out = 
 function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean); }
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
+
+function stripLeadingNumber(s: string) {
+  return s.replace(/^\s*\d+\s*[).:-]?\s*/, "").trim();
+}
+
+const META = /(^|\b)(here (are|is)|as requested|candidate(s)?|now,?\s+here (are|is)|satisfying the constraints|return 4|distinct outputs)/i;
 
 function trimToRange(s: string, min = 60, max = 120) {
   let out = s.trim().replace(/\s+/g, " ");
@@ -238,7 +237,6 @@ function applyTokenStrategy(line: string, token: string, strat: typeof TOKEN_STR
   if (strat === "venueBracket")   return line.replace(/[.?!]\s*$/, "") + ` (${token}).`;
   if (strat === "endPunch")       return line.replace(/[.?!]\s*$/, "") + glue + `${token}.`;
   if (strat === "beforeAdjNoun")  return line.replace(/\b(great|wild|messy|clean|quick|slow|big|small|fresh|late|early|crazy|smart|loud|tight)\b/i, (m) => `${token} ${m}`);
-  // default mid-after-verb
   return line.replace(/\b(get|make|did|tried|went|saw|heard|ate|dated|dumped|texted|scrolled|streamed)\b/i, (m) => `${m} ${token}`);
 }
 
@@ -264,7 +262,6 @@ const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|
 const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
 const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
 
-// keep a small margin so the swear doesn't glue directly to a token
 function hasTokenAdjacent(target: string, tokens: Token[]) {
   return tokens.some(t =>
     new RegExp(`\\b${t.text.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b\\s*$`, "i").test(target) ||
@@ -293,23 +290,20 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   const clauses = splitClauses(line);
   if (!clauses.length) return line;
 
-  // Target a clause that contains a verb or adjective and at least one non-token noun-ish word
   const candidates = clauses.map((c, i) => ({
     i,
     score:
       (VERBISH.test(c) ? 2 : 0) +
       (ADJECTIVEISH.test(c) ? 1 : 0) +
       (hasTokenAdjacent(c, tokens) ? -1 : 0) +
-      (c.length / 80) // prefer meatier clause a bit
-  }));
-  candidates.sort((a,b)=>b.score-a.score);
+      (c.length / 80)
+  })).sort((a,b)=>b.score-a.score);
   const idx = candidates[0]?.i ?? 0;
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
-  const weights    = [0.25,    0.4,             0.15,               0.20];
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
+  const weights    = [0.25, 0.4, 0.15, 0.20];
   const strat = choice(strategies, weights);
-
   const glue = () => (countPunc(line) < punctBudget ? ", " : " ");
 
   if (strat === "start")                    target = `${leadSwear}${glue()}${target}`;
@@ -323,14 +317,12 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
 
   clauses[idx] = target;
   let out = rejoinClauses(clauses);
-
-  // keep one sentence, but allow the final period
   out = out.replace(/[?!](?=.*\.)/g, "");
   out = softTrimToFit(out, maxLen, punctBudget);
   return out;
 }
 
-// ============== SPELLCHECK (local fuzzy, optional hints) ==============
+// ============== SPELLCHECK ==============
 function levenshtein(a: string, b: string) {
   const dp = Array.from({length: a.length+1}, (_,i)=>Array(b.length+1).fill(0));
   for (let i=0;i<=a.length;i++) dp[i][0]=i;
@@ -352,7 +344,6 @@ function bestHintMatch(input: string, hints: string[]): {suggestion?: string, di
   return { suggestion: best, distance: bestD };
 }
 
-// returns corrected tokens + suggestions without silently changing user intent
 function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>) {
   const suggestions: Array<{original:string; role:string; suggestion:string}> = [];
   const corrected = tokens.map(t => {
@@ -361,7 +352,7 @@ function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>
     const { suggestion, distance } = bestHintMatch(t.text, hints);
     if (suggestion && distance > 0 && distance <= Math.max(1, Math.floor(t.text.length * 0.3))) {
       suggestions.push({ original: t.text, role: t.role, suggestion });
-      return { ...t, text: suggestion }; // auto-correct
+      return { ...t, text: suggestion };
     }
     return t;
   });
@@ -379,15 +370,17 @@ function enforceRules(
   const minLen = rules.length?.min_chars ?? 60;
   const maxLen = rules.length?.max_chars ?? 120;
 
-  // cleanup + kill meta
   let processed = lines
-    .map((raw) => raw.trim())
-    .filter((l) => l && !/^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/i.test(l))
+    .map((raw) => stripLeadingNumber(raw.trim()))
+    .filter((l) => l && !META.test(l))
     .map((t) => t.replace(/["`]+/g, "").replace(/\s+/g, " ").trim());
 
   processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”'’]/g, "'");
+
+    // fix “,.” or similar artifacts
+    t = t.replace(/([,?!])\./g, ".").replace(/\s+[.?!]$/, m => m.trim());
 
     const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
     if (countPunc(t) > maxPunc) {
@@ -420,7 +413,6 @@ function enforceRules(
     return t;
   });
 
-  // vary a single-token case start/middle/end (legacy behavior)
   if (insertTokens?.length === 1) {
     const w = insertTokens[0].text;
     processed = processed.map(l => deTagInsert(l, w));
@@ -429,7 +421,6 @@ function enforceRules(
     processed = varied;
   }
 
-  // Rating-specific passes
   if (rating === "R") {
     const usedLead = new Set<string>();
     const cfg = rules?.ratings?.R ?? {};
@@ -456,7 +447,6 @@ function enforceRules(
       }
       usedLead.add(lead.toLowerCase());
 
-      // Optional second swear, but never exceed budget
       let current = extractSwears(t);
       const wantsExtra = (current.length < maxPer) || (current.length < 2 && Math.random() < extraChance);
       if (wantsExtra) {
@@ -498,7 +488,6 @@ function enforceRules(
     });
   }
 
-  // fuzzy de-dup; relax if needed
   let unique = dedupeFuzzy(processed, 0.6);
   if (unique.length < 4) unique = dedupeFuzzy(processed, 0.8);
   if (unique.length === 0) unique = processed.slice(0, 4);
@@ -506,7 +495,7 @@ function enforceRules(
   return { lines: unique, enforcement };
 }
 
-// ============== BACKFILL TO 4 ==============
+// ============== BACKFILL ==============
 async function backfillLines(
   missing: number,
   systemPrompt: string,
@@ -539,20 +528,25 @@ serve(async (req) => {
     const payload = await req.json();
     const {
       category, subcategory, tone, rating,
-      insertWords = [],                 // legacy array of strings
-      insertTokens = [],                // preferred: [{text, role}]
+      insertWords = [],
+      insertTokens = [],
       rules_id,
-      entity_hints                       // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
+      entity_hints
     } = payload ?? {};
 
     const origin = req.headers.get("origin")
       || req.headers.get("referer")?.split("/").slice(0,3).join("/");
     const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback", origin);
 
-    // Normalize to tokens (default role = "topic")
+    // Normalize to tokens
     let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
       ? insertTokens
       : (Array.isArray(insertWords) ? insertWords.map((w: string) => ({ text: w, role: "topic" })) : []);
+
+    // Auto-inject topic token for pop-culture subcategory if user forgot to pass one
+    if ((!tokens || !tokens.length) && /pop-?culture/i.test(String(category)) && subcategory) {
+      tokens = [{ text: String(subcategory), role: "topic" }];
+    }
 
     // Spellcheck tokens against optional hints
     const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
@@ -561,7 +555,6 @@ serve(async (req) => {
     const jokeMode = typeof category === "string" && /^jokes/i.test(category);
     let systemPrompt = text_rules;
 
-    // Context lines
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
     if (jokeMode)    systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
@@ -570,19 +563,19 @@ serve(async (req) => {
     if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}=${t.text}`).join(" | ")}`;
     systemPrompt += `\n\nReturn exactly 4 lines, one per line.`;
 
-    // Prompt wording to avoid meta output
     const userPrompt = jokeMode
       ? "Write 12 candidate jokes in the specified joke style, then return 4 that best satisfy all constraints. No explanations."
       : "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
 
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
-    let candidates = parseLines(raw);
+    // Parse + pre-clean
+    let candidates = parseLines(raw).map(stripLeadingNumber).filter(l => !META.test(l));
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map(s => stripLeadingNumber(s.trim())).filter(l => l && !META.test(l));
     }
 
-    // enforce rules and try to keep 4
+    // Enforce
     let { lines, enforcement } = enforceRules(
       candidates,
       rules,
@@ -590,7 +583,7 @@ serve(async (req) => {
       tokens
     );
 
-    // backfill to guarantee 4
+    // Backfill to 4
     let tries = 0;
     while (lines.length < 4 && tries < 4) {
       const need = 4 - lines.length;
@@ -601,13 +594,13 @@ serve(async (req) => {
       tries++;
     }
 
-    // absolute last resort: fill from raw pool trimmed to range
+    // Last-resort trim from raw pool
     if (lines.length < 4) {
       for (const c of candidates) {
         if (lines.length >= 4) break;
         if (!lines.includes(c)) {
-          const trimmed = trimToRange(c, rules.length.min_chars, rules.length.max_chars);
-          if (oneSentence(trimmed) && countPunc(trimmed) <= rules.punctuation.max_marks_per_line) lines.push(trimmed);
+          const trimmed = trimToRange(c, rules.length!.min_chars, rules.length!.max_chars);
+          if (oneSentence(trimmed) && countPunc(trimmed) <= rules.punctuation!.max_marks_per_line) lines.push(trimmed);
         }
       }
       lines = lines.slice(0, 4);
@@ -627,7 +620,7 @@ serve(async (req) => {
       count: lines.length,
       rules_used: { id: rules.id, version: rules.version },
       enforcement,
-      token_spellcheck: suggestions   // {original, role, suggestion} entries if any were corrected
+      token_spellcheck: suggestions
     };
 
     return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
