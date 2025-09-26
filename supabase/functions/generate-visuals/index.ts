@@ -195,7 +195,7 @@ Generate 4 visual scene descriptions for: "${params.completed_text}"
       .split('\n')
       .map((line: string) => line.trim())
       .filter((line: string) => line.length > 0)
-      .slice(0, 4); // Ensure exactly 4
+      .slice(0, 4);
 
     console.log('🎬 Parsed scenes:', scenes);
 
