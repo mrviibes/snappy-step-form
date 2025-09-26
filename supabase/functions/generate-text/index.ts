@@ -296,7 +296,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
   const weights    = [0.2,    0.4,             0.15,               0.25];
   const strat = choice(strategies, weights);
 
@@ -315,6 +315,39 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   let out = rejoinClauses(clauses);
   out = out.replace(/[?!]/g, "."); // keep one sentence sane
   return softTrimToFit(out, maxLen, punctBudget);
+}
+
+// Helper functions for token position variation
+function deTagInsert(line: string, token: string): string {
+  // Remove the token from the line to allow repositioning
+  const regex = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "gi");
+  return line.replace(regex, "").replace(/,\s*,/g, ",").replace(/^\s*,\s*|\s*,\s*$/g, "").replace(/\s+/g, " ").trim();
+}
+
+function varyInsertPositions(lines: string[], token: string): string[] {
+  if (lines.length < 2) return lines;
+  
+  const positions = ["start", "middle", "end"];
+  return lines.map((line, i) => {
+    const pos = positions[i % positions.length];
+    const cleanLine = line.replace(/[.?!]\s*$/, "");
+    
+    switch (pos) {
+      case "start":
+        return `${token}, ${cleanLine}.`;
+      case "middle":
+        const words = cleanLine.split(" ");
+        if (words.length > 3) {
+          const midIndex = Math.floor(words.length / 2);
+          words.splice(midIndex, 0, token);
+          return words.join(" ") + ".";
+        }
+        return `${cleanLine}, ${token}.`;
+      case "end":
+      default:
+        return `${cleanLine}, ${token}.`;
+    }
+  });
 }
 
 // ============== SPELLCHECK (local fuzzy, optional hints) ==============
