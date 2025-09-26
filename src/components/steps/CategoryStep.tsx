@@ -231,7 +231,7 @@ export default function CategoryStep({
               </p>
             </div>
             
-            <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+            <div className="bg-card p-4 rounded-lg">
               <Input
                 type="text"
                 placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
