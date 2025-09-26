@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, ArrowLeft, MoreVertical, Trash2, Edit } from "lucide-react";
 import { useState } from "react";
@@ -10,14 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { fitnessGoals, ThemeItem, SubcategoryItem } from "@/data/CategoryList";
+
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
-
 
 export default function CategoryStep({
   data,
@@ -29,6 +29,7 @@ export default function CategoryStep({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
+
   // Create flattened search results for direct subcategory selection
   const getSearchResults = () => {
     if (!searchQuery || searchQuery.length === 0) return [];
@@ -145,7 +146,6 @@ export default function CategoryStep({
       subcategory: subcategoryId
     });
   };
-
   
   const handleEditCategory = () => {
     setShowingSubcategories(false);
@@ -166,7 +166,6 @@ export default function CategoryStep({
       specificItem: ""
     });
   };
-
   
   const handleBack = () => {
     setShowingSubcategories(false);
@@ -181,51 +180,85 @@ export default function CategoryStep({
     const subcategoryData = (categoryData?.subcategories as SubcategoryItem[])?.find(sub => sub.id === data.subcategory);
     
     return (
-      <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
-        {/* Selected Category */}
-        <div className="flex items-center justify-between p-4">
-          <div className="text-sm text-foreground">
-            <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
-          </div>
-          <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-            Edit
-          </button>
-        </div>
-
-        {/* Selected Subcategory */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
-          <div className="text-sm text-foreground">
-            <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
-          </div>
-          <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-            Edit
-          </button>
-        </div>
-
-        {/* Specific Item Input for Pop Culture */}
-        {data.category === "pop-culture" && data.specificItem && (
-          <div className="flex items-center justify-between p-4 border-t border-border">
+      <>
+        <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Selected Category */}
+          <div className="flex items-center justify-between p-4">
             <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Specific {subcategoryData?.title?.slice(0, -1) || 'Item'}</span> - <span className="font-normal">{data.specificItem}</span>
+              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
             </div>
-            <button 
-              onClick={() => updateData({ specificItem: "" })} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
+            <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
-        )}
 
-      </div>
+          {/* Selected Subcategory */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
+            </div>
+            <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Specific Item Display for Pop Culture */}
+          {data.category === "pop-culture" && data.specificItem && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="text-sm text-foreground">
+                <span className="font-bold text-muted-foreground">Specific {subcategoryData?.title?.slice(0, -1) || 'Item'}</span> - <span className="font-normal">{data.specificItem}</span>
+              </div>
+              <button 
+                onClick={() => updateData({ specificItem: "" })} 
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Specific Item Input for Pop Culture subcategories - when missing */}
+        {data.category === "pop-culture" && data.subcategory && !data.specificItem && 
+         ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (
+          <div className="mt-6 space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Enter a specific {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} name (optional but recommended)
+              </p>
+            </div>
+            
+            <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
+              <Input
+                type="text"
+                placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
+                value={data.specificItem || ""}
+                onChange={(e) => updateData({ specificItem: e.target.value })}
+                spellCheck={true}
+                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+              />
+              <div className="mt-3 text-center">
+                <Button
+                  onClick={() => updateData({ specificItem: "any" })}
+                  variant="ghost"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Skip - Any {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} is fine
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
   if (showingSubcategories && selectedCategoryData) {
-    return <div className="space-y-6">
-        {/* Selected Category Header */}
-        
-
+    return (
+      <div className="space-y-6">
         {/* Compact Selected Category */}
         <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
@@ -281,55 +314,13 @@ export default function CategoryStep({
             </div>
           </div>
         </div>
-
-        {/* Specific Item Input for Pop Culture subcategories */}
-        {data.category === "pop-culture" && data.subcategory && !data.specificItem && (
-          <>
-            {["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (() => {
-              const categoryData = fitnessGoals.find(goal => goal.id === data.category);
-              const subcategoryData = (categoryData?.subcategories as SubcategoryItem[])?.find(sub => sub.id === data.subcategory);
-              
-              return (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <h3 className="text-lg font-medium text-foreground mb-2">
-                      Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Enter a specific {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} name (optional but recommended)
-                    </p>
-                  </div>
-                  
-                  <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
-                    <Input
-                      type="text"
-                      placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
-                      value={data.specificItem || ""}
-                      onChange={(e) => updateData({ specificItem: e.target.value })}
-                      spellCheck={true}
-                      className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
-                    />
-                    <div className="mt-3 text-center">
-                      <Button
-                        onClick={() => updateData({ specificItem: "any" })}
-                        variant="ghost"
-                        className="text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        Skip - Any {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} is fine
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </>
-        )}
-      </div>;
+      </div>
+    );
   }
-  return <div className="space-y-6">
+
+  return (
+    <div className="space-y-6">
       <div className="text-center">
-        
-        
       </div>
 
       {/* Search Bar */}
@@ -392,11 +383,21 @@ export default function CategoryStep({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
-            "border-primary shadow-primary bg-accent": data.category === goal.id,
-            "border-border": data.category !== goal.id
-          })} onClick={() => handleCategorySelection(goal.id)}>
-                {goal.image ? <>
+            {filteredGoals.map(goal => (
+              <Card 
+                key={goal.id} 
+                className={cn(
+                  "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", 
+                  "border-2 bg-card hover:bg-accent hover:border-primary", 
+                  {
+                    "border-primary shadow-primary bg-accent": data.category === goal.id,
+                    "border-border": data.category !== goal.id
+                  }
+                )} 
+                onClick={() => handleCategorySelection(goal.id)}
+              >
+                {goal.image ? (
+                  <>
                     <div className="w-full h-24 overflow-hidden">
                       <img src={goal.image} alt={goal.title} className="w-full h-full object-cover" />
                     </div>
@@ -405,15 +406,20 @@ export default function CategoryStep({
                         {goal.title}
                       </h3>
                     </div>
-                  </> : <div className="p-3">
+                  </>
+                ) : (
+                  <div className="p-3">
                     <div className="mb-2 text-2xl">{goal.icon}</div>
                     <h3 className="text-sm font-medium text-foreground">
                       {goal.title}
                     </h3>
-                  </div>}
-              </Card>)}
+                  </div>
+                )}
+              </Card>
+            ))}
           </div>
         </>
       )}
-    </div>;
+    </div>
+  );
 }
