@@ -28,11 +28,11 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     } catch {}
   }
 
-  // Fallback rules v5
+  // Fallback rules v6 (60–120 chars, max 3 punctuation)
   cachedRules = {
     id: rulesId,
-    version: 5,
-    length: { min_chars: 50, max_chars: 90 },
+    version: 6,
+    length: { min_chars: 60, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
@@ -73,7 +73,7 @@ function buildOpenAIRequest(
 
 async function callOpenAI(systemPrompt: string, userPrompt: string) {
   let model = getTextModel();
-  let maxTokens = model.startsWith("gpt-5") ? 4000 : 200;
+  let maxTokens = model.startsWith("gpt-5") ? 4000 : 300;
 
   try {
     const req = buildOpenAIRequest(model, [
@@ -94,7 +94,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
   } catch {
     model = "gpt-4o-mini";
-    maxTokens = 200;
+    maxTokens = 220;
 
     const req = buildOpenAIRequest(model, [
       { role: "system", content: systemPrompt },
@@ -120,7 +120,8 @@ const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bull
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-function trimToRange(s: string, min=50, max=90) {
+// updated defaults to 60–120
+function trimToRange(s: string, min=60, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
@@ -180,8 +181,9 @@ function cleanLine(raw: string) {
 }
 
 function parseLines(raw: string): string[] {
+  // allow longer candidates to capture 120-char lines
   const candidates = raw.split(/\r?\n+/).map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim()).filter(Boolean);
-  const lines = candidates.filter(s => s.length >= 40 && s.length <= 140 && oneSentence(s));
+  const lines = candidates.filter(s => s.length >= 50 && s.length <= 200 && oneSentence(s));
   return lines.map(cleanLine);
 }
 
@@ -193,17 +195,17 @@ function enforceRules(
   insertWords: string[] = []
 ) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 50;
-  const maxLen = rules.length?.max_chars ?? 90;
+  const minLen = rules.length?.min_chars ?? 60;
+  const maxLen = rules.length?.max_chars ?? 120;
 
   let processed = lines.map((raw, idx) => {
     let t = raw.trim();
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
 
-    if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 3)) {
+    const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
+    if (countPunc(t) > maxPunc) {
       let kept = 0;
-      const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
       t = t.replace(/[.,?!]/g, (m) => (++kept <= maxPunc ? m : ""));
       enforcement.push(`Line ${idx+1}: limited punctuation to ${maxPunc}`);
     }
@@ -333,9 +335,10 @@ serve(async (req) => {
       candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
     }
 
+    const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} };
     const enforced = enforceRules(
       candidates,
-      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} },
+      rules ?? fallbackRules,
       rating || "PG-13",
       insertWords
     );
@@ -346,19 +349,14 @@ serve(async (req) => {
     while (lines.length < 4 && tries < 2) {
       const need = 4 - lines.length;
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(
-        more,
-        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} },
-        rating || "PG-13",
-        insertWords
-      );
+      const enforcedMore = enforceRules(more, rules ?? fallbackRules, rating || "PG-13", insertWords);
       lines = [...lines, ...enforcedMore.lines];
       tries++;
     }
     lines = lines.slice(0, 4);
 
-    const minL = rules?.length?.min_chars ?? 50;
-    const maxL = rules?.length?.max_chars ?? 90;
+    const minL = (rules?.length?.min_chars ?? 60);
+    const maxL = (rules?.length?.max_chars ?? 120);
 
     const resp = {
       lines: lines.map((line, i) => ({
@@ -369,7 +367,7 @@ serve(async (req) => {
       })),
       model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 5 },
+      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 6 },
       enforcement: enforced.enforcement
     };
 
