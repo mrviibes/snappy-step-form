@@ -28,10 +28,10 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     } catch {}
   }
 
-  // Fallback rules v6 (60–120 chars, max 3 punctuation)
+  // Fallback rules v7 (natural R placement, 60–120 chars, max 3 punctuation)
   cachedRules = {
-    id: rulesId,
-    version: 6,
+    id: rulesId || "fallback",
+    version: 7,
     length: { min_chars: 60, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
@@ -48,7 +48,14 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       "G": { allow_profanity: false, allow_censored_swears: false },
       "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
       "PG-13": { allow_profanity: true, mild_only: ["hell","damn"], block_stronger_profanity: true },
-      "R": { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
+      "R": {
+        allow_profanity: true,
+        require_profanity: true,
+        open_profanity: true,
+        require_variation: true,
+        place_near_insert: true,
+        max_swears_per_line: 3     // tune at runtime if you want 1–5
+      }
     },
     spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
   };
@@ -114,14 +121,48 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   }
 }
 
-// ============== HELPERS ==============
-const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
+// ============== SWEAR VOCAB + UTIL ==============
+const SWEAR_WORDS = [
+  "fuck","fucker","fucking","shit","shitty","ass","arse","bastard","bullshit",
+  "goddamn","prick","dick","cock","piss","wank","crap","motherfucker","hell",
+  "bloody","bollocks","jackass","dipshit","wanker"
+];
+const STRONG_SWEARS = new RegExp(`\\b(${SWEAR_WORDS.join("|")})\\b`, "i");
+
+function extractSwears(s: string): string[] {
+  const out = new Set<string>();
+  const re = new RegExp(STRONG_SWEARS, "gi");
+  let m;
+  while ((m = re.exec(s)) !== null) out.add(m[0].toLowerCase());
+  return [...out];
+}
+
+// Better RNG than Math.random for Deno
+function rand() {
+  const b = new Uint32Array(1);
+  crypto.getRandomValues(b);
+  return b[0] / 2 ** 32;
+}
+function choice<T>(arr: T[], weights?: number[]) {
+  if (!weights) return arr[Math.floor(rand() * arr.length)];
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = rand() * total;
+  for (let i = 0; i < arr.length; i++) { r -= weights[i]; if (r <= 0) return arr[i]; }
+  return arr[arr.length - 1];
+}
+
+function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
+function rejoinClauses(clauses: string[]) {
+  let out = clauses.join(", ");
+  out = out.replace(/[.?!]\s*$/, "") + ".";
+  return out.replace(/\s+/g, " ").trim();
+}
 
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
 // updated defaults to 60–120
-function trimToRange(s: string, min=60, max=120) {
+function trimToRange(s: string, min = 60, max = 120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
@@ -132,7 +173,7 @@ function trimToRange(s: string, min=60, max=120) {
 function bigramSet(s: string) {
   const words = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
   const set = new Set<string>();
-  for (let i=0;i<words.length-1;i++) set.add(words[i]+" "+words[i+1]);
+  for (let i = 0; i < words.length - 1; i++) set.add(words[i] + " " + words[i + 1]);
   return set;
 }
 
@@ -153,38 +194,77 @@ function deTagInsert(line: string, insert: string) {
   return line;
 }
 
-function ensureProfanityVariation(lines: string[]) {
-  const grabs = lines.map(l => (l.match(STRONG_SWEARS) || [""])[0].toLowerCase());
-  const seen = new Set<string>();
-  return lines.map((l, i) => {
-    const sw = grabs[i];
-    if (sw && !seen.has(sw)) { seen.add(sw); return l; }
-    const pool = ["fuck","shit","bastard","ass","bullshit","goddamn","prick","crap","motherfucker","hell"];
-    for (const w of pool) {
-      if (!seen.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(l)) {
-        const replaced = sw ? l.replace(new RegExp(sw, "i"), w) : `${l.split(/[.,?!]/)[0]}, ${w}.`;
-        seen.add(w);
-        return replaced;
-      }
-    }
-    return l;
-  });
+// natural-looking anchors
+const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|ship|book|call|try|push|fake|score|win|lose|cook|build|haul|dump|clean|move|save|spend|cost|is|are|was|were|do|does|did)\b/i;
+const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
+const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
+
+function softTrimToFit(s: string, maxLen: number, maxPunc: number) {
+  let puncCount = countPunc(s);
+  if (puncCount > maxPunc) {
+    let kept = 0;
+    s = s.replace(/[.,?!]/g, m => (++kept <= maxPunc ? m : ""));
+  }
+  if (s.length > maxLen) {
+    s = s.slice(0, maxLen).replace(/\s+\S*$/,"").trim();
+    if (!/[.?!]$/.test(s)) s += ".";
+  }
+  return s;
 }
 
-function cleanLine(raw: string) {
-  let t = raw.trim();
-  t = t.replace(/^\s*[\d\-\*•.]+\s*/, "");
-  t = t.replace(/^["'`]/, "").replace(/["'`]$/, "");
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/`(.*?)`/g, "$1");
-  t = t.replace(/\s+/g, " ").trim();
-  return t;
-}
+function placeNaturalProfanity(
+  line: string,
+  insertWords: string[],
+  rules: any,
+  leadSwear: string
+) {
+  const punctBudget = rules.punctuation?.max_marks_per_line ?? 3;
+  const maxLen = rules.length?.max_chars ?? 120;
 
-function parseLines(raw: string): string[] {
-  // allow longer candidates to capture 120-char lines
-  const candidates = raw.split(/\r?\n+/).map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim()).filter(Boolean);
-  const lines = candidates.filter(s => s.length >= 50 && s.length <= 200 && oneSentence(s));
-  return lines.map(cleanLine);
+  const inLine = new Set(extractSwears(line));
+  if (inLine.has(leadSwear.toLowerCase())) return line;
+
+  const clauses = splitClauses(line);
+  if (!clauses.length) return line;
+
+  const lower = line.toLowerCase();
+  const hit = insertWords?.find((w: string) => lower.includes(w.toLowerCase()));
+  let idx = clauses.findIndex(c => hit && new RegExp(`\\b${hit}\\b`, "i").test(c));
+  if (idx < 0) {
+    let maxL = -1;
+    clauses.forEach((c, i) => { if (c.length > maxL) { maxL = c.length; idx = i; } });
+  }
+
+  let target = clauses[idx];
+  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"] as const;
+  const weights = [0.35, 0.3, 0.25, 0.10];
+  const strat = choice(strategies, weights);
+
+  const insertRegex = hit ? new RegExp(`\\b${hit}\\b`, "i") : null;
+
+  const glueComma = () => (countPunc(line) < punctBudget ? ", " : " ");
+
+  if (strat === "preInsert" && insertRegex && insertRegex.test(target)) {
+    target = target.replace(insertRegex, m => `${leadSwear}${glueComma()}${m}`);
+  } else if (strat === "postInsert" && insertRegex && insertRegex.test(target)) {
+    target = target.replace(insertRegex, m => `${m}${glueComma()}${leadSwear}`);
+  } else if (strat === "beforeVerbAdj") {
+    if (VERBISH.test(target))      target = target.replace(VERBISH,      m => `${leadSwear} ${m}`);
+    else if (ADJECTIVEISH.test(target)) target = target.replace(ADJECTIVEISH, m => `${leadSwear} ${m}`);
+    else if (insertRegex && insertRegex.test(target)) target = target.replace(insertRegex, m => `${leadSwear}${glueComma()}${m}`);
+    else target = `${target}${glueComma()}${leadSwear}`;
+  } else if (strat === "replaceIntensifier" && INTENSIFIERS.test(target)) {
+    target = target.replace(INTENSIFIERS, leadSwear);
+  } else {
+    if (insertRegex && insertRegex.test(target)) target = target.replace(insertRegex, m => `${m}${glueComma()}${leadSwear}`);
+    else target = `${target}${glueComma()}${leadSwear}`;
+  }
+
+  clauses[idx] = target;
+  let out = rejoinClauses(clauses);
+  out = out.replace(/[?!]/g, "."); // keep one sentence sane
+  out = softTrimToFit(out, maxLen, punctBudget);
+  return out;
 }
 
 // ============== ENFORCEMENT ==============
@@ -206,7 +286,7 @@ function enforceRules(
     const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
     if (countPunc(t) > maxPunc) {
       let kept = 0;
-      t = t.replace(/[.,?!]/g, (m) => (++kept <= maxPunc ? m : ""));
+      t = t.replace(/[.,?!]/g, m => (++kept <= maxPunc ? m : ""));
       enforcement.push(`Line ${idx+1}: limited punctuation to ${maxPunc}`);
     }
 
@@ -220,9 +300,10 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
+    // ensure insert words present (first one wins if missing)
     for (const w of insertWords) {
       if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
-        t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
+        t = `${t.replace(/[.?!]\s*$/,"")}, ${w}.`;
         enforcement.push(`Line ${idx+1}: appended insert word '${w}'`);
         break;
       }
@@ -238,17 +319,59 @@ function enforceRules(
     processed = varied;
   }
 
+  // Rating-specific passes
   if (rating === "R") {
+    const usedLead = new Set<string>();
+    const maxPer = Math.max(1, rules?.ratings?.R?.max_swears_per_line ?? 3);
+
     processed = processed.map((t, i) => {
-      if (!STRONG_SWEARS.test(t)) {
-        t = `${t.split(/[.,?!]/)[0]} fuck.`;
-        enforcement.push(`Line ${i+1}: injected profanity for R`);
+      // Ensure at least one swear, prefer a lead swear unused across lines
+      let lead = SWEAR_WORDS.find(w => !usedLead.has(w)) || SWEAR_WORDS[0];
+      const had = extractSwears(t);
+      if (had.length === 0) {
+        t = placeNaturalProfanity(t, insertWords, rules, lead);
+        enforcement.push(`Line ${i+1}: placed profanity naturally`);
+      } else {
+        // vary lead across outputs
+        const first = had[0];
+        if (usedLead.has(first)) {
+          const alt = SWEAR_WORDS.find(w => !usedLead.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
+          if (alt) {
+            lead = alt;
+            t = placeNaturalProfanity(t, insertWords, rules, lead);
+            enforcement.push(`Line ${i+1}: varied lead profanity`);
+          }
+        } else {
+          lead = first;
+        }
       }
+      usedLead.add(lead.toLowerCase());
+
+      // Optional extra swears, bounded by punctuation and length
+      let current = extractSwears(t);
+      while (current.length < maxPer) {
+        const cand = SWEAR_WORDS.find(w => !current.includes(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
+        if (!cand) break;
+        const puncts = countPunc(t);
+        const roomP = puncts < (rules.punctuation?.max_marks_per_line ?? 3);
+        const roomC = (t.length + cand.length + 2) <= (rules.length?.max_chars ?? 120);
+        if (!(roomP && roomC)) break;
+        t = t.replace(/[.?!]\s*$/,"") + ", " + cand + ".";
+        current = extractSwears(t);
+      }
+
+      // Guard: if somehow still none, force minimal append
+      if (extractSwears(t).length === 0) {
+        const puncts = countPunc(t);
+        const sep = puncts < (rules.punctuation?.max_marks_per_line ?? 3) ? ", " : " ";
+        t = `${t.replace(/[.?!]\s*$/,"")}${sep}${lead}.`;
+        enforcement.push(`Line ${i+1}: forced profanity fallback`);
+      }
+
+      // Keep final formatting in-bounds
+      t = softTrimToFit(t, rules.length?.max_chars ?? 120, rules.punctuation?.max_marks_per_line ?? 3);
       return t;
     });
-    const varied = ensureProfanityVariation(processed);
-    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied profanity across R outputs");
-    processed = varied;
   }
 
   if (rating === "PG-13") {
@@ -317,7 +440,7 @@ serve(async (req) => {
     const { category, subcategory, tone, rating, insertWords = [], rules_id } = payload;
 
     const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
-    const rules = rules_id ? await loadRules(rules_id, origin) : null;
+    const rules = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
 
     let systemPrompt = text_rules;
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
@@ -332,13 +455,12 @@ serve(async (req) => {
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
     }
 
-    const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} };
     const enforced = enforceRules(
       candidates,
-      rules ?? fallbackRules,
+      rules,
       rating || "PG-13",
       insertWords
     );
@@ -349,25 +471,25 @@ serve(async (req) => {
     while (lines.length < 4 && tries < 2) {
       const need = 4 - lines.length;
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(more, rules ?? fallbackRules, rating || "PG-13", insertWords);
+      const enforcedMore = enforceRules(more, rules, rating || "PG-13", insertWords);
       lines = [...lines, ...enforcedMore.lines];
       tries++;
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 60);
-    const maxL = (rules?.length?.max_chars ?? 120);
+    const minL = (rules.length?.min_chars ?? 60);
+    const maxL = (rules.length?.max_chars ?? 120);
 
     const resp = {
       lines: lines.map((line, i) => ({
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= 3 && oneSentence(line)
+        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= (rules.punctuation?.max_marks_per_line ?? 3) && oneSentence(line)
       })),
       model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 6 },
+      rules_used: { id: rules.id, version: rules.version },
       enforcement: enforced.enforcement
     };
 
