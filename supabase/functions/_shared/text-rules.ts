@@ -1,4 +1,4 @@
-export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
+export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES (v11)
 
 GOAL
 - Generate 4 distinct outputs that satisfy all constraints below.
@@ -18,6 +18,19 @@ GLOBAL HARD CONSTRAINTS
 - No duplicate word pairs across the 4 outputs (unique bigrams across lines).
 - Apply the selected Tone and Rating precisely.
 
+TOPICAL ANCHORING (movies / TV / celebrities)
+- If the selection path or tokens indicate pop-culture (movies, TV, celebrity, character), each line must include a concrete on-topic cue:
+  • for a MOVIE/TITLE token: reference a recognizable element (scene, prop, catchphrase, setting, side character).
+  • for a CELEBRITY token: nod to signature roles, persona traits, or well-known bits (no defamation).
+  • for a CHARACTER token: keep the behavior/props consistent with canon.
+- Do not drift to generic “movies are wild” jokes; every line should feel specific to the title/celebrity/character present.
+- Profanity may not appear directly adjacent to a token; keep at least one other word between them.
+
+QUOTES & PUNCTUATION
+- If using a short quote or faux dialogue, wrap in single quotes. Example: 'Today, junior?' 
+- Put the final question mark or exclamation inside the quote, and do not add a trailing period after it.
+- Quoted questions count toward the 3-punctuation budget.
+
 JOKE MODE (applies when category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
 - Write jokes in that style only, not general quips and not explanations.
@@ -28,12 +41,12 @@ JOKE MODE (applies when category starts with "jokes")
   • roasts/stand-up-comedy → performance tone, setup→tag→punch
 
 ROLE-AWARE TOKENS
-- Tokens come with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme).
+- Tokens include roles (person, celebrity, character, group, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme).
 - Use ALL tokens naturally, exactly as written, in EVERY line.
 - Placement should fit the role:
-  • person/character → subject or tag after a clause
+  • person/celebrity/character → subject or tag after a clause
   • venue/city/timeslot → opener tag, parenthetical, or mid-clause setting
-  • topic/brand/meme → mid-setup or punch
+  • topic/brand/meme/title → mid-setup or punch
   • callback/catchphrase → punchline or echo tag
 - Vary token positions across the 4 outputs; do not always cluster them.
 
