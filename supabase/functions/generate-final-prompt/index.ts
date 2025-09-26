@@ -1,16 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { 
-  final_prompt_rules_ideogram, 
-  final_prompt_rules_gemini, 
-  layoutMap, 
-  dimensionMap, 
-  toneMap, 
-  ratingMap, 
-  textQualityNegatives,
-  getCategoryNegatives 
-} from "../_shared/final-prompt-rules.ts";
-
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const corsHeaders = {
   "content-type": "application/json",
@@ -159,11 +147,9 @@ Look: bright key light, high saturation, crisp focus, strong contrast, vivid col
       name: "Gemini 2.5 Template",
       description: `Optimized ${categoryContext} template with ${tone} tone for ${rating} content`,
       positive: geminiPrompt,
-      negative: textQualityNegatives
+      negative: ""
     }
   ];
 
   return templates;
 }
-
-// getCategoryNegatives function is now imported from shared rules
