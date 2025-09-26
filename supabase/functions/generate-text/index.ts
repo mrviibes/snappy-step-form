@@ -303,7 +303,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   let target = clauses[idx];
   const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
   const weights    = [0.25, 0.4, 0.15, 0.20];
-  const strat = choice(strategies, weights);
+  const strat = choice([...strategies], weights);
   const glue = () => (countPunc(line) < punctBudget ? ", " : " ");
 
   if (strat === "start")                    target = `${leadSwear}${glue()}${target}`;
@@ -572,7 +572,7 @@ serve(async (req) => {
     // Parse + pre-clean
     let candidates = parseLines(raw).map(stripLeadingNumber).filter(l => !META.test(l));
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(s => stripLeadingNumber(s.trim())).filter(l => l && !META.test(l));
+      candidates = raw.split(/\r?\n+/).map((s: string) => stripLeadingNumber(s.trim())).filter((l: string) => l && !META.test(l));
     }
 
     // Enforce
