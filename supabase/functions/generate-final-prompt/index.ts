@@ -29,45 +29,20 @@ interface PromptTemplate {
   description: string;
 }
 
-interface FinalPromptResponse {
-  success: boolean;
-  templates?: PromptTemplate[];
-  error?: string;
-}
-
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
-  if (req.method !== "POST") {
-    return json({ success: false, error: "POST only" }, 405);
-  }
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return json({ success: false, error: "POST only" }, 405);
 
   try {
     const body = await req.json().catch(() => ({}));
-    console.log("📥 Request received:", body);
-
-    // Validate required fields
     const required = ["completed_text", "image_style", "text_layout", "image_dimensions"];
     const missing = required.filter((f) => !body[f]);
-    if (missing.length) {
-      return json(
-        { success: false, error: `Missing required fields: ${missing.join(", ")}` },
-        400
-      );
-    }
+    if (missing.length) return json({ success: false, error: `Missing: ${missing.join(", ")}` }, 400);
 
-    const templates = await generatePromptTemplates(body);
-    console.log("✅ Generated templates:", templates.length);
-
+    const templates = await generatePromptTemplates(body as FinalPromptRequest);
     return json({ success: true, templates });
   } catch (e) {
-    console.error("❌ Generation error:", e);
-    return json(
-      { success: false, error: String((e as Error)?.message || "prompt_generation_failed") },
-      500
-    );
+    return json({ success: false, error: String((e as Error)?.message || "prompt_generation_failed") }, 500);
   }
 });
 
@@ -75,62 +50,44 @@ function json(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
 }
 
-async function generatePromptTemplates(params: FinalPromptRequest): Promise<PromptTemplate[]> {
+async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
-    completed_text,
-    category,
-    subcategory,
-    tone,
-    rating,
-    image_style,
-    text_layout,
-    image_dimensions,
-    composition_modes = [],
-    visual_recommendation
-  } = params;
+    completed_text, category, subcategory, tone, rating,
+    image_style, text_layout, image_dimensions,
+    composition_modes = [], visual_recommendation
+  } = p;
 
-  // Handle meme-text splitting
-  let textLayoutDetail = "";
+  // If meme-text, show the split (Gemini likes explicit).
+  let splitDetail = "";
   if (text_layout === "meme-text") {
-    const commaIndex = completed_text.indexOf(",");
-    if (commaIndex !== -1) {
-      const topText = completed_text.substring(0, commaIndex).trim();
-      const bottomText = completed_text.substring(commaIndex + 1).trim();
-      textLayoutDetail = `Split at first comma → top text = "${topText}" bottom text = "${bottomText}".`;
+    const idx = completed_text.indexOf(",");
+    if (idx !== -1) {
+      const top = completed_text.slice(0, idx).trim();
+      const bottom = completed_text.slice(idx + 1).trim();
+      splitDetail = `Split at first comma → top="${top}" bottom="${bottom}".`;
     }
   }
 
-  // Build category context
   const categoryContext = [category, subcategory].filter(Boolean).join("/");
-
-  // Pick first composition mode if provided
   const composition = composition_modes.length ? `Composition: ${composition_modes[0]}.` : "";
-
-  // Visual recommendation
   const visuals = visual_recommendation ? `Visuals: ${visual_recommendation}.` : "";
 
-  // Build Gemini-optimized prompt
-  const geminiPrompt = `MANDATORY TEXT: "${completed_text}"
+  // Short, Gemini-optimized positive prompt (no negatives)
+  const positive = `MANDATORY TEXT: "${completed_text}"
 
-Layout: ${text_layout}. ${textLayoutDetail}
-
-Typography: ALL CAPS, bold, white text with thin black outline, directly on image.
-Do not use solid background banners.
-Add padding so top text sits below top edge, bottom text sits above bottom edge.
+Layout: ${text_layout}. ${splitDetail}
+Typography: ALL CAPS white with thin black outline, directly on image. No background panels. Add padding from edges.
 
 Scene: ${categoryContext}, ${image_style}, ${image_dimensions}, tone=${tone}, rating=${rating}.
 ${composition}
 ${visuals}
 
-Look: bright key light, vivid saturation, crisp focus, cinematic contrast.`;
+Look: bright key light, vivid saturation, crisp focus, cinematic contrast.`.trim();
 
-  // Return Gemini template
-  return [
-    {
-      name: "Gemini 2.5 Template",
-      description: `Optimized ${categoryContext} template with ${tone} tone for ${rating} content`,
-      positive: geminiPrompt.trim(),
-      negative: "" // Gemini doesn’t need negatives
-    }
-  ];
+  return [{
+    name: "Gemini 2.5 Template",
+    description: `Compact ${categoryContext} prompt with ${tone}/${rating}, no background panels.`,
+    positive,
+    negative: "" // Gemini: positive-only
+  }];
 }
