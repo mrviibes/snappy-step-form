@@ -158,6 +158,10 @@ function rejoinClauses(clauses: string[]) {
   return out.replace(/\s+/g, " ").trim();
 }
 
+function parseLines(content: string): string[] {
+  return content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
+}
+
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
@@ -236,7 +240,7 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"] as const;
+  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"];
   const weights = [0.35, 0.3, 0.25, 0.10];
   const strat = choice(strategies, weights);
 
@@ -455,7 +459,7 @@ serve(async (req) => {
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
     const enforced = enforceRules(
