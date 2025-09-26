@@ -1,5 +1,5 @@
 // ===== RULES =====
-export const final_prompt_rules = `FINAL PROMPT GENERATION RULES
+export const final_prompt_rules_ideogram = `FINAL PROMPT GENERATION RULES
 
 GENERAL
 - Text must be displayed exactly as written with no substitutions or missing letters.
@@ -23,6 +23,9 @@ PROMPT CONSTRUCTION
 
 OUTPUT
 - Return a single Positive Prompt string and a single Negative Prompt string ready for the image API.`;
+
+
+export const final_prompt_rules_gemini = ``;
 
 // ===== LAYOUT MAP (descriptions only) =====
 export const layoutMap: Record<string, string> = {
