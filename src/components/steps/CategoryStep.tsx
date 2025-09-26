@@ -221,7 +221,7 @@ export default function CategoryStep({
         {/* Specific Item Input for Pop Culture subcategories - when missing */}
         {data.category === "pop-culture" && data.subcategory && !data.specificItem && 
          ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (
-          <div className="mt-6 space-y-4">
+          <div className="mt-8 space-y-4">
             <div className="text-center">
               <h3 className="text-lg font-medium text-foreground mb-2">
                 Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
