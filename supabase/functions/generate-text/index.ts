@@ -254,7 +254,7 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"] as const;
+  const strategies = ["start","preInsert","postInsert","beforeVerbAdj","replaceIntensifier","endPunchline"];
   const weights    = [0.15,   0.15,        0.15,        0.30,             0.10,               0.15];
   const strat = choice(strategies, weights);
 
