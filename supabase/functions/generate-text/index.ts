@@ -16,7 +16,15 @@ const corsHeaders = {
 };
 
 // ============== RULES LOADER ==============
-let cachedRules: { id?: string; version?: number } | null = null;
+let cachedRules: { 
+  id?: string; 
+  version?: number; 
+  length?: { min_chars: number; max_chars: number };
+  punctuation?: any;
+  tones?: any;
+  ratings?: any;
+  spelling?: any;
+} | null = null;
 
 async function loadRules(rulesId: string, origin?: string): Promise<any> {
   // if the cached object matches the requested id, reuse it
@@ -298,7 +306,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   const idx = candidates[0]?.i ?? 0;
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
   const weights    = [0.25,    0.4,             0.15,               0.20];
   const strat = choice(strategies, weights);
 
