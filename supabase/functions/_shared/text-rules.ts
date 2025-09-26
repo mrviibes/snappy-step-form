@@ -30,13 +30,24 @@ RATINGS
 - PG → censored swears allowed (f***, sh*t), no uncensored profanity.
 - PG-13 → allow only mild words like "hell" and "damn"; block anything stronger.
 - R (Raw, Unfiltered) →
-  - At least one uncensored profanity must appear in every line.
+  - Every line must include at least one uncensored profanity.
   - Profanity must vary across the 4 outputs (different lead swear per line).
   - Profanity may appear more than once per line as long as the line stays within 60–120 chars and ≤3 punctuation marks.
-  - Profanity should feel natural and human: prefer insertion near the insert word or adjacent to a key verb/adjective in the same clause, or by replacing a bland intensifier (really/very/super/so).
+  - Profanity should feel natural and human, not bolted beside the insert word. Prefer these placements with variation:
+      • start for emphasis
+      • mid-clause before/after a verb or adjective
+      • replace a bland intensifier (really/very/super/so/pretty)
+      • end as the punchline
   - Sentimental + R must combine warmth/affection with raw profanity, not hostility.
+
+PROFANITY POOL (50)
+fuck, fucking, fucker, motherfucker, shit, shitty, bullshit, asshole, arse, arsehole,
+bastard, bitch, son of a bitch, damn, goddamn, hell, crap, piss, pissed, dick,
+dickhead, prick, cock, knob, wanker, tosser, bollocks, bugger, bloody, git,
+twat, douche, douchebag, jackass, dumbass, dipshit, clusterfuck, shitshow, balls,
+tits, skank, tramp, slag, screw you, piss off, crapshoot, arsed, bloody hell,
+rat bastard, shithead
 
 OUTPUT FORMAT
 - Return exactly 4 sentences, one per line, no numbering, no bullets.
-
 `;
