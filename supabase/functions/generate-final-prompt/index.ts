@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
-  final_prompt_rules, 
+  final_prompt_rules_ideogram, 
+  final_prompt_rules_gemini, 
   layoutMap, 
   dimensionMap, 
   toneMap, 
