@@ -288,7 +288,7 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
   const weights    = [0.2,    0.4,             0.15,               0.25];
   const strat = choice(strategies, weights);
 
