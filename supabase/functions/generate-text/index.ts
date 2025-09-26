@@ -33,7 +33,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     id: rulesId,
     version: 5,
     length: { min_chars: 50, max_chars: 90 },
-    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 1 },
+    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
       "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
@@ -201,10 +201,11 @@ function enforceRules(
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
 
-    if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 1)) {
+    if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 3)) {
       let kept = 0;
-      t = t.replace(/[.,?!]/g, (m) => (++kept <= 1 ? m : ""));
-      enforcement.push(`Line ${idx+1}: limited punctuation to 1`);
+      const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
+      t = t.replace(/[.,?!]/g, (m) => (++kept <= maxPunc ? m : ""));
+      enforcement.push(`Line ${idx+1}: limited punctuation to ${maxPunc}`);
     }
 
     if (!oneSentence(t)) {
@@ -334,7 +335,7 @@ serve(async (req) => {
 
     const enforced = enforceRules(
       candidates,
-      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} },
       rating || "PG-13",
       insertWords
     );
@@ -347,7 +348,7 @@ serve(async (req) => {
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
       const enforcedMore = enforceRules(
         more,
-        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} },
         rating || "PG-13",
         insertWords
       );
@@ -364,7 +365,7 @@ serve(async (req) => {
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= 1 && oneSentence(line)
+        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= 3 && oneSentence(line)
       })),
       model,
       count: lines.length,
