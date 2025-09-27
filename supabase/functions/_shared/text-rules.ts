@@ -40,9 +40,9 @@ export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 ### HARD CONSTRAINTS 
 
 - Output exactly 4 one-liners, each 0–120 characters.
+- Never use the words “joke” / “jokes” or mention the subcategory name.
 - One sentence only per line, ending with proper punctuation.
 - Use at most 2 punctuation marks (. , ? !) per line.
-- Never use the words “joke” / “jokes” or mention the subcategory name.
 - Each line must fit the chosen tone and rating and naturally include any required insert words.
 - No duplicate word pairs across the 4 lines.
 
