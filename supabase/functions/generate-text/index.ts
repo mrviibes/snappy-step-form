@@ -144,7 +144,7 @@ function extractSwears(s: string): string[] {
 }
 
 function rand() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 2 ** 32; }
-function choice<T>(arr: T[], weights?: number[]) {
+function choice<T>(arr: readonly T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;
