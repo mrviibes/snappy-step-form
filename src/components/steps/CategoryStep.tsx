@@ -134,6 +134,17 @@ export default function CategoryStep({
   const filteredSubcategories = selectedCategoryData ? (selectedCategoryData.subcategories as SubcategoryItem[]).filter((subcategory: SubcategoryItem) => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
   
   const handleCategorySelection = (goalId: string) => {
+    // If Custom category is selected, skip subcategories and go straight to topic input
+    if (goalId === "custom") {
+      updateData({
+        category: goalId,
+        subcategory: "custom", // Set a default subcategory value
+        topic: ""
+      });
+      setTopicInput("");
+      return;
+    }
+    
     setSelectedCategory(goalId);
     setShowingSubcategories(true);
     setSearchQuery("");
