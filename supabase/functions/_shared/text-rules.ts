@@ -11,7 +11,7 @@ GLOBAL HARD CONSTRAINTS
 - Each "insert word" or token must appear exactly as provided in every line, naturally placed.
 - Vary token positions across the 4 outputs (collectively cover start, middle, end).
 - Length 60–120 characters per line. Aim for varied lengths (e.g., near 65, 85, 105, 120).
-- One sentence per line, and it MUST end with a period, question mark, or exclamation.
+- One sentence per output, and it MUST end with a period, question mark, or exclamation.
 - Max 3 punctuation marks total (. , ? !).
 - No greetings (e.g., "Happy birthday,"). No emojis.
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
