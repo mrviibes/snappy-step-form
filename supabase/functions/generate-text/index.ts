@@ -79,13 +79,13 @@ serve(async (req) => {
     const { category, subcategory, tone, rating, insertWords = [] } = payload;
 
     let systemPrompt = category === "Jokes" ? joke_text_rules : text_rules;
+    let userPrompt = '';
     //if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
    // if (subcategory) systemPrompt += ` > ${subcategory}`;
     //if (tone) systemPrompt += `\nTONE: ${tone}`;
    // if (rating) systemPrompt += `\nRATING: ${rating}`;
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
    // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
-let userPrompt = '';
     
     if(category.toLowerCase() == 'jokes'){
       
