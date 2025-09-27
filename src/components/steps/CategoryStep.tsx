@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, ArrowLeft, MoreVertical, Trash2, Edit } from "lucide-react";
+import { Search, ArrowLeft, MoreVertical, Trash2, Edit, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +29,8 @@ export default function CategoryStep({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
+  const [currentInput, setCurrentInput] = useState("");
+  const [specificItems, setSpecificItems] = useState<string[]>([]);
 
   // Create flattened search results for direct subcategory selection
   const getSearchResults = () => {
@@ -98,8 +100,10 @@ export default function CategoryStep({
         updateData({
           category: categoryId,
           subcategory: subcategoryId,
-          specificItem: ""
+          specificItem: "",
+          specificItems: []
         });
+        setSpecificItems([]);
         return;
       }
     }
@@ -135,8 +139,10 @@ export default function CategoryStep({
         updateData({
           category: selectedCategory,
           subcategory: subcategoryId,
-          specificItem: ""
+          specificItem: "",
+          specificItems: []
         });
+        setSpecificItems([]);
         return;
       }
     }
@@ -156,15 +162,21 @@ export default function CategoryStep({
     updateData({
       category: "",
       subcategory: "",
-      specificItem: ""
+      specificItem: "",
+      specificItems: []
     });
+    setSpecificItems([]);
+    setCurrentInput("");
   };
   
   const handleEditSubcategory = () => {
     updateData({
       subcategory: "",
-      specificItem: ""
+      specificItem: "",
+      specificItems: []
     });
+    setSpecificItems([]);
+    setCurrentInput("");
   };
   
   const handleBack = () => {
@@ -172,6 +184,33 @@ export default function CategoryStep({
     setSelectedCategory(null);
     setSearchQuery("");
     setSubcategorySearchQuery("");
+  };
+
+  // Handle adding items as tags
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && currentInput.trim()) {
+      e.preventDefault();
+      const newItem = currentInput.trim();
+      if (!specificItems.includes(newItem)) {
+        const newItems = [...specificItems, newItem];
+        setSpecificItems(newItems);
+        updateData({ 
+          specificItems: newItems,
+          specificItem: newItems.length > 0 ? newItems.join(', ') : ''
+        });
+      }
+      setCurrentInput('');
+    }
+  };
+
+  // Handle removing a tag
+  const handleRemoveItem = (itemToRemove: string) => {
+    const newItems = specificItems.filter(item => item !== itemToRemove);
+    setSpecificItems(newItems);
+    updateData({ 
+      specificItems: newItems,
+      specificItem: newItems.length > 0 ? newItems.join(', ') : ''
+    });
   };
 
   // If category and subcategory are selected, show compact view
@@ -202,14 +241,33 @@ export default function CategoryStep({
             </button>
           </div>
 
-          {/* Specific Item Display for Pop Culture */}
-          {data.category === "pop-culture" && data.specificItem && (
-            <div className="flex items-center justify-between p-4 border-t border-border">
-              <div className="text-sm text-foreground">
-                <span className="font-bold text-muted-foreground">Specific {subcategoryData?.title?.slice(0, -1) || 'Item'}</span> - <span className="font-normal">{data.specificItem}</span>
+          {/* Specific Items Display for Pop Culture */}
+          {data.category === "pop-culture" && specificItems.length > 0 && (
+            <div className="flex items-start justify-between p-4 border-t border-border">
+              <div className="flex-1">
+                <div className="text-sm text-muted-foreground font-bold mb-2">
+                  Specific {subcategoryData?.title || 'Items'}:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {specificItems.map((item, index) => (
+                    <div key={index} className="flex items-center gap-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-2 py-1 rounded-full text-xs">
+                      {item}
+                      <button 
+                        onClick={() => handleRemoveItem(item)}
+                        className="hover:text-cyan-600 dark:hover:text-cyan-400"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <button 
-                onClick={() => updateData({ specificItem: "" })} 
+                onClick={() => {
+                  setSpecificItems([]);
+                  updateData({ specificItem: "", specificItems: [] });
+                  setCurrentInput("");
+                }} 
                 className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
               >
                 Edit
@@ -218,8 +276,8 @@ export default function CategoryStep({
           )}
         </div>
 
-        {/* Specific Item Input for Pop Culture subcategories - when missing */}
-        {data.category === "pop-culture" && data.subcategory && !data.specificItem && 
+        {/* Specific Item Input for Pop Culture subcategories */}
+        {data.category === "pop-culture" && data.subcategory && specificItems.length === 0 &&
          ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (
           <div className="mt-8 space-y-4">
             <div className="text-center">
@@ -227,22 +285,27 @@ export default function CategoryStep({
                 Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
               </h3>
               <p className="text-sm text-muted-foreground">
-                Enter a specific {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} name (optional but recommended)
+                Enter specific {subcategoryData?.title?.toLowerCase() || 'items'} and press Enter to add them (optional but recommended)
               </p>
             </div>
             
-            <div className="bg-card p-4 rounded-lg">
+            <div className="bg-card p-4 rounded-lg space-y-4">
               <Input
                 type="text"
                 placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
-                value={data.specificItem || ""}
-                onChange={(e) => updateData({ specificItem: e.target.value })}
+                value={currentInput}
+                onChange={(e) => setCurrentInput(e.target.value)}
+                onKeyDown={handleInputKeyDown}
                 spellCheck={true}
                 className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
               />
-              <div className="mt-3 text-center">
+              
+              <div className="text-center">
                 <Button
-                  onClick={() => updateData({ specificItem: "any" })}
+                  onClick={() => {
+                    setSpecificItems([]);
+                    updateData({ specificItem: "any", specificItems: [] });
+                  }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
@@ -281,6 +344,7 @@ export default function CategoryStep({
               placeholder="Search subcategories..." 
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
+              spellCheck={true}
               className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
             />
           </div>
@@ -331,6 +395,7 @@ export default function CategoryStep({
           placeholder="Search categories and interests..." 
           value={searchQuery} 
           onChange={e => setSearchQuery(e.target.value)} 
+          spellCheck={true}
           className="pl-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
       </div>
