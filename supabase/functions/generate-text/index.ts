@@ -69,41 +69,6 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   }
 }
 
-// ============== ENFORCEMENT ==============
-function enforceRules(
-  lines: string[],
-  rules: any,
-  rating: string,
-  insertWords: string[] = []
-) {
-  const minLen = rules.length?.min_chars ?? 70;
-  const maxLen = rules.length?.max_chars ?? 120;
-
-  let processed = lines.map((raw) => {
-    let t = raw.trim();
-    
-    // Basic cleanup
-    t = t.replace(/—/g, ",").replace(/:/g, ".").replace(/;/g, ".");
-    t = t.replace(/[:;…]/g, ",").replace(/["""']/g, "'");
-    
-    // Ensure proper ending
-    if (!/[.?!]$/.test(t)) t = `${t}.`;
-    
-    // Basic length enforcement
-    if (t.length > maxLen) t = t.slice(0, maxLen).trim();
-    if (t.length < minLen && t.length > 0) {
-      const padding = " and that's the truth";
-      t = t + padding.slice(0, minLen - t.length);
-    }
-    
-    return t;
-  });
-
-  // Filter by length
-  processed = processed.filter(l => l.length >= minLen && l.length <= maxLen);
-
-  return { lines: processed.slice(0, 4), enforcement: [] };
-}
 
 // ============== HTTP ==============
 serve(async (req) => {
@@ -138,23 +103,16 @@ serve(async (req) => {
     
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
-    // Simple line parsing
-    let candidates = raw
+    // Simple line parsing and filtering
+    let lines = raw
       .split(/\r?\n+/)
       .map((line: string) => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim())
-      .filter(Boolean);
-
-    const fallbackRules = { 
-      length: { min_chars: 70, max_chars: 120 }, 
-      punctuation: { max_marks_per_sentence: 2, ban_em_dash: true, replacement: { "—": ",", ":": ".", ";": "." } }, 
-      max_sentences: 1 
-    };
-    
-    const enforced = enforceRules(candidates, fallbackRules, rating || "PG-13", insertWords);
-    let lines = enforced.lines.slice(0, 4);
+      .filter(Boolean)
+      .filter((line: string) => line.length >= 70 && line.length <= 120)
+      .slice(0, 4);
 
     const resp = {
-      lines: lines.map((line, i) => ({
+      lines: lines.map((line: string, i: number) => ({
         line,
         length: line.length,
         index: i + 1,
