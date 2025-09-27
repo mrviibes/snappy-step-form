@@ -28,12 +28,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     id: rulesId,
     version: 7,
     length: { min_chars: 60, max_chars: 120 },
-    punctuation: {
-      ban_em_dash: true,
-      replacement: { "—": "," },
-      allowed: [".", ",", "?", "!"],
-      max_marks_per_line: 2
-    },
+    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 2 },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
       "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
@@ -95,6 +90,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
   } catch {
     model = "gpt-4o-mini";
     maxTokens = 240;
+
     const req = buildOpenAIRequest(model, [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
@@ -114,7 +110,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 }
 
 // ============== HELPERS ==============
-const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
+const STRONG_SWEARS = /(fuck(?:er|ing)?|f\*+|shit(?:ty)?|s\*+t|bastard|ass(?!ert)|a\*+|arse|bullshit|b\*+|goddamn|g\*+d|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
 
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
@@ -131,11 +127,16 @@ function trimToRange(s: string, min=60, max=120) {
 function trimPunchline(line: string, min=60, max=120) {
   let t = line.trim();
   if (t.length <= max) return t;
-  const parts = t.split(/[,!?]/);
+  const parts = t.split(/[,?!]/);
   if (parts.length > 1) t = `${parts[0]},${parts[1]}`.trim();
   if (t.length > max) t = t.slice(0, max).trim();
   if (t.length < min) t = trimToRange(line, min, max);
   return t;
+}
+
+// soften trailing hedges
+function hardStop(t: string) {
+  return t.replace(/\s*,?\s*(you know( that)?,?\s*right|right|okay|ok)\.?$/i, ".").trim();
 }
 
 function bigramSet(s: string) {
@@ -175,6 +176,17 @@ function deTagInsert(line: string, insert: string) {
     return `${insert}, ${core}`;
   }
   return line;
+}
+
+// PG-13 sanitizer: remove uncensored or censored strong profanity; keep only hell/damn
+function sanitizePG13(line: string) {
+  let t = line;
+  // remove/replace any censored forms
+  t = t.replace(/\b(f\*+|s\*+t|b\*+|a\*+|g\*+d)\b/gi, "damn");
+  // downgrade any strong profanities to clean burns
+  t = t.replace(/\b(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)\b/gi, "damn");
+  // ensure only hell/damn remain as mild options
+  return t.replace(/\b(god damn)\b/gi, "damn");
 }
 
 function ensureProfanityVariation(lines: string[]) {
@@ -243,7 +255,6 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
-    // ensure at least one punctuation (punch marker)
     if (countPunc(t) === 0) t = `${t}.`;
 
     for (const w of insertWords) {
@@ -254,7 +265,7 @@ function enforceRules(
       }
     }
 
-    return t;
+    return hardStop(t);
   });
 
   // Normalize tacked-on endings then force insert distribution
@@ -280,8 +291,8 @@ function enforceRules(
 
   if (rating === "PG-13") {
     processed = processed.map((t, i) => {
-      const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)/gi, "damn");
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: downgraded strong profanity to mild`);
+      const cleaned = sanitizePG13(t);
+      if (cleaned !== t) enforcement.push(`Line ${i+1}: sanitized to PG-13 (only 'hell'/'damn' allowed)`);
       return cleaned;
     });
   }
@@ -302,7 +313,7 @@ function enforceRules(
     });
   }
 
-  // Final punch trim, then de-dup near copies by bigrams
+  // Final punch trim & de-dup
   processed = processed.map(l => trimPunchline(l, minLen, maxLen));
 
   const unique: string[] = [];
@@ -332,7 +343,6 @@ Do not repeat word pairs used in:
 ${block}
 Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
 Return exactly ${missing} new lines, one per line.`;
-
   const { content } = await callOpenAI(systemPrompt, user);
   return parseLines(content);
 }
@@ -366,7 +376,6 @@ serve(async (req) => {
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
-    // Backfill to guarantee 4
     let tries = 0;
     while (lines.length < 4 && tries < 2) {
       const need = 4 - lines.length;
