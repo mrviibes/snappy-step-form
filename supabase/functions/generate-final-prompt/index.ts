@@ -150,21 +150,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
   const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
 
-  let userPrompt = `Generate an image generation prompt with these requirements:
-
-MANDATORY TEXT: "${completed_text}"
-CATEGORY: ${cat}
-TONE: ${toneStr}
-RATING: ${ratingMap[rating] || rating || "family-friendly"}
-STYLE: ${styleStr}
-LAYOUT: ${layoutKey} (${layoutTag})
-DIMENSIONS: ${aspect || "square 1:1"}`;
-
-  if (where) {
-    userPrompt += `\nSCENE: ${where}`;
-  }
-
-  userPrompt += `\n\nGenerate a concise, effective image generation prompt that incorporates all these elements. Focus on visual clarity and text readability.`;
+  const userPrompt = `Generate a ${aspect || "square 1:1"} ${styleStr} image with the text "${completed_text}" placed in a ${layoutTag}, ensuring the text is sharp, clean, perfectly legible, with no distortions. Use vivid colors, bold lighting, and a professional polished design. Create a ${toneStr} scene${where ? ` with ${where}` : ''}. Allow layout style to vary slightly between runs for visual variety.`;
 
   const { content } = await callOpenAI(systemPrompt, userPrompt);
 
