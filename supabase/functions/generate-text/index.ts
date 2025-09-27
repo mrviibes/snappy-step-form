@@ -27,7 +27,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
   cachedRules = {
     id: rulesId,
     version: 7,
-    length: { min_chars: 60, max_chars: 120 },
+    length: { min_chars: 100, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 2 },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
@@ -115,7 +115,7 @@ const STRONG_SWEARS = /(fuck(?:er|ing)?|f\*+|shit(?:ty)?|s\*+t|bastard|ass(?!ert
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-function trimToRange(s: string, min=60, max=120) {
+function trimToRange(s: string, min=100, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
@@ -124,7 +124,7 @@ function trimToRange(s: string, min=60, max=120) {
 }
 
 // Keep setup + first punch within range
-function trimPunchline(line: string, min=60, max=120) {
+function trimPunchline(line: string, min=100, max=120) {
   let t = line.trim();
   if (t.length <= max) return t;
   const parts = t.split(/[,?!]/);
@@ -230,7 +230,7 @@ function enforceRules(
   insertWords: string[] = []
 ) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 60;
+  const minLen = rules.length?.min_chars ?? 100;
   const maxLen = rules.length?.max_chars ?? 120;
 
   let processed = lines.map((raw, idx) => {
@@ -372,7 +372,7 @@ serve(async (req) => {
     let candidates = parseLines(raw);
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
-    const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:2,ban_em_dash:true,replacement:{"—":","}} };
+    const fallbackRules = { length:{min_chars:100,max_chars:120}, punctuation:{max_marks_per_line:2,ban_em_dash:true,replacement:{"—":","}} };
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
@@ -386,7 +386,7 @@ serve(async (req) => {
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 60);
+    const minL = (rules?.length?.min_chars ?? 100);
     const maxL = (rules?.length?.max_chars ?? 120);
 
     const resp = {

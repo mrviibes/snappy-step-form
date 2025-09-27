@@ -6,7 +6,7 @@ GENERAL
 - Insert words must appear exactly as written in every line.
 - No em dashes. Replace with commas.
 - Maximum 3 punctuation marks per line (. , ? !).
-- Text length must be between 50 and 90 characters.
+- Text length must be between 100 and 120 characters.
 - Always produce 4 distinct outputs.
 
 STRUCTURE
