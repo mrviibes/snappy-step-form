@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import StepIndicator from "./StepIndicator";
@@ -72,6 +72,37 @@ export default function MultiStepForm() {
       option: ""
     }
   });
+
+  // Clear all stored data on app initialization
+  useEffect(() => {
+    // Clear localStorage except essential browser data
+    const keysToKeep = ['theme', 'sb-qxfnvtnchuigjivcalqe-auth-token'];
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(key => {
+      if (!keysToKeep.some(keepKey => key.includes(keepKey))) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Clear sessionStorage completely
+    sessionStorage.clear();
+    
+    // Reset form to initial state
+    setCurrentStep(1);
+    setFormData({
+      category: "",
+      subcategory: "",
+      theme: "",
+      text: {
+        tone: "",
+        writingPreference: ""
+      },
+      visuals: {
+        style: "",
+        option: ""
+      }
+    });
+  }, []); // Run only on mount
   const updateFormData = (stepData: Partial<FormData>) => {
     setFormData(prev => ({
       ...prev,
