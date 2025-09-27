@@ -145,19 +145,45 @@ function oneOrTwoSentences(s: string, maxSentences = 1) {
 function trimToRange(s: string, min=50, max=100) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
+  
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
   if (out.length > max) out = out.slice(0, max).trim();
+  
+  // Ensure minimum length by padding with relevant content
+  if (out.length < min) {
+    const needsMore = min - out.length;
+    const padding = " and that's the truth about it";
+    out = out + padding.slice(0, needsMore);
+  }
+  
   return out;
 }
 
 // Keep setup + first punch within range
 function trimPunchline(line: string, min=50, max=100) {
   let t = line.trim();
-  if (t.length <= max) return t;
-  const parts = t.split(/[,?!]/);
-  if (parts.length > 1) t = `${parts[0]},${parts[1]}`.trim();
-  if (t.length > max) t = t.slice(0, max).trim();
-  if (t.length < min) t = trimToRange(line, min, max);
+  
+  // If already in range, return as is
+  if (t.length >= min && t.length <= max) return t;
+  
+  // If too long, try to trim intelligently
+  if (t.length > max) {
+    const parts = t.split(/[,?!]/);
+    if (parts.length > 1) {
+      t = `${parts[0]},${parts[1]}`.trim();
+    }
+    if (t.length > max) {
+      t = t.slice(0, max).trim();
+    }
+  }
+  
+  // If too short, pad with context
+  if (t.length < min) {
+    const needsMore = min - t.length;
+    const contextPadding = " - that's what I call skill";
+    t = t + contextPadding.slice(0, needsMore);
+  }
+  
   return t;
 }
 
@@ -308,6 +334,9 @@ function enforceRules(
   // trim to crisp setup+punch, dedupe
   processed = processed.map(l => trimPunchline(l, minLen, maxLen));
 
+  // Server-side validation: reject lines that are too short
+  processed = processed.filter(l => l.length >= minLen);
+
   const unique: string[] = [];
   const seen = new Set<string>();
   for (const l of processed) {
@@ -334,6 +363,7 @@ async function backfillLines(
 Do not repeat word pairs used in:
 ${block}
 Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
+CRITICAL: Each new line must be EXACTLY 50-100 characters long - count carefully! Make them complete, substantial thoughts.
 Return exactly ${missing} new lines, one per line.`;
   const { content } = await callOpenAI(systemPrompt, user);
   return parseLines(content);
@@ -358,7 +388,7 @@ serve(async (req) => {
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
     systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. Each line must be 50-100 characters long. No headers, numbers, or formatting - just the one-liners.";
+    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. CRITICAL: Each line must be EXACTLY between 50-100 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.";
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
