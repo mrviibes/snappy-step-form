@@ -455,7 +455,6 @@ function enforceRules(
 
     // humanization: contractions + concrete detail (if missing)
     t = addContractions(t);
-    if (!hasConcreteDetail(t)) t = t.replace(/[.?!]\s*$/, "") + ", coffee on the table.";
 
     // role-aware token placement
     t = placeTokensNaturally(t, insertTokens, rules);
