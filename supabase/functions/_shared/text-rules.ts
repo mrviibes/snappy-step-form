@@ -27,7 +27,10 @@ TONES
 RATINGS
 - G → no profanity or adult refs.
 - PG → censored swears allowed (f***, sh*t), no uncensored profanity.
-- PG-13 → only "hell", "damn"; nothing stronger (replace stronger words).
+- PG-13 →
+  - Only "hell" and "damn" allowed as mild profanity.
+  - Replace any stronger or censored profanity (f***, f*ing, s**t, etc.) with clean phrasing.
+  - No slurs or hate speech; keep roasts clever, not abusive.
 - R (Raw, Unfiltered) →
   - Must include uncensored profanity in every line.
   - Profanity must vary across the 4 outputs.
