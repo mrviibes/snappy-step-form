@@ -1,9 +1,6 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 
-GOAL
-- Generate 4 distinct outputs that satisfy all constraints below.
-- If category starts with "jokes", write 4 jokes in the requested joke style.
-- If category starts with "pop-culture", write 4 context-aware one-liners or quips in that subcategory style.
+
 - Otherwise, write 4 humorous one-liners.
 
 GLOBAL HARD CONSTRAINTS
