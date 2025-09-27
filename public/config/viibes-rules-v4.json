@@ -22,14 +22,14 @@
     ]
   },
   "tones": {
-    "Humorous": { "rules": ["witty","wordplay","exaggeration","no_serious"] },
-    "Savage": { "rules": ["blunt","cutting","roast_style","no_soft_language"] },
-    "Sentimental": { "rules": ["warm","gentle","touching","no_sarcasm"] },
-    "Nostalgic": { "rules": ["past_refs","reflective","no_modern_slang"] },
-    "Romantic": { "rules": ["affectionate","playful_love","no_mean"] },
-    "Inspirational": { "rules": ["uplifting","motivating","no_negativity_or_irony"] },
-    "Playful": { "rules": ["cheeky","silly","mischievous","no_formal"] },
-    "Serious": { "rules": ["dry","deadpan","formal_weight","no_jokes_except_dry_wit"] }
+      "Humorous": { rules: ["witty","wordplay","exaggeration","punchline_fast","punchline_surprise"] },
+      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language","punchline_sting","no_explain"] },
+      "Sentimental": { rules: ["warm","affectionate","no_sarcasm","punchline_resolves_clearly"] },
+      "Nostalgic": { rules: ["past_refs","no_modern_slang","punchline_ties_to_memory"] },
+      "Romantic": { rules: ["affectionate","playful","no_mean","punchline_charming"] },
+      "Inspirational": { rules: ["uplifting","no_negativity_or_irony","punchline_elevates_message"] },
+      "Playful": { rules: ["cheeky","silly","no_formal","punchline_quick","punchline_mischievous"] },
+      "Serious": { rules: ["dry","deadpan","formal_weight","punchline_understated","punchline_concise"] }
   },
   "ratings": {
     "G": {
