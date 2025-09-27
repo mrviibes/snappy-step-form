@@ -139,12 +139,7 @@ export const aiRulesConfig: AIRulesConfig = {
     { id: "playful", name: "Playful", summary: "Silly, cheeky, fun" },
     { id: "serious", name: "Serious", summary: "Formal, direct, weighty" }
   ],
-  styles: [
-    { id: "generic", name: "Generic", tag: "plain", description: "Neutral wording, straightforward delivery." },
-    { id: "sarcastic", name: "Sarcastic", tag: "ironic", description: "Dry, cutting, eye-roll vibe." },
-    { id: "wholesome", name: "Wholesome", tag: "kind", description: "Warm, supportive, feel-good." },
-    { id: "weird", name: "Weird", tag: "absurd", description: "Surreal, playful oddity." }
-  ],
+
   ratings: [
     { id: "g", name: "G", tag: "clean" },
     { id: "pg", name: "PG", tag: "mild" },
