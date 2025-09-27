@@ -85,7 +85,7 @@ serve(async (req) => {
     //if (tone) systemPrompt += `\nTONE: ${tone}`;
    // if (rating) systemPrompt += `\nRATING: ${rating}`;
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-   // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
     
     if(category.toLowerCase() == 'jokes'){
       
