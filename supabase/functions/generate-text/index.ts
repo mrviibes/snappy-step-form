@@ -78,7 +78,7 @@ serve(async (req) => {
     const payload = await req.json();
     const { category, subcategory, tone, rating, insertWords = [] } = payload;
 
-    let systemPrompt = text_rules;
+    let systemPrompt = category === "Jokes" ? joke_text_rules : text_rules;
     //if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
    // if (subcategory) systemPrompt += ` > ${subcategory}`;
     //if (tone) systemPrompt += `\nTONE: ${tone}`;
