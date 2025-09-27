@@ -105,31 +105,6 @@ function enforceRules(
   return { lines: processed.slice(0, 4), enforcement: [] };
 }
 
-// ============== BACKFILL TO 4 ==============
-async function backfillLines(
-  missing: number,
-  systemPrompt: string,
-  accepted: string[],
-  tone: string,
-  rating: string,
-  insertWords: string[]
-) {
-  const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const user = `We still need ${missing} additional one-liners that satisfy ALL constraints.
-Do not repeat word pairs used in:
-${block}
-Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
-CRITICAL: Each new line must be EXACTLY 70-120 characters long - count carefully! Make them complete, substantial thoughts.
-Return exactly ${missing} new lines, one per line.`;
-  const { content } = await callOpenAI(systemPrompt, user);
-  
-  // Simple line parsing
-  return content
-    .split(/\r?\n+/)
-      .map((line: string) => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim())
-    .filter(Boolean)
-    .slice(0, missing);
-}
 
 // ============== HTTP ==============
 serve(async (req) => {
@@ -172,14 +147,6 @@ serve(async (req) => {
     const enforced = enforceRules(candidates, fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
-    let tries = 0;
-    while (lines.length < 4 && tries < 2) {
-      const need = 4 - lines.length;
-      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(more, fallbackRules, rating || "PG-13", insertWords);
-      lines = [...lines, ...enforcedMore.lines];
-      tries++;
-    }
     lines = lines.slice(0, 4);
 
     const minL = 70;
