@@ -40,7 +40,7 @@ GOAL
 Write 4 funny, punchy, human-sounding distinct jokes in the format of the subcategory (type of joke)
 
 HARD CONSTRAINTS
-- don't say teh type of joke in the joke
+- Do NOT mention the subcategory type in the output. Deliver the line directly as humor without meta commentary.”
 - Respect Tone, Rating, and make sure you use insert word naturally in every output
 - Length: 0-120 characters.
 - must display 4 final outputs
