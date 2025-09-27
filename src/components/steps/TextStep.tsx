@@ -15,8 +15,7 @@ import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
 import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { validateBatch } from '@/lib/textValidator';
-import { getRules, enforceBasicRules, validateLength } from '@/lib/rulesEngine';
+// Validation imports removed
 import DebugPanel from '@/components/DebugPanel';
 
 interface TextStepProps {
@@ -120,9 +119,6 @@ export default function TextStep({
     setDebugExpanded(false);
     
     try {
-      // Get rules for enforcement
-      const rules = await getRules();
-      
       // Create debug info
       const requestPayload = {
         category: data.category || 'celebrations',
@@ -130,8 +126,7 @@ export default function TextStep({
         tone: data.text.tone,
         rating: data.text.rating,
         insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
-        userId: 'anonymous',
-        rules_id: rules.id
+        userId: 'anonymous'
       };
       
       setDebugInfo({
@@ -169,17 +164,10 @@ export default function TextStep({
           rawResponse: response
         }));
         
-        // Format options and apply rule enforcement
-        const formattedOptions = options.map((option: { line: string }) => {
-          let line = option.line;
-          
-          // Apply rule enforcement
-          line = enforceBasicRules(line, rules);
-          
-          return {
-            line: line
-          };
-        }).filter(o => validateLength(o.line, rules));
+        // Format options without validation
+        const formattedOptions = options.map((option: { line: string }) => ({
+          line: option.line
+        }));
         
         // Ensure we have exactly 4 options
         const finalOptions = formattedOptions.slice(0, 4);

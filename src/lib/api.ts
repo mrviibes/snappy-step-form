@@ -163,18 +163,12 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
         throw new Error("No options returned");
       }
       
-      // Handle both string arrays and object arrays
+      // Handle both string arrays and object arrays - no validation
       const options = lines.map((line: any) => 
         typeof line === 'string' ? { line } : line
       );
       
-      // Client-side guard: ensure basic validation
-      const validated = options.filter((o: any) => o?.line && o.line.length >= 50 && o.line.length <= 120);
-      if (validated.length === 0) {
-        throw new Error("All generated options failed validation");
-      }
-      
-      return validated.slice(0, 4);
+      return options.slice(0, 4);
     }
     
     // Handle new response format with model information
@@ -183,12 +177,6 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
       const options = (res as any).lines as Array<{line: string}>;
       if (!Array.isArray(options) || options.length === 0) {
         throw new Error("No options returned");
-      }
-      
-      // Client-side guard: ensure basic validation
-      const validated = options.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
-      if (validated.length === 0) {
-        throw new Error("All generated options failed validation");
       }
       
       return res; // Return full response with model info
@@ -201,13 +189,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
         throw new Error("No options returned");
       }
       
-      // Client-side guard: ensure basic validation
-      const validated = options.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
-      if (validated.length === 0) {
-        throw new Error("All generated options failed validation");
-      }
-      
-      return validated.slice(0, 4);
+      return options.slice(0, 4);
     }
     
     // Fallback: check for old response format
@@ -220,13 +202,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
       throw new Error("No options returned");
     }
     
-    // Client-side guard: ensure basic validation
-    const validated = options.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
-    if (validated.length === 0) {
-      throw new Error("All generated options failed validation");
-    }
-    
-    return validated.slice(0, 4);
+    return options.slice(0, 4);
   } catch (error: any) {
     // Try once more with slight delay if first attempt fails
     if (error.name !== 'AbortError') {
@@ -235,10 +211,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
         const retryRes = await ctlFetch<GenerateTextResponse>("generate-text", payload, 20000);
         if (retryRes && (retryRes as any).success === true) {
           const retryOptions = (retryRes as any).options as Array<{line: string}>;
-          const validated = retryOptions.filter(o => o?.line && o.line.length >= 50 && o.line.length <= 120);
-          if (validated.length > 0) {
-            return validated.slice(0, 4);
-          }
+          return retryOptions.slice(0, 4);
         }
       } catch (retryError) {
         console.error('Retry failed:', retryError);
