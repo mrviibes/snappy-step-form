@@ -140,6 +140,15 @@ export const aiRulesConfig: AIRulesConfig = {
     { id: "serious", name: "Serious", summary: "Formal, direct, weighty" }
   ],
 
+  styles: [
+    { id: "casual", name: "Casual", tag: "casual", description: "Relaxed, conversational style" },
+    { id: "witty", name: "Witty", tag: "witty", description: "Clever, sharp, quick-witted" },
+    { id: "heartfelt", name: "Heartfelt", tag: "heartfelt", description: "Sincere, genuine, emotional" },
+    { id: "cheeky", name: "Cheeky", tag: "cheeky", description: "Bold, impudent, playfully rude" },
+    { id: "poetic", name: "Poetic", tag: "poetic", description: "Lyrical, artistic, expressive" },
+    { id: "direct", name: "Direct", tag: "direct", description: "Straightforward, clear, to the point" }
+  ],
+
   ratings: [
     { id: "g", name: "G", tag: "clean" },
     { id: "pg", name: "PG", tag: "mild" },
