@@ -172,10 +172,24 @@ serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiApiKey}` },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-4o",
           max_tokens: 800,
+          temperature: 0.9,
           messages: [
-            { role: "system", content: "You are a witty copywriter. Follow the provided rules exactly and output exactly 4 lines, one sentence per line, no numbering or bullets." },
+            { 
+              role: "system", 
+              content: `You are an expert comedy writer specializing in witty, clever one-liners. Your writing is sharp, memorable, and perfectly crafted for the target audience.
+
+CRITICAL QUALITY STANDARDS:
+- Each line must be genuinely funny and clever
+- Avoid obvious or cliché jokes
+- Focus on unexpected wordplay and smart observations
+- Make every word count - no filler
+- Land the punchline in the final few words
+- Ensure tone matches the requested style perfectly
+
+Follow ALL provided rules exactly. Output exactly 4 lines, one sentence per line, no numbering or bullets.` 
+            },
             { role: "user", content: prompt }
           ]
         })
@@ -202,6 +216,7 @@ serve(async (req) => {
 
     lines = lines.map((l: string) => l.trim())
       .filter((l: string) => !QNA_START.test(l))
+      .filter((l: string) => l.length >= 40) // Filter out too-short low-quality lines
       .map(oneSentenceOnly)
       .map(punctFix)
       .map(endPunct)
@@ -248,7 +263,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       lines: linesOut,
-      model: "openai:gpt-4o-mini",
+      model: "openai:gpt-4o",
       count: linesOut.length
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
