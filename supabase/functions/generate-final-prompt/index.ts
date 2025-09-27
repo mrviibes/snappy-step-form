@@ -1,26 +1,30 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { final_prompt_rules } from "../_shared/final-prompt-rules.ts";
+import { final_prompt_rules_gemini, layoutTagShort, dimensionMap, toneMap, ratingMap, textQualityNegatives, getCategoryNegatives } from "../_shared/final-prompt-rules.ts";
 
+// ============== MODEL ==============
+const getFinalPromptModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
+const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+
+// ============== CORS ==============
 const corsHeaders = {
-  "content-type": "application/json",
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "POST, OPTIONS",
-  "vary": "Origin"
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============== INTERFACES ==============
 interface FinalPromptRequest {
   completed_text: string;
   category: string;
   subcategory?: string;
-  tone: string;                     // e.g., "humorous"
-  rating: string;                   // kept for future use; not printed in minimal two-liner
+  tone: string;
+  rating: string;
   insertWords?: string[];
-  image_style: string;              // e.g., "realistic"
-  text_layout: string;              // one of your 6 ids
-  image_dimensions: string;         // "square" | "portrait" | "landscape" | "custom"
+  image_style: string;
+  text_layout: string;
+  image_dimensions: string;
   composition_modes?: string[];
-  visual_recommendation?: string;   // the “where Jesse…” sentence fragment
+  visual_recommendation?: string;
 }
 
 interface PromptTemplate {
@@ -30,32 +34,79 @@ interface PromptTemplate {
   description: string;
 }
 
+// ============== OPENAI CALL ==============
+function buildOpenAIRequest(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  options: { temperature?: number; maxTokens: number }
+) {
+  const body: any = { model, messages };
+  if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
+    body.max_completion_tokens = options.maxTokens;
+  } else {
+    body.max_tokens = options.maxTokens;
+    if (options.temperature !== undefined) body.temperature = options.temperature;
+  }
+  return body;
+}
+
+async function callOpenAI(systemPrompt: string, userPrompt: string) {
+  let model = getFinalPromptModel();
+  let maxTokens = model.startsWith("gpt-5") ? 1000 : 600;
+
+  try {
+    const req = buildOpenAIRequest(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], { maxTokens });
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const content = d.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("Empty content");
+    return { content, model: d.model || model };
+
+  } catch {
+    model = "gpt-4o-mini";
+    const req = buildOpenAIRequest(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], { maxTokens: 400, temperature: 0.3 });
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(req)
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const content = d.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("Empty content (fallback)");
+    return { content, model };
+  }
+}
+
+// ============== HELPER FUNCTIONS ==============
 function json(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
 }
-
-// Compact layout tag phrases for Gemini
-const layoutTagShort: Record<string, string> = {
-  "negative-space": "clean modern text, open area",
-  "meme-text": "bold top/bottom meme text",
-  "lower-banner": "strong bottom banner caption",
-  "side-bar": "vertical side stacked text",
-  "badge-callout": "floating stylish text badge",
-  "subtle-caption": "small understated corner caption"
-};
 
 function aspectLabel(dim: string) {
   const d = (dim || "").toLowerCase();
   if (d === "square") return "square 1:1";
   if (d === "portrait") return "portrait 9:16";
   if (d === "landscape") return "landscape 16:9";
-  // if custom, let caller pass specifics inside visual_recommendation if needed
   return "";
 }
 
+// ============== HTTP ==============
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
-  if (req.method !== "POST") return json({ success: false, error: "POST only" }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -66,6 +117,7 @@ serve(async (req) => {
     const templates = await generatePromptTemplates(body as FinalPromptRequest);
     return json({ success: true, templates });
   } catch (e) {
+    console.error('Generate final prompt error:', e);
     return json({ success: false, error: String((e as Error)?.message || "prompt_generation_failed") }, 500);
   }
 });
@@ -76,37 +128,60 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     category,
     subcategory,
     tone,
+    rating,
     image_style,
     text_layout,
     image_dimensions,
     visual_recommendation = ""
   } = p;
 
-  // Build the exact minimal style you asked for
+  // Build system prompt using imported rules
+  const systemPrompt = final_prompt_rules_gemini;
+
+  // Build user prompt with all the context
   const cat = (subcategory || category || "").toLowerCase().trim();
-  const toneStr = (tone || "").toLowerCase().trim();
-  const styleStr = (image_style || "").toLowerCase().trim();
+  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "humorous";
+  const styleStr = image_style?.toLowerCase() || "realistic";
   const aspect = aspectLabel(image_dimensions);
+  const layoutKey = text_layout?.toLowerCase() || "negative-space";
+  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
   const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
 
-  // First line: A realistic humorous wedding scene where ...
-  // Include aspect if present, but keep it light.
-  const aspectChunk = aspect ? ` ${aspect},` : "";
-  const positiveLine1 =
-    `A ${styleStr}${aspectChunk} ${toneStr} ${cat} scene ${where || ""}`.replace(/\s+/g, " ").trim().replace(/\.\s*$/, "") + ".";
+  let userPrompt = `Generate an image generation prompt with these requirements:
 
-  // Second line: With exact text "..." in (layout): <short tag>
-  const layoutKey = String(text_layout || "").toLowerCase();
-  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
-  const positiveLine2 =
-    `With exact text "${completed_text}" in (${layoutKey}): ${layoutTag}`;
+MANDATORY TEXT: "${completed_text}"
+CATEGORY: ${cat}
+TONE: ${toneStr}
+RATING: ${ratingMap[rating] || rating || "family-friendly"}
+STYLE: ${styleStr}
+LAYOUT: ${layoutKey} (${layoutTag})
+DIMENSIONS: ${aspect || "square 1:1"}`;
 
-  const positive = `${positiveLine1}\n\n${positiveLine2}`;
+  if (where) {
+    userPrompt += `\nSCENE: ${where}`;
+  }
+
+  userPrompt += `\n\nGenerate a concise, effective image generation prompt that incorporates all these elements. Focus on visual clarity and text readability.`;
+
+  const { content } = await callOpenAI(systemPrompt, userPrompt);
+
+  // Parse the response to create positive and negative prompts
+  const lines = content.split(/\r?\n+/).filter(Boolean);
+  let positive = content;
+  let negative = textQualityNegatives;
+
+  // Add category-specific negatives
+  if (category && rating) {
+    const categoryNegs = getCategoryNegatives(category, rating);
+    if (categoryNegs) {
+      negative += `, ${categoryNegs}`;
+    }
+  }
 
   return [{
-    name: "Gemini 2.5 Minimal",
-    description: "Two-line compact prompt with exact text and concise layout tag.",
+    name: "AI Generated Prompt",
+    description: "AI-generated prompt optimized for text overlay and visual style.",
     positive,
-    negative: "" // Gemini: positive-only
+    negative
   }];
 }
