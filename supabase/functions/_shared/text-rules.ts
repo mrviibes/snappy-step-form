@@ -1,7 +1,7 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-- Generate 4 funny and hillarious human-sounding one-liners.
+- Generate 4 funny and hilarious human-sounding one-liners.
 
 HARD CONSTRAINTS
 - Respect Tone, Rating, and make sure you use insert word naturally in every output
