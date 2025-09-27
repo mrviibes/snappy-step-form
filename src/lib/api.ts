@@ -156,27 +156,6 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
   try {
     const res = await ctlFetch<GenerateTextResponse>("generate-text", payload);
     
-    // Handle new response format with success and lines
-    if (res && typeof res === 'object' && 'success' in res && (res as any).success === true && 'lines' in res) {
-      const lines = (res as any).lines;
-      if (!Array.isArray(lines) || lines.length === 0) {
-        throw new Error("No options returned");
-      }
-      
-      // Handle both string arrays and object arrays
-      const options = lines.map((line: any) => 
-        typeof line === 'string' ? { line } : line
-      );
-      
-      // Client-side guard: ensure basic validation
-      const validated = options.filter((o: any) => o?.line && o.line.length >= 50 && o.line.length <= 120);
-      if (validated.length === 0) {
-        throw new Error("All generated options failed validation");
-      }
-      
-      return validated.slice(0, 4);
-    }
-    
     // Handle new response format with model information
     if (res && typeof res === 'object' && 'lines' in res && 'model' in res) {
       // New format with model information

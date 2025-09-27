@@ -353,9 +353,6 @@ export default function TextStep({
       {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
           </div>
         </div>}
 
@@ -383,9 +380,6 @@ export default function TextStep({
       {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
           </div>
         </div>}
 
@@ -439,9 +433,6 @@ export default function TextStep({
       {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
           </div>
         </div>}
 
@@ -490,9 +481,6 @@ export default function TextStep({
       {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
           </div>
         </div>}
 
@@ -541,9 +529,6 @@ export default function TextStep({
       {data.category && data.subcategory && <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
             <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
           </div>
         </div>}
 

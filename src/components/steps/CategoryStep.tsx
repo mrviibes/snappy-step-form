@@ -1,8 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, ArrowLeft, MoreVertical, Trash2, Edit, X } from "lucide-react";
+import { Search, ArrowLeft, MoreVertical, Trash2, Edit } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -11,13 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { fitnessGoals, ThemeItem, SubcategoryItem } from "@/data/CategoryList";
-
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
+
 
 export default function CategoryStep({
   data,
@@ -29,9 +29,6 @@ export default function CategoryStep({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [showingSubcategories, setShowingSubcategories] = useState(false);
-  const [currentInput, setCurrentInput] = useState("");
-  const [specificItems, setSpecificItems] = useState<string[]>([]);
-
   // Create flattened search results for direct subcategory selection
   const getSearchResults = () => {
     if (!searchQuery || searchQuery.length === 0) return [];
@@ -92,22 +89,6 @@ export default function CategoryStep({
 
   // Handle direct subcategory selection from search results
   const handleDirectSubcategorySelection = (categoryId: string, subcategoryId: string) => {
-    // Check if this is Pop Culture and requires specific item input
-    if (categoryId === "pop-culture") {
-      const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
-      if (subcategoriesRequiringSpecificItem.includes(subcategoryId)) {
-        // Set category and subcategory but don't proceed - wait for specific item input
-        updateData({
-          category: categoryId,
-          subcategory: subcategoryId,
-          specificItem: "",
-          specificItems: []
-        });
-        setSpecificItems([]);
-        return;
-      }
-    }
-    
     updateData({
       category: categoryId,
       subcategory: subcategoryId
@@ -129,29 +110,12 @@ export default function CategoryStep({
   };
   
   const handleSubcategorySelection = (subcategoryId: string) => {
-    const categoryData = fitnessGoals.find(goal => goal.id === selectedCategory);
-    
-    // Check if this is Pop Culture and requires specific item input
-    if (selectedCategory === "pop-culture") {
-      const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
-      if (subcategoriesRequiringSpecificItem.includes(subcategoryId)) {
-        // Set subcategory but don't proceed - wait for specific item input
-        updateData({
-          category: selectedCategory,
-          subcategory: subcategoryId,
-          specificItem: "",
-          specificItems: []
-        });
-        setSpecificItems([]);
-        return;
-      }
-    }
-    
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
     });
   };
+
   
   const handleEditCategory = () => {
     setShowingSubcategories(false);
@@ -161,23 +125,16 @@ export default function CategoryStep({
     setSubcategorySearchQuery("");
     updateData({
       category: "",
-      subcategory: "",
-      specificItem: "",
-      specificItems: []
+      subcategory: ""
     });
-    setSpecificItems([]);
-    setCurrentInput("");
   };
   
   const handleEditSubcategory = () => {
     updateData({
-      subcategory: "",
-      specificItem: "",
-      specificItems: []
+      subcategory: ""
     });
-    setSpecificItems([]);
-    setCurrentInput("");
   };
+
   
   const handleBack = () => {
     setShowingSubcategories(false);
@@ -186,142 +143,42 @@ export default function CategoryStep({
     setSubcategorySearchQuery("");
   };
 
-  // Handle adding items as tags
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentInput.trim()) {
-      e.preventDefault();
-      const newItem = currentInput.trim();
-      if (!specificItems.includes(newItem)) {
-        const newItems = [...specificItems, newItem];
-        setSpecificItems(newItems);
-        updateData({ 
-          specificItems: newItems,
-          specificItem: newItems.length > 0 ? newItems.join(', ') : ''
-        });
-      }
-      setCurrentInput('');
-    }
-  };
-
-  // Handle removing a tag
-  const handleRemoveItem = (itemToRemove: string) => {
-    const newItems = specificItems.filter(item => item !== itemToRemove);
-    setSpecificItems(newItems);
-    updateData({ 
-      specificItems: newItems,
-      specificItem: newItems.length > 0 ? newItems.join(', ') : ''
-    });
-  };
-
   // If category and subcategory are selected, show compact view
   if (data.category && data.subcategory) {
     const categoryData = fitnessGoals.find(goal => goal.id === data.category);
     const subcategoryData = (categoryData?.subcategories as SubcategoryItem[])?.find(sub => sub.id === data.subcategory);
     
     return (
-      <>
-        <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
-          {/* Selected Category */}
-          <div className="flex items-center justify-between p-4">
-            <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
-            </div>
-            <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
+      <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+        {/* Selected Category */}
+        <div className="flex items-center justify-between p-4">
+          <div className="text-sm text-foreground">
+            <span className="font-bold text-muted-foreground">Category</span> - <span className="font-normal">{categoryData?.title}</span>
           </div>
-
-          {/* Selected Subcategory */}
-          <div className="flex items-center justify-between p-4 border-t border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
-            </div>
-            <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
-
-          {/* Specific Items Display for Pop Culture */}
-          {data.category === "pop-culture" && specificItems.length > 0 && (
-            <div className="flex items-start justify-between p-4 border-t border-border">
-              <div className="flex-1">
-                <div className="text-sm text-muted-foreground font-bold mb-2">
-                  Specific {subcategoryData?.title || 'Items'}:
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {specificItems.map((item, index) => (
-                    <div key={index} className="flex items-center gap-1 bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-2 py-1 rounded-full text-xs">
-                      {item}
-                      <button 
-                        onClick={() => handleRemoveItem(item)}
-                        className="hover:text-cyan-600 dark:hover:text-cyan-400"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  setSpecificItems([]);
-                  updateData({ specificItem: "", specificItems: [] });
-                  setCurrentInput("");
-                }} 
-                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-              >
-                Edit
-              </button>
-            </div>
-          )}
+          <button onClick={handleEditCategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
         </div>
 
-        {/* Specific Item Input for Pop Culture subcategories */}
-        {data.category === "pop-culture" && data.subcategory && specificItems.length === 0 &&
-         ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"].includes(data.subcategory) && (
-          <div className="mt-8 space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Is there a certain "{subcategoryData?.title?.slice(0, -1) || 'item'}" you want?
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Enter specific {subcategoryData?.title?.toLowerCase() || 'items'} and press Enter to add them (optional but recommended)
-              </p>
-            </div>
-            
-            <div className="bg-card p-4 rounded-lg space-y-4">
-              <Input
-                type="text"
-                placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
-                value={currentInput}
-                onChange={(e) => setCurrentInput(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                spellCheck={true}
-                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
-              />
-              
-              <div className="text-center">
-                <Button
-                  onClick={() => {
-                    setSpecificItems([]);
-                    updateData({ specificItem: "any", specificItems: [] });
-                  }}
-                  variant="ghost"
-                  className="text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Skip - Any {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} is fine
-                </Button>
-              </div>
-            </div>
+        {/* Selected Subcategory */}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="text-sm text-foreground">
+            <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
           </div>
-        )}
-      </>
+          <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
+        </div>
+
+      </div>
     );
   }
 
   if (showingSubcategories && selectedCategoryData) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
+        {/* Selected Category Header */}
+        
+
         {/* Compact Selected Category */}
         <div className="rounded-xl border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
@@ -344,7 +201,6 @@ export default function CategoryStep({
               placeholder="Search subcategories..." 
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
-              spellCheck={true}
               className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
             />
           </div>
@@ -378,13 +234,12 @@ export default function CategoryStep({
             </div>
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="text-center">
+        
+        
       </div>
 
       {/* Search Bar */}
@@ -395,7 +250,6 @@ export default function CategoryStep({
           placeholder="Search categories and interests..." 
           value={searchQuery} 
           onChange={e => setSearchQuery(e.target.value)} 
-          spellCheck={true}
           className="pl-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
       </div>
@@ -448,21 +302,11 @@ export default function CategoryStep({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {filteredGoals.map(goal => (
-              <Card 
-                key={goal.id} 
-                className={cn(
-                  "cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", 
-                  "border-2 bg-card hover:bg-accent hover:border-primary", 
-                  {
-                    "border-primary shadow-primary bg-accent": data.category === goal.id,
-                    "border-border": data.category !== goal.id
-                  }
-                )} 
-                onClick={() => handleCategorySelection(goal.id)}
-              >
-                {goal.image ? (
-                  <>
+            {filteredGoals.map(goal => <Card key={goal.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+            "border-primary shadow-primary bg-accent": data.category === goal.id,
+            "border-border": data.category !== goal.id
+          })} onClick={() => handleCategorySelection(goal.id)}>
+                {goal.image ? <>
                     <div className="w-full h-24 overflow-hidden">
                       <img src={goal.image} alt={goal.title} className="w-full h-full object-cover" />
                     </div>
@@ -471,20 +315,15 @@ export default function CategoryStep({
                         {goal.title}
                       </h3>
                     </div>
-                  </>
-                ) : (
-                  <div className="p-3">
+                  </> : <div className="p-3">
                     <div className="mb-2 text-2xl">{goal.icon}</div>
                     <h3 className="text-sm font-medium text-foreground">
                       {goal.title}
                     </h3>
-                  </div>
-                )}
-              </Card>
-            ))}
+                  </div>}
+              </Card>)}
           </div>
         </>
       )}
-    </div>
-  );
+    </div>;
 }

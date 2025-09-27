@@ -12,14 +12,14 @@ interface FinalPromptRequest {
   completed_text: string;
   category: string;
   subcategory?: string;
-  tone: string;                     // e.g., "humorous"
-  rating: string;                   // kept for future use; not printed in minimal two-liner
+  tone: string;
+  rating: string;
   insertWords?: string[];
-  image_style: string;              // e.g., "realistic"
-  text_layout: string;              // one of your 6 ids
-  image_dimensions: string;         // "square" | "portrait" | "landscape" | "custom"
+  image_style: string;
+  text_layout: string;
+  image_dimensions: string;
   composition_modes?: string[];
-  visual_recommendation?: string;   // the “where Jesse…” sentence fragment
+  visual_recommendation?: string;
 }
 
 interface PromptTemplate {
@@ -27,29 +27,6 @@ interface PromptTemplate {
   positive: string;
   negative: string;
   description: string;
-}
-
-function json(obj: any, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
-}
-
-// Compact layout tag phrases for Gemini
-const layoutTagShort: Record<string, string> = {
-  "negative-space": "clean modern text, open area",
-  "meme-text": "bold top/bottom meme text",
-  "lower-banner": "strong bottom banner caption",
-  "side-bar": "vertical side stacked text",
-  "badge-callout": "floating stylish text badge",
-  "subtle-caption": "small understated corner caption"
-};
-
-function aspectLabel(dim: string) {
-  const d = (dim || "").toLowerCase();
-  if (d === "square") return "square 1:1";
-  if (d === "portrait") return "portrait 9:16";
-  if (d === "landscape") return "landscape 16:9";
-  // if custom, let caller pass specifics inside visual_recommendation if needed
-  return "";
 }
 
 serve(async (req) => {
@@ -69,42 +46,47 @@ serve(async (req) => {
   }
 });
 
+function json(obj: any, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
+}
+
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
-    completed_text,
-    category,
-    subcategory,
-    tone,
-    image_style,
-    text_layout,
-    image_dimensions,
-    visual_recommendation = ""
+    completed_text, category, subcategory, tone, rating,
+    image_style, text_layout, image_dimensions,
+    composition_modes = [], visual_recommendation
   } = p;
 
-  // Build the exact minimal style you asked for
-  const cat = (subcategory || category || "").toLowerCase().trim();
-  const toneStr = (tone || "").toLowerCase().trim();
-  const styleStr = (image_style || "").toLowerCase().trim();
-  const aspect = aspectLabel(image_dimensions);
-  const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
+  // If meme-text, show the split (Gemini likes explicit).
+  let splitDetail = "";
+  if (text_layout === "meme-text") {
+    const idx = completed_text.indexOf(",");
+    if (idx !== -1) {
+      const top = completed_text.slice(0, idx).trim();
+      const bottom = completed_text.slice(idx + 1).trim();
+      splitDetail = `Split at first comma → top="${top}" bottom="${bottom}".`;
+    }
+  }
 
-  // First line: A realistic humorous wedding scene where ...
-  // Include aspect if present, but keep it light.
-  const aspectChunk = aspect ? ` ${aspect},` : "";
-  const positiveLine1 =
-    `A ${styleStr}${aspectChunk} ${toneStr} ${cat} scene ${where || ""}`.replace(/\s+/g, " ").trim().replace(/\.\s*$/, "") + ".";
+  const categoryContext = [category, subcategory].filter(Boolean).join("/");
+  const composition = composition_modes.length ? `Composition: ${composition_modes[0]}.` : "";
+  const visuals = visual_recommendation ? `Visuals: ${visual_recommendation}.` : "";
 
-  // Second line: With exact text "..." in (layout): <short tag>
-  const layoutKey = String(text_layout || "").toLowerCase();
-  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
-  const positiveLine2 =
-    `With exact text "${completed_text}" in (${layoutKey}): ${layoutTag}`;
+  // Short, Gemini-optimized positive prompt (no negatives)
+  const positive = `MANDATORY TEXT: "${completed_text}"
 
-  const positive = `${positiveLine1}\n\n${positiveLine2}`;
+Layout: ${text_layout}. ${splitDetail}
+Typography: ALL CAPS white with thin black outline, directly on image. No background panels. Add padding from edges.
+
+Scene: ${categoryContext}, ${image_style}, ${image_dimensions}, tone=${tone}, rating=${rating}.
+${composition}
+${visuals}
+
+Look: bright key light, vivid saturation, crisp focus, cinematic contrast.`.trim();
 
   return [{
-    name: "Gemini 2.5 Minimal",
-    description: "Two-line compact prompt with exact text and concise layout tag.",
+    name: "Gemini 2.5 Template",
+    description: `Compact ${categoryContext} prompt with ${tone}/${rating}, no background panels.`,
     positive,
     negative: "" // Gemini: positive-only
   }];
