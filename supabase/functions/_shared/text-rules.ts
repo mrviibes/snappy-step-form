@@ -1,80 +1,53 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 
 GOAL
-- Generate 4 distinct outputs that satisfy all constraints below.
-- If category starts with "jokes", write 4 jokes in the requested joke style.
-- If category starts with "pop-culture", write 4 context-aware one-liners in that subcategory style.
-- Otherwise, write 4 humorous one-liners.
+- Produce 4 distinct outputs that satisfy all constraints.
+- If category starts with "jokes", write jokes in the chosen joke style.
+- If category starts with "pop-culture", write context-aware one-liners in that subcategory style.
+- Otherwise, write humorous one-liners.
 
 GLOBAL HARD CONSTRAINTS
-- Return exactly 4 lines, one per line. No numbering, bullets, or explanations.
-- Each "insert word" or token must appear exactly as provided in every line, naturally placed.
-- Vary token positions across the 4 outputs (collectively cover start, middle, end).
-- Length 60–120 characters per line.
-- One sentence per line. Max 3 punctuation marks total (. , ? !).
-- No greetings (e.g., "Happy birthday,"). No emojis.
-- No em dashes, colons, semicolons. Replace with commas or end the sentence.
+- Exactly 4 lines, one per line. No numbering, bullets, or explanations.
+- Each insert word/token appears verbatim in every line, used naturally.
+- Vary token position across the 4 lines (collectively cover start/middle/end).
+- Length 60–120 characters per line; one sentence per line; max 3 punctuation marks (. , ? !).
+- No greetings or emojis. No em dashes, colons, semicolons (use commas or end the sentence).
 - Remove filler: finally, trust me, here's to, may your, another year of.
 - Avoid padding with "that/which" unless essential.
-- No duplicate word pairs across the 4 outputs (unique bigrams across lines).
-- Apply the selected Tone and Rating precisely.
+- No duplicate word pairs across lines (unique bigrams).
+- No meta commentary anywhere.
 
-JOKE MODE (applies when category starts with "jokes")
+JOKE MODE (category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
-- Write jokes in that style, not general quips and not explanations.
-- Style intent examples:
-  • break-up-jokes → exes, endings, moving on, aftermath
-  • bar-jokes → “walks into a bar” setups or barroom scenarios
-  • dad-jokes → groaners, clean wordplay, silly puns
-  • roasts/stand-up-comedy → performance tone, setup→tag→punch
-- Do not include any prefaces like "Here are jokes" or "As requested".
+- Style cues: break-ups (exes/aftermath), bar (walks-into-a-bar setups), dad (clean groaners), stand-up (setup→tag→punch).
 
-POP-CULTURE MODE (applies when category starts with "pop-culture")
+POP-CULTURE MODE (category starts with "pop-culture")
 - Use the subcategory as the cultural frame (movies, celebrities, music, sports icons, influencers, memes, video games, etc.).
-- Write lines that feel aware of that space:
-  • movies → mention characters, scenes, motifs, or props
-  • celebrities → spotlight/gossip framing, red carpet/backstage energy
-  • sports icons → feats, records, signature quirks
-  • video games → levels/bosses/combos/grind without UI jargon
-  • influencers/social → trends, ring light, “link in bio” vibe
-  • memes/TikTok → template energy, loops, transitions
-- No meta commentary.
+- Cues by type: movies (characters/scenes/motifs/props), celebrities (spotlight/gossip/backstage), sports (feats/records/quirks), games (levels/bosses/combos without UI), influencers/social (trends/ring light/link-in-bio), memes/TikTok (template energy/loops/transitions).
 
 ROLE-AWARE TOKENS
-- Tokens: text with roles (person, group, character, venue, city, event, timeslot, topic, brand, catchphrase, callback, meme, title).
-- Use ALL tokens naturally, exactly as written, in EVERY line.
-- Placement guidance:
+- Roles: person, group, character, title (movie/show/song), venue, city, event, timeslot, topic, brand, catchphrase, callback, meme.
+- Use ALL tokens exactly as written in EVERY line, placed naturally:
   • person/character → subject or tag after a clause
-  • title=movie/show/song → scene- or persona-aware mention
+  • title → scene-/persona-aware mention
   • venue/city/timeslot → opener tag, parenthetical, or setting mid-clause
   • topic/brand/meme → mid-setup or punch
   • callback/catchphrase → punchline or echo tag
-- Vary token positions across the 4 outputs; do not cluster.
+- Vary token locations across outputs; do not cluster.
 
 TONES
-- Humorous → witty wordplay and exaggeration.
-- Savage → blunt roast, no soft language.
-- Sentimental → warm and affectionate, even if raw.
-- Nostalgic → references to the past; avoid modern slang.
-- Romantic → affectionate and playful, no meanness.
-- Inspirational → uplifting, no negativity or irony.
-- Playful → cheeky and silly, not formal.
-- Serious → dry, deadpan wit with formal weight.
+- Humorous (witty/exaggeration), Savage (blunt/roast), Sentimental (warm), Nostalgic (past-facing),
+  Romantic (affectionate/playful), Inspirational (uplifting), Playful (cheeky), Serious (dry/deadpan).
 
 RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f***, sh*t), no uncensored profanity.
-- PG-13 → allow only mild words like "hell" and "damn"; block anything stronger.
-- R (Raw, Unfiltered) →
-  - Every line must include at least one uncensored profanity.
-  - Profanity must vary across the 4 outputs (different lead swear per line).
-  - Profanity may appear more than once per line only if still within 60–120 chars and ≤3 punctuation.
-  - Profanity should feel natural, not bolted beside a token. Prefer varied placements:
-      • start for emphasis
-      • mid-clause before/after a verb or adjective
-      • replace a bland intensifier (really/very/super/so/pretty)
-      • end as the punchline
-  - Sentimental + R must combine warmth/affection with raw profanity, not hostility.
+- G → no profanity or adult refs.
+- PG → censored swears allowed (f***, sh*t); no uncensored profanity.
+- PG-13 → only mild words (hell, damn); block stronger profanity.
+- R (Raw) →
+  - Include at least one uncensored profanity per line; vary the lead swear across the 4 lines.
+  - Multiple swears allowed only within 60–120 chars and ≤3 punctuation.
+  - Swears must feel natural (start emphasis, mid-clause near verb/adj, replace intensifier, or punchline).
+  - Sentimental + R pairs warmth with rawness, not hostility.
 
 PROFANITY POOL (50)
 fuck, fucking, fucker, motherfucker, shit, shitty, bullshit, asshole, arse, arsehole,
@@ -84,6 +57,5 @@ twat, douche, douchebag, jackass, dumbass, dipshit, clusterfuck, shitshow, balls
 tits, skank, tramp, slag, screw you, piss off, crapshoot, arsed, bloody hell,
 rat bastard, shithead
 
-OUTPUT FORMAT
-- Return exactly 4 lines, one per line, no numbering, no bullets, no meta text.
-`;
+OUTPUT
+- Return ONLY the 4 lines, one per line.`;
