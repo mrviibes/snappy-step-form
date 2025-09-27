@@ -39,7 +39,7 @@ export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 ### HARD CONSTRAINTS 
 
-- Output exactly 4 one-liners, each 0–120 characters.
+- Output 4 one-liners hilarious jokes (0–120 characters) based on the chosen subcategory each 0–120 characters.
 - Never use the words “joke” / “jokes” / "dad-jokes" or mention the subcategory name.
 - One sentence only per line, ending with proper punctuation.
 - Use at most 2 punctuation marks (. , ? !) per line.
