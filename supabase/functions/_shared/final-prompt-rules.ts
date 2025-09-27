@@ -1,46 +1,46 @@
 // ===== RULES =====
-export const final_prompt_rules_ideogram = `FINAL PROMPT GENERATION RULES
+export const final_prompt_rules_ideogram = `FINAL PROMPT GENERATION RULES (v12)
 
 GENERAL
-- Text must be displayed exactly as written with no substitutions or missing letters.
-- Respect the selected Text Layout. Use ALL CAPS white text with a thin black outline directly on the image. No solid background banners. Add safe padding from edges.
-- All visual elements must complement Tone and Rating.
-- Keep readability primary; professional typography only.
+- Render the mandatory text exactly as written (no substitutions, no missing letters).
+- Respect the selected Text Layout. Typography must match the layout spec (see layout map).
+- All visual choices must fit the selected Tone and Rating.
+- Readability is primary; use professional typography only.
 
 STRUCTURE
 - Category → broad scene context.
 - Subcategory → specific occasion/setting and props.
 - Tone → mood/energy reflected by props and framing.
 - Rating → maturity boundaries for visuals and copy.
-- Text Layout → exact placement and style rules.
+- Text Layout → placement and typography rules (layout-dependent).
 - Image Dimensions → aspect ratio and composition bounds.
 - Visual Recommendation → optional scene guidance.
 
 PROMPT CONSTRUCTION
-- Positive prompt must include: mandatory text, layout rules (no backgrounds, outline text, padding), style, aspect ratio, tone/rating, scene/props, readability.
+- Positive prompt must include: mandatory text, layout rules (placement, typography, padding), style, aspect ratio, tone/rating, scene/props, readability.
 - Negative prompt must block text quality issues and rating/category violations.
-- Maintain style consistency.
+- Maintain consistent visual style.
 
 OUTPUT
-- Return a single Positive Prompt string and a single Negative Prompt string ready for the image API.`;
+- Return ONE Positive Prompt string and ONE Negative Prompt string, ready for the image API.`;
 
-// Gemini wants short, positive-only instructions (no negatives).
+// Gemini likes compact, positive-only instructions (no negatives).
 export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI)
 
-- Keep prompts compact. Prefer <80 words.
-- Text overlay: ALL CAPS white, thin black outline, directly on image. No solid background banners. Add slight padding from top/bottom edges.
-- If layout = meme-text: split mandatory text at first comma → top=before, bottom=after.
-- Describe scene briefly: category/subcategory, style, aspect ratio, tone, rating, 1–3 concrete props.
+- Keep prompts compact (<80 words).
+- Text overlay must follow the chosen layout’s typography rules.
+- If layout = meme-text: split mandatory text at first comma (top=before, bottom=after).
+- Briefly describe scene: category/subcategory, style, aspect ratio, tone/rating, 1–3 clear props.
 - Boost look: bright key light, vivid saturation, crisp focus, cinematic contrast.`;
 
-// ===== LAYOUT MAP (descriptions only) =====
+// ===== LAYOUT MAP (descriptions only; typography is layout-aware) =====
 export const layoutMap: Record<string, string> = {
-  "meme-text": "top and bottom text directly on image; ALL CAPS white with thin black outline; no background; pad from edges",
-  "lower-banner": "single line near bottom edge; ALL CAPS white with thin black outline; no background; margin above edge",
-  "side-bar": "vertical stack along left/right edge; ALL CAPS white with thin black outline; no background; margin from edge",
-  "badge-callout": "short floating callout; ALL CAPS white with thin black outline; minimal outline only; no filled background",
-  "subtle-caption": "small centered caption near bottom; ALL CAPS white with thin black outline; no background; padding",
-  "negative-space": "place text in open area of image; ALL CAPS white with thin black outline; no background"
+  "meme-text": "top and bottom text directly on image; high-contrast; no background panels; 6–8% safe padding from edges",
+  "lower-banner": "single line near bottom; centered; no filled banner; 5–7% margin above bottom edge",
+  "side-bar": "vertical stack near left/right edge; aligned baseline; no filled panel; 6–8% side margin",
+  "badge-callout": "short floating callout; compact line-length; minimal 1–2 px outline; no filled background",
+  "subtle-caption": "small centered caption near bottom; restrained weight; 5–7% padding",
+  "negative-space": "place text in a clean open area of the image; avoid busy detail around caption; maintain ~10–15% whitespace buffer"
 };
 
 // ===== DIMENSIONS =====
@@ -88,13 +88,33 @@ export const ratingNegatives: Record<string, string> = {
 
 // ===== TEXT QUALITY NEGATIVES =====
 export const textQualityNegatives =
-  "misspelled text, gibberish text, blurry text, illegible text, cut-off text, overlapping text, distorted fonts, poor typography, low contrast, broken words, duplicate words, uneven spacing";
+  "misspelled text, gibberish text, blurry text, illegible text, cut-off text, overlapping text, distorted fonts, poor typography, low contrast, broken words, duplicate words, uneven spacing, extra watermarks, extra logos, extra UI";
 
+// Helper: combine base + rating negatives
 export function getCategoryNegatives(category: string, rating: string): string {
   const categoryKey = (category || "").toLowerCase();
   const categoryNeg = baseNegatives[categoryKey] || "";
   const ratingNeg = ratingNegatives[rating] || "";
   return [categoryNeg, ratingNeg].filter(Boolean).join(", ");
+}
+
+// ===== TYPOGRAPHY MAP (layout-aware rules) =====
+function getTypographySpec(layout: keyof typeof layoutMap) {
+  switch (layout) {
+    case "negative-space":
+      return "modern sans-serif, mixed case, high contrast; subtle 1–2 px outline or soft shadow only; place in open area; generous 10–15% padding; no filled banners";
+    case "subtle-caption":
+      return "clean sans-serif, mixed case, medium weight; high contrast; slight letter-spacing; no background; 5–7% padding";
+    case "badge-callout":
+      return "compact sans-serif, ALL CAPS allowed; thin 1–2 px outline; no filled shape; tight line-length";
+    case "side-bar":
+      return "stacked sans-serif, ALL CAPS; consistent line height; 6–8% side padding; no filled panel";
+    case "lower-banner":
+      return "centered sans-serif, ALL CAPS; thin outline; no banner fill; margin above bottom edge";
+    case "meme-text":
+    default:
+      return "ALL CAPS white with thin black outline, top and bottom; no background panels; 6–8% safe padding";
+  }
 }
 
 // ===== MEME-TEXT SPLIT (TOP/BOTTOM) =====
@@ -128,23 +148,31 @@ export function buildTextImagePrompts(opts: {
   const isMeme = text_layout === "meme-text";
   const split = isMeme ? splitMemeText(mandatoryText) : { top: "", bottom: "" };
 
-  // Layout sentence with no-background typography + padding
+  // Layout sentence with layout-aware typography (no redundant “Scene:” boilerplate)
   const layoutSentence = isMeme
-    ? `Top text "${split.top}" and bottom text "${split.bottom}" must be ALL CAPS white with a thin black outline, placed directly on the image with safe padding from edges. No solid background banners.`
-    : `MANDATORY TEXT: "${mandatoryText}" must follow ${layoutMap[text_layout]} — ALL CAPS white with a thin black outline, directly on the image, no background panels, include safe padding.`;
+    ? `Top text "${split.top}" and bottom text "${split.bottom}" must follow meme layout: ${getTypographySpec("meme-text")}.`
+    : `MANDATORY TEXT: "${mandatoryText}" must follow ${text_layout} layout: ${getTypographySpec(text_layout)}.`;
 
+  // Compact, production-ready positive prompt
   const positivePrompt = [
     layoutSentence,
-    `Text must be spelled exactly as written, with no substitutions or missing letters.`,
-    `Create a ${image_style} style ${category} ${subcategory} image with ${dimensionMap[image_dimensions]}.`,
-    `The scene should be ${toneMap[tone]}, ${ratingMap[rating]}.`,
-    `Use ${composition_modes.join(", ")} composition that complements the tone and prioritizes text readability.`,
+    `Spell the text exactly as written.`,
+    `Create a ${image_style} ${subcategory || category} image with ${dimensionMap[image_dimensions]}.`,
+    `Mood: ${toneMap[tone]}, ${ratingMap[rating]}.`,
+    `Use ${composition_modes.join(", ") || "balanced"} composition that prioritizes caption readability.`,
     `Visuals: ${visualScene}.`,
-    `Ensure excellent readability, professional typography, vivid colors, sharp details, and a punchy meme aesthetic.`
+    `Look: bright key light, vivid saturation, crisp focus, cinematic contrast.`
   ].join(" ");
+
+  // Negatives: add layout-specific blocks to stop banner hallucinations, clutter, extra UI
+  const layoutNegatives =
+    text_layout === "meme-text"
+      ? "filled banners, gradient panels behind text, top/bottom bars"
+      : "filled banners, stickers, speech bubbles behind text";
 
   const negatives = [
     textQualityNegatives,
+    layoutNegatives,
     getCategoryNegatives(category, rating),
     composition_modes.includes("minimalist") ? "visual clutter, excessive props, busy backgrounds" : ""
   ].filter(Boolean).join(", ");
