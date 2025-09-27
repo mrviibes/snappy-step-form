@@ -36,19 +36,20 @@ RATINGS
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
-GOAL
-Write 4 funny, punchy, human-sounding distinct joke type
+Right now your constraints read like a cranky teacher’s rubric. You can actually collapse them into a handful of clear bullets without losing teeth. Here’s the **simplified version**:
 
-HARD CONSTRAINTS
-- Do not use the word "joke" or "jokes" in the output. 
-- Do not say the subcategory name in the output 
-- Respect Tone, Rating, and make sure you use insert word naturally in every output
-- Length: 0-120 characters.
-- must display 4 final outputs
-- Max 1 sentences per output.
-- Max 2 punctuation marks per output (. , ? !).
-- No em dashes, colons, or semicolons — replace with commas or periods.
-- No duplicate word pairs across the 4 outputs.
+---
+
+### HARD CONSTRAINTS 
+
+- Output **exactly 4 one-liners**, each 0–120 characters.
+- One sentence only** per line, ending with proper punctuation.
+- Use at most **2 punctuation marks** (. , ? !) per line.
+- Never use the words **“joke” / “jokes”** or mention the **subcategory name**.
+- Each line must **fit the chosen tone and rating** and naturally include any required insert words.
+- No duplicate word pairs across the 4 lines.
+
+--
 
 TONES
 - Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
