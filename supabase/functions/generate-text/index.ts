@@ -134,11 +134,28 @@ serve(async (req) => {
     
     lines = lines.slice(0, 4);
     
-    // For jokes category, clean up any "dad joke" references that slipped through
+    // For jokes category, clean up any subcategory words and meta-commentary that slipped through
     if (category.toLowerCase() === 'jokes') {
-      lines = lines.map((line: string) => 
-        line.replace(/\b(dad joke|dad-joke)s?\b/gi, '').replace(/\s+/g, ' ').trim()
-      );
+      lines = lines.map((line: string) => {
+        let cleaned = line;
+        
+        // Remove subcategory words if they exist
+        if (subcategory) {
+          const subcatWords = subcategory.toLowerCase().replace('-', ' ').split(' ');
+          subcatWords.forEach((word: string) => {
+            const regex = new RegExp(`\\b${word}s?\\b`, 'gi');
+            cleaned = cleaned.replace(regex, '');
+          });
+        }
+        
+        // Remove meta-commentary phrases
+        cleaned = cleaned
+          .replace(/\b(I'm joking|just joking|kidding|pun intended|get it\?)\b/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+          
+        return cleaned;
+      });
     }
 
     const resp = {
