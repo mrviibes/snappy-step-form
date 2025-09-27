@@ -107,8 +107,8 @@ serve(async (req) => {
     let lines = raw
       .split(/\r?\n+/)
       .map((line: string) => line.replace(/^\d+\.\s*/, ' ').replace(/^-\s*/, ' ').trim())
-      //.filter(Boolean)
-      //.filter((line: string) => line.length >= 0 && line.length <= 120)
+      .filter(Boolean)
+      .filter((line: string) => line.length >= 0 && line.length <= 120)
       .slice(0, 4);
 
     const resp = {
@@ -116,7 +116,7 @@ serve(async (req) => {
         line,
         length: line.length,
         index: i + 1,
-        //valid: line.length >= 0 && line.length <= 120
+        valid: line.length >= 0 && line.length <= 120
       })),
       model,
       count: lines.length,
