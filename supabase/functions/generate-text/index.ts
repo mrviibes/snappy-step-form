@@ -23,90 +23,23 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       if (res.ok) { cachedRules = await res.json(); return cachedRules; }
     } catch {}
   }
-  // Fallback rules v7 (60–120 chars, max 2 punctuation)
+  // Fallback rules v7 (50–100 chars, max 2 punctuation / sentence, ≤2 sentences)
   cachedRules = {
     id: rulesId,
     version: 7,
     length: { min_chars: 50, max_chars: 100 },
-    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 2 },
+    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_sentence: 2 },
+    max_sentences: 2,
     tones: {
-    "Humorous": { 
-      rules: [
-        "witty", 
-        "wordplay", 
-        "exaggeration", 
-        "punchline_fast", 
-        "punchline_surprise"
-      ], 
-      description: "Humorous → witty wordplay and exaggeration. Punchline must land fast, with surprise."
+      "Humorous": { rules: ["witty","wordplay","exaggeration","punchline_fast","punchline_surprise"] },
+      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language","punchline_sting","no_explain"] },
+      "Sentimental": { rules: ["warm","affectionate","no_sarcasm","punchline_resolves_clearly"] },
+      "Nostalgic": { rules: ["past_refs","no_modern_slang","punchline_ties_to_memory"] },
+      "Romantic": { rules: ["affectionate","playful","no_mean","punchline_charming"] },
+      "Inspirational": { rules: ["uplifting","no_negativity_or_irony","punchline_elevates_message"] },
+      "Playful": { rules: ["cheeky","silly","no_formal","punchline_quick","punchline_mischievous"] },
+      "Serious": { rules: ["dry","deadpan","formal_weight","punchline_understated","punchline_concise"] }
     },
-    "Savage": { 
-      rules: [
-        "blunt", 
-        "cutting", 
-        "roast_style", 
-        "no_soft_language", 
-        "punchline_sting", 
-        "no_explain"
-      ], 
-      description: "Savage → blunt roast, no soft language. Punchline should sting, not explain."
-    },
-    "Sentimental": { 
-      rules: [
-        "warm", 
-        "affectionate", 
-        "no_sarcasm", 
-        "punchline_resolves_clearly"
-      ], 
-      description: "Sentimental → warm and affectionate, even if raw. Punchline resolves clearly."
-    },
-    "Nostalgic": { 
-      rules: [
-        "past_refs", 
-        "no_modern_slang", 
-        "punchline_ties_to_memory"
-      ], 
-      description: "Nostalgic → references to past; avoid modern slang. Punchline ties to memory."
-    },
-    "Romantic": { 
-      rules: [
-        "affectionate", 
-        "playful", 
-        "no_mean", 
-        "punchline_charming"
-      ], 
-      description: "Romantic → affectionate and playful, no meanness. Punchline feels charming."
-    },
-    "Inspirational": { 
-      rules: [
-        "uplifting", 
-        "no_negativity_or_irony", 
-        "punchline_elevates_message"
-      ], 
-      description: "Inspirational → uplifting, no negativity or irony. Punchline elevates the message."
-    },
-    "Playful": { 
-      rules: [
-        "cheeky", 
-        "silly", 
-        "no_formal", 
-        "punchline_quick", 
-        "punchline_mischievous"
-      ], 
-      description: "Playful → cheeky and silly, not formal. Punchline is quick and mischievous."
-    },
-    "Serious": { 
-      rules: [
-        "dry", 
-        "deadpan", 
-        "formal_weight", 
-        "punchline_understated", 
-        "punchline_concise"
-      ], 
-      description: "Serious → dry, deadpan wit, formal. Punchline is understated, concise."
-    }
-    },
-
     ratings: {
       "G": { allow_profanity: false, allow_censored_swears: false },
       "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
@@ -136,7 +69,7 @@ function buildOpenAIRequest(
 
 async function callOpenAI(systemPrompt: string, userPrompt: string) {
   let model = getTextModel();
-  let maxTokens = model.startsWith("gpt-5") ? 4000 : 320;
+  let maxTokens = model.startsWith("gpt-5") ? 4000 : 240;
 
   try {
     const req = buildOpenAIRequest(model, [
@@ -157,12 +90,10 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
   } catch {
     model = "gpt-4o-mini";
-    maxTokens = 240;
-
     const req = buildOpenAIRequest(model, [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
-    ], { maxTokens, temperature: 0.8 });
+    ], { maxTokens: 200, temperature: 0.8 });
 
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -181,9 +112,16 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 const STRONG_SWEARS = /(fuck(?:er|ing)?|f\*+|shit(?:ty)?|s\*+t|bastard|ass(?!ert)|a\*+|arse|bullshit|b\*+|goddamn|g\*+d|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
 
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
-function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
+function sentenceSplit(s: string) {
+  // split on sentence enders while keeping text stable
+  return s.split(/(?<=[.?!])\s+/).filter(Boolean);
+}
+function oneOrTwoSentences(s: string, maxSentences = 2) {
+  const parts = sentenceSplit(s);
+  return parts.slice(0, maxSentences).join(" ");
+}
 
-function trimToRange(s: string, min=100, max=120) {
+function trimToRange(s: string, min=50, max=100) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
@@ -192,7 +130,7 @@ function trimToRange(s: string, min=100, max=120) {
 }
 
 // Keep setup + first punch within range
-function trimPunchline(line: string, min=100, max=120) {
+function trimPunchline(line: string, min=50, max=100) {
   let t = line.trim();
   if (t.length <= max) return t;
   const parts = t.split(/[,?!]/);
@@ -249,11 +187,8 @@ function deTagInsert(line: string, insert: string) {
 // PG-13 sanitizer: remove uncensored or censored strong profanity; keep only hell/damn
 function sanitizePG13(line: string) {
   let t = line;
-  // remove/replace any censored forms
   t = t.replace(/\b(f\*+|s\*+t|b\*+|a\*+|g\*+d)\b/gi, "damn");
-  // downgrade any strong profanities to clean burns
   t = t.replace(/\b(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)\b/gi, "damn");
-  // ensure only hell/damn remain as mild options
   return t.replace(/\b(god damn)\b/gi, "damn");
 }
 
@@ -275,19 +210,14 @@ function ensureProfanityVariation(lines: string[]) {
   });
 }
 
-function cleanLine(raw: string) {
-  let t = raw.trim();
-  t = t.replace(/^\s*[\d\-\*•.]+\s*/, "");
-  t = t.replace(/^["'`]/, "").replace(/["'`]$/, "");
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/`(.*?)`/g, "$1");
-  t = t.replace(/\s+/g, " ").trim();
-  return t;
-}
-
-function parseLines(raw: string): string[] {
-  const candidates = raw.split(/\r?\n+/).map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim()).filter(Boolean);
-  const lines = candidates.filter(s => s.length >= 50 && s.length <= 220 && oneSentence(s));
-  return lines.map(cleanLine);
+// enforce ≤2 punctuation marks PER SENTENCE and ≤2 sentences
+function clampPunctuationPerSentence(t: string, maxMarks = 2) {
+  const parts = sentenceSplit(t);
+  const fixed = parts.slice(0, 2).map(sent => {
+    let kept = 0;
+    return sent.replace(/[.,?!]/g, (m) => (++kept <= maxMarks ? m : ""));
+  });
+  return fixed.join(" ").trim();
 }
 
 // ============== ENFORCEMENT ==============
@@ -298,90 +228,59 @@ function enforceRules(
   insertWords: string[] = []
 ) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 100;
-  const maxLen = rules.length?.max_chars ?? 120;
+  const minLen = rules.length?.min_chars ?? 50;
+  const maxLen = rules.length?.max_chars ?? 100;
 
   let processed = lines.map((raw, idx) => {
     let t = raw.trim();
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
+
+    // limit to ≤2 sentences and ≤2 punctuation per sentence
+    t = oneOrTwoSentences(t, 2);
+    t = clampPunctuationPerSentence(t, rules.punctuation?.max_marks_per_sentence ?? 2);
+
+    // char range + simple cleanup
     t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
-
-    const maxPunc = rules.punctuation?.max_marks_per_line ?? 2;
-    if (countPunc(t) > maxPunc) {
-      let kept = 0;
-      t = t.replace(/[.,?!]/g, (m) => (++kept <= maxPunc ? m : ""));
-      enforcement.push(`Line ${idx+1}: limited punctuation to ${maxPunc}`);
-    }
-
-    if (!oneSentence(t)) {
-      const first = t.split(/[.?!]/)[0].trim();
-      t = first + (/[.,?!]$/.test(first) ? "" : ".");
-      enforcement.push(`Line ${idx+1}: trimmed to one sentence`);
-    }
-
-    const before = t.length;
     t = trimToRange(t, minLen, maxLen);
-    if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
-    if (countPunc(t) === 0) t = `${t}.`;
+    // ensure at least one punctuation end
+    if (!/[.?!]$/.test(t)) t = `${t}.`;
 
+    // ensure insert words present (first pass)
     for (const w of insertWords) {
       if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
-        t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
-        enforcement.push(`Line ${idx+1}: appended insert word '${w}'`);
+        t = `${t.split(/[.?!]/)[0]}, ${w}.`;
         break;
       }
     }
 
-    return hardStop(t);
+    t = hardStop(t);
+    return t;
   });
 
-  // Normalize tacked-on endings then force insert distribution
+  // distribute single insert start/middle/end
   if (insertWords?.length === 1) {
     processed = processed.map(l => deTagInsert(l, insertWords[0]));
     processed = varyInsertPositions(processed, insertWords[0]);
     enforcement.push("Distributed insert word across start/middle/end");
   }
 
-  // Profanity by rating
+  // profanity by rating
   if (rating === "R") {
-    processed = processed.map((t, i) => {
-      if (!STRONG_SWEARS.test(t)) {
-        t = `${t.split(/[.,?!]/)[0]} fuck.`;
-        enforcement.push(`Line ${i+1}: injected profanity for R`);
-      }
-      return t;
-    });
-    const varied = ensureProfanityVariation(processed);
-    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied profanity across R outputs");
-    processed = varied;
+    processed = processed.map((t) => STRONG_SWEARS.test(t) ? t : `${t.split(/[.,?!]/)[0]} fuck.`);
+    processed = ensureProfanityVariation(processed);
   }
-
   if (rating === "PG-13") {
-    processed = processed.map((t, i) => {
-      const cleaned = sanitizePG13(t);
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: sanitized to PG-13 (only 'hell'/'damn' allowed)`);
-      return cleaned;
-    });
+    processed = processed.map(sanitizePG13);
   }
-
   if (rating === "PG") {
-    processed = processed.map((t, i) => {
-      const cleaned = t.replace(STRONG_SWEARS, "sh*t");
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: censored to PG`);
-      return cleaned;
-    });
+    processed = processed.map((t) => t.replace(STRONG_SWEARS, "sh*t"));
   }
-
   if (rating === "G") {
-    processed = processed.map((t, i) => {
-      const cleaned = t.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
-      if (cleaned !== t) enforcement.push(`Line ${i+1}: removed profanity for G`);
-      return cleaned;
-    });
+    processed = processed.map((t) => t.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim());
   }
 
-  // Final punch trim & de-dup
+  // trim to crisp setup+punch, dedupe
   processed = processed.map(l => trimPunchline(l, minLen, maxLen));
 
   const unique: string[] = [];
@@ -440,7 +339,7 @@ serve(async (req) => {
     let candidates = parseLines(raw);
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
-    const fallbackRules = { length:{min_chars:100,max_chars:120}, punctuation:{max_marks_per_line:2,ban_em_dash:true,replacement:{"—":","}} };
+    const fallbackRules = { length:{min_chars:50,max_chars:100}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":","}}, max_sentences:2 };
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
@@ -454,20 +353,21 @@ serve(async (req) => {
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 100);
-    const maxL = (rules?.length?.max_chars ?? 120);
+    const minL = (rules?.length?.min_chars ?? 50);
+    const maxL = (rules?.length?.max_chars ?? 100);
 
     const resp = {
       lines: lines.map((line, i) => ({
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= (rules?.punctuation?.max_marks_per_line ?? 2) && oneSentence(line)
+        valid: line.length >= minL && line.length <= maxL &&
+               sentenceSplit(line).length <= (rules?.max_sentences ?? 2) &&
+               sentenceSplit(line).every(sent => (sent.match(/[.,?!]/g)||[]).length <= (rules?.punctuation?.max_marks_per_sentence ?? 2))
       })),
       model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 7 },
-      enforcement: enforced.enforcement
+      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 7 }
     };
 
     return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
