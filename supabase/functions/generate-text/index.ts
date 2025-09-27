@@ -86,11 +86,9 @@ serve(async (req) => {
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
    // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    let userPrompt: string;
-    
     if(category.toLowerCase() == 'jokes'){
-      // For jokes, don't include category/subcategory to avoid literal inclusion
-      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes`;
+      
+      let userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding ${subcategory.toLowerCase()} type jokes`;
       
       if (insertWords.length > 0) {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
@@ -98,9 +96,10 @@ serve(async (req) => {
       
       userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     } 
+    
     else {
       // Build dynamic user prompt based on actual selections
-      userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+      let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
       
       if (category && subcategory) {
         userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
