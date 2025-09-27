@@ -143,6 +143,10 @@ function rand() {
   crypto.getRandomValues(b);
   return b[0] / 2 ** 32;
 }
+
+function parseLines(content: string): string[] {
+  return content.split(/\n/).map((line: string) => line.trim()).filter(Boolean);
+}
 function choice<T>(arr: T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
@@ -236,7 +240,7 @@ function placeNaturalProfanity(
   }
 
   let target = clauses[idx];
-  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"] as const;
+  const strategies = ["preInsert","postInsert","beforeVerbAdj","replaceIntensifier"];
   const weights = [0.35, 0.3, 0.25, 0.10];
   const strat = choice(strategies, weights);
 
@@ -455,7 +459,7 @@ serve(async (req) => {
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
     const enforced = enforceRules(
