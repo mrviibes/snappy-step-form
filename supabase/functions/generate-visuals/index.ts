@@ -97,11 +97,6 @@ Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules
     
     let lines = content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     
-    // Take first 4 lines or pad if needed
-    while (lines.length < 4) {
-      lines.push(`Visual scene for ${subcategory}`);
-    }
-    
     const visuals = lines.slice(0, 4).map((description: string) => ({ description }));
 
     return {
