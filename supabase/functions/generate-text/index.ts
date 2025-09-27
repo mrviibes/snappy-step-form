@@ -16,24 +16,24 @@ const corsHeaders = {
 let cachedRules: any = null;
 async function loadRules(rulesId: string, origin?: string): Promise<any> {
   if (cachedRules && cachedRules.id === rulesId) return cachedRules;
-
   if (origin) {
     try {
       const rulesUrl = `${origin}/config/${rulesId}.json`;
       const res = await fetch(rulesUrl);
-      if (res.ok) {
-        cachedRules = await res.json();
-        return cachedRules;
-      }
+      if (res.ok) { cachedRules = await res.json(); return cachedRules; }
     } catch {}
   }
-
   // Fallback rules v6 (60–120 chars, max 3 punctuation)
   cachedRules = {
     id: rulesId,
     version: 6,
     length: { min_chars: 60, max_chars: 120 },
-    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
+    punctuation: {
+      ban_em_dash: true,
+      replacement: { "—": "," },
+      allowed: [".", ",", "?", "!"],
+      max_marks_per_line: 3
+    },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
       "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
@@ -116,17 +116,27 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
 // ============== HELPERS ==============
 const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
-
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-// updated defaults to 60–120
 function trimToRange(s: string, min=60, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
   if (out.length > max) out = out.slice(0, max).trim();
   return out;
+}
+
+// NEW: tighten a meandering line to setup + first punch within range
+function trimPunchline(line: string, min=60, max=120) {
+  let t = line.trim();
+  if (t.length <= max) return t;
+  // Keep setup + first delimiter punch
+  const parts = t.split(/[,!?]/);
+  if (parts.length > 1) t = `${parts[0]},${parts[1]}`.trim();
+  if (t.length > max) t = t.slice(0, max).trim();
+  if (t.length < min) t = trimToRange(line, min, max); // fallback
+  return t;
 }
 
 function bigramSet(s: string) {
@@ -136,12 +146,31 @@ function bigramSet(s: string) {
   return set;
 }
 
+// UPDATED: always distribute insert position start/middle/end across first three lines
 function varyInsertPositions(lines: string[], insert: string) {
-  const allStart = lines.every(l => l.trim().toLowerCase().startsWith(insert.toLowerCase()));
-  if (!allStart) return lines;
-  return lines.map((l, i) => i % 2 === 0
-    ? l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`
-    : l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `));
+  return lines.map((line, idx) => {
+    let clean = line.trim();
+    const has = new RegExp(`\\b${insert}\\b`, "i").test(clean);
+    if (!has) clean = `${clean.split(/[.,?!]/)[0]}, ${insert}.`; // ensure presence
+
+    if (idx === 0) {
+      // Start
+      if (!clean.toLowerCase().startsWith(insert.toLowerCase())) clean = `${insert} ${clean}`;
+      return clean;
+    } else if (idx === 1) {
+      // Middle
+      const w = clean.split(/\s+/);
+      const mid = Math.max(1, Math.floor(w.length / 2));
+      if (!new RegExp(`\\b${insert}\\b`, "i").test(w.join(" "))) w.splice(mid, 0, insert);
+      return w.join(" ");
+    } else if (idx === 2) {
+      // End
+      if (!clean.toLowerCase().endsWith(insert.toLowerCase())) clean = `${clean.replace(/[.,?!]*$/, "")}, ${insert}`;
+      return clean;
+    }
+    // 4th: leave for natural variation
+    return clean;
+  });
 }
 
 function deTagInsert(line: string, insert: string) {
@@ -181,7 +210,6 @@ function cleanLine(raw: string) {
 }
 
 function parseLines(raw: string): string[] {
-  // allow longer candidates to capture 120-char lines
   const candidates = raw.split(/\r?\n+/).map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim()).filter(Boolean);
   const lines = candidates.filter(s => s.length >= 50 && s.length <= 200 && oneSentence(s));
   return lines.map(cleanLine);
@@ -220,6 +248,7 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
+    // ensure first insert is present; we will redistribute later
     for (const w of insertWords) {
       if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
         t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
@@ -231,13 +260,14 @@ function enforceRules(
     return t;
   });
 
+  // Normalize taggy endings then force position distribution
   if (insertWords?.length === 1) {
     processed = processed.map(l => deTagInsert(l, insertWords[0]));
-    const varied = varyInsertPositions(processed, insertWords[0]);
-    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied insert word positions across outputs");
-    processed = varied;
+    processed = varyInsertPositions(processed, insertWords[0]);
+    enforcement.push("Distributed insert word across start/middle/end");
   }
 
+  // Profanity by rating
   if (rating === "R") {
     processed = processed.map((t, i) => {
       if (!STRONG_SWEARS.test(t)) {
@@ -275,7 +305,10 @@ function enforceRules(
     });
   }
 
-  // de-dup near copies by bigrams
+  // Trim meandering lines to a crisp setup + punch
+  processed = processed.map(l => trimPunchline(l, minLen, maxLen));
+
+  // De-dup near copies by bigrams
   const unique: string[] = [];
   const seen = new Set<string>();
   for (const l of processed) {
@@ -331,20 +364,13 @@ serve(async (req) => {
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
-    if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
-    }
+    if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
     const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} };
-    const enforced = enforceRules(
-      candidates,
-      rules ?? fallbackRules,
-      rating || "PG-13",
-      insertWords
-    );
+    const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
-    // backfill to guarantee 4
+    // Backfill to guarantee 4
     let tries = 0;
     while (lines.length < 4 && tries < 2) {
       const need = 4 - lines.length;
