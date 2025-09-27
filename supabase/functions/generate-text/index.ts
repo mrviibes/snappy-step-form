@@ -85,10 +85,11 @@ serve(async (req) => {
    // if (rating) systemPrompt += `\nRATING: ${rating}`;
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
    // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
-
+let userPrompt = '';
+    
     if(category.toLowerCase() == 'jokes'){
       
-      let userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding ${subcategory.toLowerCase()} type jokes`;
+      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding ${subcategory.toLowerCase()} type jokes`;
       
       if (insertWords.length > 0) {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
@@ -99,7 +100,7 @@ serve(async (req) => {
     
     else {
       // Build dynamic user prompt based on actual selections
-      let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+      userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
       
       if (category && subcategory) {
         userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
