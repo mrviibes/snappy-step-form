@@ -7,6 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+// We only need the title for the LLM; post-processing enforces everything else.
 export const text_rules = "SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES";
 
 function choice<T>(items: readonly T[], weights?: readonly number[]): T {
@@ -21,6 +22,7 @@ function choice<T>(items: readonly T[], weights?: readonly number[]): T {
 // ---------- Post-process helpers ----------
 const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn|tits|skank|slag|twat)/gi;
 const QNA_START = /^(why did|what do you call|did you hear|someone said|his buddy said|scott asked)/i;
+const GREETING = /^happy birthday[,!\s]/i;
 
 function normalizeRating(r?: string): "G"|"PG"|"PG-13"|"R" {
   const k = (r || "").toUpperCase().replace(/\s+/g, "");
@@ -34,9 +36,9 @@ function normalizeRating(r?: string): "G"|"PG"|"PG-13"|"R" {
 function endPunct(s: string) { s = s.trim(); if (!/[.?!]$/.test(s)) s += "."; return s; }
 function punctFix(s: string) {
   return s
-    .replace(/\s+([,?!])/g, "$1")
-    .replace(/([,?!])([A-Za-z])/g, "$1 $2")
-    .replace(/([.?!])[.?!]+$/g, "$1");
+    .replace(/\s+([,?!])/g, "$1")            // no space before , ? !
+    .replace(/([,?!])([A-Za-z])/g, "$1 $2")  // space after , ? !
+    .replace(/([.?!])[.?!]+$/g, "$1");       // collapse multiple end marks
 }
 
 function countPunc(s: string) {
@@ -57,7 +59,7 @@ function varyInsertPositions(lines: string[], token: string) {
     if (t === "start") return (token + ", " + l).replace(/\s+/g, " ");
     if (t === "end") return l.replace(/[.?!]\s*$/, "") + ", " + token + ".";
     // middle
-    const words = l.split(" ");
+    const words = l.replace(/[.?!]\s*$/, "").split(" ");
     const idx = Math.max(1, Math.min(words.length - 2, Math.floor(words.length / 2)));
     words.splice(idx, 0, token);
     return endPunct(words.join(" "));
@@ -70,7 +72,6 @@ function normalizeLength(l: string, target: number) {
   if (s.length > target + 6) {
     s = s.slice(0, target).replace(/\s+\S*$/, "").trim();
   } else if (s.length < Math.max(60, target - 8)) {
-    // simple meaningful tail
     const tails = [
       "which feels exactly right today",
       "and somehow that was the highlight",
@@ -99,6 +100,38 @@ function enforceRating(s: string, rating: "G"|"PG"|"PG-13"|"R") {
   return s.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
 }
 
+// Prevent profanity adjacent to tokens: inserts a soft buffer word or moves token
+function deAdjacentProfanity(s: string, tokens: string[]) {
+  let out = s;
+  for (const t of tokens) {
+    const re1 = new RegExp(`\\b${t}\\b\\s+(fuck|shit|damn|hell)`, "i");
+    const re2 = new RegExp(`\\b(fuck|shit|damn|hell)\\s+${t}\\b`, "i");
+    if (re1.test(out)) out = out.replace(re1, `${t} really $1`);
+    if (re2.test(out)) out = out.replace(re2, `$1, ${t}`);
+  }
+  return out;
+}
+
+// Bigram de-dup across 4 lines
+function bigramSet(s: string) {
+  const w = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
+  const set = new Set<string>();
+  for (let i=0;i<w.length-1;i++) set.add(`${w[i]} ${w[i+1]}`);
+  return set;
+}
+function bigramOverlap(a: string, b: string) {
+  const A = bigramSet(a), B = bigramSet(b);
+  const inter = [...A].filter(x => B.has(x)).length;
+  return inter / Math.max(1, Math.min(A.size, B.size));
+}
+function dedupeFuzzy(lines: string[], threshold = 0.6) {
+  const out: string[] = [];
+  for (const l of lines) {
+    if (!out.some(x => bigramOverlap(l, x) >= threshold)) out.push(l);
+  }
+  return out;
+}
+
 // ---------- HTTP ----------
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -117,24 +150,25 @@ serve(async (req) => {
       specific_words
     } = payload ?? {};
 
-    // Merge tokens with specificWords variants
+    // Merge tokens with specificWords variants (exact spelling preserved)
     const uiWords = Array.isArray(specificWords) ? specificWords
                   : typeof specificWords === "string" ? [specificWords]
                   : Array.isArray(specific_words) ? specific_words
                   : typeof specific_words === "string" ? [specific_words]
                   : [];
     const baseTokens: string[] = Array.isArray(tokens) ? tokens : [];
-    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords].filter(Boolean)));
+    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords]
+      .filter(Boolean)
+      .map((w) => String(w).trim())));
 
-    // If custom text provided, return it
+    // If custom text provided, return it verbatim (max 4)
     if (customText && String(customText).trim()) {
       const lines = String(customText).split("\n").map((s) => s.trim()).filter(Boolean).slice(0,4);
       return new Response(JSON.stringify({ candidates: lines, success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Build prompt
+    // Build prompt for LLM (rules live server-side; we still hint the context)
     let prompt = text_rules;
-
     if (category) {
       prompt += "\n\nCATEGORY: " + category;
       if (subcategory) prompt += " > " + subcategory;
@@ -144,7 +178,7 @@ serve(async (req) => {
     prompt += "\n\nRATING: " + normRating;
     if (mergedTokens.length) prompt += "\n\nTOKENS TO INCLUDE: " + mergedTokens.join(", ");
 
-    // humor nudges
+    // subtle birthday nudge
     const isBirthday = (category || "").toLowerCase().startsWith("celebrations") && /birthday/i.test(subcategory || "");
     if (isBirthday) {
       prompt += "\n\nHUMOR NUDGE — BIRTHDAY\n- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).\n- Avoid cliché \"trip around the sun\" or bodily function jokes.\n- One sentence only; land the punch in the last 3–6 words.";
@@ -175,7 +209,7 @@ serve(async (req) => {
       return String(raw)
         .split("\n")
         .map((l: string) => l.trim().replace(/^[-•*]\s*/, "")) // drop bullets
-        .filter((l: string) => l && !/^\d+\.?\s/.test(l))
+        .filter((l: string) => l && !/^\d+\.?\s/.test(l) && !GREETING.test(l)) // drop numbering & greetings
         .slice(0, 4);
     }
 
@@ -184,22 +218,21 @@ serve(async (req) => {
 
     // --------- Post-process enforcement ----------
     const tokenList = mergedTokens.map((t: string) => String(t).trim()).filter(Boolean);
-    const primaryToken = tokenList[0]; // used for position variety if only one
+    const primaryToken = tokenList[0];
 
-    // Clean, drop Q&A, one sentence, end mark, enforce rating, punctuation budget, token inclusion
     lines = lines.map((l: string) => l.trim())
-      .filter((l: string) => !QNA_START.test(l)) // drop Q&A scaffolds
+      .filter((l: string) => !QNA_START.test(l))     // drop Q&A scaffolds
       .map(oneSentenceOnly)
       .map(punctFix)
       .map(endPunct)
       .map((l: string) => enforceRating(l, normRating))
+      .map((l: string) => deAdjacentProfanity(l, tokenList)) // no swear next to tokens
       .map((l: string) => {
-        // ensure tokens
+        // ensure tokens in every line
         if (tokenList.length) {
           for (const tok of tokenList) {
             const re = new RegExp("\\b" + tok + "\\b", "i");
             if (!re.test(l)) {
-              // insert mid-sentence
               const words = l.replace(/[.?!]\s*$/, "").split(" ");
               const idx = Math.max(1, Math.min(words.length - 2, Math.floor(words.length / 2)));
               words.splice(idx, 0, tok);
@@ -207,7 +240,7 @@ serve(async (req) => {
             }
           }
         }
-        // clamp punctuation budget
+        // punctuation budget
         if (countPunc(l) > 3) {
           let kept = 0;
           l = l.replace(/[.,?!]/g, (m) => (++kept <= 3 ? m : ""));
@@ -215,14 +248,17 @@ serve(async (req) => {
         return l;
       });
 
-    // enforce token position variety when single token
+    // token position variety if one token
     if (primaryToken && lines.length) lines = varyInsertPositions(lines, primaryToken);
 
-    // Length variety
+    // length variety buckets
     const idxs = [0,1,2,3].sort(() => Math.random() - 0.5);
     lines = lines.map((l, i) => normalizeLength(l, LENGTH_BUCKETS[idxs[i % LENGTH_BUCKETS.length]]));
 
-    // If we lost lines (Q&A dropped), regenerate once to backfill
+    // de-dup near-copies
+    lines = dedupeFuzzy(lines, 0.6);
+
+    // If we lost lines (dropped Q&A or dupes), regenerate once to backfill
     if (lines.length < 4) {
       const more = await callOnce();
       const needed = 4 - lines.length;
