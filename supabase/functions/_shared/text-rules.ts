@@ -9,8 +9,9 @@ GLOBAL HARD CONSTRAINTS
 - Return exactly 4 lines, one per line. No numbering, bullets, or explanations.
 - Each insert word/token must appear exactly as provided in every line, used naturally.
 - Vary token positions across the 4 outputs (collectively cover start, middle, end).
-- Length 60–120 characters per line. Aim for varied lengths across outputs (e.g., some near 65, 85, 105, 120).
-- One sentence per line. Max 3 punctuation marks total (. , ? !).
+- Length 60–120 characters per line. Aim for varied lengths across outputs (e.g., near 65, 85, 105, 120).
+- One sentence per line, and it MUST end with a period, question mark, or exclamation.
+- Max 3 punctuation marks total (. , ? !).
 - No greetings (e.g., "Happy birthday,"). No emojis.
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
 - Remove filler: finally, trust me, here's to, may your, another year of.
@@ -27,7 +28,7 @@ TOPICAL ANCHORING (movies / TV / celebrities)
 - Profanity may not appear directly adjacent to a token; keep at least one other word between them.
 
 QUOTES & PUNCTUATION
-- If using a short quote or faux dialogue, wrap in single quotes. Example: 'Today, junior?' 
+- If using a short quote or faux dialogue, wrap in single quotes. Example: 'Today, junior?'
 - Put the final question mark or exclamation inside the quote, and do not add a trailing period after it.
 - Quoted questions count toward the 3-punctuation budget.
 
