@@ -4,12 +4,11 @@ GOAL
 - Generate 4 distinct, funny, human-sounding one-liners.
 
 HARD CONSTRAINTS
-- Exact spelling. Insert words must appear exactly as written in every line.
+- Exact spelling. Insert words must appear in every output naturally
 - Length: 50–100 characters.
 - Max 2 sentences per output.
 - Max 2 punctuation marks per sentence (. , ? !).
 - No em dashes, colons, or semicolons — replace with commas or periods.
-- Avoid unnecessary padding (e.g., "that/which").
 - No duplicate word pairs across the 4 outputs.
 - Respect Tone, Rating, and Insert Words precisely.
 
