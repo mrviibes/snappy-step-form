@@ -123,8 +123,12 @@ function cleanLine(line: string): string {
   return line
     .replace(/^\d+\.\s*/, '') // Remove numbering
     .replace(/^-\s*/, '') // Remove dashes
+    .replace(/^\*+\s*/, '') // Remove asterisks
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove markdown bold
+    .replace(/\*(.*?)\*/g, '$1') // Remove markdown italic
     .replace(/^["\'""`]/, '') // Remove leading quotes
     .replace(/["\'""`]$/, '') // Remove trailing quotes
+    .replace(/^(candidate|one-liners?|options?)[:\s,]*/gi, '') // Remove header words
     .trim();
 }
 
@@ -354,7 +358,7 @@ serve(async (req) => {
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
     systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. Each line must be 100-120 characters long. No headers, numbers, or formatting - just the one-liners.";
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
