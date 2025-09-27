@@ -86,20 +86,39 @@ serve(async (req) => {
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
    // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    // Build dynamic user prompt based on actual selections
-    let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+    if(category.toLowerCase() == 'jokes'){
+      
+      let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+
+      if (category && subcategory) {
+        userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
+      } else if (category) {
+        userPrompt += ` about ${category.toLowerCase()}`;
+      }
+      
+      if (insertWords.length > 0) {
+        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
+      }
+      
+      userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
+    } 
     
-    if (category && subcategory) {
-      userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
-    } else if (category) {
-      userPrompt += ` about ${category.toLowerCase()}`;
+    else {
+      // Build dynamic user prompt based on actual selections
+      let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+      
+      if (category && subcategory) {
+        userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
+      } else if (category) {
+        userPrompt += ` about ${category.toLowerCase()}`;
+      }
+      
+      if (insertWords.length > 0) {
+        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
+      }
+      
+      userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     }
-    
-    if (insertWords.length > 0) {
-      userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
-    }
-    
-    userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
