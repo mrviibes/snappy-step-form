@@ -74,4 +74,3 @@ RATINGS
                         
 `;
 
-   export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
