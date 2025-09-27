@@ -129,17 +129,20 @@ serve(async (req) => {
 
     const {
       category, subcategory, tone, rating,
-      tokens, customText, specificWords, specific_words
+      tokens, customText, specificWords, specific_words, insertWords
     } = payload ?? {};
 
-    // Merge tokens + specific words (exact spelling preserved)
+    // Merge tokens + specific words + insert words (exact spelling preserved)
     const uiWords = Array.isArray(specificWords) ? specificWords
                   : typeof specificWords === "string" ? [specificWords]
                   : Array.isArray(specific_words) ? specific_words
                   : typeof specific_words === "string" ? [specific_words]
                   : [];
+    const insertedWords = Array.isArray(insertWords) ? insertWords
+                        : typeof insertWords === "string" ? [insertWords]
+                        : [];
     const baseTokens: string[] = Array.isArray(tokens) ? tokens : [];
-    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords].filter(Boolean).map(String).map(s => s.trim())));
+    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords, ...insertedWords].filter(Boolean).map(String).map(s => s.trim())));
 
     // Custom override
     if (customText && String(customText).trim()) {
