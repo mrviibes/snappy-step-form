@@ -8,8 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// We only need the title for the LLM; post-processing enforces everything else.
-
 function choice<T>(items: readonly T[], weights?: readonly number[]): T {
   if (weights && weights.length !== items.length) throw new Error("Weights length must match items length");
   if (!weights) return items[Math.floor(Math.random() * items.length)];
@@ -36,15 +34,11 @@ function normalizeRating(r?: string): "G"|"PG"|"PG-13"|"R" {
 function endPunct(s: string) { s = s.trim(); if (!/[.?!]$/.test(s)) s += "."; return s; }
 function punctFix(s: string) {
   return s
-    .replace(/\s+([,?!])/g, "$1")            // no space before , ? !
-    .replace(/([,?!])([A-Za-z])/g, "$1 $2")  // space after , ? !
-    .replace(/([.?!])[.?!]+$/g, "$1");       // collapse multiple end marks
+    .replace(/\s+([,?!])/g, "$1")
+    .replace(/([,?!])([A-Za-z])/g, "$1 $2")
+    .replace(/([.?!])[.?!]+$/g, "$1");
 }
-
-function countPunc(s: string) {
-  const m = s.match(/[.,?!]/g); return m ? m.length : 0;
-}
-
+function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentenceOnly(s: string) {
   const parts = s.split(/[.?!]/).filter(Boolean);
   if (parts.length <= 1) return s;
@@ -58,7 +52,6 @@ function varyInsertPositions(lines: string[], token: string) {
     if (new RegExp("\\b" + token + "\\b", "i").test(l)) return l;
     if (t === "start") return (token + ", " + l).replace(/\s+/g, " ");
     if (t === "end") return l.replace(/[.?!]\s*$/, "") + ", " + token + ".";
-    // middle
     const words = l.replace(/[.?!]\s*$/, "").split(" ");
     const idx = Math.max(1, Math.min(words.length - 2, Math.floor(words.length / 2)));
     words.splice(idx, 0, token);
@@ -86,9 +79,7 @@ function normalizeLength(l: string, target: number) {
 
 function enforceRating(s: string, rating: "G"|"PG"|"PG-13"|"R") {
   if (rating === "R") return s;
-  if (rating === "PG-13") {
-    return s.replace(STRONG_SWEARS, "damn").replace(/\bshitshow\b/gi, "mess");
-  }
+  if (rating === "PG-13") return s.replace(STRONG_SWEARS, "damn").replace(/\bshitshow\b/gi, "mess");
   if (rating === "PG") {
     return s.replace(STRONG_SWEARS, (m) => {
       if (/fuck/i.test(m)) return "f***";
@@ -96,11 +87,10 @@ function enforceRating(s: string, rating: "G"|"PG"|"PG-13"|"R") {
       return "d***";
     });
   }
-  // G
   return s.replace(STRONG_SWEARS, "").replace(/\s+/g, " ").trim();
 }
 
-// Prevent profanity adjacent to tokens: inserts a soft buffer word or moves token
+// block profanity adjacent to tokens
 function deAdjacentProfanity(s: string, tokens: string[]) {
   let out = s;
   for (const t of tokens) {
@@ -112,7 +102,7 @@ function deAdjacentProfanity(s: string, tokens: string[]) {
   return out;
 }
 
-// Bigram de-dup across 4 lines
+// near-duplicate control
 function bigramSet(s: string) {
   const w = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
   const set = new Set<string>();
@@ -126,9 +116,7 @@ function bigramOverlap(a: string, b: string) {
 }
 function dedupeFuzzy(lines: string[], threshold = 0.6) {
   const out: string[] = [];
-  for (const l of lines) {
-    if (!out.some(x => bigramOverlap(l, x) >= threshold)) out.push(l);
-  }
+  for (const l of lines) if (!out.some(x => bigramOverlap(l, x) >= threshold)) out.push(l);
   return out;
 }
 
@@ -140,48 +128,40 @@ serve(async (req) => {
     const payload = await req.json();
 
     const {
-      category,
-      subcategory,
-      tone,
-      rating,
-      tokens,
-      customText,
-      specificWords,
-      specific_words
+      category, subcategory, tone, rating,
+      tokens, customText, specificWords, specific_words
     } = payload ?? {};
 
-    // Merge tokens with specificWords variants (exact spelling preserved)
+    // Merge tokens + specific words (exact spelling preserved)
     const uiWords = Array.isArray(specificWords) ? specificWords
                   : typeof specificWords === "string" ? [specificWords]
                   : Array.isArray(specific_words) ? specific_words
                   : typeof specific_words === "string" ? [specific_words]
                   : [];
     const baseTokens: string[] = Array.isArray(tokens) ? tokens : [];
-    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords]
-      .filter(Boolean)
-      .map((w) => String(w).trim())));
+    const mergedTokens = Array.from(new Set([...baseTokens, ...uiWords].filter(Boolean).map(String).map(s => s.trim())));
 
-    // If custom text provided, return it verbatim (max 4)
+    // Custom override
     if (customText && String(customText).trim()) {
       const lines = String(customText).split("\n").map((s) => s.trim()).filter(Boolean).slice(0,4);
       return new Response(JSON.stringify({ candidates: lines, success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Build prompt for LLM (rules live server-side; we still hint the context)
+    // Build the model prompt (rules are enforced in post)
     let prompt = text_rules;
-    if (category) {
-      prompt += "\n\nCATEGORY: " + category;
-      if (subcategory) prompt += " > " + subcategory;
-    }
-    if (tone) prompt += "\n\nTONE: " + tone;
+    if (category) { prompt += `\n\nCATEGORY: ${category}`; if (subcategory) prompt += ` > ${subcategory}`; }
+    if (tone) prompt += `\n\nTONE: ${tone}`;
     const normRating = normalizeRating(rating);
-    prompt += "\n\nRATING: " + normRating;
-    if (mergedTokens.length) prompt += "\n\nTOKENS TO INCLUDE: " + mergedTokens.join(", ");
+    prompt += `\n\nRATING: ${normRating}`;
+    if (mergedTokens.length) prompt += `\n\nTOKENS TO INCLUDE: ${mergedTokens.join(", ")}`;
 
-    // subtle birthday nudge
+    // Birthday nudge
     const isBirthday = (category || "").toLowerCase().startsWith("celebrations") && /birthday/i.test(subcategory || "");
     if (isBirthday) {
-      prompt += "\n\nHUMOR NUDGE — BIRTHDAY\n- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).\n- Avoid cliché \"trip around the sun\" or bodily function jokes.\n- One sentence only; land the punch in the last 3–6 words.";
+      prompt += `\n\nHUMOR NUDGE — BIRTHDAY
+- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).
+- Avoid cliché "trip around the sun" or bodily function jokes.
+- One sentence only; land the punch in the last 3–6 words.`;
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
@@ -190,7 +170,7 @@ serve(async (req) => {
     async function callOnce(): Promise<string[]> {
       const completion = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + openaiApiKey },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiApiKey}` },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           max_tokens: 800,
@@ -202,33 +182,33 @@ serve(async (req) => {
       });
       if (!completion.ok) {
         const t = await completion.text().catch(() => "");
-        throw new Error("OpenAI API error: " + completion.status + " " + t.slice(0,300));
+        throw new Error(`OpenAI API error: ${completion.status} ${t.slice(0,300)}`);
       }
       const data = await completion.json();
       const raw = data?.choices?.[0]?.message?.content ?? "";
       return String(raw)
         .split("\n")
-        .map((l: string) => l.trim().replace(/^[-•*]\s*/, "")) // drop bullets
-        .filter((l: string) => l && !/^\d+\.?\s/.test(l) && !GREETING.test(l)) // drop numbering & greetings
-        .slice(0, 4);
+        .map((l: string) => l.trim().replace(/^[-•*]\s*/, ""))
+        .filter((l: string) => l && !/^\d+\.?\s/.test(l) && !GREETING.test(l))
+        .slice(0,4);
     }
 
     // Generate
     let lines = await callOnce();
 
     // --------- Post-process enforcement ----------
-    const tokenList = mergedTokens.map((t: string) => String(t).trim()).filter(Boolean);
+    const tokenList = mergedTokens;
     const primaryToken = tokenList[0];
 
     lines = lines.map((l: string) => l.trim())
-      .filter((l: string) => !QNA_START.test(l))     // drop Q&A scaffolds
+      .filter((l: string) => !QNA_START.test(l))
       .map(oneSentenceOnly)
       .map(punctFix)
       .map(endPunct)
       .map((l: string) => enforceRating(l, normRating))
-      .map((l: string) => deAdjacentProfanity(l, tokenList)) // no swear next to tokens
+      .map((l: string) => deAdjacentProfanity(l, tokenList))
       .map((l: string) => {
-        // ensure tokens in every line
+        // ensure tokens
         if (tokenList.length) {
           for (const tok of tokenList) {
             const re = new RegExp("\\b" + tok + "\\b", "i");
@@ -248,17 +228,13 @@ serve(async (req) => {
         return l;
       });
 
-    // token position variety if one token
     if (primaryToken && lines.length) lines = varyInsertPositions(lines, primaryToken);
 
-    // length variety buckets
     const idxs = [0,1,2,3].sort(() => Math.random() - 0.5);
     lines = lines.map((l, i) => normalizeLength(l, LENGTH_BUCKETS[idxs[i % LENGTH_BUCKETS.length]]));
 
-    // de-dup near-copies
     lines = dedupeFuzzy(lines, 0.6);
 
-    // If we lost lines (dropped Q&A or dupes), regenerate once to backfill
     if (lines.length < 4) {
       const more = await callOnce();
       const needed = 4 - lines.length;
