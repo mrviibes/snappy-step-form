@@ -104,6 +104,7 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
         "punchline_concise"
       ], 
       description: "Serious → dry, deadpan wit, formal. Punchline is understated, concise."
+    }
     },
 
     ratings: {
