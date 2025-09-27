@@ -1,4 +1,4 @@
-export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+export const system_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
 Write 4 funny, punchy, human-sounding distinct one-liners.
@@ -34,7 +34,7 @@ RATINGS
 `;
 
 
-export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+export const system_joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
 Write 4 funny, punchy, human-sounding distinct joke type
