@@ -68,5 +68,10 @@ RATINGS
                         Profanity not limited to a list. 
                         Can be savage roast or celebratory hype. 
                         Sentimental+R combines warmth/affection with raw profanity.
+
+
+                     
                         
 `;
+
+   export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
