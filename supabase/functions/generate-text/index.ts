@@ -23,12 +23,12 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       if (res.ok) { cachedRules = await res.json(); return cachedRules; }
     } catch {}
   }
-  // Fallback rules v7 (50–100 chars, max 2 punctuation / sentence, ≤2 sentences)
+  // Fallback rules v7 (100–120 chars, max 2 punctuation / sentence, ≤2 sentences)
   cachedRules = {
     id: rulesId,
     version: 7,
-    length: { min_chars: 50, max_chars: 100 },
-    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_sentence: 2 },
+    length: { min_chars: 100, max_chars: 120 },
+    punctuation: { ban_em_dash: true, replacement: { "—": ",", ":": ",", ";": "." }, allowed: [".", ",", "?", "!"], max_marks_per_sentence: 2 },
     max_sentences: 2,
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration","punchline_fast","punchline_surprise"] },
@@ -138,7 +138,7 @@ function oneOrTwoSentences(s: string, maxSentences = 2) {
   return parts.slice(0, maxSentences).join(" ");
 }
 
-function trimToRange(s: string, min=50, max=100) {
+function trimToRange(s: string, min=100, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
@@ -147,7 +147,7 @@ function trimToRange(s: string, min=50, max=100) {
 }
 
 // Keep setup + first punch within range
-function trimPunchline(line: string, min=50, max=100) {
+function trimPunchline(line: string, min=100, max=120) {
   let t = line.trim();
   if (t.length <= max) return t;
   const parts = t.split(/[,?!]/);
@@ -215,7 +215,7 @@ function ensureProfanityVariation(lines: string[]) {
   return lines.map((l, i) => {
     const sw = grabs[i];
     if (sw && !seen.has(sw)) { seen.add(sw); return l; }
-    const pool = ["fuck","shit","bastard","ass","bullshit","goddamn","prick","crap","motherfucker","hell"];
+    const pool = ["fuck","shit","bastard","ass","bullshit","goddamn","prick","crap","motherfucker","hell","bitch","damn"];
     for (const w of pool) {
       if (!seen.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(l)) {
         const replaced = sw ? l.replace(new RegExp(sw, "i"), w) : `${l.split(/[.,?!]/)[0]}, ${w}.`;
@@ -245,12 +245,16 @@ function enforceRules(
   insertWords: string[] = []
 ) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 50;
-  const maxLen = rules.length?.max_chars ?? 100;
+  const minLen = rules.length?.min_chars ?? 100;
+  const maxLen = rules.length?.max_chars ?? 120;
 
   let processed = lines.map((raw, idx) => {
     let t = raw.trim();
-    if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
+    if (rules.punctuation?.ban_em_dash) {
+      t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
+      t = t.replace(/:/g, rules.punctuation.replacement?.[":"] || ".");
+      t = t.replace(/;/g, rules.punctuation.replacement?.[";"] || ".");
+    }
 
     // limit to ≤2 sentences and ≤2 punctuation per sentence
     t = oneOrTwoSentences(t, 2);
@@ -356,7 +360,7 @@ serve(async (req) => {
     let candidates = parseLines(raw);
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
-    const fallbackRules = { length:{min_chars:50,max_chars:100}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":","}}, max_sentences:2 };
+    const fallbackRules = { length:{min_chars:100,max_chars:120}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":",",":":".",";":"."}}, max_sentences:2 };
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
@@ -370,8 +374,8 @@ serve(async (req) => {
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 50);
-    const maxL = (rules?.length?.max_chars ?? 100);
+    const minL = (rules?.length?.min_chars ?? 100);
+    const maxL = (rules?.length?.max_chars ?? 120);
 
     const resp = {
       lines: lines.map((line, i) => ({

@@ -5,7 +5,7 @@ GOAL
 
 HARD CONSTRAINTS
 - Exact spelling. Insert words must appear in every output naturally
-- Length: 50–100 characters.
+- Length: 100–120 characters.
 - Max 2 sentences per output.
 - Max 2 punctuation marks per sentence (. , ? !).
 - No em dashes, colons, or semicolons — replace with commas or periods.
