@@ -12,19 +12,66 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============== TYPES ==============
+interface RulesPunctuation {
+  ban_em_dash: boolean;
+  replacement: Record<string, string>;
+  allowed: string[];
+  max_marks_per_sentence: number;
+}
+
+interface RulesLength {
+  min_chars: number;
+  max_chars: number;
+}
+
+interface ToneRules {
+  rules: string[];
+}
+
+interface RatingConfig {
+  allow_profanity: boolean;
+  allow_censored_swears?: boolean;
+  censored_forms?: string[];
+  mild_only?: string[];
+  block_stronger_profanity?: boolean;
+  require_profanity?: boolean;
+  open_profanity?: boolean;
+  require_variation?: boolean;
+}
+
+interface RulesSpelling {
+  auto_substitutions: Record<string, string>;
+}
+
+interface TextRules {
+  id: string;
+  version: number;
+  length: RulesLength;
+  punctuation: RulesPunctuation;
+  max_sentences: number;
+  tones: Record<string, ToneRules>;
+  ratings: Record<string, RatingConfig>;
+  spelling: RulesSpelling;
+}
+
 // ============== RULES LOADER ==============
-let cachedRules: any = null;
-async function loadRules(rulesId: string, origin?: string): Promise<any> {
+let cachedRules: TextRules | null = null;
+async function loadRules(rulesId: string, origin?: string): Promise<TextRules> {
   if (cachedRules && cachedRules.id === rulesId) return cachedRules;
   if (origin) {
     try {
       const rulesUrl = `${origin}/config/${rulesId}.json`;
       const res = await fetch(rulesUrl);
-      if (res.ok) { cachedRules = await res.json(); return cachedRules; }
+      if (res.ok) { 
+        const parsedRules = await res.json() as TextRules; 
+        cachedRules = parsedRules; 
+        return parsedRules; 
+      }
     } catch {}
   }
   // Fallback rules v7 (70–120 chars, max 2 punctuation / sentence, ≤1 sentence)
-  cachedRules = {
+  const fallbackRules: TextRules = {
     id: rulesId,
     version: 7,
     length: { min_chars: 70, max_chars: 120 },
@@ -48,7 +95,8 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
     },
     spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
   };
-  return cachedRules;
+  cachedRules = fallbackRules;
+  return fallbackRules;
 }
 
 // ============== OPENAI CALL ==============
