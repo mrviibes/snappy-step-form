@@ -18,7 +18,7 @@ type BatchInput = {
 };
 
 const FORBIDDEN_PUNCT = /[;…]|(?:^|[^.])\.\.(?:[^.]|$)|[–—]/; // semicolon, ellipsis char, ".." , en/em dash
-const MAX_PUNCT_PER_LINE = 3;
+const MAX_PUNCT_PER_LINE = 2;
 
 // Soft lexicons for flexible anchoring (extend as needed)
 const LEX: Record<string, string[]> = {

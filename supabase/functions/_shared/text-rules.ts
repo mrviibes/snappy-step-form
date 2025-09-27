@@ -1,53 +1,38 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-- Generate 4 distinct humorous one-liners that satisfy all constraints below.
+- Generate 4 distinct humorous one-liners.
 
 HARD CONSTRAINTS
-- Exact spelling. Each "insert word" must appear exactly as provided in every line.
-- Insert word position must vary across the 4 outputs (collectively cover start, middle, end).
-- Length 60–120 characters per line, inclusive.
-- One sentence only per line. Max 3 punctuation marks from this set: . , ? !
+- Exact spelling. Insert words must appear exactly as written in every line.
+- Insert words must vary position across the 4 outputs (start, middle, end).
+- Length 50–90 characters per line, no fewer, no more.
+- One sentence only. Max 1 punctuation mark total (. , ? !).
 - No greetings (e.g., "Happy birthday,"). No emojis.
-- No em dashes, colons, or semicolons. Replace with commas or end the sentence.
-- Remove filler phrases: finally, trust me, here's to, may your, another year of.
-- Avoid padding with "that/which" unless essential to meaning.
-- No duplicate word pairs across the 4 outputs (bigrams must be unique across lines).
-- Apply the selected Tone and Rating precisely.
+- No em dashes, colons, semicolons. Replace with commas or end the sentence.
+- No filler phrases: finally, trust me, here's to, may your, another year of.
+- Avoid padding with "that/which" unless essential.
+- No duplicate word pairs across the 4 outputs.
+- Apply selected Tone and Rating precisely.
 
 TONES
 - Humorous → witty wordplay and exaggeration.
 - Savage → blunt roast, no soft language.
 - Sentimental → warm and affectionate, even if raw.
-- Nostalgic → references to the past; avoid modern slang.
+- Nostalgic → references to past; avoid modern slang.
 - Romantic → affectionate and playful, no meanness.
 - Inspirational → uplifting, no negativity or irony.
 - Playful → cheeky and silly, not formal.
-- Serious → dry, deadpan wit with formal weight.
+- Serious → dry, deadpan wit, formal.
 
 RATINGS
-- G → no profanity or adult references.
+- G → no profanity or adult refs.
 - PG → censored swears allowed (f***, sh*t), no uncensored profanity.
-- PG-13 → allow only mild words like "hell" and "damn"; block anything stronger.
+- PG-13 → only "hell", "damn"; nothing stronger.
 - R (Raw, Unfiltered) →
-  - Every line must include at least one uncensored profanity.
-  - Profanity must vary across the 4 outputs (different lead swear per line).
-  - Profanity may appear more than once per line as long as the line stays within 60–120 chars and ≤3 punctuation marks.
-  - Profanity should feel natural and human, not bolted beside the insert word. Prefer these placements with variation:
-      • start for emphasis
-      • mid-clause before/after a verb or adjective
-      • replace a bland intensifier (really/very/super/so/pretty)
-      • end as the punchline
-  - Sentimental + R must combine warmth/affection with raw profanity, not hostility.
-
-PROFANITY POOL (50)
-fuck, fucking, fucker, motherfucker, shit, shitty, bullshit, asshole, arse, arsehole,
-bastard, bitch, son of a bitch, damn, goddamn, hell, crap, piss, pissed, dick,
-dickhead, prick, cock, knob, wanker, tosser, bollocks, bugger, bloody, git,
-twat, douche, douchebag, jackass, dumbass, dipshit, clusterfuck, shitshow, balls,
-tits, skank, tramp, slag, screw you, piss off, crapshoot, arsed, bloody hell,
-rat bastard, shithead
-
-OUTPUT FORMAT
-- Return exactly 4 sentences, one per line, no numbering, no bullets.
-`;
+  - Must include uncensored profanity in every line.
+  - Profanity must vary across the 4 outputs.
+  - Profanity is not limited to a fixed list; any strong language that fits tone.
+  - Can be savage roast or celebratory hype.
+  - Sentimental + R must combine warmth/affection with raw profanity.
+  - Avoid only extreme violence or illegal themes.`;

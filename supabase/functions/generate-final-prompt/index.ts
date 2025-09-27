@@ -1,4 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { 
+  final_prompt_rules, 
+  layoutMap, 
+  dimensionMap, 
+  toneMap, 
+  ratingMap, 
+  textQualityNegatives,
+  getCategoryNegatives 
+} from "../_shared/final-prompt-rules.ts";
+
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const corsHeaders = {
   "content-type": "application/json",
@@ -12,14 +23,14 @@ interface FinalPromptRequest {
   completed_text: string;
   category: string;
   subcategory?: string;
-  tone: string;                     // e.g., "humorous"
-  rating: string;                   // kept for future use; not printed in minimal two-liner
+  tone: string;
+  rating: string;
   insertWords?: string[];
-  image_style: string;              // e.g., "realistic"
-  text_layout: string;              // one of your 6 ids
-  image_dimensions: string;         // "square" | "portrait" | "landscape" | "custom"
+  image_style: string;
+  text_layout: string;
+  image_dimensions: string;
   composition_modes?: string[];
-  visual_recommendation?: string;   // the “where Jesse…” sentence fragment
+  visual_recommendation?: string;
 }
 
 interface PromptTemplate {
@@ -29,83 +40,117 @@ interface PromptTemplate {
   description: string;
 }
 
-function json(obj: any, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
-}
-
-// Compact layout tag phrases for Gemini
-const layoutTagShort: Record<string, string> = {
-  "negative-space": "clean modern text, open area",
-  "meme-text": "bold top/bottom meme text",
-  "lower-banner": "strong bottom banner caption",
-  "side-bar": "vertical side stacked text",
-  "badge-callout": "floating stylish text badge",
-  "subtle-caption": "small understated corner caption"
-};
-
-function aspectLabel(dim: string) {
-  const d = (dim || "").toLowerCase();
-  if (d === "square") return "square 1:1";
-  if (d === "portrait") return "portrait 9:16";
-  if (d === "landscape") return "landscape 16:9";
-  // if custom, let caller pass specifics inside visual_recommendation if needed
-  return "";
+interface FinalPromptResponse {
+  success: boolean;
+  templates?: PromptTemplate[];
+  error?: string;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
-  if (req.method !== "POST") return json({ success: false, error: "POST only" }, 405);
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  
+  if (req.method !== "POST") {
+    return json({ success: false, error: "POST only" }, 405);
+  }
 
   try {
     const body = await req.json().catch(() => ({}));
-    const required = ["completed_text", "image_style", "text_layout", "image_dimensions"];
-    const missing = required.filter((f) => !body[f]);
-    if (missing.length) return json({ success: false, error: `Missing: ${missing.join(", ")}` }, 400);
-
-    const templates = await generatePromptTemplates(body as FinalPromptRequest);
-    return json({ success: true, templates });
+    console.log("Request received:", body);
+    
+    // Validate required fields
+    if (!body.completed_text || !body.image_style || !body.text_layout || !body.image_dimensions) {
+      return json({ 
+        success: false, 
+        error: "Missing required fields: completed_text, image_style, text_layout, image_dimensions" 
+      }, 400);
+    }
+    
+    const templates = await generatePromptTemplates(body);
+    console.log("Generated templates:", templates.length);
+    
+    return json({ 
+      success: true, 
+      templates 
+    });
   } catch (e) {
-    return json({ success: false, error: String((e as Error)?.message || "prompt_generation_failed") }, 500);
+    console.error("Generation error:", e);
+    return json({ 
+      success: false, 
+      error: String((e as Error)?.message || "prompt_generation_failed") 
+    }, 500);
   }
 });
 
-async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
+function json(obj: any, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: corsHeaders,
+  });
+}
+
+async function generatePromptTemplates(params: FinalPromptRequest): Promise<PromptTemplate[]> {
+  console.log('🔄 Starting prompt generation with params:', params);
+  
   const {
     completed_text,
     category,
     subcategory,
     tone,
+    rating,
+    insertWords = [],
     image_style,
     text_layout,
     image_dimensions,
-    visual_recommendation = ""
-  } = p;
+    composition_modes = [],
+    visual_recommendation
+  } = params;
 
-  // Build the exact minimal style you asked for
-  const cat = (subcategory || category || "").toLowerCase().trim();
-  const toneStr = (tone || "").toLowerCase().trim();
-  const styleStr = (image_style || "").toLowerCase().trim();
-  const aspect = aspectLabel(image_dimensions);
-  const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
+  // Build category context
+  const categoryContext = [category, subcategory].filter(Boolean).join(' ');
+  
+  // Get mapped values from imported rules
+  const textLayout = layoutMap[text_layout] || text_layout;
+  const dimensions = dimensionMap[image_dimensions] || image_dimensions;
+  const toneDescriptor = toneMap[tone.toLowerCase()] || tone.toLowerCase();
+  const ratingGuideline = ratingMap[rating] || "appropriate for general audiences";
+  
+  // Use first visual scene as context or create category-based scene
+  const visualScene = composition_modes[0] || `${categoryContext} scene`;
 
-  // First line: A realistic humorous wedding scene where ...
-  // Include aspect if present, but keep it light.
-  const aspectChunk = aspect ? ` ${aspect},` : "";
-  const positiveLine1 =
-    `A ${styleStr}${aspectChunk} ${toneStr} ${cat} scene ${where || ""}`.replace(/\s+/g, " ").trim().replace(/\.\s*$/, "") + ".";
+  // Build visual recommendation text
+  const visualRecommendationText = visual_recommendation ? `${visual_recommendation} ` : '';
 
-  // Second line: With exact text "..." in (layout): <short tag>
-  const layoutKey = String(text_layout || "").toLowerCase();
-  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
-  const positiveLine2 =
-    `With exact text "${completed_text}" in (${layoutKey}): ${layoutTag}`;
+  console.log('🎨 Mapped values:', { 
+    textLayout, 
+    dimensions, 
+    toneDescriptor, 
+    ratingGuideline,
+    categoryContext,
+    visualScene
+  });
 
-  const positive = `${positiveLine1}\n\n${positiveLine2}`;
+  // Enhanced positive prompt with ALL context
+  const positivePrompt = `MANDATORY TEXT: "${completed_text}" must be prominently displayed using ${textLayout} placement with bold, high-contrast typography. Text must be spelled exactly as written, with no substitutions or missing letters. Create a ${image_style} style ${categoryContext} image with ${dimensions} and scene should be ${toneDescriptor} and ${ratingGuideline}. The image should feature a ${visualScene} that complements the ${tone} tone. ${visualRecommendationText} Ensure excellent readability, professional typography, and visual appeal that matches the ${image_style} aesthetic.`;
+  
+  // Simple negative prompt using imported text quality negatives
+  const negativePrompt = textQualityNegatives;
 
-  return [{
-    name: "Gemini 2.5 Minimal",
-    description: "Two-line compact prompt with exact text and concise layout tag.",
-    positive,
-    negative: "" // Gemini: positive-only
-  }];
+  console.log('✅ Generated positive prompt:', positivePrompt);
+  console.log('❌ Generated negative prompt:', negativePrompt);
+
+  // Return enhanced template
+  const templates: PromptTemplate[] = [
+    {
+      name: "Ideogram Template",
+      description: `Optimized ${categoryContext} template with ${tone} tone for ${rating} content`,
+      positive: positivePrompt,
+      negative: negativePrompt
+    }
+  ];
+
+  return templates;
 }
+
+// getCategoryNegatives function is now imported from shared rules
