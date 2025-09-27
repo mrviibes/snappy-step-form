@@ -1,14 +1,19 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 
 GOAL
-- Produce 4 holarious outputs that satisfy all constraints.
-
+- Produce 4 hilarious outputs that satisfy all constraints.
 
 GLOBAL HARD CONSTRAINTS
-
-- Each insert word/token appears verbatim in every line, used naturally.
-- Length 60–120 characters per output; 3 punctuation marks (. , ? !).
-
+- Output exactly 4 separate lines of text, one per line.
+- Each insert word/token appears verbatim in every line and reads naturally.
+- Vary token position across the 4 lines (collectively cover start, middle, end).
+- Length 60–120 characters per line.
+- One sentence per line; max 3 punctuation marks total (. , ? !).
+- No greetings or emojis. No meta commentary.
+- No em dashes, colons, or semicolons (use commas or end the sentence).
+- Remove filler: finally, trust me, here's to, may your, another year of.
+- Avoid padding with "that/which" unless essential.
+- No duplicate word pairs across the 4 lines (unique bigrams).
 
 JOKE MODE (category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
@@ -16,8 +21,9 @@ JOKE MODE (category starts with "jokes")
 
 POP-CULTURE MODE (category starts with "pop-culture")
 - Use the subcategory as the cultural frame (movies, celebrities, music, sports icons, influencers, memes, video games, etc.).
-- Cues by type: movies (characters/scenes/motifs/props), celebrities (spotlight/gossip/backstage), sports (feats/records/quirks), games (levels/bosses/combos without UI), influencers/social (trends/ring light/link-in-bio), memes/TikTok (template energy/loops/transitions).
-
+- Cues by type: movies (characters/scenes/motifs/props), celebrities (spotlight/gossip/backstage),
+  sports (feats/records/quirks), games (levels/bosses/combos—no UI jargon), influencers/social (trends/ring light/link-in-bio),
+  memes/TikTok (template energy/loops/transitions).
 
 TONES
 - Humorous → witty wordplay and exaggeration.
@@ -36,7 +42,7 @@ RATINGS
 - R (Raw) →
   - Include at least one uncensored profanity per line; vary the lead swear across the 4 lines.
   - Multiple swears allowed only within 60–120 chars and ≤3 punctuation.
-  - Swears must feel natural (start emphasis, mid-clause near verb/adj, replace intensifier, or punchline).
+  - Swears must feel natural (start emphasis, mid-clause near verb/adjective, replace intensifier, or punchline).
   - Sentimental + R pairs warmth with rawness, not hostility.
 
 PROFANITY POOL (50)
