@@ -13,7 +13,6 @@ GLOBAL HARD CONSTRAINTS
 - Length 60–120 characters per line. Aim for varied lengths (e.g., near 65, 85, 105, 120).
 - One sentence per output, and it MUST end with a period, question mark, or exclamation.
 - Max 3 punctuation marks total (. , ? !).
-- No greetings (e.g., "Happy birthday,"). No emojis.
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
 - Remove filler: finally, trust me, here's to, may your, another year of.
 - Avoid padding with "that/which" unless essential.
