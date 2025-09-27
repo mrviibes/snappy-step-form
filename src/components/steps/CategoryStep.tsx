@@ -31,6 +31,7 @@ export default function CategoryStep({
   const [showingSubcategories, setShowingSubcategories] = useState(false);
   const [currentInput, setCurrentInput] = useState("");
   const [specificItems, setSpecificItems] = useState<string[]>([]);
+  const [topicInput, setTopicInput] = useState("");
 
   // Create flattened search results for direct subcategory selection
   const getSearchResults = () => {
@@ -108,6 +109,17 @@ export default function CategoryStep({
       }
     }
     
+    // Check if this is Custom category and requires topic input
+    if (categoryId === "custom") {
+      updateData({
+        category: categoryId,
+        subcategory: subcategoryId,
+        topic: ""
+      });
+      setTopicInput("");
+      return;
+    }
+    
     updateData({
       category: categoryId,
       subcategory: subcategoryId
@@ -147,6 +159,17 @@ export default function CategoryStep({
       }
     }
     
+    // Check if this is Custom category and requires topic input
+    if (selectedCategory === "custom") {
+      updateData({
+        category: selectedCategory,
+        subcategory: subcategoryId,
+        topic: ""
+      });
+      setTopicInput("");
+      return;
+    }
+    
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
@@ -163,20 +186,24 @@ export default function CategoryStep({
       category: "",
       subcategory: "",
       specificItem: "",
-      specificItems: []
+      specificItems: [],
+      topic: ""
     });
     setSpecificItems([]);
     setCurrentInput("");
+    setTopicInput("");
   };
   
   const handleEditSubcategory = () => {
     updateData({
       subcategory: "",
       specificItem: "",
-      specificItems: []
+      specificItems: [],
+      topic: ""
     });
     setSpecificItems([]);
     setCurrentInput("");
+    setTopicInput("");
   };
   
   const handleBack = () => {
@@ -274,6 +301,29 @@ export default function CategoryStep({
               </button>
             </div>
           )}
+
+          {/* Topic Display for Custom category */}
+          {data.category === "custom" && data.topic && (
+            <div className="flex items-start justify-between p-4 border-t border-border">
+              <div className="flex-1">
+                <div className="text-sm text-muted-foreground font-bold mb-2">
+                  Topic:
+                </div>
+                <div className="bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-3 py-1 rounded-full text-sm font-medium inline-block">
+                  {data.topic}
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  updateData({ topic: "" });
+                  setTopicInput("");
+                }} 
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Specific Item Input for Pop Culture subcategories */}
@@ -310,6 +360,50 @@ export default function CategoryStep({
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   Skip - Any {subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'} is fine
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Topic Input for Custom category */}
+        {data.category === "custom" && data.subcategory && !data.topic && (
+          <div className="mt-8 space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                Is there a certain Topic you want?
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                eg. advertisement, astronomy, high school<br />
+                <strong>in the box - enter your topic here and hit return</strong>
+              </p>
+            </div>
+            
+            <div className="bg-card p-4 rounded-lg space-y-4">
+              <Input
+                type="text"
+                placeholder="Enter a specific topic..."
+                value={topicInput}
+                onChange={(e) => setTopicInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && topicInput.trim()) {
+                    e.preventDefault();
+                    updateData({ topic: topicInput.trim() });
+                  }
+                }}
+                spellCheck={true}
+                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+              />
+              
+              <div className="text-center">
+                <Button
+                  onClick={() => {
+                    updateData({ topic: "general" });
+                  }}
+                  variant="ghost"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Skip - Any topic is fine
                 </Button>
               </div>
             </div>
