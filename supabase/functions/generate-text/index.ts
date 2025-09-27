@@ -7,8 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
-
+export const text_rules = "SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES";
 
 function choice<T>(items: readonly T[], weights?: readonly number[]): T {
   if (weights && weights.length !== items.length) throw new Error("Weights length must match items length");
@@ -54,9 +53,9 @@ function varyInsertPositions(lines: string[], token: string) {
   const targets = ["start", "middle", "end", "any"].sort(() => Math.random() - 0.5);
   return lines.map((l, i) => {
     const t = targets[i % targets.length];
-    if (new RegExp(`\\b${token}\\b`, "i").test(l)) return l;
-    if (t === "start") return `${token}, ${l}`.replace(/\s+/g, " ");
-    if (t === "end") return `${l.replace(/[.?!]\s*$/, "")}, ${token}.`;
+    if (new RegExp("\\b" + token + "\\b", "i").test(l)) return l;
+    if (t === "start") return (token + ", " + l).replace(/\s+/g, " ");
+    if (t === "end") return l.replace(/[.?!]\s*$/, "") + ", " + token + ".";
     // middle
     const words = l.split(" ");
     const idx = Math.max(1, Math.min(words.length - 2, Math.floor(words.length / 2)));
@@ -137,22 +136,18 @@ serve(async (req) => {
     let prompt = text_rules;
 
     if (category) {
-      prompt += `\n\nCATEGORY: ${category}`;
-      if (subcategory) prompt += ` > ${subcategory}`;
+      prompt += "\n\nCATEGORY: " + category;
+      if (subcategory) prompt += " > " + subcategory;
     }
-    if (tone) prompt += `\n\nTONE: ${tone}`;
+    if (tone) prompt += "\n\nTONE: " + tone;
     const normRating = normalizeRating(rating);
-    prompt += `\n\nRATING: ${normRating}`;
-    if (mergedTokens.length) prompt += `\n\nTOKENS TO INCLUDE: ${mergedTokens.join(", ")}`;
+    prompt += "\n\nRATING: " + normRating;
+    if (mergedTokens.length) prompt += "\n\nTOKENS TO INCLUDE: " + mergedTokens.join(", ");
 
     // humor nudges
     const isBirthday = (category || "").toLowerCase().startsWith("celebrations") && /birthday/i.test(subcategory || "");
     if (isBirthday) {
-      prompt += `
-HUMOR NUDGE — BIRTHDAY
-- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).
-- Avoid cliché "trip around the sun" or bodily function jokes.
-- One sentence only; land the punch in the last 3–6 words.`;
+      prompt += "\n\nHUMOR NUDGE — BIRTHDAY\n- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).\n- Avoid cliché \"trip around the sun\" or bodily function jokes.\n- One sentence only; land the punch in the last 3–6 words.";
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
@@ -161,7 +156,7 @@ HUMOR NUDGE — BIRTHDAY
     async function callOnce(): Promise<string[]> {
       const completion = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiApiKey}` },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + openaiApiKey },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           max_tokens: 800,
@@ -173,7 +168,7 @@ HUMOR NUDGE — BIRTHDAY
       });
       if (!completion.ok) {
         const t = await completion.text().catch(() => "");
-        throw new Error(`OpenAI API error: ${completion.status} ${t.slice(0,300)}`);
+        throw new Error("OpenAI API error: " + completion.status + " " + t.slice(0,300));
       }
       const data = await completion.json();
       const raw = data?.choices?.[0]?.message?.content ?? "";
@@ -202,7 +197,7 @@ HUMOR NUDGE — BIRTHDAY
         // ensure tokens
         if (tokenList.length) {
           for (const tok of tokenList) {
-            const re = new RegExp(`\\b${tok}\\b`, "i");
+            const re = new RegExp("\\b" + tok + "\\b", "i");
             if (!re.test(l)) {
               // insert mid-sentence
               const words = l.replace(/[.?!]\s*$/, "").split(" ");
