@@ -38,9 +38,10 @@ export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
 Write 4 funny, punchy, human-sounding distinct joke type
+
 HARD CONSTRAINTS
-- Do not use the word joke or jokes in the output. 
-- (‘joke,’ ‘pun,’ ‘roast,’ etc.)
+- Do not use the word "joke" or "jokes" in the output. 
+- Do not say the subcategory name in the output 
 - Respect Tone, Rating, and make sure you use insert word naturally in every output
 - Length: 0-120 characters.
 - must display 4 final outputs
