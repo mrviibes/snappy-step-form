@@ -436,7 +436,20 @@ serve(async (req) => {
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
     systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. CRITICAL: Each line must be EXACTLY between 70-120 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.";
+    // Build dynamic user prompt based on actual selections
+    let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
+    
+    if (category && subcategory) {
+      userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
+    } else if (category) {
+      userPrompt += ` about ${category.toLowerCase()}`;
+    }
+    
+    if (insertWords.length > 0) {
+      userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
+    }
+    
+    userPrompt += `. CRITICAL: Each line must be EXACTLY between 70-120 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
