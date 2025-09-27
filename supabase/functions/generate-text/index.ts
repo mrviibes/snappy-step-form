@@ -99,7 +99,7 @@ serve(async (req) => {
       userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
     }
     
-    userPrompt += `. CRITICAL: Each line must be EXACTLY between 70-120 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
+    userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
@@ -108,7 +108,7 @@ serve(async (req) => {
       .split(/\r?\n+/)
       .map((line: string) => line.replace(/^\d+\.\s*/, ' ').replace(/^-\s*/, ' ').trim())
       .filter(Boolean)
-      .filter((line: string) => line.length >= 0 && line.length <= 120)
+      
       .slice(0, 4);
 
     const resp = {
@@ -116,7 +116,7 @@ serve(async (req) => {
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= 0 && line.length <= 120
+        valid: true
       })),
       model,
       count: lines.length,
