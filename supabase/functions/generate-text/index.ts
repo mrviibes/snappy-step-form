@@ -95,7 +95,7 @@ serve(async (req) => {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
       }
       
-      userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
+      userPrompt += `. CRITICAL: Do not use the word "joke" in the output. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     } 
     
     else {
