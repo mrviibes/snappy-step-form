@@ -37,10 +37,9 @@ RATINGS
 export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-Write 4 funny, punchy, human-sounding distinct jokes in the format of the subcategory (type of joke)
-
+Write 4 funny, punchy, human-sounding distinct joke type
 HARD CONSTRAINTS
-- Do NOT mention the subcategory type in the output. Deliver the line directly as humor without meta commentary.”
+- (‘joke,’ ‘pun,’ ‘roast,’ etc.)
 - Respect Tone, Rating, and make sure you use insert word naturally in every output
 - Length: 0-120 characters.
 - must display 4 final outputs
