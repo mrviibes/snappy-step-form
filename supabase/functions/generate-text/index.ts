@@ -161,8 +161,7 @@ serve(async (req) => {
     // Birthday nudge
     const isBirthday = (category || "").toLowerCase().startsWith("celebrations") && /birthday/i.test(subcategory || "");
     if (isBirthday) {
-      prompt += `\n\nHUMOR NUDGE — BIRTHDAY
-
+      prompt += `\n\nHUMOR NUDGE — BIRTHDAY`;
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
