@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { final_prompt_rules } from "../_shared/final-prompt-rules.ts";
 
 const corsHeaders = {
   "content-type": "application/json",
