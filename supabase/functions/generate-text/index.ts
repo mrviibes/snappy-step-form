@@ -12,93 +12,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ============== TYPES ==============
-interface RulesPunctuation {
-  ban_em_dash: boolean;
-  replacement: Record<string, string>;
-  allowed: string[];
-  max_marks_per_sentence: number;
-}
-
-interface RulesLength {
-  min_chars: number;
-  max_chars: number;
-}
-
-interface ToneRules {
-  rules: string[];
-}
-
-interface RatingConfig {
-  allow_profanity: boolean;
-  allow_censored_swears?: boolean;
-  censored_forms?: string[];
-  mild_only?: string[];
-  block_stronger_profanity?: boolean;
-  require_profanity?: boolean;
-  open_profanity?: boolean;
-  require_variation?: boolean;
-}
-
-interface RulesSpelling {
-  auto_substitutions: Record<string, string>;
-}
-
-interface TextRules {
-  id: string;
-  version: number;
-  length: RulesLength;
-  punctuation: RulesPunctuation;
-  max_sentences: number;
-  tones: Record<string, ToneRules>;
-  ratings: Record<string, RatingConfig>;
-  spelling: RulesSpelling;
-}
-
-// ============== RULES LOADER ==============
-let cachedRules: TextRules | null = null;
-async function loadRules(rulesId: string, origin?: string): Promise<TextRules> {
-  if (cachedRules && cachedRules.id === rulesId) return cachedRules;
-  if (origin) {
-    try {
-      const rulesUrl = `${origin}/config/${rulesId}.json`;
-      const res = await fetch(rulesUrl);
-      if (res.ok) { 
-        const parsedRules = await res.json() as TextRules; 
-        cachedRules = parsedRules; 
-        return parsedRules; 
-      }
-    } catch {}
-  }
-  // Fallback rules v7 (70–120 chars, max 2 punctuation / sentence, ≤1 sentence)
-  const fallbackRules: TextRules = {
-    id: rulesId,
-    version: 7,
-    length: { min_chars: 70, max_chars: 120 },
-    punctuation: { ban_em_dash: true, replacement: { "—": ",", ":": ",", ";": "." }, allowed: [".", ",", "?", "!"], max_marks_per_sentence: 2 },
-    max_sentences: 1,
-    tones: {
-      "Humorous": { rules: ["witty","wordplay","exaggeration","punchline_fast","punchline_surprise"] },
-      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language","punchline_sting","no_explain"] },
-      "Sentimental": { rules: ["warm","affectionate","no_sarcasm","punchline_resolves_clearly"] },
-      "Nostalgic": { rules: ["past_refs","no_modern_slang","punchline_ties_to_memory"] },
-      "Romantic": { rules: ["affectionate","playful","no_mean","punchline_charming"] },
-      "Inspirational": { rules: ["uplifting","no_negativity_or_irony","punchline_elevates_message"] },
-      "Playful": { rules: ["cheeky","silly","no_formal","punchline_quick","punchline_mischievous"] },
-      "Serious": { rules: ["dry","deadpan","formal_weight","punchline_understated","punchline_concise"] }
-    },
-    ratings: {
-      "G": { allow_profanity: false, allow_censored_swears: false },
-      "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
-      "PG-13": { allow_profanity: true, mild_only: ["hell","damn"], block_stronger_profanity: true },
-      "R": { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
-    },
-    spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
-  };
-  cachedRules = fallbackRules;
-  return fallbackRules;
-}
-
 // ============== OPENAI CALL ==============
 function buildOpenAIRequest(
   model: string,
@@ -339,7 +252,7 @@ function enforceRules(
     t = clampPunctuationPerSentence(t, rules.punctuation?.max_marks_per_sentence ?? 2);
 
     // char range + simple cleanup
-    t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
+    t = t.replace(/[:;…]/g, ",").replace(/["""']/g, "'");
     t = trimToRange(t, minLen, maxLen);
 
     // ensure at least one punctuation end
@@ -423,10 +336,7 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [], rules_id } = payload;
-
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
-    const rules = rules_id ? await loadRules(rules_id, origin) : null;
+    const { category, subcategory, tone, rating, insertWords = [] } = payload;
 
     let systemPrompt = text_rules;
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
@@ -456,21 +366,21 @@ serve(async (req) => {
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
     const fallbackRules = { length:{min_chars:70,max_chars:120}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":",",":":".",";":"."}}, max_sentences:1 };
-    const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
+    const enforced = enforceRules(candidates, fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
     let tries = 0;
     while (lines.length < 4 && tries < 2) {
       const need = 4 - lines.length;
       const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(more, rules ?? fallbackRules, rating || "PG-13", insertWords);
+      const enforcedMore = enforceRules(more, fallbackRules, rating || "PG-13", insertWords);
       lines = [...lines, ...enforcedMore.lines];
       tries++;
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 70);
-    const maxL = (rules?.length?.max_chars ?? 120);
+    const minL = 70;
+    const maxL = 120;
 
     const resp = {
       lines: lines.map((line, i) => ({
@@ -478,12 +388,12 @@ serve(async (req) => {
         length: line.length,
         index: i + 1,
         valid: line.length >= minL && line.length <= maxL &&
-               sentenceSplit(line).length <= (rules?.max_sentences ?? 1) &&
-               sentenceSplit(line).every(sent => (sent.match(/[.,?!]/g)||[]).length <= (rules?.punctuation?.max_marks_per_sentence ?? 2))
+               sentenceSplit(line).length <= 1 &&
+               sentenceSplit(line).every(sent => (sent.match(/[.,?!]/g)||[]).length <= 2)
       })),
       model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 7 }
+      rules_used: { id: "fallback", version: 7 }
     };
 
     return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
