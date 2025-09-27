@@ -143,12 +143,18 @@ function rand() {
   crypto.getRandomValues(b);
   return b[0] / 2 ** 32;
 }
-function choice<T>(arr: T[], weights?: number[]) {
+function choice<T>(arr: readonly T[], weights?: number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;
   for (let i = 0; i < arr.length; i++) { r -= weights[i]; if (r <= 0) return arr[i]; }
   return arr[arr.length - 1];
+}
+
+function parseLines(content: string): string[] {
+  return content.split(/\r?\n/)
+    .map((line: string) => line.replace(/^\d+\.\s*/, '').trim())
+    .filter(Boolean);
 }
 
 function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
@@ -455,7 +461,7 @@ serve(async (req) => {
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
     const enforced = enforceRules(
