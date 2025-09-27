@@ -79,12 +79,12 @@ serve(async (req) => {
     const { category, subcategory, tone, rating, insertWords = [] } = payload;
 
     let systemPrompt = text_rules;
-    if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
-    if (subcategory) systemPrompt += ` > ${subcategory}`;
-    if (tone) systemPrompt += `\nTONE: ${tone}`;
-    if (rating) systemPrompt += `\nRATING: ${rating}`;
-    if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    //if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
+   // if (subcategory) systemPrompt += ` > ${subcategory}`;
+    //if (tone) systemPrompt += `\nTONE: ${tone}`;
+   // if (rating) systemPrompt += `\nRATING: ${rating}`;
+    //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
+   // systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
     // Build dynamic user prompt based on actual selections
     let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
