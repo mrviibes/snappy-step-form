@@ -5,7 +5,7 @@ Write 4 funny, punchy, human-sounding one-liners.
 
 HARD CONSTRAINTS
 - Respect Tone, Rating, and make sure you use insert word naturally in every output
-- Length: 50–100 characters.
+- Length: 70–120 characters.
 - Max 1 sentences per output.
 - Max 2 punctuation marks per sentence (. , ? !).
 - No em dashes, colons, or semicolons — replace with commas or periods.

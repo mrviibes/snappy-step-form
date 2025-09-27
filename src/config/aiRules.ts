@@ -31,8 +31,8 @@ export interface AIRulesConfig {
   };
   variationRules: {
     setLevelRequirements: {
-      minShortLinesLt75: number;
-      minLongLinesGt100: number;
+      minShortLinesLt90: number;
+      minLongLinesGt110: number;
       requireQuestion: boolean;
       requireExclamation: boolean;
     };
@@ -90,8 +90,8 @@ export const aiRulesConfig: AIRulesConfig = {
     }
   },
   lengthRules: {
-    minChars: 50,
-    maxChars: 100,
+    minChars: 70,
+    maxChars: 120,
     enforceRange: true
   },
   formattingRules: {
@@ -110,8 +110,8 @@ export const aiRulesConfig: AIRulesConfig = {
   },
   variationRules: {
     setLevelRequirements: {
-      minShortLinesLt75: 1,
-      minLongLinesGt100: 1,
+      minShortLinesLt90: 1,
+      minLongLinesGt110: 1,
       requireQuestion: true,
       requireExclamation: true
     },

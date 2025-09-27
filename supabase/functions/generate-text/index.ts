@@ -23,11 +23,11 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       if (res.ok) { cachedRules = await res.json(); return cachedRules; }
     } catch {}
   }
-  // Fallback rules v7 (50–100 chars, max 2 punctuation / sentence, ≤1 sentence)
+  // Fallback rules v7 (70–120 chars, max 2 punctuation / sentence, ≤1 sentence)
   cachedRules = {
     id: rulesId,
     version: 7,
-    length: { min_chars: 50, max_chars: 100 },
+    length: { min_chars: 70, max_chars: 120 },
     punctuation: { ban_em_dash: true, replacement: { "—": ",", ":": ",", ";": "." }, allowed: [".", ",", "?", "!"], max_marks_per_sentence: 2 },
     max_sentences: 1,
     tones: {
@@ -142,7 +142,7 @@ function oneOrTwoSentences(s: string, maxSentences = 1) {
   return parts.slice(0, maxSentences).join(" ");
 }
 
-function trimToRange(s: string, min=50, max=100) {
+function trimToRange(s: string, min=70, max=120) {
   let out = s.trim().replace(/\s+/g, " ");
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
   
@@ -160,7 +160,7 @@ function trimToRange(s: string, min=50, max=100) {
 }
 
 // Keep setup + first punch within range
-function trimPunchline(line: string, min=50, max=100) {
+function trimPunchline(line: string, min=70, max=120) {
   let t = line.trim();
   
   // If already in range, return as is
@@ -275,7 +275,7 @@ function enforceRules(
   insertWords: string[] = []
 ) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 100;
+  const minLen = rules.length?.min_chars ?? 70;
   const maxLen = rules.length?.max_chars ?? 120;
 
   let processed = lines.map((raw, idx) => {
@@ -363,7 +363,7 @@ async function backfillLines(
 Do not repeat word pairs used in:
 ${block}
 Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
-CRITICAL: Each new line must be EXACTLY 50-100 characters long - count carefully! Make them complete, substantial thoughts.
+CRITICAL: Each new line must be EXACTLY 70-120 characters long - count carefully! Make them complete, substantial thoughts.
 Return exactly ${missing} new lines, one per line.`;
   const { content } = await callOpenAI(systemPrompt, user);
   return parseLines(content);
@@ -388,13 +388,13 @@ serve(async (req) => {
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
     systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
-    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. CRITICAL: Each line must be EXACTLY between 50-100 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.";
+    const userPrompt = "Create 4 distinct, funny one-liners about soccer/Scott. CRITICAL: Each line must be EXACTLY between 70-120 characters long - count carefully! Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.";
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
-    const fallbackRules = { length:{min_chars:50,max_chars:100}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":",",":":".",";":"."}}, max_sentences:1 };
+    const fallbackRules = { length:{min_chars:70,max_chars:120}, punctuation:{max_marks_per_sentence:2,ban_em_dash:true,replacement:{"—":",",":":".",";":"."}}, max_sentences:1 };
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
@@ -408,8 +408,8 @@ serve(async (req) => {
     }
     lines = lines.slice(0, 4);
 
-    const minL = (rules?.length?.min_chars ?? 50);
-    const maxL = (rules?.length?.max_chars ?? 100);
+    const minL = (rules?.length?.min_chars ?? 70);
+    const maxL = (rules?.length?.max_chars ?? 120);
 
     const resp = {
       lines: lines.map((line, i) => ({

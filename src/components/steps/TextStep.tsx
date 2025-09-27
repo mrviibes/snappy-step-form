@@ -331,7 +331,7 @@ export default function TextStep({
     });
   };
   const handleCustomTextChange = (value: string) => {
-    if (value.length <= 100) {
+    if (value.length <= 120) {
       setCustomText(value);
       setIsCustomTextSaved(false); // Reset saved status when editing
     }
@@ -768,9 +768,9 @@ export default function TextStep({
           </div>
           
           <div className="space-y-3">
-            <Input value={customText} onChange={e => handleCustomTextChange(e.target.value)} onKeyDown={handleCustomTextKeyDown} placeholder="Enter your text here (up to 100 characters)" maxLength={100} className="w-full" />
+            <Input value={customText} onChange={e => handleCustomTextChange(e.target.value)} onKeyDown={handleCustomTextKeyDown} placeholder="Enter your text here (up to 120 characters)" maxLength={120} className="w-full" />
             <div className="text-right text-sm text-muted-foreground">
-              {customText.length}/100 characters
+              {customText.length}/120 characters
             </div>
             
             {/* Save Button - only show when there's text to save */}
