@@ -111,14 +111,6 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 // ============== HELPERS ==============
 const STRONG_SWEARS = /(fuck(?:er|ing)?|f\*+|shit(?:ty)?|s\*+t|bastard|ass(?!ert)|a\*+|arse|bullshit|b\*+|goddamn|g\*+d|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
 
-function parseLines(content: string): string[] {
-  return content.split(/\r?\n/).map(line => cleanLine(line)).filter(Boolean);
-}
-
-function cleanLine(line: string): string {
-  return line.trim().replace(/^\d+\.\s*/, "").replace(/^[-*]\s*/, "");
-}
-
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function sentenceSplit(s: string) {
   // split on sentence enders while keeping text stable
