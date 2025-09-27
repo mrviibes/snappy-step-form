@@ -6,7 +6,7 @@ GOAL
 HARD CONSTRAINTS
 - Exact spelling. Insert words must appear exactly as written in every line.
 - Length 50 to 100 characters per output, no fewer, no more.
-- One sentence only. Max 2 punctuation marks total (. , ? !).
+- Each Output is ≤ 2 sentences, punctuation marks total ≤ 2 in each sentence (. , ? !).
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
 - Avoid padding with "that/which" unless essential.
 - No duplicate word pairs across the 4 outputs.
