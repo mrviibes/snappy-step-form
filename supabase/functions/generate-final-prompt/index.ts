@@ -12,14 +12,14 @@ interface FinalPromptRequest {
   completed_text: string;
   category: string;
   subcategory?: string;
-  tone: string;
-  rating: string;
+  tone: string;                     // e.g., "humorous"
+  rating: string;                   // kept for future use; not printed in minimal two-liner
   insertWords?: string[];
-  image_style: string;
-  text_layout: string;
-  image_dimensions: string;
+  image_style: string;              // e.g., "realistic"
+  text_layout: string;              // one of your 6 ids
+  image_dimensions: string;         // "square" | "portrait" | "landscape" | "custom"
   composition_modes?: string[];
-  visual_recommendation?: string;
+  visual_recommendation?: string;   // the “where Jesse…” sentence fragment
 }
 
 interface PromptTemplate {
@@ -31,6 +31,25 @@ interface PromptTemplate {
 
 function json(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
+}
+
+// Compact layout tag phrases for Gemini
+const layoutTagShort: Record<string, string> = {
+  "negative-space": "clean modern text, open area",
+  "meme-text": "bold top/bottom meme text",
+  "lower-banner": "strong bottom banner caption",
+  "side-bar": "vertical side stacked text",
+  "badge-callout": "floating stylish text badge",
+  "subtle-caption": "small understated corner caption"
+};
+
+function aspectLabel(dim: string) {
+  const d = (dim || "").toLowerCase();
+  if (d === "square") return "square 1:1";
+  if (d === "portrait") return "portrait 9:16";
+  if (d === "landscape") return "landscape 16:9";
+  // if custom, let caller pass specifics inside visual_recommendation if needed
+  return "";
 }
 
 serve(async (req) => {
@@ -50,62 +69,42 @@ serve(async (req) => {
   }
 });
 
-function splitAtFirstComma(s: string) {
-  const i = s.indexOf(",");
-  return i >= 0 ? { a: s.slice(0, i).trim(), b: s.slice(i + 1).trim() } : { a: s.trim(), b: "" };
-}
-
-function typographyFor(layout: string) {
-  switch (layout) {
-    case "negative-space":
-      return "modern sans-serif, mixed case, high contrast; 1–2 px outline or soft shadow; no banner; placed in open area with 10–15% padding";
-    case "subtle-caption":
-      return "clean sans-serif, mixed case, medium weight; high contrast; 5–7% padding";
-    case "badge-callout":
-      return "compact sans-serif; minimal outline; tight line-length; no filled shape";
-    case "side-bar":
-      return "stacked sans-serif; consistent line height; 6–8% side padding; no panel";
-    case "lower-banner":
-      return "centered sans-serif; thin outline; no banner fill; margin above bottom edge";
-    case "meme-text":
-    default:
-      return "ALL CAPS white with thin black outline; top and bottom; 6–8% safe padding; no background panels";
-  }
-}
-
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
-    completed_text, category, subcategory, tone, rating,
-    image_style, text_layout, image_dimensions,
-    composition_modes = [], visual_recommendation
+    completed_text,
+    category,
+    subcategory,
+    tone,
+    image_style,
+    text_layout,
+    image_dimensions,
+    visual_recommendation = ""
   } = p;
 
-  // For meme texts, show split explicitly; otherwise keep it simple.
-  let splitDetail = "";
-  if (text_layout === "meme-text") {
-    const { a, b } = splitAtFirstComma(completed_text);
-    if (b) splitDetail = `Split at first comma → top="${a}" bottom="${b}".`;
-  } else if (text_layout === "negative-space") {
-    // tiny definition so humans and models stop guessing
-    splitDetail = "Place caption in a clean open area; avoid busy detail around text.";
-  }
+  // Build the exact minimal style you asked for
+  const cat = (subcategory || category || "").toLowerCase().trim();
+  const toneStr = (tone || "").toLowerCase().trim();
+  const styleStr = (image_style || "").toLowerCase().trim();
+  const aspect = aspectLabel(image_dimensions);
+  const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
 
-  const ctx = [category, subcategory].filter(Boolean).join("/");
-  const comp = composition_modes.length ? `${composition_modes[0]} composition.` : "balanced composition.";
+  // First line: A realistic humorous wedding scene where ...
+  // Include aspect if present, but keep it light.
+  const aspectChunk = aspect ? ` ${aspect},` : "";
+  const positiveLine1 =
+    `A ${styleStr}${aspectChunk} ${toneStr} ${cat} scene ${where || ""}`.replace(/\s+/g, " ").trim().replace(/\.\s*$/, "") + ".";
 
-  // Compact, contradiction-free Gemini positive prompt (<80 words target)
-  const positive = [
-    `MANDATORY TEXT: "${completed_text}"`,
-    `Layout: ${text_layout}. ${splitDetail}`.trim(),
-    `Typography: ${typographyFor(text_layout)}.`,
-    `Style: ${image_style}; Aspect: ${image_dimensions}; Tone: ${tone}; Rating: ${rating}.`,
-    `Scene: ${ctx}. ${visual_recommendation ? `Visuals: ${visual_recommendation}.` : ""}`.trim(),
-    `Look: bright key light, vivid saturation, crisp focus, cinematic contrast.`
-  ].join(" ");
+  // Second line: With exact text "..." in (layout): <short tag>
+  const layoutKey = String(text_layout || "").toLowerCase();
+  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
+  const positiveLine2 =
+    `With exact text "${completed_text}" in (${layoutKey}): ${layoutTag}`;
+
+  const positive = `${positiveLine1}\n\n${positiveLine2}`;
 
   return [{
-    name: "Gemini 2.5 Template",
-    description: `Compact ${ctx} prompt with ${tone}/${rating}; typography obeys ${text_layout} rules.`,
+    name: "Gemini 2.5 Minimal",
+    description: "Two-line compact prompt with exact text and concise layout tag.",
     positive,
     negative: "" // Gemini: positive-only
   }];
