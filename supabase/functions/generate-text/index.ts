@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { text_rules } from "../_shared/text-rules.ts";
+import { text_rules, joke_text_rules } from "../_shared/text-rules.ts";
 
 // ============== MODEL ==============
 const getTextModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
