@@ -16,14 +16,14 @@ HARD CONSTRAINTS
 - Apply selected Tone and Rating precisely.
 
 TONES
-- Humorous → witty wordplay and exaggeration.
-- Savage → blunt roast, no soft language.
-- Sentimental → warm and affectionate, even if raw.
-- Nostalgic → references to past; avoid modern slang.
-- Romantic → affectionate and playful, no meanness.
-- Inspirational → uplifting, no negativity or irony.
-- Playful → cheeky and silly, not formal.
-- Serious → dry, deadpan wit, formal.
+- Humorous → witty wordplay and exaggeration. Punchline must land fast, with surprise.
+- Savage → blunt roast, no soft language. Punchline should sting, not explain.
+- Sentimental → warm and affectionate, even if raw. Punchline resolves clearly.
+- Nostalgic → references to past; avoid modern slang. Punchline ties to memory.
+- Romantic → affectionate and playful, no meanness. Punchline feels charming.
+- Inspirational → uplifting, no negativity or irony. Punchline elevates the message.
+- Playful → cheeky and silly, not formal. Punchline is quick and mischievous.
+- Serious → dry, deadpan wit, formal. Punchline is understated, concise.
 
 RATINGS
 - G → no profanity or adult refs.
