@@ -89,7 +89,7 @@ serve(async (req) => {
     
     if(category.toLowerCase() == 'jokes'){
       
-      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding ${subcategory.toLowerCase()} type jokes`;
+      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes`;
       
       if (insertWords.length > 0) {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
