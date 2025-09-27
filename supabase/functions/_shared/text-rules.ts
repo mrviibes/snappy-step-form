@@ -1,10 +1,9 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 
 
-- Otherwise, write 4 humorous one-liners.
 
 GLOBAL HARD CONSTRAINTS
-- Return exactly 4 lines, one per line. No numbering, bullets, or explanations.
+- Return exactly 4 lines, one per outputs. No numbering, bullets, or explanations.
 - Each "insert word" or token must appear exactly as provided in every line, naturally placed.
 - Vary token positions across the 4 outputs (collectively cover start, middle, end).
 - Length 60–120 characters per line. Aim for varied lengths (e.g., near 65, 85, 105, 120).
