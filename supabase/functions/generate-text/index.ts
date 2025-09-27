@@ -181,17 +181,7 @@ serve(async (req) => {
           messages: [
             { 
               role: "system", 
-              content: `You are an expert comedy writer specializing in witty, clever one-liners. Your writing is sharp, memorable, and perfectly crafted for the target audience.
-
-CRITICAL QUALITY STANDARDS:
-- Each line must be genuinely funny and clever
-- Avoid obvious or cliché jokes
-- Focus on unexpected wordplay and smart observations
-- Make every word count - no filler
-- Land the punchline in the final few words
-- Ensure tone matches the requested style perfectly
-
-Follow ALL provided rules exactly. Output exactly 4 lines, one sentence per line, no numbering or bullets.` 
+              content: text_rules
             },
             { role: "user", content: prompt }
           ]
