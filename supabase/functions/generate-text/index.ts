@@ -89,7 +89,7 @@ serve(async (req) => {
     
     if(category.toLowerCase() == 'jokes'){
       
-      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes`;
+      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes but never state or repeat the ${subcategory} name itself (e.g., do not write ‘dad joke’, ‘pun’, or similar labels). Imply the style through wording only. `;
       
       if (insertWords.length > 0) {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')} and not include ${subcategory} words`;
