@@ -88,13 +88,7 @@ serve(async (req) => {
 
     if(category.toLowerCase() == 'jokes'){
       
-      let userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
-
-      if (category && subcategory) {
-        userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
-      } else if (category) {
-        userPrompt += ` about ${category.toLowerCase()}`;
-      }
+      let userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding ${subcategory.toLowerCase()} type jokes`;
       
       if (insertWords.length > 0) {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
