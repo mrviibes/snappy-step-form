@@ -23,16 +23,16 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
       if (res.ok) { cachedRules = await res.json(); return cachedRules; }
     } catch {}
   }
-  // Fallback rules v6 (60–120 chars, max 3 punctuation)
+  // Fallback rules v7 (60–120 chars, max 2 punctuation)
   cachedRules = {
     id: rulesId,
-    version: 6,
+    version: 7,
     length: { min_chars: 60, max_chars: 120 },
     punctuation: {
       ban_em_dash: true,
       replacement: { "—": "," },
       allowed: [".", ",", "?", "!"],
-      max_marks_per_line: 3
+      max_marks_per_line: 2
     },
     tones: {
       "Humorous": { rules: ["witty","wordplay","exaggeration"] },
@@ -73,7 +73,7 @@ function buildOpenAIRequest(
 
 async function callOpenAI(systemPrompt: string, userPrompt: string) {
   let model = getTextModel();
-  let maxTokens = model.startsWith("gpt-5") ? 4000 : 300;
+  let maxTokens = model.startsWith("gpt-5") ? 4000 : 320;
 
   try {
     const req = buildOpenAIRequest(model, [
@@ -94,8 +94,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
   } catch {
     model = "gpt-4o-mini";
-    maxTokens = 220;
-
+    maxTokens = 240;
     const req = buildOpenAIRequest(model, [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
@@ -116,6 +115,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
 // ============== HELPERS ==============
 const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
+
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
@@ -127,15 +127,14 @@ function trimToRange(s: string, min=60, max=120) {
   return out;
 }
 
-// NEW: tighten a meandering line to setup + first punch within range
+// Keep setup + first punch within range
 function trimPunchline(line: string, min=60, max=120) {
   let t = line.trim();
   if (t.length <= max) return t;
-  // Keep setup + first delimiter punch
   const parts = t.split(/[,!?]/);
   if (parts.length > 1) t = `${parts[0]},${parts[1]}`.trim();
   if (t.length > max) t = t.slice(0, max).trim();
-  if (t.length < min) t = trimToRange(line, min, max); // fallback
+  if (t.length < min) t = trimToRange(line, min, max);
   return t;
 }
 
@@ -146,30 +145,26 @@ function bigramSet(s: string) {
   return set;
 }
 
-// UPDATED: always distribute insert position start/middle/end across first three lines
+// Always distribute insert positions: start / middle / end for 1–3
 function varyInsertPositions(lines: string[], insert: string) {
   return lines.map((line, idx) => {
     let clean = line.trim();
     const has = new RegExp(`\\b${insert}\\b`, "i").test(clean);
-    if (!has) clean = `${clean.split(/[.,?!]/)[0]}, ${insert}.`; // ensure presence
+    if (!has) clean = `${clean.split(/[.,?!]/)[0]}, ${insert}.`;
 
     if (idx === 0) {
-      // Start
       if (!clean.toLowerCase().startsWith(insert.toLowerCase())) clean = `${insert} ${clean}`;
       return clean;
     } else if (idx === 1) {
-      // Middle
       const w = clean.split(/\s+/);
       const mid = Math.max(1, Math.floor(w.length / 2));
       if (!new RegExp(`\\b${insert}\\b`, "i").test(w.join(" "))) w.splice(mid, 0, insert);
       return w.join(" ");
     } else if (idx === 2) {
-      // End
       if (!clean.toLowerCase().endsWith(insert.toLowerCase())) clean = `${clean.replace(/[.,?!]*$/, "")}, ${insert}`;
       return clean;
     }
-    // 4th: leave for natural variation
-    return clean;
+    return clean; // 4th: natural variety
   });
 }
 
@@ -211,7 +206,7 @@ function cleanLine(raw: string) {
 
 function parseLines(raw: string): string[] {
   const candidates = raw.split(/\r?\n+/).map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim()).filter(Boolean);
-  const lines = candidates.filter(s => s.length >= 50 && s.length <= 200 && oneSentence(s));
+  const lines = candidates.filter(s => s.length >= 50 && s.length <= 220 && oneSentence(s));
   return lines.map(cleanLine);
 }
 
@@ -231,7 +226,7 @@ function enforceRules(
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
 
-    const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
+    const maxPunc = rules.punctuation?.max_marks_per_line ?? 2;
     if (countPunc(t) > maxPunc) {
       let kept = 0;
       t = t.replace(/[.,?!]/g, (m) => (++kept <= maxPunc ? m : ""));
@@ -248,7 +243,9 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
-    // ensure first insert is present; we will redistribute later
+    // ensure at least one punctuation (punch marker)
+    if (countPunc(t) === 0) t = `${t}.`;
+
     for (const w of insertWords) {
       if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
         t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
@@ -260,7 +257,7 @@ function enforceRules(
     return t;
   });
 
-  // Normalize taggy endings then force position distribution
+  // Normalize tacked-on endings then force insert distribution
   if (insertWords?.length === 1) {
     processed = processed.map(l => deTagInsert(l, insertWords[0]));
     processed = varyInsertPositions(processed, insertWords[0]);
@@ -305,10 +302,9 @@ function enforceRules(
     });
   }
 
-  // Trim meandering lines to a crisp setup + punch
+  // Final punch trim, then de-dup near copies by bigrams
   processed = processed.map(l => trimPunchline(l, minLen, maxLen));
 
-  // De-dup near copies by bigrams
   const unique: string[] = [];
   const seen = new Set<string>();
   for (const l of processed) {
@@ -358,7 +354,7 @@ serve(async (req) => {
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 holrious and sentences, one per line.`;
+    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
 
     const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
@@ -366,7 +362,7 @@ serve(async (req) => {
     let candidates = parseLines(raw);
     if (candidates.length < 4) candidates = raw.split(/\r?\n+/).map(cleanLine).filter(Boolean);
 
-    const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:3,ban_em_dash:true,replacement:{"—":","}} };
+    const fallbackRules = { length:{min_chars:60,max_chars:120}, punctuation:{max_marks_per_line:2,ban_em_dash:true,replacement:{"—":","}} };
     const enforced = enforceRules(candidates, rules ?? fallbackRules, rating || "PG-13", insertWords);
     let lines = enforced.lines;
 
@@ -389,11 +385,11 @@ serve(async (req) => {
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= 3 && oneSentence(line)
+        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= (rules?.punctuation?.max_marks_per_line ?? 2) && oneSentence(line)
       })),
       model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 6 },
+      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 7 },
       enforcement: enforced.enforcement
     };
 
