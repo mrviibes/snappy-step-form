@@ -143,7 +143,7 @@ function rand() {
   crypto.getRandomValues(b);
   return b[0] / 2 ** 32;
 }
-function choice<T>(arr: T[], weights?: number[]) {
+function choice<T>(arr: readonly T[], weights?: readonly number[]) {
   if (!weights) return arr[Math.floor(rand() * arr.length)];
   const total = weights.reduce((a, b) => a + b, 0);
   let r = rand() * total;
@@ -156,6 +156,26 @@ function rejoinClauses(clauses: string[]) {
   let out = clauses.join(", ");
   out = out.replace(/[.?!]\s*$/, "") + ".";
   return out.replace(/\s+/g, " ").trim();
+}
+
+function parseLines(content: string): string[] {
+  const lines = content
+    .split(/\r?\n+/)
+    .map((l: string) =>
+      l
+        .replace(/^\s*[-*•]\s*/, "")
+        .replace(/^\s*\d+[.)]\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+  if (lines.length <= 1 && /1[.)]\s/.test(content)) {
+    const parts = content
+      .split(/\s(?=\d[.)]\s)/g)
+      .map((s: string) => s.replace(/^\d[.)]\s*/, "").trim())
+      .filter(Boolean);
+    if (parts.length > 1) return parts;
+  }
+  return lines.slice(0, 12);
 }
 
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
@@ -455,7 +475,7 @@ serve(async (req) => {
 
     let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = raw.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
     const enforced = enforceRules(
