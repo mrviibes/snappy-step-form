@@ -30,7 +30,7 @@ RATINGS
   - Replace any stronger or censored profanity (f***, f*ing, s**t, etc.) with clean phrasing.
   - No slurs or hate speech; keep roasts clever, not abusive.
 - R (Raw, Unfiltered) →
-  - Must include uncensored profanity in every line.
+  - Must include uncensored profanity in every output.
   - Profanity must vary across the 4 outputs.
   - Profanity is not limited to a fixed list; any strong language that fits tone.
   - Can be savage roast or celebratory hype.

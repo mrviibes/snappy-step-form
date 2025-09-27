@@ -27,18 +27,85 @@ async function loadRules(rulesId: string, origin?: string): Promise<any> {
   cachedRules = {
     id: rulesId,
     version: 7,
-    length: { min_chars: 100, max_chars: 120 },
+    length: { min_chars: 50, max_chars: 100 },
     punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 2 },
     tones: {
-      "Humorous": { rules: ["witty","wordplay","exaggeration"] },
-      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
-      "Sentimental": { rules: ["warm","affectionate","no_sarcasm"] },
-      "Nostalgic": { rules: ["past_refs","no_modern_slang"] },
-      "Romantic": { rules: ["affectionate","playful","no_mean"] },
-      "Inspirational": { rules: ["uplifting","no_negativity_or_irony"] },
-      "Playful": { rules: ["cheeky","silly","no_formal"] },
-      "Serious": { rules: ["dry","deadpan","formal_weight"] }
+    "Humorous": { 
+      rules: [
+        "witty", 
+        "wordplay", 
+        "exaggeration", 
+        "punchline_fast", 
+        "punchline_surprise"
+      ], 
+      description: "Humorous → witty wordplay and exaggeration. Punchline must land fast, with surprise."
     },
+    "Savage": { 
+      rules: [
+        "blunt", 
+        "cutting", 
+        "roast_style", 
+        "no_soft_language", 
+        "punchline_sting", 
+        "no_explain"
+      ], 
+      description: "Savage → blunt roast, no soft language. Punchline should sting, not explain."
+    },
+    "Sentimental": { 
+      rules: [
+        "warm", 
+        "affectionate", 
+        "no_sarcasm", 
+        "punchline_resolves_clearly"
+      ], 
+      description: "Sentimental → warm and affectionate, even if raw. Punchline resolves clearly."
+    },
+    "Nostalgic": { 
+      rules: [
+        "past_refs", 
+        "no_modern_slang", 
+        "punchline_ties_to_memory"
+      ], 
+      description: "Nostalgic → references to past; avoid modern slang. Punchline ties to memory."
+    },
+    "Romantic": { 
+      rules: [
+        "affectionate", 
+        "playful", 
+        "no_mean", 
+        "punchline_charming"
+      ], 
+      description: "Romantic → affectionate and playful, no meanness. Punchline feels charming."
+    },
+    "Inspirational": { 
+      rules: [
+        "uplifting", 
+        "no_negativity_or_irony", 
+        "punchline_elevates_message"
+      ], 
+      description: "Inspirational → uplifting, no negativity or irony. Punchline elevates the message."
+    },
+    "Playful": { 
+      rules: [
+        "cheeky", 
+        "silly", 
+        "no_formal", 
+        "punchline_quick", 
+        "punchline_mischievous"
+      ], 
+      description: "Playful → cheeky and silly, not formal. Punchline is quick and mischievous."
+    },
+    "Serious": { 
+      rules: [
+        "dry", 
+        "deadpan", 
+        "formal_weight", 
+        "punchline_understated", 
+        "punchline_concise"
+      ], 
+      description: "Serious → dry, deadpan wit, formal. Punchline is understated, concise."
+    },
+
     ratings: {
       "G": { allow_profanity: false, allow_censored_swears: false },
       "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
