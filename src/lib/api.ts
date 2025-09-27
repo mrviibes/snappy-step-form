@@ -244,11 +244,17 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
 export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{templates: Array<{name: string, positive: string, negative: string, description: string}>}> {
   try {
     const res = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
-    if (!res || !(res as any).success) {
-      throw new Error((res as any)?.error || "Template generation failed");
+    console.log('📥 Raw response from generate-final-prompt:', res);
+    
+    if (!res || !res.success) {
+      console.error('❌ Response validation failed:', { res, hasRes: !!res, success: res?.success });
+      const errorMessage = res && 'error' in res ? res.error : "Template generation failed";
+      throw new Error(errorMessage);
     }
+    
+    console.log('✅ Successfully parsed templates:', res.templates);
     return {
-      templates: (res as any).templates
+      templates: res.templates
     };
   } catch (error) {
     console.error('Template generation failed:', error);
