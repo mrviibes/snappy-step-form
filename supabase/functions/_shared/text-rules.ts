@@ -19,6 +19,7 @@ GLOBAL HARD CONSTRAINTS
 - Avoid padding with "that/which" unless essential.
 - No duplicate word pairs across the 4 outputs (unique bigrams across lines).
 - Apply the selected Tone and Rating precisely.
+- Do not use Q&A scaffolds such as "Why did...", "What do you call...", or "Did you hear...".
 
 JOKE MODE (applies when category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
