@@ -1,11 +1,11 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-- Generate 4 distinct, funny, human-sounding one-liners.
+- Generate 4 funny and hillarious human-sounding one-liners.
 
 HARD CONSTRAINTS
-- Exact spelling. Insert words must appear in every output naturally
-- Length: 100–120 characters.
+- Respect Tone, Rating, and make sure you use insert word naturally in every output
+- Length: 50–120 characters.
 - Max 2 sentences per output.
 - Max 2 punctuation marks per sentence (. , ? !).
 - No em dashes, colons, or semicolons — replace with commas or periods.
