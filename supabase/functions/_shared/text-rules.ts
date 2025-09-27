@@ -1,14 +1,12 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-- Generate 4 distinct humorous one-liners.
+- Generate 4 hilarious distinct one-liners that feel human written.
 
 HARD CONSTRAINTS
 - Exact spelling. Insert words must appear exactly as written in every line.
-- Insert words must vary position across the 4 outputs (start, middle, end).
 - Length 60–120 characters per line, no fewer, no more.
-- One sentence only. Max 3 punctuation marks total (. , ? !).
-- No greetings (e.g., "Happy birthday,"). No emojis.
+- One sentence only. Max 2 punctuation marks total (. , ? !).
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
 - No filler phrases: finally, trust me, here's to, may your, another year of.
 - Avoid padding with "that/which" unless essential.

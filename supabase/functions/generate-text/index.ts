@@ -358,7 +358,7 @@ serve(async (req) => {
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
     if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    systemPrompt += `\n\nReturn exactly 4 holrious and sentences, one per line.`;
 
     const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
