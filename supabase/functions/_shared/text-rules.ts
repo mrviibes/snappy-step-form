@@ -4,13 +4,8 @@ GOAL
 Write 4 funny, punchy, human-sounding distinct one-liners.
 
 HARD CONSTRAINTS
-- Respect Tone, Rating, and make sure you use insert word naturally in every output
-- Length: 0-120 characters.
-- must display 4 final outputs
-- Max 1 sentences per output.
-- Max 2 punctuation marks per output (. , ? !).
-- No em dashes, colons, or semicolons — replace with commas or periods.
-- No duplicate word pairs across the 4 outputs.
+
+-Output 4 hilarious one-liners (0–120 characters) based on the chosen subcategory, but never use the words ‘joke’ or ‘jokes’ and never mention the subcategory name itself (e.g., say ‘dad’ instead of ‘dad joke’). Each must match the tone and rating, use required words naturally, and be a single sentence with ≤2 punctuation marks.”
 
 TONES
 - Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
