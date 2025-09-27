@@ -59,23 +59,6 @@ function varyInsertPositions(lines: string[], token: string) {
   });
 }
 
-const LENGTH_BUCKETS = [68, 85, 105, 118];
-function normalizeLength(l: string, target: number) {
-  let s = l.trim();
-  if (s.length > target + 6) {
-    s = s.slice(0, target).replace(/\s+\S*$/, "").trim();
-  } else if (s.length < Math.max(60, target - 8)) {
-    const tails = [
-      "which feels exactly right today",
-      "and somehow that was the highlight",
-      "and the room politely agreed",
-      "which tracks, given the evidence",
-    ];
-    s = s.replace(/[.?!]\s*$/, "");
-    s += ", " + tails[Math.floor(Math.random() * tails.length)] + ".";
-  }
-  return endPunct(s);
-}
 
 function enforceRating(s: string, rating: "G"|"PG"|"PG-13"|"R") {
   if (rating === "R") return s;
@@ -234,9 +217,6 @@ serve(async (req) => {
       });
 
     if (primaryToken && lines.length) lines = varyInsertPositions(lines, primaryToken);
-
-    const idxs = [0,1,2,3].sort(() => Math.random() - 0.5);
-    lines = lines.map((l, i) => normalizeLength(l, LENGTH_BUCKETS[idxs[i % LENGTH_BUCKETS.length]]));
 
     lines = dedupeFuzzy(lines, 0.6);
 
