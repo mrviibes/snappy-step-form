@@ -92,7 +92,7 @@ serve(async (req) => {
       userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes`;
       
       if (insertWords.length > 0) {
-        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
+        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')} and not include ${subcategory} words`;
       }
       
       userPrompt += `. CRITICAL: Do not use the word "joke" in the output. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
