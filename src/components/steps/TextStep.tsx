@@ -705,24 +705,6 @@ export default function TextStep({
 
 
 
-          {/* Payload Preview */}
-          {(data.text?.specificWords?.length > 0 || tagInput.trim()) && (
-            <div className="bg-muted/50 border border-border rounded-lg p-3">
-              <div className="text-xs text-muted-foreground mb-1">Words that will be included:</div>
-              <div className="flex flex-wrap gap-1">
-                {data.text?.specificWords?.map((word, idx) => (
-                  <span key={idx} className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                    {word}
-                  </span>
-                ))}
-                {tagInput.trim() && (
-                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                    {tagInput.trim()} (pending)
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Generate Button */}
           <div className="w-full">
@@ -831,19 +813,6 @@ export default function TextStep({
                 </div>
               </div>
               
-              {/* Payload Preview */}
-              {data.text?.specificWords?.length > 0 && (
-                <div className="bg-muted/50 border border-border rounded-lg p-3">
-                  <div className="text-xs text-muted-foreground mb-1">Words that will be included:</div>
-                  <div className="flex flex-wrap gap-1">
-                    {data.text.specificWords.map((word, idx) => (
-                      <span key={idx} className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
-                        {word}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Generate Button - Full width on mobile */}
               <div className="w-full space-y-3">
