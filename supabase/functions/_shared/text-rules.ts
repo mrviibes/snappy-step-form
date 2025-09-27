@@ -36,17 +36,14 @@ RATINGS
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
-Right now your constraints read like a cranky teacher’s rubric. You can actually collapse them into a handful of clear bullets without losing teeth. Here’s the **simplified version**:
-
----
 
 ### HARD CONSTRAINTS 
 
-- Output **exactly 4 one-liners**, each 0–120 characters.
-- One sentence only** per line, ending with proper punctuation.
-- Use at most **2 punctuation marks** (. , ? !) per line.
-- Never use the words **“joke” / “jokes”** or mention the **subcategory name**.
-- Each line must **fit the chosen tone and rating** and naturally include any required insert words.
+- Output exactly 4 one-liners, each 0–120 characters.
+- One sentence only per line, ending with proper punctuation.
+- Use at most 2 punctuation marks (. , ? !) per line.
+- Never use the words “joke” / “jokes” or mention the subcategory name.
+- Each line must fit the chosen tone and rating and naturally include any required insert words.
 - No duplicate word pairs across the 4 lines.
 
 --
