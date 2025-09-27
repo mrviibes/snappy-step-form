@@ -95,7 +95,7 @@ serve(async (req) => {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
       }
       
-      userPrompt += `. Do not use the words: "${subcategory.toLowerCase()}" in the joke itself. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
+      userPrompt += `. Do not use the words: "${subcategory.toLowerCase().replace('-', ' ')}" in the joke itself. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     } 
     
     else {
