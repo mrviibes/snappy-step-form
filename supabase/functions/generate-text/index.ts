@@ -85,7 +85,7 @@ serve(async (req) => {
     //if (tone) systemPrompt += `\nTONE: ${tone}`;
    // if (rating) systemPrompt += `\nRATING: ${rating}`;
     //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    systemPrompt += `\n\nCRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete sentence ending with punctuation. Use newline characters between each line. Do not write paragraphs or combine multiple sentences on one line.`;
     
     if(category.toLowerCase() == 'jokes'){
       
@@ -95,7 +95,7 @@ serve(async (req) => {
         userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
       }
       
-      userPrompt += `. Do not use the words: "${subcategory.toLowerCase().replace('-', ' ')}" in the joke itself. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
+      userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
     } 
     
     else {
@@ -117,13 +117,29 @@ serve(async (req) => {
     
     const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
 
-    // Simple line parsing and filtering
+    // Enhanced parsing with fallback for paragraph responses
     let lines = raw
       .split(/\r?\n+/)
       .map((line: string) => line.replace(/^\d+\.\s*/, ' ').replace(/^-\s*/, ' ').trim())
-      .filter(Boolean)
-      
-      .slice(0, 4);
+      .filter(Boolean);
+    
+    // Fallback: if we got fewer than 4 lines, try splitting by sentence endings
+    if (lines.length < 4) {
+      lines = raw
+        .split(/[.!?]+/)
+        .map((sentence: string) => sentence.trim())
+        .filter((sentence: string) => sentence.length > 10)
+        .slice(0, 4);
+    }
+    
+    lines = lines.slice(0, 4);
+    
+    // For jokes category, clean up any "dad joke" references that slipped through
+    if (category.toLowerCase() === 'jokes') {
+      lines = lines.map((line: string) => 
+        line.replace(/\b(dad joke|dad-joke)s?\b/gi, '').replace(/\s+/g, ' ').trim()
+      );
+    }
 
     const resp = {
       lines: lines.map((line: string, i: number) => ({
