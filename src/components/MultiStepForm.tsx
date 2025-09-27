@@ -10,6 +10,7 @@ interface FormData {
   category: string;
   subcategory: string;
   theme?: string;
+  specificItem?: string;
   text: {
     tone: string;
     writingPreference: string;
@@ -90,6 +91,7 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
+        // For Pop Culture category, specificItem is optional but category and subcategory are required
         return !!formData.category && !!formData.subcategory;
       case 2:
         // Special case for "no-text" - only need tone and writing preference
