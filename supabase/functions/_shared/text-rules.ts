@@ -1,21 +1,14 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — ONE-LINERS & JOKES
 
 GOAL
-- Produce 4 distinct outputs that satisfy all constraints.
-- If category starts with "jokes", write jokes in the chosen joke style.
-- If category starts with "pop-culture", write context-aware one-liners in that subcategory style.
-- Otherwise, write humorous one-liners.
+- Produce 4 holarious outputs that satisfy all constraints.
+
 
 GLOBAL HARD CONSTRAINTS
-- Exactly 4 lines, one per line. No numbering, bullets, or explanations.
+
 - Each insert word/token appears verbatim in every line, used naturally.
-- Vary token position across the 4 lines (collectively cover start/middle/end).
-- Length 60–120 characters per line; one sentence per line; max 3 punctuation marks (. , ? !).
-- No greetings or emojis. No em dashes, colons, semicolons (use commas or end the sentence).
-- Remove filler: finally, trust me, here's to, may your, another year of.
-- Avoid padding with "that/which" unless essential.
-- No duplicate word pairs across lines (unique bigrams).
-- No meta commentary anywhere.
+- Length 60–120 characters per output; 3 punctuation marks (. , ? !).
+
 
 JOKE MODE (category starts with "jokes")
 - Use the subcategory as the joke style (e.g., break-up-jokes, bar-jokes, dad-jokes, stand-up-comedy).
@@ -25,19 +18,16 @@ POP-CULTURE MODE (category starts with "pop-culture")
 - Use the subcategory as the cultural frame (movies, celebrities, music, sports icons, influencers, memes, video games, etc.).
 - Cues by type: movies (characters/scenes/motifs/props), celebrities (spotlight/gossip/backstage), sports (feats/records/quirks), games (levels/bosses/combos without UI), influencers/social (trends/ring light/link-in-bio), memes/TikTok (template energy/loops/transitions).
 
-ROLE-AWARE TOKENS
-- Roles: person, group, character, title (movie/show/song), venue, city, event, timeslot, topic, brand, catchphrase, callback, meme.
-- Use ALL tokens exactly as written in EVERY line, placed naturally:
-  • person/character → subject or tag after a clause
-  • title → scene-/persona-aware mention
-  • venue/city/timeslot → opener tag, parenthetical, or setting mid-clause
-  • topic/brand/meme → mid-setup or punch
-  • callback/catchphrase → punchline or echo tag
-- Vary token locations across outputs; do not cluster.
 
 TONES
-- Humorous (witty/exaggeration), Savage (blunt/roast), Sentimental (warm), Nostalgic (past-facing),
-  Romantic (affectionate/playful), Inspirational (uplifting), Playful (cheeky), Serious (dry/deadpan).
+- Humorous → witty wordplay and exaggeration.
+- Savage → blunt roast, cutting, no soft language.
+- Sentimental → warm, affectionate, no sarcasm.
+- Nostalgic → references to the past, avoid modern slang.
+- Romantic → affectionate, playful, no meanness.
+- Inspirational → uplifting, no negativity or irony.
+- Playful → cheeky, silly, not formal.
+- Serious → dry, deadpan, formal tone with weight.
 
 RATINGS
 - G → no profanity or adult refs.
