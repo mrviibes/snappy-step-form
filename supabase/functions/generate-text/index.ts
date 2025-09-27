@@ -162,9 +162,7 @@ serve(async (req) => {
     const isBirthday = (category || "").toLowerCase().startsWith("celebrations") && /birthday/i.test(subcategory || "");
     if (isBirthday) {
       prompt += `\n\nHUMOR NUDGE — BIRTHDAY
-- Prefer oddly-specific birthday props (cake collapse, fire-hazard candles, sagging balloons, confetti cleanup, wish inflation).
-- Avoid cliché "trip around the sun" or bodily function jokes.
-- One sentence only; land the punch in the last 3–6 words.`;
+
     }
 
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
