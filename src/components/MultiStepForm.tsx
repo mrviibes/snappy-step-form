@@ -90,9 +90,6 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
-        if (formData.category === 'jokes') {
-          return !!formData.category && !!formData.subcategory && !!formData.theme;
-        }
         return !!formData.category && !!formData.subcategory;
       case 2:
         // Special case for "no-text" - only need tone and writing preference

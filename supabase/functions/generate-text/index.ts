@@ -2,69 +2,67 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { text_rules } from "../_shared/text-rules.ts";
 
-// ===================== MODEL PICKER =====================
+// ============== MODEL ==============
 const getTextModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
 const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
 
-// ===================== CORS =====================
+// ============== CORS ==============
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ===================== RULES CACHE/LOADER =====================
+// ============== RULES LOADER ==============
 let cachedRules: any = null;
-
 async function loadRules(rulesId: string, origin?: string): Promise<any> {
   if (cachedRules && cachedRules.id === rulesId) return cachedRules;
 
-  // Try loading from caller origin (/public/config/<rulesId>.json)
   if (origin) {
     try {
       const rulesUrl = `${origin}/config/${rulesId}.json`;
-      const response = await fetch(rulesUrl);
-      if (response.ok) {
-        cachedRules = await response.json();
+      const res = await fetch(rulesUrl);
+      if (res.ok) {
+        cachedRules = await res.json();
         return cachedRules;
       }
-    } catch { /* ignore, fallback below */ }
+    } catch {}
   }
 
-  // Fallback embedded rules (v5)
+  // Fallback rules v9 (jokes-aware, tokens, natural R placement, spellcheck support)
   cachedRules = {
-    id: rulesId,
-    version: 5,
-    length: { min_chars: 50, max_chars: 90 },
-    punctuation: {
-      ban_em_dash: true,
-      replacement: { "—": "," },
-      allowed: [".", ",", "?", "!"],
-      max_marks_per_line: 1
-    },
+    id: rulesId || "fallback",
+    version: 9,
+    length: { min_chars: 60, max_chars: 120 },
+    punctuation: { ban_em_dash: true, replacement: { "—": "," }, allowed: [".", ",", "?", "!"], max_marks_per_line: 3 },
     tones: {
-      "Humorous":    { rules: ["witty","wordplay","exaggeration"] },
-      "Savage":      { rules: ["blunt","cutting","roast_style","no_soft_language"] },
+      "Humorous": { rules: ["witty","wordplay","exaggeration"] },
+      "Savage": { rules: ["blunt","cutting","roast_style","no_soft_language"] },
       "Sentimental": { rules: ["warm","affectionate","no_sarcasm"] },
-      "Nostalgic":   { rules: ["past_refs","no_modern_slang"] },
-      "Romantic":    { rules: ["affectionate","playful","no_mean"] },
+      "Nostalgic": { rules: ["past_refs","no_modern_slang"] },
+      "Romantic": { rules: ["affectionate","playful","no_mean"] },
       "Inspirational": { rules: ["uplifting","no_negativity_or_irony"] },
-      "Playful":     { rules: ["cheeky","silly","no_formal"] },
-      "Serious":     { rules: ["dry","deadpan","formal_weight"] }
+      "Playful": { rules: ["cheeky","silly","no_formal"] },
+      "Serious": { rules: ["dry","deadpan","formal_weight"] }
     },
     ratings: {
-      "G":     { allow_profanity: false, allow_censored_swears: false },
-      "PG":    { allow_profanity: false, allow_censored_swears: true,  censored_forms: ["f***","sh*t"] },
+      "G": { allow_profanity: false, allow_censored_swears: false },
+      "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***","sh*t"] },
       "PG-13": { allow_profanity: true, mild_only: ["hell","damn"], block_stronger_profanity: true },
-      "R":     { allow_profanity: true, require_profanity: true, open_profanity: true, require_variation: true }
+      "R": {
+        allow_profanity: true,
+        require_profanity: true,
+        open_profanity: true,
+        require_variation: true,
+        max_swears_per_line: 1,
+        extra_swear_chance: 0.0
+      }
     },
-    spelling: {
-      auto_substitutions: { "you’ve":"you have", "you've":"you have" }
-    }
+    spelling: { auto_substitutions: { "you’ve":"you have", "you've":"you have" } }
   };
   return cachedRules;
 }
 
-// ===================== OPENAI CALL =====================
+// ============== OPENAI CALL ==============
 function buildOpenAIRequest(
   model: string,
   messages: Array<{ role: string; content: string }>,
@@ -80,61 +78,90 @@ function buildOpenAIRequest(
   return body;
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ content: string; model: string }> {
+async function callOpenAI(systemPrompt: string, userPrompt: string) {
   let model = getTextModel();
-  let maxTokens = model.startsWith("gpt-5") ? 4000 : 200;
+  let maxTokens = model.startsWith("gpt-5") ? 4000 : 300;
 
   try {
-    const requestBody = buildOpenAIRequest(
-      model,
-      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      { maxTokens }
-    );
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    const req = buildOpenAIRequest(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], { maxTokens });
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(req)
     });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message);
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const content = d.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error("Empty content");
-    return { content, model: data.model || model };
+    return { content, model: d.model || model };
+
   } catch {
-    // fallback
     model = "gpt-4o-mini";
-    maxTokens = 200;
-    const requestBody = buildOpenAIRequest(
-      model,
-      [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      { maxTokens, temperature: 0.8 }
-    );
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    maxTokens = 220;
+
+    const req = buildOpenAIRequest(model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ], { maxTokens, temperature: 0.8 });
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(req)
     });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message);
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const content = d.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error("Empty content (fallback)");
     return { content, model };
   }
 }
 
-// ===================== PARSING / VALIDATION HELPERS =====================
-const STRONG_SWEARS = /(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|goddamn|damn|prick|dick|cock|piss|wank|crap|motherfucker|hell)/i;
+// ============== SWEAR VOCAB + UTIL ==============
+const SWEAR_WORDS = [
+  "fuck","fucking","fucker","motherfucker","shit","shitty","bullshit","asshole","arse","arsehole",
+  "bastard","bitch","son of a bitch","damn","goddamn","hell","crap","piss","pissed","dick",
+  "dickhead","prick","cock","knob","wanker","tosser","bollocks","bugger","bloody","git",
+  "twat","douche","douchebag","jackass","dumbass","dipshit","clusterfuck","shitshow","balls",
+  "tits","skank","tramp","slag","screw you","piss off","crapshoot","arsed","bloody hell",
+  "rat bastard","shithead"
+];
+const STRONG_SWEARS = new RegExp(
+  `\\b(${SWEAR_WORDS.map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")).join("|")})\\b`,
+  "i"
+);
 
+function extractSwears(s: string): string[] {
+  const out = new Set<string>();
+  const re = new RegExp(STRONG_SWEARS, "gi");
+  let m;
+  while ((m = re.exec(s)) !== null) out.add(m[0].toLowerCase());
+  return [...out];
+}
+
+function rand() { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 2 ** 32; }
+function choice<T>(arr: T[], weights?: number[]) {
+  if (!weights) return arr[Math.floor(rand() * arr.length)];
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = rand() * total;
+  for (let i = 0; i < arr.length; i++) { r -= weights[i]; if (r <= 0) return arr[i]; }
+  return arr[arr.length - 1];
+}
+
+function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
+function rejoinClauses(clauses: string[]) { let out = clauses.join(", "); out = out.replace(/[.?!]\s*$/, "") + "."; return out.replace(/\s+/g, " ").trim(); }
+function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean); }
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
-function trimToRange(s: string, min=50, max=90) {
+function trimToRange(s: string, min = 60, max = 120) {
   let out = s.trim().replace(/\s+/g, " ");
-  // remove filler phrases
   out = out.replace(/\b(finally|trust me|here'?s to|may your|another year of)\b/gi, "").replace(/\s+/g, " ").trim();
-  // if still long, keep first clause before comma
   if (out.length > max && out.includes(",")) out = out.split(",")[0];
-  // hard clip if needed
   if (out.length > max) out = out.slice(0, max).trim();
   return out;
 }
@@ -142,20 +169,31 @@ function trimToRange(s: string, min=50, max=90) {
 function bigramSet(s: string) {
   const words = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
   const set = new Set<string>();
-  for (let i=0;i<words.length-1;i++) set.add(words[i]+" "+words[i+1]);
+  for (let i = 0; i < words.length - 1; i++) set.add(words[i] + " " + words[i + 1]);
   return set;
+}
+function bigramOverlap(a: string, b: string) {
+  const A = bigramSet(a), B = bigramSet(b);
+  const inter = [...A].filter(x => B.has(x)).length;
+  const denom = Math.max(1, Math.min(A.size, B.size));
+  return inter / denom;
+}
+function dedupeFuzzy(lines: string[], threshold = 0.6) {
+  const out: string[] = [];
+  for (const l of lines) {
+    const tooClose = out.some(x => bigramOverlap(l, x) >= threshold);
+    if (!tooClose) out.push(l);
+  }
+  return out;
 }
 
 function varyInsertPositions(lines: string[], insert: string) {
-  const lower = insert.toLowerCase();
-  const allStart = lines.every(l => l.trim().toLowerCase().startsWith(lower));
+  const allStart = lines.every(l => l.trim().toLowerCase().startsWith(insert.toLowerCase()));
   if (!allStart) return lines;
-  return lines.map((l, i) => {
-    if (i % 2 === 0) return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`;
-    return l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `);
-  });
+  return lines.map((l, i) => i % 2 === 0
+    ? l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), "").trim() + `, ${insert}`
+    : l.replace(new RegExp(`^${insert}\\s*,?\\s*`, "i"), `${insert} `));
 }
-
 function deTagInsert(line: string, insert: string) {
   const tag = new RegExp(`,\\s*${insert}\\.?$`, "i");
   if (tag.test(line) && !new RegExp(`^${insert}\\b`, "i").test(line)) {
@@ -165,118 +203,257 @@ function deTagInsert(line: string, insert: string) {
   return line;
 }
 
-function ensureProfanityVariation(lines: string[]) {
-  const grabs = lines.map(l => (l.match(STRONG_SWEARS) || [""])[0].toLowerCase());
-  const seen = new Set<string>();
-  return lines.map((l, i) => {
-    const sw = grabs[i];
-    if (sw && !seen.has(sw)) { seen.add(sw); return l; }
-    const pool = ["fuck","shit","bastard","ass","bullshit","goddamn","prick","crap","motherfucker","hell"];
-    for (const w of pool) {
-      if (!seen.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(l)) {
-        const replaced = sw ? l.replace(new RegExp(sw, "i"), w) : `${l.split(/[.,?!]/)[0]}, ${w}.`;
-        seen.add(w);
-        return replaced;
-      }
+// ====== Role-aware TOKENS ======
+type Token = { text: string; role: string; subtype?: string };
+
+// naive role inference by subcategory when we only have insertWords
+function inferRole(subcategory?: string): {role: string; subtype?: string} {
+  const s = (subcategory || "").toLowerCase();
+  if (/(movie|movies|tv|show|anime|cartoon|video game|video-games|games?)/.test(s)) return { role: "title", subtype: /movie|movies|film/.test(s) ? "movie" : "title" };
+  if (/(celebrity|celebrities|sports icon|sports|influencer|stand-?up|comed(y|ian)|reality tv)/.test(s)) return { role: "person" };
+  if (/(music|song|tracks?|albums?|spotify|soundcloud|apple music)/.test(s)) return { role: "title", subtype: "song" };
+  return { role: "topic" };
+}
+
+const TOKEN_STRATEGIES = ["coldOpen","midAfterVerb","tagAfterComma","venueBracket","endPunch","beforeAdjNoun"] as const;
+
+function applyTokenStrategy(line: string, token: string, strat: typeof TOKEN_STRATEGIES[number], rules: any) {
+  const punctBudget = rules.punctuation?.max_marks_per_line ?? 3;
+  const puncCount = countPunc(line);
+  const glue = puncCount < punctBudget ? ", " : " ";
+  if (strat === "coldOpen")       return `${token}${glue}${line}`;
+  if (strat === "tagAfterComma")  return line.replace(/[.?!]\s*$/, "") + glue + `${token}.`;
+  if (strat === "venueBracket")   return line.replace(/[.?!]\s*$/, "") + ` (${token}).`;
+  if (strat === "endPunch")       return line.replace(/[.?!]\s*$/, "") + glue + `${token}.`;
+  if (strat === "beforeAdjNoun")  return line.replace(/\b(great|wild|messy|clean|quick|slow|big|small|fresh|late|early|crazy|smart|loud|tight)\b/i, (m) => `${token} ${m}`);
+  // default mid-after-verb
+  return line.replace(/\b(get|make|did|tried|went|saw|heard|ate|dated|dumped|texted|scrolled|streamed)\b/i, (m) => `${m} ${token}`);
+}
+
+function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
+  let out = line;
+  for (const tok of tokens) {
+    const present = new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(out);
+    if (present) continue;
+
+    // smarter bias for titles/people
+    let strat: typeof TOKEN_STRATEGIES[number] =
+      tok.role === "venue"     ? "venueBracket" :
+      tok.role === "city"      ? "coldOpen"     :
+      tok.role === "timeslot"  ? "venueBracket" :
+      tok.role === "person"    ? "tagAfterComma":
+      tok.role === "title"     ? "coldOpen"     :
+      tok.role === "callback"  ? "endPunch"     :
+      "midAfterVerb";
+
+    // add some variety for title tokens
+    if (tok.role === "title") {
+      strat = choice(["coldOpen","tagAfterComma","endPunch","midAfterVerb"], [0.35,0.25,0.2,0.2]) as any;
     }
-    return l;
+
+    out = applyTokenStrategy(out, tok.text, strat, rules);
+  }
+  return out;
+}
+
+// ====== Profanity placement ======
+const VERBISH = /\b(get|make|feel|want|need|love|hate|hit|go|keep|stay|run|drop|ship|book|call|try|push|fake|score|win|lose|cook|build|haul|dump|clean|move|save|spend|cost|is|are|was|were|do|does|did)\b/i;
+const ADJECTIVEISH = /\b(easy|fast|cheap|heavy|light|wild|messy|clean|busy|quick|slow|real|big|small|fresh|free|late|early|crazy|solid|smart|bold|loud|tight)\b/i;
+const INTENSIFIERS = /\b(really|very|super|so|pretty|kinda|sort of|sorta)\b/i;
+
+function softTrimToFit(s: string, maxLen: number, maxPunc: number) {
+  let punc = countPunc(s);
+  if (punc > maxPunc) {
+    let kept = 0;
+    s = s.replace(/[.,?!]/g, m => (++kept <= maxPunc ? m : ""));
+  }
+  if (s.length > maxLen) {
+    s = s.slice(0, maxLen).replace(/\s+\S*$/,"").trim();
+    if (!/[.?!]$/.test(s)) s += ".";
+  }
+  return s;
+}
+
+function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSwear: string) {
+  const punctBudget = rules.punctuation?.max_marks_per_line ?? 3;
+  const maxLen = rules.length?.max_chars ?? 120;
+  if (extractSwears(line).includes(leadSwear.toLowerCase())) return line;
+
+  const clauses = splitClauses(line);
+  if (!clauses.length) return line;
+
+  // Prefer clause that contains any token
+  const tokenTexts = tokens.map(t => t.text);
+  let idx = clauses.findIndex(c => tokenTexts.some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(c)));
+  if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
+
+  let target = clauses[idx];
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
+  const weights    = [0.2,    0.4,             0.15,               0.25];
+  const strat = choice(strategies, weights);
+
+  const glue = () => (countPunc(line) < punctBudget ? ", " : " ");
+
+  if (strat === "start")                    target = `${leadSwear}${glue()}${target}`;
+  else if (strat === "beforeVerbAdj") {
+    if (VERBISH.test(target))               target = target.replace(VERBISH,      m => `${leadSwear} ${m}`);
+    else if (ADJECTIVEISH.test(target))     target = target.replace(ADJECTIVEISH, m => `${leadSwear} ${m}`);
+    else                                    target = `${target}${glue()}${leadSwear}`;
+  }
+  else if (strat === "replaceIntensifier" && INTENSIFIERS.test(target)) target = target.replace(INTENSIFIERS, leadSwear);
+  else                                                                  target = `${target}${glue()}${leadSwear}`;
+
+  clauses[idx] = target;
+  let out = rejoinClauses(clauses);
+  out = out.replace(/[?!]/g, "."); // keep one sentence sane
+  return softTrimToFit(out, maxLen, punctBudget);
+}
+
+// ============== SPELLCHECK (local fuzzy, optional hints) ==============
+function levenshtein(a: string, b: string) {
+  const dp = Array.from({length: a.length+1}, (_,i)=>Array(b.length+1).fill(0));
+  for (let i=0;i<=a.length;i++) dp[i][0]=i;
+  for (let j=0;j<=b.length;j++) dp[0][j]=j;
+  for (let i=1;i<=a.length;i++) for (let j=1;j<=b.length;j++) {
+    const cost = a[i-1].toLowerCase() === b[j-1].toLowerCase() ? 0 : 1;
+    dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+  }
+  return dp[a.length][b.length];
+}
+
+function bestHintMatch(input: string, hints: string[]): {suggestion?: string, distance: number} {
+  if (!hints?.length) return { distance: Infinity };
+  let best: string | undefined; let bestD = Infinity;
+  for (const h of hints) {
+    const d = levenshtein(input, h);
+    if (d < bestD) { best = h; bestD = d; }
+  }
+  return { suggestion: best, distance: bestD };
+}
+
+function spellcheckTokens(tokens: Token[], hintsByRole?: Record<string,string[]>) {
+  const suggestions: Array<{original:string; role:string; suggestion:string}> = [];
+  const corrected = tokens.map(t => {
+    const hints = hintsByRole?.[t.role] || hintsByRole?.["*"];
+    if (!hints || !t.text || t.text.length < 3) return t;
+    const { suggestion, distance } = bestHintMatch(t.text, hints);
+    if (suggestion && distance > 0 && distance <= Math.max(1, Math.floor(t.text.length * 0.3))) {
+      suggestions.push({ original: t.text, role: t.role, suggestion });
+      return { ...t, text: suggestion }; // change this to just suggest if you don't want auto-correct
+    }
+    return t;
   });
+  return { corrected, suggestions };
 }
 
-// ===================== CLEAN / PARSE =====================
-function cleanLine(rawText: string): string {
-  let t = rawText.trim();
-  t = t.replace(/^\s*[\d\-\*•]+[.)-]?\s*/, "");
-  t = t.replace(/^["'`]/, "").replace(/["'`]$/, "");
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/`(.*?)`/g, "$1");
-  t = t.replace(/\s+/g, " ").trim();
-  return t;
-}
-
-function parseLines(rawResponse: string): string[] {
-  const candidates = rawResponse.split(/\r?\n+/)
-    .map(s => s.replace(/^\s*[\d\-\*•.]+\s*/, "").trim())
-    .filter(Boolean);
-
-  const lines = candidates.filter(s =>
-    s.length >= 40 && s.length <= 140 && oneSentence(s)
-  );
-
-  return lines.map(cleanLine);
-}
-
-// ===================== ENFORCEMENT =====================
+// ============== ENFORCEMENT ==============
 function enforceRules(
   lines: string[],
   rules: any,
   rating: string,
-  insertWords: string[] = []
-): { lines: string[]; enforcement: string[] } {
+  insertTokens: Token[] = []
+) {
   const enforcement: string[] = [];
-  const minLen = rules.length?.min_chars ?? 50;
-  const maxLen = rules.length?.max_chars ?? 90;
+  const minLen = rules.length?.min_chars ?? 60;
+  const maxLen = rules.length?.max_chars ?? 120;
 
-  let processed = lines.map((raw, idx) => {
-    let t = raw.trim();
+  // cleanup + kill meta
+  let processed = lines
+    .map((raw) => raw.trim())
+    .filter((l) => l && !/^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/i.test(l))
+    .map((t) => t.replace(/["`]+/g, "").replace(/\s+/g, " ").trim());
 
-    // punctuation normalization and limit to 1
+  processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
-    t = t.replace(/[:;…]/g, ",").replace(/[“”"’]/g, "'");
-    if (countPunc(t) > (rules.punctuation?.max_marks_per_line ?? 1)) {
+    t = t.replace(/[:;…]/g, ",").replace(/[“”'’]/g, "'");
+
+    const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
+    if (countPunc(t) > maxPunc) {
       let kept = 0;
-      t = t.replace(/[.,?!]/g, (m) => (++kept <= 1 ? m : ""));
-      enforcement.push(`Line ${idx+1}: limited punctuation to 1`);
+      t = t.replace(/[.,?!]/g, m => (++kept <= maxPunc ? m : ""));
+      enforcement.push(`Line ${idx+1}: limited punctuation to ${maxPunc}`);
     }
 
-    // keep as one sentence
     if (!oneSentence(t)) {
       const first = t.split(/[.?!]/)[0].trim();
       t = first + (/[.,?!]$/.test(first) ? "" : ".");
       enforcement.push(`Line ${idx+1}: trimmed to one sentence`);
     }
 
-    // compress/trim to range
     const before = t.length;
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
-    // ensure insert words present
-    for (const w of insertWords) {
-      if (!new RegExp(`\\b${w}\\b`, "i").test(t)) {
-        t = `${t.split(/[.,?!]/)[0]}, ${w}.`;
-        enforcement.push(`Line ${idx+1}: appended insert word '${w}'`);
-        break;
+    // role-aware token placement (before profanity)
+    t = placeTokensNaturally(t, insertTokens, rules);
+
+    // ensure every token appears
+    for (const tok of insertTokens) {
+      if (!new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(t)) {
+        t = `${t.replace(/[.?!]\s*$/,"")}, ${tok.text}.`;
+        enforcement.push(`Line ${idx+1}: appended missing token '${tok.text}'`);
       }
     }
 
     return t;
   });
 
-  // avoid end-tagged insert; vary positions too
-  if (insertWords?.length === 1) {
-    processed = processed.map(l => deTagInsert(l, insertWords[0]));
-    const varied = varyInsertPositions(processed, insertWords[0]);
-    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied insert word positions across outputs");
+  if (insertTokens?.length === 1) {
+    const w = insertTokens[0].text;
+    processed = processed.map(l => deTagInsert(l, w));
+    const varied = varyInsertPositions(processed, w);
+    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied token positions across outputs");
     processed = varied;
   }
 
-  // profanity per rating
+  // Rating-specific passes
   if (rating === "R") {
+    const usedLead = new Set<string>();
+    const cfg = rules?.ratings?.R ?? {};
+    const maxPer = Math.max(1, cfg.max_swears_per_line ?? 1);
+    const extraChance = Math.max(0, Math.min(1, cfg.extra_swear_chance ?? 0));
+
     processed = processed.map((t, i) => {
-      if (!STRONG_SWEARS.test(t)) {
-        t = `${t.split(/[.,?!]/)[0]} fuck.`;
-        enforcement.push(`Line ${i+1}: injected profanity for R`);
+      let lead = SWEAR_WORDS.find(w => !usedLead.has(w)) || SWEAR_WORDS[0];
+      const had = extractSwears(t);
+
+      if (had.length === 0) {
+        t = placeNaturalProfanity(t, insertTokens, rules, lead);
+        enforcement.push(`Line ${i+1}: placed profanity naturally`);
+      } else {
+        const first = had[0];
+        if (usedLead.has(first)) {
+          const alt = SWEAR_WORDS.find(w => !usedLead.has(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
+          if (alt) {
+            lead = alt;
+            t = placeNaturalProfanity(t, insertTokens, rules, lead);
+            enforcement.push(`Line ${i+1}: varied lead profanity`);
+          } else lead = first;
+        } else lead = first;
       }
+      usedLead.add(lead.toLowerCase());
+
+      // Optional second swear
+      let current = extractSwears(t);
+      const wantsExtra = (current.length < maxPer) || (current.length < 2 && Math.random() < extraChance);
+      if (wantsExtra) {
+        const cand = SWEAR_WORDS.find(w => !current.includes(w) && !new RegExp(`\\b${w}\\b`, "i").test(t));
+        if (cand) {
+          const puncts = countPunc(t);
+          const roomP = puncts < (rules.punctuation?.max_marks_per_line ?? 3);
+          const roomC = (t.length + cand.length + 2) <= (rules.length?.max_chars ?? 120);
+          if (roomP && roomC) t = t.replace(/[.?!]\s*$/,"") + ", " + cand + ".";
+        }
+      }
+
+      t = softTrimToFit(t, rules.length?.max_chars ?? 120, rules.punctuation?.max_marks_per_line ?? 3);
       return t;
     });
-    const varied = ensureProfanityVariation(processed);
-    if (varied.join("|") !== processed.join("|")) enforcement.push("Varied profanity across R outputs");
-    processed = varied;
   }
 
   if (rating === "PG-13") {
     processed = processed.map((t, i) => {
-      const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn)/gi, "damn");
+      const cleaned = t.replace(/(fuck(?:er|ing)?|shit(?:ty)?|bastard|ass(?!ert)|arse|bullshit|prick|dick|cock|piss|wank|crap|motherfucker|goddamn|bitch|dickhead|knob|twat|tosser|wanker|bollocks|bugger)/gi, "damn");
       if (cleaned !== t) enforcement.push(`Line ${i+1}: downgraded strong profanity to mild`);
       return cleaned;
     });
@@ -298,117 +475,175 @@ function enforceRules(
     });
   }
 
-  // de-duplicate near copies via bigrams
-  const unique: string[] = [];
-  const seenPairs = new Set<string>();
-  for (const l of processed) {
-    const pairs = bigramSet(l);
-    let clash = false;
-    for (const p of pairs) {
-      if (seenPairs.has(p)) { clash = true; break; }
-    }
-    if (!clash) {
-      for (const p of pairs) seenPairs.add(p);
-      unique.push(l);
-    }
-  }
+  // fuzzy de-dup; relax if needed
+  let unique = dedupeFuzzy(processed, 0.6);
+  if (unique.length < 4) unique = dedupeFuzzy(processed, 0.8);
+  if (unique.length === 0) unique = processed.slice(0, 4);
+
   return { lines: unique, enforcement };
 }
 
-// ===================== BACKFILL (guarantee 4 lines) =====================
+// ============== BACKFILL TO 4 ==============
 async function backfillLines(
   missing: number,
   systemPrompt: string,
   accepted: string[],
   tone: string,
   rating: string,
-  insertWords: string[]
+  tokens: Token[],
+  category?: string,
+  subcategory?: string
 ) {
   const block = accepted.map((l,i)=>`${i+1}. ${l}`).join("\n");
-  const user = `We still need ${missing} additional one-liners that satisfy ALL constraints.
+  const mode = (typeof category === "string" && category.toLowerCase().startsWith("jokes")) ? "jokes" : "one-liners";
+  const jokeHint = mode === "jokes" ? ` in the style '${subcategory || "jokes"}'` : "";
+  const tokenHint = tokens.length ? "\nTOKENS: " + tokens.map(t => `${t.role}=${t.text}`).join(" | ") : "";
+  const user = `We still need ${missing} additional ${mode}${jokeHint} that satisfy ALL constraints.${tokenHint}
 Do not repeat word pairs used in:
 ${block}
-Tone=${tone}; Rating=${rating}; Insert words=${insertWords.join(", ")}.
+Tone=${tone}; Rating=${rating}.
 Return exactly ${missing} new lines, one per line.`;
 
   const { content } = await callOpenAI(systemPrompt, user);
   return parseLines(content);
 }
 
-// ===================== HTTP HANDLER =====================
+// ============== CATEGORY HELPERS ==============
+function isJokesCategory(category?: string) {
+  return typeof category === "string" && category.toLowerCase().startsWith("jokes");
+}
+function isPopCultureCategory(category?: string) {
+  return typeof category === "string" && category.toLowerCase().startsWith("pop-culture");
+}
+
+// ============== HTTP ==============
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const payload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [], rules_id } = payload;
+    const {
+      category, subcategory, tone, rating,
+      insertWords = [],                 // legacy array of strings
+      insertTokens = [],                // preferred: [{text, role, subtype?}]
+      rules_id,
+      entity_hints,                     // optional: { person:[], character:[], movie:[], brand:[], "*":[] }
+      entity_meta                       // optional: { movie: { title, year, characters[], motifs[], scenes[], props[], quotes_safe[] }, celebrity:{...}, etc. }
+    } = payload;
 
     const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0,3).join("/");
-    const rules = rules_id ? await loadRules(rules_id, origin) : null;
+    const rules  = rules_id ? await loadRules(rules_id, origin) : await loadRules("fallback");
+
+    // Normalize to tokens
+    let tokens: Token[] = Array.isArray(insertTokens) && insertTokens.length
+      ? insertTokens
+      : (Array.isArray(insertWords)
+          ? insertWords.map((w: string) => {
+              const inferred = inferRole(subcategory);
+              // If it looks like a Title (Title Case with spaces), upgrade to title unless caller set a role
+              const looksTitle = /^[A-Z][a-z]+(?:\s+[A-Z0-9][a-z0-9']+)+$/.test(w);
+              if (looksTitle && inferred.role === "topic") return { text: w, role: "title" };
+              return { text: w, ...inferred };
+            })
+          : []);
+
+    // Spellcheck tokens against optional hints
+    const { corrected, suggestions } = spellcheckTokens(tokens, entity_hints || undefined);
+    tokens = corrected;
+
+    const jokeMode = isJokesCategory(category);
+    const popMode  = isPopCultureCategory(category);
 
     let systemPrompt = text_rules;
+
+    // Context lines
     if (category)    systemPrompt += `\n\nCONTEXT: ${category}`;
     if (subcategory) systemPrompt += ` > ${subcategory}`;
+    if (jokeMode)    systemPrompt += `\nMODE: JOKES\nWrite jokes in this style only. Do not explain.`;
+    if (popMode)     systemPrompt += `\nMODE: POP-CULTURE\nWrite one-liners in this cultural style only. Do not explain. Use insert tokens as scene-aware references.`;
     if (tone)        systemPrompt += `\nTONE: ${tone}`;
     if (rating)      systemPrompt += `\nRATING: ${rating}`;
-    if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
+    if (tokens.length) systemPrompt += `\nTOKENS: ${tokens.map(t => `${t.role}${t.subtype ? `/${t.subtype}` : ""}=${t.text}`).join(" | ")}`;
 
-    const userPrompt = "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+    // Optional: movie context for scene-aware references
+    const isMovies = popMode && /movie|movies/i.test(subcategory || "");
+    const movieTok = tokens.find(t => t.role === "title" && (t.subtype === "movie" || isMovies));
+    if (isMovies && movieTok) {
+      const m = entity_meta?.movie || {};
+      const parts: string[] = [];
+      parts.push(`MOVIE: ${movieTok.text}${m.year ? " ("+m.year+")" : ""}`);
+      if (Array.isArray(m.characters) && m.characters.length) parts.push(`KEY CHARACTERS: ${m.characters.join(", ")}`);
+      if (Array.isArray(m.motifs) && m.motifs.length)         parts.push(`MOTIFS: ${m.motifs.join(", ")}`);
+      if (Array.isArray(m.scenes) && m.scenes.length)         parts.push(`ICONIC SCENES: ${m.scenes.join("; ")}`);
+      if (Array.isArray(m.props) && m.props.length)           parts.push(`PROPS: ${m.props.join(", ")}`);
+      if (Array.isArray(m.quotes_safe) && m.quotes_safe.length) parts.push(`PHRASE CUES (paraphrase): ${m.quotes_safe.join(" | ")}`);
 
-    const { content: rawResponse, model: usedModel } = await callOpenAI(systemPrompt, userPrompt);
+      systemPrompt += `\n\nMOVIE CONTEXT\n${parts.join("\n")}\n\nSCENE RULES\n- Reference characters, scenes, props, or motifs naturally.\n- No meta commentary.\n- Do not reproduce quotes longer than ~8 words; paraphrase.\n- Avoid major spoilers.\n`;
+    }
 
-    // Parse raw → candidate lines
-    let candidates = parseLines(rawResponse);
+    systemPrompt += `\n\nReturn exactly 4 lines, one per line.`;
+
+    // Prompt wording to avoid meta output
+    const userPrompt = jokeMode
+      ? "Write 12 candidate jokes in the specified joke style, then return 4 that best satisfy all constraints. No explanations."
+      : "Generate 12 candidate one-liners first. Then return 4 that best satisfy all constraints.";
+
+    const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
+
+    let candidates = parseLines(raw);
     if (candidates.length < 4) {
-      candidates = rawResponse.split(/\r?\n+/).map(cleanLine).filter(Boolean);
+      candidates = raw.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
     }
 
-    // Enforce rules
-    const enforced = enforceRules(
+    // enforce rules and try to keep 4
+    let { lines, enforcement } = enforceRules(
       candidates,
-      rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
+      rules,
       rating || "PG-13",
-      insertWords
+      tokens
     );
-    let lines = enforced.lines;
 
-    // Backfill to guarantee 4
-    let attempts = 0;
-    while (lines.length < 4 && attempts < 2) {
+    // backfill to guarantee 4
+    let tries = 0;
+    while (lines.length < 4 && tries < 5) {
       const need = 4 - lines.length;
-      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", insertWords);
-      const enforcedMore = enforceRules(
-        more,
-        rules ?? { length:{min_chars:50,max_chars:90}, punctuation:{max_marks_per_line:1,ban_em_dash:true,replacement:{"—":","}} },
-        rating || "PG-13",
-        insertWords
-      );
-      lines = [...lines, ...enforcedMore.lines];
-      attempts++;
+      const more = await backfillLines(need, systemPrompt, lines, tone || "", rating || "PG-13", tokens, category, subcategory);
+      const enforcedMore = enforceRules(more, rules, rating || "PG-13", tokens);
+      lines = [...lines, ...enforcedMore.lines].slice(0, 4);
+      enforcement = enforcement.concat(enforcedMore.enforcement);
+      tries++;
     }
-    lines = lines.slice(0, 4);
 
-    // Final validity flags
-    const minLength = rules?.length?.min_chars ?? 50;
-    const maxLength = rules?.length?.max_chars ?? 90;
+    // absolute last resort: fill from raw pool trimmed to range
+    if (lines.length < 4) {
+      for (const c of candidates) {
+        if (lines.length >= 4) break;
+        if (!lines.includes(c)) {
+          const trimmed = trimToRange(c, rules.length.min_chars, rules.length.max_chars);
+          if (oneSentence(trimmed) && countPunc(trimmed) <= rules.punctuation.max_marks_per_line) lines.push(trimmed);
+        }
+      }
+      lines = lines.slice(0, 4);
+    }
 
-    const response = {
+    const minL = (rules.length?.min_chars ?? 60);
+    const maxL = (rules.length?.max_chars ?? 120);
+
+    const resp = {
       lines: lines.map((line, i) => ({
         line,
         length: line.length,
         index: i + 1,
-        valid: line.length >= minLength && line.length <= maxLength && countPunc(line) <= 1 && oneSentence(line)
+        valid: line.length >= minL && line.length <= maxL && countPunc(line) <= (rules.punctuation?.max_marks_per_line ?? 3) && oneSentence(line)
       })),
-      model: usedModel,
+      model,
       count: lines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : { id: "fallback", version: 5 },
-      enforcement: enforced.enforcement
+      rules_used: { id: rules.id, version: rules.version },
+      enforcement,
+      token_spellcheck: suggestions   // {original, role, suggestion} entries if any were corrected
     };
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
@@ -417,480 +652,3 @@ serve(async (req) => {
     });
   }
 });
-
-/*import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { text_rules } from "../_shared/text-rules.ts";
-
-
-
-
-// Get model from environment with fallback - Using GPT-4o-mini for step #2
-const getTextModel = () => Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-4o-mini';
-
-// Rules cache
-let cachedRules: any = null;
-
-// Helper function to build OpenAI request body with correct parameters
-function buildOpenAIRequest(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  options: { temperature?: number; maxTokens: number }
-) {
-  const body: any = {
-    model,
-    messages
-  };
-
-  // GPT-5 and newer models use max_completion_tokens, older models use max_tokens
-  if (model.startsWith('gpt-5') || model.startsWith('o3') || model.startsWith('o4')) {
-    body.max_completion_tokens = options.maxTokens;
-    // These models don't support temperature parameter
-  } else {
-    body.max_tokens = options.maxTokens;
-    if (options.temperature !== undefined) {
-      body.temperature = options.temperature;
-    }
-  }
-
-  return body;
-}
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Load rules from viibes-rules-v4.json
-async function loadRules(rulesId: string, origin?: string): Promise<any> {
-  if (cachedRules && cachedRules.id === rulesId) {
-    return cachedRules;
-  }
-
-  // Try to load from caller origin first
-  if (origin) {
-    try {
-      const rulesUrl = `${origin}/config/${rulesId}.json`;
-      console.log(`📋 Loading rules from: ${rulesUrl}`);
-      const response = await fetch(rulesUrl);
-      if (response.ok) {
-        cachedRules = await response.json();
-        console.log(`✅ Loaded rules v${cachedRules.version} from origin`);
-        return cachedRules;
-      }
-    } catch (error) {
-      console.warn(`⚠️ Failed to load rules from origin: ${error}`);
-    }
-  }
-
-  // Fallback to embedded minimal rules
-  console.log('📋 Using fallback embedded rules');
-  cachedRules = {
-    id: rulesId,
-    version: 4,
-    length: { min_chars: 50, max_chars: 100 },
-    punctuation: {
-      ban_em_dash: true,
-      replacement: { "—": "," },
-      allowed: [".", ",", "?", "!"],
-      max_marks_per_line: 2
-    },
-    tones: {
-      "Savage": { rules: ["blunt", "cutting", "roast_style", "no_soft_language"] },
-      "Playful": { rules: ["cheeky", "silly", "mischievous", "no_formal"] },
-      "Serious": { rules: ["dry", "deadpan", "formal_weight", "no_jokes_except_dry_wit"] }
-    },
-    ratings: {
-      "G": { allow_profanity: false, allow_censored_swears: false, insult_strength: "none" },
-      "PG": { allow_profanity: false, allow_censored_swears: true, censored_forms: ["f***", "sh*t", "a**", "b****"], insult_strength: "light_to_medium" },
-      "PG-13": { allow_profanity: true, profanity_whitelist: ["hell", "damn"], block_stronger_profanity: true, insult_strength: "medium" },
-      "R": { allow_profanity: true, require_profanity: true, profanity_whitelist: ["fuck", "shit", "bastard", "ass", "bullshit", "goddamn"], insult_strength: "heavy" }
-    },
-    spelling: {
-      auto_substitutions: { "you've": "you have" }
-    }
-  };
-  
-  return cachedRules;
-}
-
-// Build rating-specific profanity instructions
-function buildProfanityInstructions(rating: string, rules: any): string {
-  const ratingRules = rules.ratings[rating];
-  if (!ratingRules) return "";
-
-  switch (rating) {
-    case "G":
-      return "CRITICAL: NO profanity whatsoever. Keep it completely wholesome.";
-    case "PG":
-      return `CRITICAL: Only use censored forms if needed: ${ratingRules.censored_forms?.join(', ')}. No uncensored profanity.`;
-    case "PG-13":
-      return `CRITICAL: Only use these mild words if needed: ${ratingRules.profanity_whitelist?.join(', ')}. Block all stronger profanity.`;
-    case "R":
-      return `CRITICAL: MUST include at least one of these words: ${ratingRules.profanity_whitelist?.join(', ')}. This is REQUIRED for R rating.`;
-    default:
-      return "";
-  }
-}
-
-// Build tone-specific instructions
-function buildToneInstructions(tone: string, rules: any): string {
-  const toneRules = rules.tones[tone];
-  if (!toneRules) return "";
-
-  const ruleDescriptions: { [key: string]: string } = {
-    "blunt": "be direct and harsh",
-    "cutting": "use sharp, biting language", 
-    "roast_style": "mock and criticize mercilessly",
-    "no_soft_language": "avoid gentle or polite phrasing",
-    "cheeky": "be playfully impudent",
-    "silly": "be absurd and ridiculous",
-    "mischievous": "be playfully troublesome",
-    "no_formal": "avoid formal language",
-    "dry": "use understated humor",
-    "deadpan": "deliver with serious tone",
-    "formal_weight": "use serious, weighty language"
-  };
-
-  const instructions = toneRules.rules
-    .map((rule: string) => ruleDescriptions[rule] || rule)
-    .join(', ');
-
-  return `Tone guidance: ${instructions}.`;
-}
-
-// Enforce rules on generated text
-function enforceRules(lines: string[], rules: any, rating: string): { lines: string[], enforcement: string[] } {
-  const enforcement: string[] = [];
-  const ratingRules = rules.ratings[rating];
-  const profanityWhitelist = ratingRules?.profanity_whitelist || [];
-  const censoredForms = ratingRules?.censored_forms || [];
-  
-  const processedLines = lines.map((line, index) => {
-    let processed = line;
-    let lineEnforcement = [];
-
-    // Apply auto substitutions
-    if (rules.spelling?.auto_substitutions) {
-      for (const [from, to] of Object.entries(rules.spelling.auto_substitutions)) {
-        if (processed.includes(from)) {
-          processed = processed.replace(new RegExp(from, 'gi'), to as string);
-          lineEnforcement.push(`substituted '${from}' -> '${to}'`);
-        }
-      }
-    }
-
-    // Apply punctuation rules
-    if (rules.punctuation?.replacement) {
-      for (const [from, to] of Object.entries(rules.punctuation.replacement)) {
-        if (processed.includes(from)) {
-          processed = processed.replace(new RegExp(from, 'g'), to as string);
-          lineEnforcement.push(`replaced '${from}' -> '${to}'`);
-        }
-      }
-    }
-
-    // Limit punctuation marks
-    if (rules.punctuation?.max_marks_per_line) {
-      const punctMarks = processed.match(/[.!?]/g) || [];
-      if (punctMarks.length > rules.punctuation.max_marks_per_line) {
-        // Keep only the first N punctuation marks
-        let count = 0;
-        processed = processed.replace(/[.!?]/g, (match) => {
-          count++;
-          return count <= rules.punctuation.max_marks_per_line ? match : '';
-        });
-        lineEnforcement.push(`limited punctuation to ${rules.punctuation.max_marks_per_line} marks`);
-      }
-    }
-
-    // Rating-specific profanity enforcement
-    if (rating === "R" && ratingRules?.require_profanity) {
-      const hasProfanity = profanityWhitelist.some((word: string) => 
-        processed.toLowerCase().includes(word.toLowerCase())
-      );
-      
-      if (!hasProfanity) {
-        // Inject mild profanity at the end
-        const injectWord = "goddamn";
-        processed = processed.replace(/[.!?]?\s*$/, `, ${injectWord} it.`);
-        lineEnforcement.push(`injected '${injectWord}' for R rating`);
-      }
-    }
-
-    // Clean up extra spaces
-    processed = processed.replace(/\s+/g, ' ').trim();
-    
-    if (lineEnforcement.length > 0) {
-      enforcement.push(`Line ${index + 1}: ${lineEnforcement.join(', ')}`);
-    }
-
-    return processed;
-  });
-
-  return { lines: processedLines, enforcement };
-}
-
-// Simple text cleanup function
-function cleanLine(rawText: string): string {
-  let cleaned = rawText.trim();
-  
-  // Remove numbered list prefixes
-  const digits = '0123456789';
-  while (cleaned.length > 0 && digits.includes(cleaned[0])) {
-    let i = 0;
-    while (i < cleaned.length && digits.includes(cleaned[i])) {
-      i++;
-    }
-    if (i < cleaned.length && (cleaned[i] === '.' || cleaned[i] === ')')) {
-      cleaned = cleaned.substring(i + 1).trim();
-    } else {
-      break;
-    }
-  }
-  
-  // Remove bullet points
-  if (cleaned.startsWith('- ') || cleaned.startsWith('* ') || cleaned.startsWith('+ ')) {
-    cleaned = cleaned.substring(2).trim();
-  }
-  
-  // Remove quotes
-  if (cleaned.startsWith('"') || cleaned.startsWith("'") || cleaned.startsWith('`')) {
-    cleaned = cleaned.substring(1);
-  }
-  if (cleaned.endsWith('"') || cleaned.endsWith("'") || cleaned.endsWith('`')) {
-    cleaned = cleaned.substring(0, cleaned.length - 1);
-  }
-  
-  // Remove markdown formatting using string replacement
-  while (cleaned.includes('**')) {
-    cleaned = cleaned.replace('**', '');
-  }
-  while (cleaned.includes('`')) {
-    cleaned = cleaned.replace('`', '');
-  }
-  
-  // Normalize whitespace by splitting and joining
-  cleaned = cleaned.split(/\s+/).filter(part => part.length > 0).join(' ');
-  
-  return cleaned;
-}
-
-// Parse lines from AI response
-function parseLines(rawResponse: string): string[] {
-  let lines = rawResponse.split(/\r?\n/);
-  
-  // Try other splitting patterns if needed
-  if (lines.length < 4) {
-    const numberedSplit = rawResponse.split(/(?=\d+[\.\)])/);
-    if (numberedSplit.length >= 4) {
-      lines = numberedSplit;
-    }
-  }
-  
-  const cleanedLines = lines
-    .map(line => cleanLine(line))
-    .filter(line => line.length >= 35 && line.length <= 140);
-  
-  return cleanedLines;
-}
-
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<{ content: string; model: string }> {
-  let model = getTextModel();
-  console.log(`🤖 Using model: ${model}`);
-  
-  let maxTokens = model.startsWith('gpt-5') ? 4000 : 200; // Very high limit for GPT-5 reasoning + response
-  
-  // First attempt with GPT-5
-  try {
-    const requestBody = buildOpenAIRequest(
-      model,
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      { maxTokens }
-    );
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    console.log('📡 Response Status:', response.status);
-    
-    const data = await response.json();
-    console.log('📄 Response Data:', JSON.stringify(data, null, 2));
-    
-    if (data.error) {
-      console.error('❌ API Error:', data.error);
-      throw new Error(`OpenAI API Error: ${data.error.message}`);
-    }
-    
-    const content = data.choices?.[0]?.message?.content;
-    const actualModel = data.model || model; // Use actual model from response or fallback to requested model
-    
-    if (!content || content.trim() === '') {
-      console.warn('⚠️ GPT-5 returned empty content - falling back to GPT-4o-mini');
-      throw new Error('GPT-5 returned empty content');
-    }
-    
-    return { content, model: actualModel };
-    
-  } catch (error) {
-    // Fallback to GPT-4o-mini if GPT-5 fails
-    console.log('🔄 Falling back to GPT-4o-mini due to GPT-5 failure');
-    model = 'gpt-4o-mini';
-    maxTokens = 200;
-    
-    const requestBody = buildOpenAIRequest(
-      model,
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      { maxTokens, temperature: 0.8 }
-    );
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    console.log('📡 Fallback Response Status:', response.status);
-    
-    const data = await response.json();
-    console.log('📄 Fallback Response Data:', JSON.stringify(data, null, 2));
-    
-    if (data.error) {
-      console.error('❌ Fallback API Error:', data.error);
-      throw new Error(`OpenAI API Error: ${data.error.message}`);
-    }
-    
-    const content = data.choices?.[0]?.message?.content;
-    const actualModel = data.model || model;
-    
-    if (!content || content.trim() === '') {
-      throw new Error('Both GPT-5 and fallback model returned empty content');
-    }
-    
-    return { content, model: actualModel };
-  }
-}
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const payload = await req.json();
-    console.log('Text generation request:', JSON.stringify(payload, null, 2));
-
-    const { category, subcategory, tone, rating, insertWords, rules_id } = payload;
-    
-    // Load rules if provided
-    let rules = null;
-    if (rules_id) {
-      const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
-      rules = await loadRules(rules_id, origin);
-      console.log(`📋 Using rules: ${rules.id} v${rules.version}`);
-    }
-
-    // Build comprehensive prompt using the text rules
-    let systemPrompt = text_rules;
-    
-    // Add dynamic context
-    if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
-    if (subcategory) systemPrompt += ` > ${subcategory}`;
-    if (tone) systemPrompt += `\nTONE: ${tone}`;
-    if (rating) systemPrompt += `\nRATING: ${rating}`;
-    if (insertWords && insertWords.length > 0) {
-      systemPrompt += `\nINSERT WORDS: ${insertWords.join(', ')}`;
-    }
-    
-    systemPrompt += `\n\nReturn exactly 4 sentences, one per line.`;
-
-    const userPrompt = "Generate 4 funny sentences now.";
-
-    // Call OpenAI
-    const { content: rawResponse, model: usedModel } = await callOpenAI(systemPrompt, userPrompt);
-    console.log('🎭 Raw AI Response:', rawResponse);
-
-    // Parse and clean lines
-    let lines = parseLines(rawResponse);
-    console.log('🧹 Cleaned lines:', lines);
-
-    // Apply rules enforcement if rules are loaded
-    let enforcement: string[] = [];
-    if (rules && rating) {
-      const enforced = enforceRules(lines, rules, rating);
-      lines = enforced.lines;
-      enforcement = enforced.enforcement;
-      if (enforcement.length > 0) {
-        console.log('⚖️ Rules enforcement:', enforcement);
-      }
-    }
-
-    // Take first 4 lines or pad if needed
-    const finalLines = lines.slice(0, 4);
-    
-    if (finalLines.length < 4) {
-      console.warn(`⚠️ Only generated ${finalLines.length} lines, expected 4`);
-    }
-
-    // Get length constraints for validation
-    const minLength = rules?.length?.min_chars || 50;
-    const maxLength = rules?.length?.max_chars || 120;
-
-    // Format response with debug info and model information
-    const response = {
-      lines: finalLines.map((line, index) => ({
-        line,
-        length: line.length,
-        index: index + 1,
-        valid: line.length >= minLength && line.length <= maxLength
-      })),
-      model: usedModel,
-      count: finalLines.length,
-      rules_used: rules ? { id: rules.id, version: rules.version } : null,
-      enforcement: enforcement.length > 0 ? enforcement : undefined
-    };
-
-    // Debug: Log each line's validation status
-    console.log(`📏 Length constraints: min=${minLength}, max=${maxLength}`);
-    response.lines.forEach((item, index) => {
-      console.log(`📝 Line ${index + 1}: "${item.line}" (${item.length} chars, valid: ${item.valid})`);
-    });
-
-    console.log(`✅ Generated ${response.lines.length} text options using model: ${usedModel}`);
-    if (rules) {
-      console.log(`📋 Applied rules: ${rules.id} v${rules.version}`);
-    }
-
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('❌ Error in generate-text function:', error);
-    return new Response(JSON.stringify({ 
-      error: (error as Error)?.message || 'Internal server error',
-      debug: (error as Error)?.stack
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});*/

@@ -1,69 +1,54 @@
+// Visual generation rules and subcategory contexts
 export const visual_rules = `VISUAL GENERATION RULES
 
+GOAL
+- Generate exactly 4 concise scene descriptions for a meme image.
+- Each line must be 7–12 words.
+
 GENERAL
-- All visuals must clearly support the completed_text.
-- Insert words (e.g., names, phrases) must appear in the text overlay if required, not forced into objects.
-- Visuals must match the humor baseline and tone context.
-- Use the selected style, dimension, and layout exactly as specified.
+- Describe only the visual scene (no text overlays or camera jargon).
+- Support the completed_text thematically with clear, concrete imagery.
+- Insert words must appear verbatim in every description (use naturally).
+- Reflect the selected tone via mood, props, or exaggeration.
+- Respect the provided composition modes in each line.
+- Keep language vivid and simple; no run-ons.
 
 STRUCTURE
-- Category → Broad context for the scene (e.g., Celebrations, Sports, Pop Culture).
-- Subcategory → Narrows the scene (e.g., Engagement, Birthday, Wedding).
-- Tone → Determines energy of the visuals (Savage = bold, edgy; Sentimental = warm, soft).
-- Rating → Affects maturity of visual jokes (G = family-safe; R = raw, adult themes).
-- InsertWords → Only applied to on-image text banners, never literal props.
+- Category → broad scene context (e.g., Celebrations, Sports, Daily Life).
+- Subcategory → tighter setting and default props (e.g., Birthday, Basketball).
+- Tone → energy/mood (Savage=edgy/harsh, Sentimental=warm/gentle, Playful=cheeky).
+- Rating → maturity boundary for gag (G=family-safe … R=adult).
+- Composition Modes → minimalist, exaggerated, chaotic, surreal (must be mentioned).
+- Image Style → applied by renderer; DO NOT mention in lines.
 
-STYLE
-- realistic → Photographic look, sharp detail.
-- caricature → Exaggerated features, comedic distortion.
-- anime → Stylized, bright, character-driven.
-- pop_art → Bold, colorful, flat stylization.
-- 3d_render → High-detail, cinematic rendering.
-- illustrated → Hand-drawn or painted feel.
-
-DIMENSION
-- square (1:1) → Balanced memes, general use.
-- portrait (9:16) → Mobile/tall poster formats.
-- landscape (16:9) → Meme banners, cinematic.
-
-LAYOUT
-- minimalist → Clean, few props, negative space for text.
-- badge_callout → Strong text callouts with graphical framing.
-- meme_text → Top and bottom banners.
-- lower_banner → Single text bar at bottom.
-- side_bar → Vertical text block.
-- caption → Small text line at bottom.
-
-COMPOSITION MODES
-- Always respect the list provided (e.g., minimalist, chaotic, surreal).
-- Minimalist → Clean props, empty background, sharp focus on subject.
-- Chaotic → Overstuffed with exaggerated props and detail.
-- Surreal → Weird, dreamlike juxtapositions.
+VARIETY
+- Out of 4 lines:
+  - 2 must be LITERAL: directly visualize the main idea from completed_text
+    (e.g., if the text mentions “missed the bus,” show a bus, stop, or empty stop).
+  - 2 must be CREATIVE: support the same tone/humor with different props/settings.
+- Literal and creative lines must both satisfy the 7–12 word rule, insert words, and composition mode mention.
 
 REQUIREMENTS
-- Generate exactly 4 distinct visual scene descriptions.
-- Each description must be 7–12 words long, no fewer, no more.
-- Each must reflect the subcategory context with appropriate props.
-- All insertWords must appear in every description.
-- Each must include the composition_modes.
-- Each scene must use a unique setting and unique props. 
-  Do NOT reuse the same props across outputs.
-- Visuals must also reflect the selected tone through mood, exaggeration, or props.
-- Sentences must be short, vivid, and concrete.
-- Do NOT mention the image style in the descriptions.
+- Return 4 lines, each 7–12 words.
+- All insert words must be present in every line.
+- Mention at least one composition mode per line.
+- Use unique settings/props per line; no repeated lists.
+- Be concrete and visual; avoid abstract phrases and meta commentary.
+- Do NOT mention image style, lenses, camera, or typography.
 
 OUTPUT
-- Always return 4 visual concepts per request.
-- Each concept must be distinct (different props, scene framing, or mood).
-- No duplicate object arrangements across the 4 outputs.
 - Return ONLY the 4 scene descriptions, one per line, nothing else.`;
 
+// Default subcategory contexts (expand as needed)
 export const subcategory_contexts: Record<string, string> = {
-  'birthday': 'party table, streamers, confetti, balloons, cake, candles',
-  'wedding': 'altar, bouquet, rings, reception hall, dance floor, guests',
-  'graduation': 'stage, cap and gown, diploma, ceremony, audience, podium',
-  'basketball': 'court, hoop, ball, players, bench, crowd, scoreboard',
-  'football': 'field, goalpost, helmet, stadium, fans, sideline',
-  'work': 'office, desk, computer, meeting room, colleagues, coffee',
-  'dating': 'restaurant, table, flowers, dinner, romantic setting'
+  birthday:   "party table, balloons, confetti, cake, candles, guests",
+  coffee:     "cafe counter, steaming cups, pastries, cozy seating, morning light",
+  work:       "desk, computer, meeting room glass, whiteboard, coworkers, office plants",
+  relationship:"restaurant table, shared dessert, city lights, linked hands, playful looks",
+  food:       "kitchen island, sizzling pan, chopping board, spices, plated dishes",
+  travel:     "suitcase, airport gate, window views, street vendors, scenic overlook",
+  fitness:    "weights, treadmill, sweat towel, outdoor trail, sporty outfit",
+  technology: "screens, cables, neon UI, keyboards, smart devices, notifications",
+  nature:     "forest path, river stones, mountain haze, sun shafts, wildflowers",
+  default:    "general scene, background props, atmospheric details, contextual elements"
 };
