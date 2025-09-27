@@ -375,17 +375,10 @@ function uniqTokens(toks: Token[]): Token[] {
   return out;
 }
 
-/**
- * Pulls structured choices from payload if present:
- * - payload.movie_title, payload.celebrity_name, payload.character_name
- * - payload.selection_path / category breadcrumb
- * - payload.entities: { movie?:string, celebrity?:string|string[], character?:string|string[] }
- */
 function inferEntityTokens(payload: Record<string, unknown>, category: string | undefined, subcategory: string | undefined): Token[] {
   const toks: Token[] = [];
   const p = payload || {};
 
-  // 1) entities blob
   const ents = (p as any).entities || {};
   const movie = (ents.movie ?? (p as any).movie_title) as string | undefined;
   const celeb = (ents.celebrity ?? (p as any).celebrity_name) as string | string[] | undefined;
@@ -401,20 +394,15 @@ function inferEntityTokens(payload: Record<string, unknown>, category: string | 
     for (const c of arr) if (String(c).trim()) toks.push({ text: String(c).trim(), role: "celebrity" });
   }
 
-  // 2) Leaf from selection path (e.g., "pop-culture > movies > Billy Madison")
   const path = (p as any).selection_path || (p as any).path || `${category || ""} > ${subcategory || ""}`;
   const leaf = leafLabel(String(path));
-  // Only add if it looks like a concrete title/name, not "movies"/"celebrity"
   if (leaf && !/^(movies?|tv|shows?|celebrity|celebrities|music|sports?)$/i.test(leaf)) {
-    // If we already added a movie/topic, skip duplicate
     if (!toks.some(t => t.text.toLowerCase() === leaf.toLowerCase())) {
-      // Guess role: if category mentions celebrity, call it celebrity; else topic
       const role = /celebr/i.test(String(category)) ? "celebrity" : "topic";
       toks.push({ text: leaf, role });
     }
   }
 
-  // If pop-culture and we still have nothing, fall back to subcategory as topic
   if ((!toks.length) && /pop-?culture/i.test(String(category)) && subcategory) {
     toks.push({ text: String(subcategory), role: "topic" });
   }
@@ -422,7 +410,7 @@ function inferEntityTokens(payload: Record<string, unknown>, category: string | 
   return uniqTokens(toks);
 }
 
-// ============== ENFORCEMENT (unchanged except minor punctuation fix earlier) ==============
+// ============== ENFORCEMENT (main pipeline) ==============
 function enforceRules(
   lines: string[],
   rules: any,
@@ -604,7 +592,7 @@ serve(async (req) => {
       ? insertTokens
       : (Array.isArray(insertWords) ? insertWords.map((w: string) => ({ text: w, role: "topic" })) : []);
 
-    // Infer from selection path + explicit entity fields (movies, celebrity, character)
+    // Infer from selection path + explicit entity fields
     const inferred = inferEntityTokens(payload, category, subcategory);
     if (inferred.length) tokens = uniqTokens([...(tokens || []), ...inferred]);
 
