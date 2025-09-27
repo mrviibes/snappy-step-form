@@ -17,6 +17,7 @@ import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { validateBatch } from '@/lib/textValidator';
 import { getRules, enforceBasicRules, validateLength } from '@/lib/rulesEngine';
+import DebugPanel from '@/components/DebugPanel';
 
 interface TextStepProps {
   data: any;
@@ -65,14 +66,58 @@ export default function TextStep({
   const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
   const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugExpanded, setDebugExpanded] = useState(false);
   
   const { toast } = useToast();
+
+  // Clear stale words when category changes
+  useEffect(() => {
+    if (data.category && data.text?.specificWords?.length > 0) {
+      updateData({
+        text: {
+          ...data.text,
+          specificWords: []
+        }
+      });
+      toast({
+        title: "Specific words cleared",
+        description: "Previous words were removed for the new category"
+      });
+    }
+  }, [data.category, data.subcategory]);
 
   const handleGenerate = async () => {
     if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
 
+    // Auto-capture pending input
+    if (tagInput.trim()) {
+      const input = tagInput.trim();
+      if (/[\[\]{}:]/.test(input)) {
+        updateData({
+          text: {
+            ...data.text,
+            specificWords: [input]
+          }
+        });
+      } else {
+        const currentWords = data.text?.specificWords || [];
+        const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
+        const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
+        if (newWords.length > 0) {
+          updateData({
+            text: {
+              ...data.text,
+              specificWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
+            }
+          });
+        }
+      }
+      setTagInput('');
+    }
+
     setIsGenerating(true);
     setGenerationError(null);
+    setDebugExpanded(false);
     
     try {
       // Get rules for enforcement
@@ -154,6 +199,7 @@ export default function TextStep({
         errorDetails: error
       }));
       setGenerationError('Could not generate text options. Please try again.');
+      setDebugExpanded(true); // Auto-expand debug panel on error
     } finally {
       setIsGenerating(false);
     }
@@ -659,6 +705,25 @@ export default function TextStep({
 
 
 
+          {/* Payload Preview */}
+          {(data.text?.specificWords?.length > 0 || tagInput.trim()) && (
+            <div className="bg-muted/50 border border-border rounded-lg p-3">
+              <div className="text-xs text-muted-foreground mb-1">Words that will be included:</div>
+              <div className="flex flex-wrap gap-1">
+                {data.text?.specificWords?.map((word, idx) => (
+                  <span key={idx} className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                    {word}
+                  </span>
+                ))}
+                {tagInput.trim() && (
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                    {tagInput.trim()} (pending)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Generate Button */}
           <div className="w-full">
             <Button 
@@ -766,6 +831,20 @@ export default function TextStep({
                 </div>
               </div>
               
+              {/* Payload Preview */}
+              {data.text?.specificWords?.length > 0 && (
+                <div className="bg-muted/50 border border-border rounded-lg p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Words that will be included:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {data.text.specificWords.map((word, idx) => (
+                      <span key={idx} className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Generate Button - Full width on mobile */}
               <div className="w-full space-y-3">
                 <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
@@ -830,70 +909,23 @@ export default function TextStep({
                    </div>
                    </div>}
                    
-      {/* Debug Panel - Always visible when debugInfo exists */}
+      {/* Enhanced Debug Panel - Auto-expands on errors */}
       {debugInfo && (
         <div className="mt-6">
-          <details className="rounded-lg border bg-card">
-            <summary className="cursor-pointer p-4 font-medium text-card-foreground hover:bg-accent/50 transition-colors">
-              🐛 Debug Information
-            </summary>
-            <div className="border-t bg-muted/20 p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-semibold">Model:</span> {debugInfo.model}
-                </div>
-                <div>
-                  <span className="font-semibold">Status:</span> 
-                  <span className={`ml-1 ${debugInfo.status === 'success' ? 'text-green-600' : debugInfo.status === 'error' ? 'text-red-600' : 'text-yellow-600'}`}>
-                    {debugInfo.status}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-semibold">Endpoint:</span> {debugInfo.endpoint}
-                </div>
-                <div>
-                  <span className="font-semibold">Timestamp:</span> {new Date(debugInfo.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-              
-              {debugInfo.requestPayload && (
-                <div>
-                  <div className="font-semibold mb-2">Request Payload:</div>
-                  <pre className="bg-background p-2 rounded text-xs overflow-x-auto">
-                    {JSON.stringify(debugInfo.requestPayload, null, 2)}
-                  </pre>
-                </div>
-              )}
-              
-              {debugInfo.error && (
-                <div>
-                  <div className="font-semibold mb-2 text-red-600">Error:</div>
-                  <div className="bg-red-50 border border-red-200 p-2 rounded text-sm text-red-800">
-                    {debugInfo.error}
-                  </div>
-                </div>
-              )}
-              
-              {debugInfo.rawResponse && (
-                <div>
-                  <div className="font-semibold mb-2">Raw Response ({debugInfo.responseLength} options):</div>
-                  <pre className="bg-background p-2 rounded text-xs overflow-x-auto max-h-40 overflow-y-auto">
-                    {(() => {
-                      // Handle both object (new format) and array (legacy format)
-                      if (Array.isArray(debugInfo.rawResponse)) {
-                        const preview = debugInfo.rawResponse.slice(0, 2);
-                        return JSON.stringify(preview, null, 2) + 
-                          (debugInfo.rawResponse.length > 2 ? '\n... and ' + (debugInfo.rawResponse.length - 2) + ' more' : '');
-                      } else {
-                        // Object format - show the full response
-                        return JSON.stringify(debugInfo.rawResponse, null, 2);
-                      }
-                    })()}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </details>
+          <DebugPanel
+            title="Text Generation Debug"
+            model={debugInfo.model}
+            status={debugInfo.status}
+            endpoint={debugInfo.endpoint}
+            timestamp={debugInfo.timestamp}
+            requestPayload={debugInfo.requestPayload}
+            responseData={debugInfo.rawResponse}
+            error={debugInfo.error}
+            className={cn(
+              "transition-all duration-300",
+              debugExpanded && debugInfo.status === 'error' ? "ring-2 ring-red-200 border-red-200" : ""
+            )}
+          />
         </div>
       )}
       
