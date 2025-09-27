@@ -93,7 +93,10 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
 
 // ============== HELPER FUNCTIONS ==============
 function json(obj: any, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: corsHeaders });
+  return new Response(JSON.stringify(obj), { 
+    status, 
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
 }
 
 function aspectLabel(dim: string) {

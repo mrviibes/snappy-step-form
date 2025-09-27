@@ -243,12 +243,16 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
 // Generate 4 prompt templates for Step-4
 export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{templates: Array<{name: string, positive: string, negative: string, description: string}>}> {
   try {
-    const res = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
-    console.log('📥 Raw response from generate-final-prompt:', res);
+    const rawRes = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
+    console.log('📥 Raw response from generate-final-prompt:', rawRes);
+    
+    // Safe parsing: handle both string and object responses
+    const res = typeof rawRes === "string" ? JSON.parse(rawRes) : rawRes;
+    console.log('🔄 Parsed response:', res);
     
     if (!res || !res.success) {
       console.error('❌ Response validation failed:', { res, hasRes: !!res, success: res?.success });
-      const errorMessage = (res as any)?.error || "Template generation failed";
+      const errorMessage = res?.error || "Template generation failed";
       throw new Error(errorMessage);
     }
     
