@@ -1,10 +1,11 @@
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
-- Generate 4 hilarious distinct one-liners that feel human written.
+- Generate 4 distinct, human-sounding humorous one-liners.
 
 HARD CONSTRAINTS
 - Exact spelling. Insert words must appear exactly as written in every line.
+- Insert words must vary position across the 4 outputs (start, middle, end).
 - Length 60–120 characters per line, no fewer, no more.
 - One sentence only. Max 2 punctuation marks total (. , ? !).
 - No em dashes, colons, semicolons. Replace with commas or end the sentence.
@@ -26,7 +27,7 @@ TONES
 RATINGS
 - G → no profanity or adult refs.
 - PG → censored swears allowed (f***, sh*t), no uncensored profanity.
-- PG-13 → only "hell", "damn"; nothing stronger.
+- PG-13 → only "hell", "damn"; nothing stronger (replace stronger words).
 - R (Raw, Unfiltered) →
   - Must include uncensored profanity in every line.
   - Profanity must vary across the 4 outputs.
