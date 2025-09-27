@@ -344,6 +344,7 @@ export default function CategoryStep({
               placeholder="Search subcategories..." 
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
+              spellCheck={true}
               className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
             />
           </div>
@@ -394,6 +395,7 @@ export default function CategoryStep({
           placeholder="Search categories and interests..." 
           value={searchQuery} 
           onChange={e => setSearchQuery(e.target.value)} 
+          spellCheck={true}
           className="pl-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
       </div>
