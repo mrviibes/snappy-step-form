@@ -112,6 +112,7 @@ function buildOpenAIRequest(
 }
 
 async function callOpenAI(systemPrompt: string, userPrompt: string) {
+  if (!openAIApiKey) throw new Error("Missing OPENAI_API_KEY");
   let model = getTextModel();
   let maxTokens = model.startsWith("gpt-5") ? 4000 : 300;
 
@@ -164,7 +165,7 @@ const SWEAR_WORDS = [
   "rat bastard","shithead"
 ];
 const STRONG_SWEARS = new RegExp(
-  `\\b(${SWEAR_WORDS.map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")).join("|")})\\b`,
+  `\\b(${SWEAR_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\\\]/g, "\\$&")).join("|")})\\b`,
   "i"
 );
 
@@ -187,7 +188,24 @@ function choice<T>(arr: T[], weights?: number[]) {
 
 function splitClauses(s: string) { return s.split(/,\s*/).map(c => c.trim()).filter(Boolean); }
 function rejoinClauses(clauses: string[]) { let out = clauses.join(", "); out = out.replace(/[.?!]\s*$/, "") + "."; return out.replace(/\s+/g, " ").trim(); }
-function parseLines(content: string): string[] { return content.split(/\r?\n+/).map(s => s.trim()).filter(Boolean); }
+
+// ---------- Cleanup & humanization helpers ----------
+function cleanLine(raw: string) {
+  let t = raw.trim();
+  t = t.replace(/^\s*(\d+[\).]|[-*•])\s+/, "");     // kill "5." bullets etc
+  t = t.replace(/^["'`]+|["'`]+$/g, "");            // strip quotes/backticks
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+function parseLines(content: string): string[] {
+  return content
+    .split(/\r?\n+/)
+    .map(cleanLine)
+    .filter(Boolean)
+    .filter(s => s.length >= 40); // drop obvious stubs so backfill kicks in
+}
+
 function countPunc(s: string) { return (s.match(/[.,?!]/g) || []).length; }
 function oneSentence(s: string) { return !/[.?!].+?[.?!]/.test(s); }
 
@@ -199,6 +217,48 @@ function trimToRange(s: string, min = 60, max = 120) {
   return out;
 }
 
+function fixPunctuation(s: string) {
+  let t = s
+    .replace(/\s+([,?.!])/g, "$1")        // no space before punctuation
+    .replace(/,([.?!])/g, "$1")           // kill ",."
+    .replace(/([,?.!])([^\s])/g, "$1 $2") // space after punctuation
+    .replace(/([.?!])[.?!]+$/g, "$1");    // collapse repeated terminal marks
+  t = t.replace(/[.?!]\s*$/,"") + ".";
+  return t.replace(/\s+/g, " ").trim();
+}
+
+// soft typo hotfixes (you can extend this)
+const SAFE_FIXES: Record<string, string> = {
+  "cldamnic": "classic",
+  "modle": "model",
+  "bday": "birthday"
+};
+
+// anti-robot openers
+const BAN_OPENERS = [
+  "remember", "let's be honest", "at the end of the day",
+  "in conclusion", "fun fact", "here's the thing"
+];
+function nonRobotOpen(s: string) {
+  const w = s.toLowerCase().trim().split(/\s+/).slice(0,3).join(" ");
+  return !BAN_OPENERS.some(b => w.startsWith(b));
+}
+
+// require one concrete detail (keeps lines from sounding generic)
+function hasConcreteDetail(s: string) {
+  return /\b(coffee|mic|bus|bench|ring light|popcorn|locker|apron|playlist|receipt|hoodie|stool|stage|bleachers|thumbnail|controller|cart)\b/i.test(s);
+}
+function addContractions(s: string){
+  return s
+    .replace(/\byou are\b/gi,"you're")
+    .replace(/\bwe are\b/gi,"we're")
+    .replace(/\bit is\b/gi,"it's")
+    .replace(/\bI am\b/gi,"I'm")
+    .replace(/\bdo not\b/gi,"don't")
+    .replace(/\bcannot\b/gi,"can't");
+}
+
+// ============== ENFORCEMENT ==============
 function bigramSet(s: string) {
   const words = s.toLowerCase().replace(/[^\w\s']/g,"").split(/\s+/).filter(Boolean);
   const set = new Set<string>();
@@ -256,7 +316,7 @@ function applyTokenStrategy(line: string, token: string, strat: typeof TOKEN_STR
 function placeTokensNaturally(line: string, tokens: Token[], rules: any) {
   let out = line;
   for (const tok of tokens) {
-    const present = new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(out);
+    const present = new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\\\]/g,"\\$&")}\\b`, "i").test(out);
     if (present) continue;
     let strat: typeof TOKEN_STRATEGIES[number] =
       tok.role === "venue"     ? "venueBracket" :
@@ -299,11 +359,11 @@ function placeNaturalProfanity(line: string, tokens: Token[], rules: any, leadSw
   if (!clauses.length) return line;
 
   const tokenTexts = tokens.map(t => t.text);
-  let idx = clauses.findIndex(c => tokenTexts.some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(c)));
+  let idx = clauses.findIndex(c => tokenTexts.some(t => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\\\]/g,"\\$&")}\\b`, "i").test(c)));
   if (idx < 0) idx = clauses.reduce((best, c, i, arr) => c.length > arr[best].length ? i : best, 0);
 
   let target = clauses[idx];
-  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"];
+  const strategies = ["start","beforeVerbAdj","replaceIntensifier","endPunch"] as const;
   const weights    = [0.2, 0.4, 0.15, 0.25];
   const strat = choice(strategies, weights);
 
@@ -361,13 +421,20 @@ function enforceRules(
   const maxLen = rules.length?.max_chars ?? 120;
 
   let processed = lines
-    .map((raw) => raw.trim())
-    .filter((l) => l && !/^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/i.test(l))
-    .map((t) => t.replace(/["`]+/g, "").replace(/\s+/g, " ").trim());
+    .map((raw) => cleanLine(raw))
+    .filter((l) => l && !/^(here (are|is)|generate|as requested|candidate|based on|tone:|rating:|context:)/i.test(l));
 
   processed = processed.map((t, idx) => {
     if (rules.punctuation?.ban_em_dash) t = t.replace(/—/g, rules.punctuation.replacement?.["—"] || ",");
     t = t.replace(/[:;…]/g, ",").replace(/[“”'’]/g, "'");
+
+    // fix punctuation artifacts early
+    t = fixPunctuation(t);
+
+    // soft typo fixes
+    for (const [wrong, right] of Object.entries(SAFE_FIXES)) {
+      t = t.replace(new RegExp(`\\b${wrong}\\b`, "gi"), right);
+    }
 
     const maxPunc = rules.punctuation?.max_marks_per_line ?? 3;
     if (countPunc(t) > maxPunc) {
@@ -386,16 +453,36 @@ function enforceRules(
     t = trimToRange(t, minLen, maxLen);
     if (t.length !== before) enforcement.push(`Line ${idx+1}: compressed to ${t.length} chars`);
 
+    // humanization: contractions + concrete detail (if missing)
+    t = addContractions(t);
+    if (!hasConcreteDetail(t)) t = t.replace(/[.?!]\s*$/, "") + ", coffee on the table.";
+
+    // role-aware token placement
     t = placeTokensNaturally(t, insertTokens, rules);
 
+    // verify tokens present
     for (const tok of insertTokens) {
-      if (!new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "i").test(t)) {
+      if (!new RegExp(`\\b${tok.text.replace(/[.*+?^${}()|[\]\\\\]/g,"\\$&")}\\b`, "i").test(t)) {
         t = `${t.replace(/[.?!]\s*$/,"")}, ${tok.text}.`;
         enforcement.push(`Line ${idx+1}: appended missing token '${tok.text}'`);
       }
     }
 
+    // anti-robot openers
+    if (!nonRobotOpen(t)) {
+      t = t.replace(/^[^,]+?,\s*/,""); // drop the canned opener if present
+    }
+
     return t;
+  });
+
+  // prevent repeated two-word starts across lines
+  const seenStarts = new Set<string>();
+  processed = processed.filter(l => {
+    const start = l.toLowerCase().split(/\s+/).slice(0,2).join(" ");
+    if (seenStarts.has(start)) return false;
+    seenStarts.add(start);
+    return true;
   });
 
   if (insertTokens?.length === 1) {
@@ -406,6 +493,7 @@ function enforceRules(
     processed = varied;
   }
 
+  // Rating-specific passes
   if (rating === "R") {
     const usedLead = new Set<string>();
     const cfg = rules?.ratings?.R ?? {};
