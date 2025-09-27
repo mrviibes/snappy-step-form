@@ -248,7 +248,7 @@ export async function generateFinalPrompt(params: GenerateFinalPromptParams): Pr
     
     if (!res || !res.success) {
       console.error('❌ Response validation failed:', { res, hasRes: !!res, success: res?.success });
-      const errorMessage = res && 'error' in res ? res.error : "Template generation failed";
+      const errorMessage = (res as any)?.error || "Template generation failed";
       throw new Error(errorMessage);
     }
     
