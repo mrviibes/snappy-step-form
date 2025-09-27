@@ -171,52 +171,53 @@ serve(async (req) => {
       prompt += `\n\nTOKENS TO INCLUDE: ${tokens.join(', ')}`;
     }
 
-    // Call Claude API
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicApiKey) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+    // Call OpenAI API
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const completion = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1000,
+        model: 'gpt-4o-mini',
+        max_tokens: 800,
         messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: 'You are a witty copywriter. Follow the provided rules exactly and output exactly 4 lines, one sentence per line, no numbering or bullets.' },
+          { role: 'user', content: prompt }
         ]
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Anthropic API error:', response.status, errorText);
-      throw new Error(`Anthropic API error: ${response.status}`);
+    if (!completion.ok) {
+      const errorText = await completion.text();
+      console.error('OpenAI API error:', completion.status, errorText);
+      throw new Error(`OpenAI API error: ${completion.status}`);
     }
 
-    const data = await response.json();
-    const generatedText = data.content[0].text;
+    const data = await completion.json();
+    const generatedText: string = data?.choices?.[0]?.message?.content ?? '';
     
     // Split into lines and clean up
     const rawCandidates = generatedText
       .split('\n')
-      .map((line: string) => line.trim())
+      .map((line: string) => line.trim().replace(/^[-•*]\s*/, '')) // remove bullets
       .filter((line: string) => line && !line.match(/^\d+\.?\s/)) // Remove numbering
       .slice(0, 4);
 
     console.log('Raw candidates:', rawCandidates);
 
+    const linesOut = rawCandidates.map((l: string) => ({ line: l }));
+
     return new Response(JSON.stringify({ 
-      candidates: rawCandidates,
-      success: true 
+      success: true,
+      lines: linesOut,
+      model: 'openai:gpt-4o-mini',
+      count: linesOut.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
