@@ -2338,7 +2338,6 @@ export const fitnessGoals: CategoryItem[] = [{
     { id: "tech-support-jokes", title: "Tech Support Jokes" }
   ]
 }, {
-{
   id: "custom",
   title: "Custom",
   description: "Everything not already covered: ads, science, professions, design, politics, etc.",
@@ -2598,4 +2597,4 @@ export const fitnessGoals: CategoryItem[] = [{
       ]
     }
   ]
-}
+}]
