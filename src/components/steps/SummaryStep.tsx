@@ -5,7 +5,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, RefreshCw, Zap, Maximize, X } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Download, RefreshCw, Zap, Maximize, X, Bug } from "lucide-react";
 import { generateFinalPrompt, generateImage } from "@/lib/api";
 
 
@@ -358,6 +359,69 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           Generate your final image using Gemini 2.5 Flash Image
         </p>
       </div>
+
+      {/* Debug Panel */}
+      <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="debug-info" className="border-none">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Bug className="h-4 w-4 text-orange-600" />
+                <span className="font-medium text-orange-700 dark:text-orange-300">
+                  Debug Information (All Parameters & Prompt)
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <div className="space-y-4">
+                {/* Form Parameters */}
+                <div>
+                  <h4 className="text-sm font-medium text-foreground mb-2">Form Parameters:</h4>
+                  <div className="grid gap-2 text-xs">
+                    {summaryData.map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <span className="text-muted-foreground min-w-[120px]">{item.label}:</span>
+                        <span className="text-foreground font-mono break-all">{item.value || 'Not set'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="bg-orange-200 dark:bg-orange-800" />
+
+                {/* Generated Prompt */}
+                {selectedTemplate && (
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Generated Prompt ({selectedTemplate.name}):</h4>
+                    <div className="bg-background border rounded-lg p-3">
+                      <pre className="text-xs text-foreground font-mono whitespace-pre-wrap break-words">
+                        {selectedTemplate.positive}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* Template Info */}
+                {templates.length > 0 && (
+                  <>
+                    <Separator className="bg-orange-200 dark:bg-orange-800" />
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground mb-2">Available Templates:</h4>
+                      <div className="text-xs text-muted-foreground">
+                        {templates.map((template, index) => (
+                          <div key={index} className="mb-1">
+                            • {template.name} - {template.description}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </Card>
 
       {/* Generated Image Section */}
       <Card className="p-4">
