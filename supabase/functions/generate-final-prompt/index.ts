@@ -167,7 +167,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const styleStr = image_style.toLowerCase();
 
   // Base scene (your “Base:” text, compacted to play nice with Gemini Flash)
-  const sceneLine = `Playful witty scene: a basketball bounces off a giant motivational poster nearby${visual_recommendation ? `; ${visual_recommendation}` : ""}.`;
+  // Removed hardcoded example scene text
 
   // Composition inserts (optional)
   const comp = getCompositionInserts(composition_modes);
