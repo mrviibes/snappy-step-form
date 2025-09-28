@@ -353,29 +353,29 @@ export default function TextStep({
 
   // Layout options
   const layoutOptions = [{
-    id: "negative-space",
-    title: "Open Space",
-    image: negativeSpaceImage
-  }, {
     id: "meme-text",
     title: "Meme Text",
     image: memeTextImage
-  }, {
-    id: "lower-banner",
-    title: "Lower Banner",
-    image: lowerBannerImage
-  }, {
-    id: "side-bar",
-    title: "Side Bar",
-    image: sideBarImage
   }, {
     id: "badge-callout",
     title: "Badge Callout",
     image: badgeCalloutImage
   }, {
-    id: "subtle-caption",
+    id: "negative-space",
+    title: "Negative Space",
+    image: negativeSpaceImage
+  }, {
+    id: "caption",
     title: "Caption",
     image: subtleCaptionImage
+  }, {
+    id: "integrated-in-scene",
+    title: "Integrated In-Scene Text",
+    image: lowerBannerImage
+  }, {
+    id: "dynamic-overlay",
+    title: "Dynamic Overlay",
+    image: sideBarImage
   }];
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);

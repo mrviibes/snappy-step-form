@@ -34,7 +34,7 @@ export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI)
 - Use bright key light, vivid saturation, crisp focus, cinematic contrast.`;
 
 
-// ===== LAYOUT MAP (you asked for these six) =====
+// ===== LAYOUT MAP (updated six layouts) =====
 export const layoutMap: Record<string, string> = {
   "meme-text": "bold top/bottom meme placement; high-contrast; no panels; 6–8% padding",
   "badge-callout": "compact floating callout; minimal 1–2 px outline; no background fill",
@@ -47,12 +47,12 @@ export const layoutMap: Record<string, string> = {
 
 // ===== SHORT LAYOUT TAGS (for minimal prompts/UI) =====
 export const layoutTagShort: Record<string, string> = {
-  "meme-text": "bold top/bottom meme text",
-  "badge-callout": "floating stylish badge",
-  "negative-space": "clean modern text, open area",
-  "caption": "strong bottom caption",
-  "integrated-in-scene": "text built into scene",
-  "dynamic-overlay": "diagonal editorial overlay"
+  "meme-text": "Meme Text",
+  "badge-callout": "Badge Callout", 
+  "negative-space": "Negative Space",
+  "caption": "Caption",
+  "integrated-in-scene": "Integrated In-Scene Text",
+  "dynamic-overlay": "Dynamic Overlay"
 };
 
 
