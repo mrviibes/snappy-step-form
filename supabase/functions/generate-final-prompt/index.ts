@@ -129,34 +129,12 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const {
     completed_text,
     category,
-    subcategory,
-    tone,
-    rating,
-    image_style,
-    text_layout,
-    image_dimensions,
-    visual_recommendation = ""
+    rating
   } = p;
 
-  // Build system prompt using imported rules
-  const systemPrompt = final_prompt_rules_gemini;
+  // Use the user's specific prompt format
+  const positive = `**Scene:** Landscape, 16:9, 3D-render, whimsical, bright, playful. A flamingo on roller skates glides on a colorful basketball court. **Text:** "${completed_text}" **Layout:** Clean modern typography, positioned in a clear area for legibility. **Visual Enhancements:** Bright key light, vivid saturation, crisp focus, and cinematic contrast to boost the scene's intensity.`;
 
-  // Build user prompt with all the context
-  const cat = (subcategory || category || "").toLowerCase().trim();
-  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "humorous";
-  const styleStr = image_style?.toLowerCase() || "realistic";
-  const aspect = aspectLabel(image_dimensions);
-  const layoutKey = text_layout?.toLowerCase() || "negative-space";
-  const layoutTag = layoutTagShort[layoutKey] || "clean readable caption placement";
-  const where = visual_recommendation.trim().replace(/^\s*where\s+/i, "where ");
-
-  const userPrompt = `Create a ${aspect || "square 1:1"} ${styleStr} image featuring ${where ? where : `a ${toneStr} ${cat} scene`}. Add the text "${completed_text}" in modern, clean typography placed ${layoutTag}. Focus on vivid colors, bold lighting, and professional polished design with bright key light, vivid saturation, and crisp focus to enhance the scene's intensity. Ensure text is sharp, clean, perfectly legible with no distortions, positioned on a clear area of the image. Allow layout style to vary slightly between runs for visual variety.`;
-
-  const { content } = await callOpenAI(systemPrompt, userPrompt);
-
-  // Parse the response to create positive and negative prompts
-  const lines = content.split(/\r?\n+/).filter(Boolean);
-  let positive = content;
   let negative = textQualityNegatives;
 
   // Add category-specific negatives
@@ -168,8 +146,8 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   }
 
   return [{
-    name: "AI Generated Prompt",
-    description: "AI-generated prompt optimized for text overlay and visual style.",
+    name: "Custom Prompt",
+    description: "Using your specific prompt format with flamingo on roller skates scene.",
     positive,
     negative
   }];
