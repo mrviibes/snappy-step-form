@@ -269,15 +269,6 @@ export default function CategoryStep({
             </button>
           </div>
 
-          {/* Selected Subcategory */}
-          <div className="flex items-center justify-between p-4 border-t border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-bold text-muted-foreground">Type</span> - <span className="font-normal">{subcategoryData?.title}</span>
-            </div>
-            <button onClick={handleEditSubcategory} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>
 
           {/* Specific Items Display for Pop Culture */}
           {data.category === "pop-culture" && specificItems.length > 0 && (
@@ -391,20 +382,23 @@ export default function CategoryStep({
             </div>
             
             <div className="bg-card p-4 rounded-lg space-y-4">
-              <Input
-                type="text"
-                placeholder="Enter a specific topic..."
-                value={topicInput}
-                onChange={(e) => setTopicInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && topicInput.trim()) {
-                    e.preventDefault();
-                    updateData({ topic: topicInput.trim() });
-                  }
-                }}
-                spellCheck={true}
-                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
-              />
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-cyan-400" size={20} />
+                <Input
+                  type="text"
+                  placeholder="Enter a specific topic..."
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && topicInput.trim()) {
+                      e.preventDefault();
+                      updateData({ topic: topicInput.trim() });
+                    }
+                  }}
+                  spellCheck={true}
+                  className="w-full pl-12 pr-4 py-3 text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                />
+              </div>
               
               <div className="text-center">
                 <Button
