@@ -191,8 +191,7 @@ Layout: ${layoutTagShort[L.key]}, clean large professional typography.
 
 Scene
 Design a ${toneStr} scene: ${visual_recommendation || "engaging and stylish elements"}.
-Keep the overall look stylish and polished.
-
+Keep the overall look stylish and polished.`;
 
     // Compact negative for Gemini
     const neg =
