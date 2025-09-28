@@ -160,7 +160,7 @@ Generate exactly 4 visual scene concepts (one per line). Follow OUTPUT FORMAT an
     const cueUsed: string[] = [];
 
     // Post-process: enforce specific visuals + composition cue + ≤15 words
-    const fixed = lines.map((raw, i) => {
+    const fixed = lines.map((raw: string, i: number) => {
       let s = raw;
 
       // If the model returned blank or nonsense, synthesize a line
@@ -197,14 +197,14 @@ Generate exactly 4 visual scene concepts (one per line). Follow OUTPUT FORMAT an
     const literalCount =
       visualTokens.length === 0
         ? 0
-        : visuals.filter(v => hasAnyToken(v.description, visualTokens)).length;
+        : visuals.filter((v: { description: string }) => hasAnyToken(v.description, visualTokens)).length;
 
     return {
       success: true,
       visuals,
       model: data.model || model,
       debug: {
-        lengths: visuals.map(v => WORDS(v.description).length),
+        lengths: visuals.map((v: { description: string }) => WORDS(v.description).length),
         validCount: visuals.length,
         literalCount,
         keywords: visualTokens
