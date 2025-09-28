@@ -179,13 +179,14 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       ? `If possible, split at first comma for top/bottom lines.`
       : `Place as one block with balanced line breaks.`;
 
-    const positive =
-`Bright ${aspect} ${styleStr} image.
-Text: "${completed_text}"
-Layout: ${layoutTagShort[L.key]}.
-${typeLine} ${textForLayout}
-Scene: ${toneStr}; ${visual_recommendation || "clear subject, open background"}.
-Visuals: vivid colors, bold key light, crisp focus, cinematic contrast. ${styleGate}${compPos}`;
+    const positive = [
+      `Format: Bright ${aspect} ${styleStr} image`,
+      `Text: "${completed_text}"`,
+      `Layout: ${layoutTagShort[L.key]}`,
+      `Typography: ${typeLine} ${textForLayout}`,
+      `Scene: ${toneStr}; ${visual_recommendation || "clear subject, open background"}`,
+      `Style: vivid colors, bold key light, crisp focus, cinematic contrast. ${styleGate}${compPos}`
+    ].join('. ');
 
     const neg =
       `${negative}, low contrast, dull lighting, meme borders, split captions, cramped padding`;
