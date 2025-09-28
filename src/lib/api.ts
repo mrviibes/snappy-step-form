@@ -47,6 +47,7 @@ type GenerateVisualsParams = {
   visualTaste?: string;
   composition_modes?: string[];
   image_dimensions: "Square"|"Portrait"|"Landscape";
+  specific_visuals?: string[];
 };
 
 type GenerateVisualsResponse = { success: true; visuals: VisualRecommendation[] } | { success: false; error: string };

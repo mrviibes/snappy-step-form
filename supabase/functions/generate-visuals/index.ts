@@ -36,6 +36,7 @@ interface GenerateVisualsParams {
   image_style: string;
   completed_text: string;
   count: number;
+  specific_visuals?: string[];
 }
 
 interface GenerateVisualsResponse {
@@ -54,7 +55,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   const {
     category, subcategory, tone, rating,
     insertWords = [], composition_modes = [],
-    image_style, completed_text
+    image_style, completed_text, specific_visuals = []
   } = params;
 
   const subCtx = subcategory_contexts[subcategory?.toLowerCase()] || subcategory_contexts.default;
@@ -71,8 +72,11 @@ INPUTS
 - Insert words: ${insertWords.join(", ") || "none"}
 - Composition modes: ${composition_modes.join(", ") || "none"}
 - Text content: "${completed_text}"
+- User specific visuals: ${specific_visuals.join(", ") || "none"}
 
 CONTEXT: ${subCtx}
+
+IMPORTANT: If user provided specific visuals, incorporate at least one of them into your recommendations while maintaining relevance to the category and text content.
 
 Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules above.`;
 
