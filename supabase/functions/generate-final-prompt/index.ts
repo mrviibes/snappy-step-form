@@ -129,11 +129,38 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const {
     completed_text,
     category,
-    rating
+    tone,
+    rating,
+    image_style,
+    text_layout,
+    image_dimensions,
+    visual_recommendation = ""
   } = p;
 
-  // Use the user's specific prompt format
-  const positive = `**Scene:** Landscape, 16:9, 3D-render, whimsical, bright, playful. A flamingo on roller skates glides on a colorful basketball court. **Text:** "${completed_text}" **Layout:** Clean modern typography, positioned in a clear area for legibility. **Visual Enhancements:** Bright key light, vivid saturation, crisp focus, and cinematic contrast to boost the scene's intensity.`;
+  // Map variables for the prompt structure
+  const aspect = aspectLabel(image_dimensions) || "square 1:1";
+  const styleStr = image_style?.toLowerCase() || "realistic";
+  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "humorous";
+  const layoutKey = text_layout?.toLowerCase() || "negative-space";
+  const layoutDescription = layoutTagShort[layoutKey] || "clean readable caption placement";
+  
+  // Build the structured prompt
+  const positive = `Base Image
+Generate a ${aspect} ${styleStr} image.
+
+Text
+Include the text: "${completed_text}"
+Use a ${layoutDescription} (randomized each run).
+Typography must be sharp, clean, modern, perfectly legible.
+Avoid distortions or gibberish.
+
+Scene
+Design a ${toneStr} scene${visual_recommendation ? ` with ${visual_recommendation}` : ''}.
+Keep the overall look playful, stylish, and polished.
+
+Visual Enhancements
+Apply vivid colors, bold key lighting, crisp focus, and cinematic contrast.
+Add fresh, professional polish so the final image feels cool and visually striking.`;
 
   let negative = textQualityNegatives;
 
@@ -146,8 +173,8 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   }
 
   return [{
-    name: "Custom Prompt",
-    description: "Using your specific prompt format with flamingo on roller skates scene.",
+    name: "Structured Prompt",
+    description: "Using structured prompt format with clear sections.",
     positive,
     negative
   }];
