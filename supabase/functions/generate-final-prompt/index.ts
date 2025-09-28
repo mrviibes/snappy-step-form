@@ -158,6 +158,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     rating = "PG",
     image_style = "realistic",
     image_dimensions = "square",
+    text_layout,
     visual_recommendation = "",
     composition_modes = []   // e.g., ["very_close"] or ["tiny_head"]
   } = p;
@@ -180,8 +181,18 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   if (categoryNegs) negative += `, ${categoryNegs}`;
   if (compNeg) negative += `, ${compNeg}`;
 
+  // Filter layouts based on selected text_layout
+  let layoutsToGenerate = SIX_LAYOUTS;
+  if (text_layout && text_layout !== "auto") {
+    layoutsToGenerate = SIX_LAYOUTS.filter(L => L.key === text_layout);
+    // If the selected layout is not found, fall back to all layouts
+    if (layoutsToGenerate.length === 0) {
+      layoutsToGenerate = SIX_LAYOUTS;
+    }
+  }
+
   // Use the new template structure for Gemini 2.5 flash
-  const prompts: PromptTemplate[] = SIX_LAYOUTS.map((L) => {
+  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const positive = 
 `A ${aspect} ${styleStr} image.
 
