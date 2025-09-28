@@ -185,7 +185,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     const positive = 
 `Generate a ${aspect} ${styleStr} image.
 
-Text
+
 Mandatory Text: "${completed_text}"
 Layout: ${layoutTagShort[L.key]}, clean floating typography without solid bars.
 Typography: modern, sharp, clean, perfectly legible. Exact spelling only, no errors. Large enough to read easily but balanced, not overwhelming.
@@ -205,7 +205,7 @@ Vivid colors, bold key lighting, crisp focus, cinematic contrast. Professional p
     return {
       name: `Gemini — ${L.key}`,
       description: `Compact prompt for layout: ${L.key}`,
-      positive,
+      positive: positive,
       negative: neg
     };
   });
