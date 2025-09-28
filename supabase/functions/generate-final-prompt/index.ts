@@ -180,12 +180,16 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       : `Place as one block with balanced line breaks.`;
 
     const positive = [
-      `Format: Bright ${aspect} ${styleStr} image`,
-      `Text: "${completed_text}"`,
-      `Layout: ${layoutTagShort[L.key]}`,
-      `Typography: ${typeLine} ${textForLayout}`,
-      `Scene: ${toneStr}; ${visual_recommendation || "clear subject, open background"}`,
-      `Style: vivid colors, bold key light, crisp focus, cinematic contrast. ${styleGate}${compPos}`
+      `Bright ${aspect} ${styleStr} exaggerated shot.
+
+Text: "${completed_text}" 
+Layout: ${layoutTagShort[L.key]}.
+${typeLine} ${textForLayout}
+
+Scene: ${toneStr}; close-up, zoomed framing on subject; ${visual_recommendation || "clear subject"}.
+
+Visuals: vivid colors, bold key light, crisp focus, cinematic contrast, tight crop, zoomed-in composition. 
+${styleGate}${compPos}`
     ].join('. ');
 
     const neg =
