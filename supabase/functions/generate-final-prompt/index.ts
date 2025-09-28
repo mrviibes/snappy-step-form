@@ -7,6 +7,7 @@ import {
   toneMap,
   ratingMap,
   textQualityNegatives,
+  textFailureNegatives,
   getCategoryNegatives
 } from "../_shared/final-prompt-rules.ts";
 
@@ -87,22 +88,6 @@ const SIX_LAYOUTS: Array<{ key: string; line: string }> = [
   { key: "dynamic-overlay",    line: "Layout: diagonal overlay aligned with scene energy lines, crisp editorial style." }
 ];
 
-// ============== OPENAI CALL (kept, though we don't need LLM to build strings) ==============
-function buildOpenAIRequest(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  options: { temperature?: number; maxTokens: number }
-) {
-  const body: any = { model, messages };
-  if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
-    body.max_completion_tokens = options.maxTokens;
-  } else {
-    body.max_tokens = options.maxTokens;
-    if (options.temperature !== undefined) body.temperature = options.temperature;
-  }
-  return body;
-}
-
 // ============== HTTP ==============
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -160,51 +145,48 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     image_dimensions = "square",
     text_layout,
     visual_recommendation = "",
-    composition_modes = []   // e.g., ["very_close"] or ["tiny_head"]
+    composition_modes = []
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
   const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "funny, witty, playful";
   const styleStr = image_style.toLowerCase();
 
-  // Base scene (your “Base:” text, compacted to play nice with Gemini Flash)
-  // Removed hardcoded example scene text
-
-  // Composition inserts (optional)
   const comp = getCompositionInserts(composition_modes);
   const compPos = comp?.compPos ? ` ${comp.compPos}` : "";
   const compNeg = comp?.compNeg || "";
 
-  // Build negatives
-  let negative = textQualityNegatives;
+  let negative = `${textQualityNegatives}, ${textFailureNegatives}`;
   const categoryNegs = getCategoryNegatives(category, rating);
   if (categoryNegs) negative += `, ${categoryNegs}`;
   if (compNeg) negative += `, ${compNeg}`;
 
-  // Filter layouts based on selected text_layout
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
     layoutsToGenerate = SIX_LAYOUTS.filter(L => L.key === text_layout);
-    // If the selected layout is not found, fall back to all layouts
     if (layoutsToGenerate.length === 0) {
       layoutsToGenerate = SIX_LAYOUTS;
     }
   }
 
-  // Use the new template structure for Gemini 2.5 flash
+  const typeLine = "Typography: modern rounded sans-serif, clean spacing, exact spelling, area ~22–28%, no panels/bubbles.";
+  const styleGate = styleStr === "realistic"
+    ? "Avoid cartoon/3D/comic/emoji-sticker aesthetics; keep proportions and materials natural."
+    : "Stylization allowed; keep forms readable.";
+
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    const positive = 
-`A ${aspect} ${styleStr} image.
+    const textForLayout = (L.key === "meme-text" && completed_text.includes(","))
+      ? `If possible, split at first comma for top/bottom lines.`
+      : `Place as one block with balanced line breaks.`;
 
+    const positive =
+`Bright ${aspect} ${styleStr} image.
+Text: "${completed_text}"
+Layout: ${layoutTagShort[L.key]}.
+${typeLine} ${textForLayout}
+Scene: ${toneStr}; ${visual_recommendation || "clear subject, open background"}.
+Visuals: vivid colors, bold key light, crisp focus, cinematic contrast. ${styleGate}${compPos}`;
 
-Mandatory Text: "${completed_text}"
-Layout: ${layoutTagShort[L.key]}, clean large professional typography.
-
-Scene
-Design a ${toneStr} scene: ${visual_recommendation || "engaging and stylish elements"}.
-Keep the overall look stylish and polished.`;
-
-    // Compact negative for Gemini
     const neg =
       `${negative}, low contrast, dull lighting, meme borders, split captions, cramped padding`;
 
