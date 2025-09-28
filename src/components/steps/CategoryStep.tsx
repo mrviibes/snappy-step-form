@@ -362,6 +362,40 @@ export default function CategoryStep({
                 autoFocus
               />
               
+              {/* Suggestions list from themes */}
+              {subcategoryData?.themes && currentInput.trim().length > 0 && (
+                <div className="rounded-md border border-border">
+                  <ScrollArea className="max-h-64">
+                    <div className="p-1">
+                      {subcategoryData.themes
+                        .filter(t => t.title.toLowerCase().includes(currentInput.toLowerCase()))
+                        .slice(0, 12)
+                        .map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => {
+                              if (!specificItems.includes(t.title)) {
+                                const newItems = [...specificItems, t.title];
+                                setSpecificItems(newItems);
+                                updateData({
+                                  category: data.category,
+                                  subcategory: data.subcategory,
+                                  specificItems: newItems,
+                                  specificItem: newItems.join(', ')
+                                });
+                                setCurrentInput('');
+                              }
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-md hover:bg-accent"
+                          >
+                            {t.title}
+                          </button>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
               <div className="text-center">
                 <Button
                   onClick={() => {
