@@ -180,10 +180,24 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   if (categoryNegs) negative += `, ${categoryNegs}`;
   if (compNeg) negative += `, ${compNeg}`;
 
-  // Use the new base prompt structure with template variables
+  // Use the new template structure for Gemini 2.5 flash
   const prompts: PromptTemplate[] = SIX_LAYOUTS.map((L) => {
     const positive = 
-`Base: a ${aspect} ${styleStr} image with Mandatory Text: "${completed_text}" Use a ${layoutTagShort[L.key]} (randomized each run). Typography must be sharp, clean, modern, perfectly legible. Avoid distortions or gibberish. Scene Design a ${toneStr} scene with ${visual_recommendation || "playful and stylish elements"}. Keep the overall look playful, stylish, and polished. Visual Enhancements Apply vivid colors, bold key lighting, crisp focus, and cinematic contrast. Add fresh, professional polish so the final image feels cool and visually striking.`;
+`Generate a ${aspect} ${styleStr} image.
+
+Text
+Mandatory Text: "${completed_text}"
+Layout: ${layoutTagShort[L.key]}, clean floating typography without solid bars.
+Typography: sharp, clean, modern, perfectly legible. Large enough to read easily but balanced, not overwhelming.
+Do not add extra labels, bubbles, or unintended text.
+
+Scene
+Design a ${toneStr} scene in ${category} context with ${visual_recommendation || "playful and stylish elements"}.
+Keep the overall look light, stylish, and polished.
+
+Visual Enhancements
+Apply vivid colors, bold key lighting, crisp focus, cinematic contrast.
+Add fresh, professional polish so the final image feels cool and visually striking.${compPos}`;
 
     // Compact negative for Gemini
     const neg =
