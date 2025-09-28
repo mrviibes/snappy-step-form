@@ -2338,28 +2338,264 @@ export const fitnessGoals: CategoryItem[] = [{
     { id: "tech-support-jokes", title: "Tech Support Jokes" }
   ]
 }, {
+{
   id: "custom",
   title: "Custom",
-  description: "Create your own unique content",
+  description: "Everything not already covered: ads, science, professions, design, politics, etc.",
   icon: "✨",
   image: sorceressImage,
-  subcategories: [{
-    id: "creative-writing",
-    title: "Creative Writing"
-  }, {
-    id: "personal-story",
-    title: "Personal Story"
-  }, {
-    id: "fictional",
-    title: "Fictional"
-  }, {
-    id: "educational",
-    title: "Educational"
-  }, {
-    id: "inspirational",
-    title: "Inspirational"
-  }, {
-    id: "other",
-    title: "Other"
-  }]
-}];
+  subcategories: [
+    {
+      id: "advertising",
+      title: "Advertising",
+      themes: [
+        { id: "youtube-pre-roll", title: "YouTube Pre-roll" },
+        { id: "youtube-mid-roll", title: "YouTube Mid-roll" },
+        { id: "youtube-end-screen", title: "YouTube End Screen" },
+        { id: "yt-shorts-ad", title: "YouTube Shorts Ad" },
+        { id: "tiktok-in-feed", title: "TikTok In-Feed" },
+        { id: "tiktok-topview", title: "TikTok TopView" },
+        { id: "instagram-story-ad", title: "Instagram Story Ad" },
+        { id: "instagram-reels-ad", title: "Instagram Reels Ad" },
+        { id: "instagram-feed-ad", title: "Instagram Feed Ad" },
+        { id: "facebook-feed-ad", title: "Facebook Feed Ad" },
+        { id: "facebook-reels-ad", title: "Facebook Reels Ad" },
+        { id: "snap-spotlight", title: "Snap Spotlight" },
+        { id: "x-promoted-post", title: "X Promoted Post" },
+        { id: "pinterest-pin-ad", title: "Pinterest Pin Ad" },
+        { id: "reddit-promoted", title: "Reddit Promoted" },
+        { id: "display-leaderboard", title: "Display Leaderboard (728×90)" },
+        { id: "display-mrec", title: "Display MREC (300×250)" },
+        { id: "display-skyscraper", title: "Display Skyscraper (160×600)" },
+        { id: "display-halfpage", title: "Display Half Page (300×600)" },
+        { id: "mobile-banner", title: "Mobile Banner (320×50)" },
+        { id: "billboard-970x250", title: "Billboard (970×250)" },
+        { id: "homepage-takeover", title: "Homepage Takeover" },
+        { id: "email-hero", title: "Email Hero" },
+        { id: "newsletter-sponsor", title: "Newsletter Sponsor" },
+        { id: "digital-ooh", title: "Digital OOH Screen" },
+        { id: "bus-shelter", title: "Bus Shelter Poster" },
+        { id: "subway-lightbox", title: "Subway Lightbox" },
+        { id: "highway-billboard", title: "Highway Billboard" },
+        { id: "in-store-poster", title: "In-Store Poster" },
+        { id: "endcap-display", title: "Endcap Display" },
+        { id: "floor-decal", title: "Floor Decal" },
+        { id: "table-tent", title: "Table Tent" },
+        { id: "pull-up-banner", title: "Pull-Up Banner" },
+        { id: "trade-show-backdrop", title: "Trade Show Backdrop" },
+        { id: "podcast-midroll", title: "Podcast Mid-roll" },
+        { id: "ctv-pre-roll", title: "CTV/OTT Pre-roll" }
+      ]
+    },
+    {
+      id: "science",
+      title: "Science",
+      themes: [
+        { id: "astrophysics", title: "Astrophysics" },
+        { id: "cosmology", title: "Cosmology" },
+        { id: "planetary-science", title: "Planetary Science" },
+        { id: "exoplanets", title: "Exoplanets" },
+        { id: "quantum-physics", title: "Quantum Physics" },
+        { id: "particle-physics", title: "Particle Physics" },
+        { id: "thermodynamics", title: "Thermodynamics" },
+        { id: "electromagnetism", title: "Electromagnetism" },
+        { id: "organic-chemistry", title: "Organic Chemistry" },
+        { id: "inorganic-chemistry", title: "Inorganic Chemistry" },
+        { id: "biochemistry", title: "Biochemistry" },
+        { id: "molecular-biology", title: "Molecular Biology" },
+        { id: "genetics", title: "Genetics" },
+        { id: "microbiology", title: "Microbiology" },
+        { id: "neuroscience", title: "Neuroscience" },
+        { id: "immunology", title: "Immunology" },
+        { id: "ecology", title: "Ecology" },
+        { id: "climate-science", title: "Climate Science" },
+        { id: "geology", title: "Geology" },
+        { id: "volcanology", title: "Volcanology" },
+        { id: "oceanography", title: "Oceanography" },
+        { id: "glaciology", title: "Glaciology" },
+        { id: "materials-science", title: "Materials Science" },
+        { id: "nanotech", title: "Nanotechnology" },
+        { id: "robotics", title: "Robotics" },
+        { id: "ai-ml", title: "AI & Machine Learning" },
+        { id: "computer-vision", title: "Computer Vision" },
+        { id: "nlp", title: "Natural Language Processing" },
+        { id: "hci", title: "Human-Computer Interaction" },
+        { id: "biotech", title: "Biotech" },
+        { id: "crispr", title: "CRISPR" },
+        { id: "synthetic-biology", title: "Synthetic Biology" },
+        { id: "space-systems", title: "Space Systems" },
+        { id: "satellites", title: "Satellites" },
+        { id: "rocket-propulsion", title: "Rocket Propulsion" }
+      ]
+    },
+    {
+      id: "professions",
+      title: "Professions",
+      themes: [
+        { id: "surgeon", title: "Surgeon" },
+        { id: "nurse", title: "Nurse" },
+        { id: "paramedic", title: "Paramedic" },
+        { id: "dentist", title: "Dentist" },
+        { id: "pharmacist", title: "Pharmacist" },
+        { id: "firefighter", title: "Firefighter" },
+        { id: "police-officer", title: "Police Officer" },
+        { id: "pilot", title: "Pilot" },
+        { id: "air-traffic-controller", title: "Air Traffic Controller" },
+        { id: "software-engineer", title: "Software Engineer" },
+        { id: "data-scientist", title: "Data Scientist" },
+        { id: "product-manager", title: "Product Manager" },
+        { id: "ux-designer", title: "UX Designer" },
+        { id: "civil-engineer", title: "Civil Engineer" },
+        { id: "architect", title: "Architect" },
+        { id: "electrician", title: "Electrician" },
+        { id: "plumber", title: "Plumber" },
+        { id: "hvac-tech", title: "HVAC Technician" },
+        { id: "carpenter", title: "Carpenter" },
+        { id: "welder", title: "Welder" },
+        { id: "truck-driver", title: "Truck Driver" },
+        { id: "chef", title: "Chef" },
+        { id: "barista", title: "Barista" },
+        { id: "teacher", title: "Teacher" },
+        { id: "professor", title: "Professor" },
+        { id: "attorney", title: "Attorney" },
+        { id: "paralegal", title: "Paralegal" },
+        { id: "accountant", title: "Accountant" },
+        { id: "realtor", title: "Realtor" },
+        { id: "contractor", title: "Contractor" }
+      ]
+    },
+    {
+      id: "travel",
+      title: "Travel & Geography",
+      themes: [
+        { id: "national-park", title: "National Park" },
+        { id: "city-skyline", title: "City Skyline" },
+        { id: "old-town", title: "Old Town" },
+        { id: "desert-dunes", title: "Desert Dunes" },
+        { id: "tropical-beach", title: "Tropical Beach" },
+        { id: "alpine-village", title: "Alpine Village" },
+        { id: "rainforest", title: "Rainforest" },
+        { id: "savanna", title: "Savanna" },
+        { id: "glacier", title: "Glacier" },
+        { id: "volcano", title: "Volcano" },
+        { id: "cave-system", title: "Cave System" },
+        { id: "island-hopping", title: "Island Hopping" },
+        { id: "space-tourism", title: "Space Tourism" }
+      ]
+    },
+    {
+      id: "nature",
+      title: "Nature & Environment",
+      themes: [
+        { id: "storm-chasing", title: "Storm Chasing" },
+        { id: "aurora", title: "Aurora" },
+        { id: "reef-ecosystem", title: "Reef Ecosystem" },
+        { id: "wetlands", title: "Wetlands" },
+        { id: "old-growth-forest", title: "Old-Growth Forest" },
+        { id: "urban-wildlife", title: "Urban Wildlife" },
+        { id: "wildfire-ecology", title: "Wildfire Ecology" },
+        { id: "conservation", title: "Conservation" },
+        { id: "recycling-systems", title: "Recycling Systems" },
+        { id: "renewable-energy", title: "Renewable Energy" }
+      ]
+    },
+    {
+      id: "design",
+      title: "Design & Creativity",
+      themes: [
+        { id: "graphic-design", title: "Graphic Design" },
+        { id: "typography", title: "Typography" },
+        { id: "brand-identity", title: "Brand Identity" },
+        { id: "poster-design", title: "Poster Design" },
+        { id: "motion-graphics", title: "Motion Graphics" },
+        { id: "product-design", title: "Product Design" },
+        { id: "industrial-design", title: "Industrial Design" },
+        { id: "ux-ui", title: "UX/UI" },
+        { id: "architecture", title: "Architecture" },
+        { id: "interior-design", title: "Interior Design" }
+      ]
+    },
+    {
+      id: "media",
+      title: "Media & Communication",
+      themes: [
+        { id: "journalism", title: "Journalism" },
+        { id: "investigative-report", title: "Investigative Report" },
+        { id: "radio-broadcast", title: "Radio Broadcast" },
+        { id: "live-stream", title: "Live Stream" },
+        { id: "newsletter", title: "Newsletter" },
+        { id: "podcast", title: "Podcast" },
+        { id: "press-release", title: "Press Release" },
+        { id: "photo-essay", title: "Photo Essay" }
+      ]
+    },
+    {
+      id: "politics",
+      title: "Politics & Civic Life",
+      themes: [
+        { id: "campaign-rally", title: "Campaign Rally" },
+        { id: "debate-stage", title: "Debate Stage" },
+        { id: "city-council", title: "City Council" },
+        { id: "public-hearing", title: "Public Hearing" },
+        { id: "ngo-advocacy", title: "NGO Advocacy" },
+        { id: "civic-volunteering", title: "Civic Volunteering" }
+      ]
+    },
+    {
+      id: "finance",
+      title: "Finance & Economics",
+      themes: [
+        { id: "retail-banking", title: "Retail Banking" },
+        { id: "trading-desk", title: "Trading Desk" },
+        { id: "fintech", title: "Fintech" },
+        { id: "payments", title: "Payments" },
+        { id: "venture-capital", title: "Venture Capital" },
+        { id: "private-equity", title: "Private Equity" },
+        { id: "supply-chain", title: "Supply Chain" },
+        { id: "pricing-strategy", title: "Pricing Strategy" }
+      ]
+    },
+    {
+      id: "health",
+      title: "Health & Wellness",
+      themes: [
+        { id: "nutrition", title: "Nutrition" },
+        { id: "strength-training", title: "Strength Training" },
+        { id: "endurance", title: "Endurance" },
+        { id: "mobility", title: "Mobility" },
+        { id: "physical-therapy", title: "Physical Therapy" },
+        { id: "mental-health", title: "Mental Health" },
+        { id: "sleep-hygiene", title: "Sleep Hygiene" },
+        { id: "breathwork", title: "Breathwork" }
+      ]
+    },
+    {
+      id: "lifestyle",
+      title: "Lifestyle & Hobbies",
+      themes: [
+        { id: "gardening", title: "Gardening" },
+        { id: "woodworking", title: "Woodworking" },
+        { id: "photography", title: "Photography" },
+        { id: "car-detailing", title: "Car Detailing" },
+        { id: "collecting", title: "Collecting" },
+        { id: "diy-home", title: "DIY Home Projects" },
+        { id: "thrifting", title: "Thrifting" },
+        { id: "vanlife", title: "Vanlife" }
+      ]
+    },
+    {
+      id: "esoteric",
+      title: "Esoteric & Weird",
+      themes: [
+        { id: "mythology", title: "Mythology" },
+        { id: "folklore", title: "Folklore" },
+        { id: "urban-legends", title: "Urban Legends" },
+        { id: "paranormal", title: "Paranormal" },
+        { id: "cryptids", title: "Cryptids" },
+        { id: "ancient-civilizations", title: "Ancient Civilizations" },
+        { id: "symbolism", title: "Symbolism" },
+        { id: "conspiracy-culture", title: "Conspiracy Culture" }
+      ]
+    }
+  ]
+}
