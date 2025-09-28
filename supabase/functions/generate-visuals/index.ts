@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { visual_rules, subcategory_contexts } from "../_shared/visual-rules.ts";
+import { visual_rules, subcategory_contexts, composition_mode_cues } from "../_shared/visual-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,11 +32,11 @@ interface GenerateVisualsParams {
   tone: string;
   rating: string;
   insertWords?: string[];
-  composition_modes?: string[];
+  composition_modes?: string[];     // e.g., ["very_close","exaggerated_props"]
   image_style: string;
   completed_text: string;
   count: number;
-  specific_visuals?: string[];
+  specific_visuals?: string[];      // e.g., ["old man drinking and crying"]
 }
 
 interface GenerateVisualsResponse {
@@ -45,6 +45,52 @@ interface GenerateVisualsResponse {
   model: string;
   debug?: { lengths: number[]; validCount: number; literalCount: number; keywords: string[] };
   error?: string;
+}
+
+// ---------- Helpers ----------
+const WORDS = (s: string) => (s.match(/\b[\w’'-]+\b/gu) || []);
+const clamp15 = (s: string) => WORDS(s).slice(0, 15).join(" ");
+const cleanLine = (s: string) =>
+  s.replace(/^\s*[-*]?\s*\d{1,3}[.)]\s*/u, "").replace(/^["'“”]+|["'“”]+$/g, "").trim();
+
+function pickCue(index: number, modes: string[]): string {
+  if (!modes || modes.length === 0) return composition_mode_cues.base_realistic;
+  const key = (modes[index % modes.length] || "").toLowerCase();
+  return composition_mode_cues[key] || composition_mode_cues.base_realistic;
+}
+
+function hasAnyToken(s: string, tokens: string[]) {
+  const low = s.toLowerCase();
+  return tokens.some(t => t && low.includes(t));
+}
+
+function extractKeyTokens(phrases: string[]): string[] {
+  // take meaningful tokens (length > 2), de-dupe, keep order
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of phrases) {
+    for (const tok of (p || "").toLowerCase().split(/[^\p{L}\p{N}’'-]+/u)) {
+      if (tok && tok.length > 2 && !seen.has(tok)) {
+        seen.add(tok);
+        out.push(tok);
+      }
+    }
+  }
+  return out.slice(0, 6); // we only need a few anchors
+}
+
+function synthLine(
+  tone: string,
+  visualTokens: string[],
+  cue: string
+): string {
+  // ultra-simple fallback sentence scaffold, ≤15 words
+  const base = [
+    "Humorous", "Romantic", "Playful", "Serious", "Savage", "Wholesome", "Inspirational", "Nostalgic"
+  ];
+  const toneWord = base.find(b => b.toLowerCase() === tone.toLowerCase()) || "Playful";
+  const vis = visualTokens.slice(0, 3).join(" ");
+  return clamp15(`${toneWord.toLowerCase()} scene: ${vis}, ${cue}.`);
 }
 
 // ---------- Core generation ----------
@@ -60,7 +106,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
 
   const subCtx = subcategory_contexts[subcategory?.toLowerCase()] || subcategory_contexts.default;
 
-  // Simple system prompt
+  // Build system prompt (short, strict)
   const systemPrompt = `${visual_rules}
 
 INPUTS
@@ -71,16 +117,15 @@ INPUTS
 - Style: ${image_style}
 - Insert words: ${insertWords.join(", ") || "none"}
 - Composition modes: ${composition_modes.join(", ") || "none"}
-- Text content: "${completed_text}"
-- User specific visuals: ${specific_visuals.join(", ") || "none"}
+- Specific visuals: ${specific_visuals.join(", ") || "none"}
+- Caption idea: "${completed_text}"
 
 CONTEXT: ${subCtx}
 
-IMPORTANT: If user provided specific visuals, incorporate at least one of them into your recommendations while maintaining relevance to the category and text content.
+TASK
+Generate exactly 4 visual scene concepts (one per line). Follow OUTPUT FORMAT and MUST INCLUDE rules.`;
 
-Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules above.`;
-
-  const userPrompt = "Generate 4 distinct visual scenes based on the inputs and rules provided.";
+  const userPrompt = "Return 4 distinct, short concepts now.";
 
   try {
     const req = buildOpenAIRequest(model, [
@@ -98,16 +143,72 @@ Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    
-    let lines = content.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean);
-    
-    const visuals = lines.slice(0, 4).map((description: string) => ({ description }));
+
+    // Parse content into candidate lines
+    let lines = content.split(/\r?\n+/).map(cleanLine).filter(Boolean);
+
+    // Ensure we have at least 4 candidates to work with
+    if (lines.length < 4) {
+      // pad with empty strings; we’ll synthesize later
+      while (lines.length < 4) lines.push("");
+    } else {
+      lines = lines.slice(0, 4);
+    }
+
+    // Token anchors for specific visuals
+    const visualTokens = extractKeyTokens(specific_visuals);
+    const cueUsed: string[] = [];
+
+    // Post-process: enforce specific visuals + composition cue + ≤15 words
+    const fixed = lines.map((raw, i) => {
+      let s = raw;
+
+      // If the model returned blank or nonsense, synthesize a line
+      if (!s || WORDS(s).length < 3) {
+        const cue = pickCue(i, composition_modes);
+        cueUsed.push(cue);
+        return clamp15(synthLine(tone, visualTokens, cue));
+      }
+
+      // Append composition cue if missing
+      const cue = pickCue(i, composition_modes);
+      if (!s.toLowerCase().includes(cue.split(",")[0])) {
+        // Try to append safely if ≤12 words; else replace trailing clause
+        if (WORDS(s).length <= 12) s = `${s}, ${cue}`;
+        else s = clamp15(`${s} ${cue}`);
+      }
+      cueUsed.push(cue);
+
+      // Ensure at least one visual token is present
+      if (visualTokens.length && !hasAnyToken(s, visualTokens)) {
+        const add = visualTokens[0]; // most distinctive
+        if (WORDS(s).length <= 14) s = `${s}, ${add}`;
+        s = clamp15(s);
+      }
+
+      // Final clamp to one sentence and ≤15 words
+      s = s.replace(/[.!?]{2,}$/g, "."); // calm punctuation
+      return clamp15(s);
+    });
+
+    const visuals = fixed.map((description: string) => ({ description }));
+
+    // Debug info
+    const literalCount =
+      visualTokens.length === 0
+        ? 0
+        : visuals.filter(v => hasAnyToken(v.description, visualTokens)).length;
 
     return {
       success: true,
       visuals,
       model: data.model || model,
-      debug: { lengths: [], validCount: visuals.length, literalCount: 0, keywords: [] }
+      debug: {
+        lengths: visuals.map(v => WORDS(v.description).length),
+        validCount: visuals.length,
+        literalCount,
+        keywords: visualTokens
+      }
     };
   } catch (error) {
     console.error("Error generating visuals:", error);
@@ -122,27 +223,27 @@ Generate exactly 4 visual scene descriptions (7-12 words each). Follow all rules
 
 // ---------- Main handler ----------
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const params = await req.json();
     const result = await generateVisuals(params);
-    
+
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error('Error in generate-visuals function:', error);
-    return new Response(JSON.stringify({ 
+    console.error("Error in generate-visuals function:", error);
+    return new Response(JSON.stringify({
       success: false,
       visuals: [],
       model: getVisualsModel(),
       error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
