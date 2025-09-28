@@ -50,23 +50,23 @@ const visualStyles = [{
   preview: animeImage
 }];
 const customVisualStyles = [{
-  value: "cinematic",
-  label: "Cinematic – Wide"
+  value: "base_realistic",
+  label: "Base Realistic"
 }, {
-  value: "closeup",
-  label: "Close-up – Detail"
+  value: "exaggerated_props", 
+  label: "Exaggerated Proportions"
 }, {
-  value: "crowd",
-  label: "Crowd Reaction – Group"
+  value: "tiny_head",
+  label: "Tiny-Head"
 }, {
-  value: "minimalist",
-  label: "Minimalist – Simple"
+  value: "very_close",
+  label: "Very Close"
 }, {
-  value: "exaggerated",
-  label: "Exaggerated Proportions – Exaggerated"
+  value: "object_head",
+  label: "Object-Head Person"
 }, {
-  value: "goofy",
-  label: "Goofy Absurd – Goofy"
+  value: "surreal_scale",
+  label: "Surreal Mixed-Scale"
 }];
 const dimensionOptions = [{
   id: "square",
@@ -107,13 +107,13 @@ export default function VisualsStep({
     error?: any;
   } | null>(null);
 
-  // Set default composition mode to "minimalist" if not already set
+  // Set default composition mode to "base_realistic" if not already set
   useEffect(() => {
     if (!data.visuals?.compositionMode) {
       updateData({
         visuals: {
           ...data.visuals,
-          compositionMode: "minimalist"
+          compositionMode: "base_realistic"
         }
       });
     }
