@@ -180,21 +180,10 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   if (categoryNegs) negative += `, ${categoryNegs}`;
   if (compNeg) negative += `, ${compNeg}`;
 
-  // Emit six compact prompts (under ~80 words each)
-  const baseText = `Text: "${completed_text}"`;
-  const styleLine = `Style: vivid colors, bold key lighting, crisp focus, cinematic contrast.`;
-  const dimLine = `Aspect: ${aspect}.`;
-  const toneLine = `Tone/Rating: ${toneStr}, ${ratingMap[rating] || rating}.`;
-  const typeLine = `Typography: modern, sharp, clean, perfectly legible (no distortions).`;
-
+  // Use the new base prompt structure with template variables
   const prompts: PromptTemplate[] = SIX_LAYOUTS.map((L) => {
-    const positive =
-`Generate a ${aspect} ${styleStr} image.
-${sceneLine}${compPos}
-${baseText}
-${L.line}
-${typeLine}
-${styleLine}`;
+    const positive = 
+`Base: a ${aspect} ${styleStr} image with Mandatory Text: "${completed_text}" Use a ${layoutTagShort[L.key]} (randomized each run). Typography must be sharp, clean, modern, perfectly legible. Avoid distortions or gibberish. Scene Design a ${toneStr} scene with ${visual_recommendation || "playful and stylish elements"}. Keep the overall look playful, stylish, and polished. Visual Enhancements Apply vivid colors, bold key lighting, crisp focus, and cinematic contrast. Add fresh, professional polish so the final image feels cool and visually striking.`;
 
     // Compact negative for Gemini
     const neg =
