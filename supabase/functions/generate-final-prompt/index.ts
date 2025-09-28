@@ -183,20 +183,16 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   // Use the new template structure for Gemini 2.5 flash
   const prompts: PromptTemplate[] = SIX_LAYOUTS.map((L) => {
     const positive = 
-`Generate a ${aspect} ${styleStr} image.
+`A ${aspect} ${styleStr} image.
 
 
 Mandatory Text: "${completed_text}"
-Layout: ${layoutTagShort[L.key]}, clean floating typography without solid bars.
-Typography: modern, sharp, clean, perfectly legible. Exact spelling only, no errors. Large enough to read easily but balanced, not overwhelming.
-Do not add extra labels, bubbles, or unintended text.
+Layout: ${layoutTagShort[L.key]}, clean large professional typography.
 
 Scene
 Design a ${toneStr} scene: ${visual_recommendation || "engaging and stylish elements"}.
 Keep the overall look stylish and polished.
 
-Visual Enhancements
-Vivid colors, bold key lighting, crisp focus, cinematic contrast. Professional polish for a visually striking finish.${compPos}`;
 
     // Compact negative for Gemini
     const neg =
