@@ -188,16 +188,15 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
 Text
 Mandatory Text: "${completed_text}"
 Layout: ${layoutTagShort[L.key]}, clean floating typography without solid bars.
-Typography: sharp, clean, modern, perfectly legible. Large enough to read easily but balanced, not overwhelming.
+Typography: modern, sharp, clean, perfectly legible. Exact spelling only, no errors. Large enough to read easily but balanced, not overwhelming.
 Do not add extra labels, bubbles, or unintended text.
 
 Scene
-Design a ${toneStr} scene in ${category} context with ${visual_recommendation || "playful and stylish elements"}.
-Keep the overall look light, stylish, and polished.
+Design a ${toneStr} scene: ${visual_recommendation || "engaging and stylish elements"}.
+Keep the overall look stylish and polished.
 
 Visual Enhancements
-Apply vivid colors, bold key lighting, crisp focus, cinematic contrast.
-Add fresh, professional polish so the final image feels cool and visually striking.${compPos}`;
+Vivid colors, bold key lighting, crisp focus, cinematic contrast. Professional polish for a visually striking finish.${compPos}`;
 
     // Compact negative for Gemini
     const neg =
