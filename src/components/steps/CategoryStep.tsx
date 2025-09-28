@@ -229,13 +229,17 @@ export default function CategoryStep({
     if (e.key === 'Enter' && currentInput.trim()) {
       e.preventDefault();
       const newItem = currentInput.trim();
+      console.log('Adding movie:', newItem); // Debug log
       if (!specificItems.includes(newItem)) {
         const newItems = [...specificItems, newItem];
         setSpecificItems(newItems);
         updateData({ 
+          category: data.category,
+          subcategory: data.subcategory,
           specificItems: newItems,
           specificItem: newItems.length > 0 ? newItems.join(', ') : ''
         });
+        console.log('Updated data with items:', newItems); // Debug log
       }
       setCurrentInput('');
     }
@@ -345,17 +349,30 @@ export default function CategoryStep({
                 type="text"
                 placeholder={`Enter a specific ${subcategoryData?.title?.toLowerCase().slice(0, -1) || 'item'}...`}
                 value={currentInput}
-                onChange={(e) => setCurrentInput(e.target.value)}
-                onKeyDown={handleInputKeyDown}
+                onChange={(e) => {
+                  console.log('Input changed:', e.target.value); // Debug log
+                  setCurrentInput(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  console.log('Key pressed:', e.key); // Debug log
+                  handleInputKeyDown(e);
+                }}
                 spellCheck={true}
                 className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                autoFocus
               />
               
               <div className="text-center">
                 <Button
                   onClick={() => {
+                    console.log('Skip button clicked'); // Debug log
                     setSpecificItems([]);
-                    updateData({ specificItem: "any", specificItems: [] });
+                    updateData({ 
+                      category: data.category,
+                      subcategory: data.subcategory,
+                      specificItem: "any", 
+                      specificItems: [] 
+                    });
                   }}
                   variant="ghost"
                   className="text-sm text-muted-foreground hover:text-foreground"
