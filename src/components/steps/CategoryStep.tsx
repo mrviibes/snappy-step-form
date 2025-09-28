@@ -269,7 +269,6 @@ export default function CategoryStep({
             </button>
           </div>
 
-
           {/* Specific Items Display for Pop Culture */}
           {data.category === "pop-culture" && specificItems.length > 0 && (
             <div className="flex items-start justify-between p-4 border-t border-border">
@@ -495,8 +494,11 @@ export default function CategoryStep({
           value={searchQuery} 
           onChange={e => setSearchQuery(e.target.value)} 
           spellCheck={true}
-          className="pl-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
+          className="pl-14 pr-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
+        <div className="absolute right-5 top-1/2 transform -translate-y-1/2 text-muted-foreground text-lg">
+          ||
+        </div>
       </div>
 
       {/* Search Results View */}
@@ -515,7 +517,7 @@ export default function CategoryStep({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <span className={cn(
-                          "px-2 py-1 rounded-md text-xs font-medium text-white",
+                          "px-3 py-1 rounded-full text-xs font-medium text-white",
                           result.categoryColor
                         )}>
                           {result.categoryTitle}
@@ -524,7 +526,7 @@ export default function CategoryStep({
                           {result.subcategoryTitle}
                         </span>
                       </div>
-                      <div className="text-muted-foreground text-sm">→</div>
+                      <div className="text-muted-foreground text-sm">—</div>
                     </div>
                   </Card>
                 ))}
