@@ -524,7 +524,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         <div className="space-y-4">
           <h3 className="font-semibold text-foreground">Selected Template Details</h3>
           
-          {/* Custom Positive Prompt */}
+          {/* Positive Prompt */}
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="default" className="bg-green-100 text-green-800">
@@ -533,6 +533,18 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
             </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
               {selectedTemplate.positive}
+            </p>
+          </Card>
+
+          {/* Negative Prompt */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="destructive" className="bg-red-100 text-red-800">
+                Negative Prompt (from Generate-Final-Prompt)
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              {selectedTemplate.negative}
             </p>
           </Card>
 
