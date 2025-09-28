@@ -1,33 +1,61 @@
 // Shared visual generation rules and subcategory contexts
-// No side-effects. Imported by edge functions.
+// No side-effects. Imported by other edge functions (e.g., generate-visuals).
 
 export const visual_rules = `
 OUTPUT FORMAT
-- Return only visual scene descriptions, one per line.
-- Each line MUST be 7–12 words. No quotes, no numbering.
-- Present tense, concrete imagery; no storylines, no dialogue.
-- No hashtags, lens/camera jargon, or art-tech terms unless explicitly requested (e.g., “anime”, “3D”).
+- Return exactly 4 visual scene concepts, one per line.
+- Each concept is ONE sentence, maximum 15 words. No quotes, numbers, or bullet symbols.
+- Use present tense and concrete imagery; no dialogue or narrative setups.
 
-CONTENT RULES
-- If insert words are provided, include them naturally (never as a list).
-- If specific visuals are provided (e.g., a place name or brand), feature them clearly in the scene.
-- If composition modes are provided, hint them subtly (e.g., “close-up”, “negative space”, “rule of thirds”).
-- Keep content brand-safe for the given rating.
-- Complement the main text; do not repeat the caption verbatim. Do not invent extra in-image text unless the layout implies signage.
+MUST INCLUDE (IN EVERY LINE)
+- The caption’s *idea* (implied; do not restate the caption text verbatim).
+- The provided input visuals (e.g., “old man drinking and crying”) woven in naturally.
+- The selected tone reflected through word choice.
+- Exactly ONE composition-mode cue (see cue list). If multiple modes are provided, rotate them across lines.
+
+LANGUAGE RULES
+- No hashtags, lens/camera jargon, technical brand names, or art-tech terms unless explicitly requested (e.g., "anime", "3D").
+- Do not invent additional in-image text (signage/labels) unless the layout implies signage.
+- Avoid repeated phrasing; each line must be distinct.
 
 STYLE GATES
-- If Style = "realistic": use natural proportions and materials; avoid cartoon, 3D, cel-shaded, comic, toon, emoji-sticker or exaggerated graphic motifs.
-- If Style = "illustrated" or "3D": stylization allowed; keep forms readable and clean.
+- If Style = "realistic": natural proportions/materials; avoid cartoon, 3D, cel-shaded, comic, toon, emoji-sticker, or exaggerated graphic motifs.
+- If Style = "illustrated" or "3D": stylization allowed; keep forms readable and clean; avoid illegible clutter.
+
+SAFETY / RATING
+- Keep brand-safe for the specified rating.
+
+COMPOSITION-MODE CUES (use one short cue per line)
+- base_realistic → natural proportions, clean perspective
+- exaggerated_props → oversized props, playful scale
+- tiny_head → intentionally small head, clean neck
+- object_head → object for head, bold silhouette
+- surreal_scale → miniature or giant subject, consistent shadows
+- very_close → close-up framing, shallow depth of field
 
 BALANCE
 - Prefer clear subjects, simple backgrounds, and breathable negative space to support typography.
 `;
 
+// Reusable cue map for programmatic insertion or validation.
+// Example: append ", ${composition_mode_cues[mode]}" if the model omits a cue.
+export const composition_mode_cues: Record<string, string> = {
+  base_realistic: "natural proportions, clean perspective",
+  exaggerated_props: "oversized props, playful scale",
+  tiny_head: "intentionally small head, clean neck",
+  object_head: "object for head, bold silhouette",
+  surreal_scale: "miniature or giant subject, consistent shadows",
+  very_close: "close-up framing, shallow depth of field"
+};
+
+// Context hints used by the visuals generator to bias scenes toward usable layouts.
+// Keep short and directive; they’re concatenated into the system prompt.
 export const subcategory_contexts: Record<string, string> = {
   // Generic fallback
   default:
     "Create universally understandable visuals that enhance the main text. Prefer simple, bold compositions with clear subjects and backgrounds. Avoid clutter and accidental in-image text. Keep captions implicit, not literal.",
 
+  // Layout intents
   meme:
     "Bold, punchy concepts with strong focal subjects. High contrast, readable at a glance. Humor or irony welcome when tone allows.",
   "meme layout":
@@ -47,12 +75,19 @@ export const subcategory_contexts: Record<string, string> = {
   "text only":
     "Abstract or texture-led scenes that pair well with typography; avoid competing elements.",
 
+  // Frequent categories
   birthday:
-    "Warm celebratory visuals (balloons, confetti, cake) with a clear focal point.",
+    "Warm celebratory visuals (balloons, confetti, cake) with a clear focal point. Guests nearby, friendly energy.",
+  wedding:
+    "Joyful, elegant celebration; tasteful decor, floral elements, toasts and candid laughter; keep clutter low.",
   sports:
-    "Dynamic motion and dramatic angles; separation from background; no clutter.",
+    "Dynamic motion and dramatic angles; separation from background; no clutter; clear sense of action.",
   fashion:
-    "Clean styling and strong silhouettes; tasteful lighting; editorial feel.",
+    "Clean styling and strong silhouettes; tasteful lighting; editorial feel; simple backdrops.",
   nature:
-    "Organic textures and atmospheric depth; maintain clarity for overlays."
+    "Organic textures and atmospheric depth; maintain clarity for overlays; avoid busy undergrowth.",
+
+  // Retail/venue common case (useful for dispensary/storefront scenes)
+  retail:
+    "Clear storefront or counter context, legible shelving shapes, clean lighting, open sightlines; avoid dense signage."
 };
