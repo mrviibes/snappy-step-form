@@ -1,6 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { text_rules, joke_text_rules } from "../_shared/text-rules.ts";
+import { 
+  text_rules, 
+  joke_text_rules, 
+  celebrations_text_rules, 
+  daily_life_text_rules, 
+  sports_text_rules, 
+  pop_culture_text_rules, 
+  miscellaneous_text_rules,
+  custom_design_text_rules
+} from "../_shared/text-rules.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,8 +48,25 @@ serve(async (req) => {
       .split(/[^\p{L}\p{N}''-]+/u)
       .filter(w => w.length > 2);
 
-    // Build system prompt
-    let systemPrompt = category === "Jokes" ? joke_text_rules : text_rules;
+    // Build system prompt - select based on category
+    const categoryLower = category?.toLowerCase() || "";
+    let systemPrompt = text_rules; // fallback
+    
+    if (categoryLower.includes("joke")) {
+      systemPrompt = joke_text_rules;
+    } else if (categoryLower.includes("celebration")) {
+      systemPrompt = celebrations_text_rules;
+    } else if (categoryLower.includes("daily")) {
+      systemPrompt = daily_life_text_rules;
+    } else if (categoryLower.includes("sport")) {
+      systemPrompt = sports_text_rules;
+    } else if (categoryLower.includes("pop") || categoryLower.includes("culture")) {
+      systemPrompt = pop_culture_text_rules;
+    } else if (categoryLower.includes("miscellaneous")) {
+      systemPrompt = miscellaneous_text_rules;
+    } else if (categoryLower.includes("custom") || categoryLower.includes("design")) {
+      systemPrompt = custom_design_text_rules;
+    }
     
     systemPrompt += `
 CONTEXT
