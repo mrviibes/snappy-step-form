@@ -17,6 +17,7 @@ import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 // Validation imports removed
 import DebugPanel from '@/components/DebugPanel';
+import { fitnessGoals } from '@/data/CategoryList';
 
 interface TextStepProps {
   data: any;
@@ -380,18 +381,41 @@ export default function TextStep({
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
+  // Helper function to get category and subcategory titles
+  const getCategoryTitle = () => {
+    const category = fitnessGoals.find(cat => cat.id === data.category);
+    return category?.title || data.category;
+  };
+
+  const getSubcategoryTitle = () => {
+    const category = fitnessGoals.find(cat => cat.id === data.category);
+    const subcategory = category?.subcategories.find(sub => sub.id === data.subcategory);
+    return subcategory?.title || data.subcategory;
+  };
+
+  const renderBreadcrumb = () => {
+    if (!data.category || !data.subcategory) return null;
+    
+    return (
+      <div className="text-left mb-1">
+        <div className="text-sm text-muted-foreground">
+          <span className="font-semibold">Your selection:</span> {getCategoryTitle()} &gt; {getSubcategoryTitle()}
+          {data.selectedTheme && data.category !== "pop-culture" && (
+            <span> &gt; {data.selectedTheme}</span>
+          )}
+          {data.specificItems && data.specificItems.length > 0 && (
+            <span> &gt; {data.specificItems.join(', ')}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Show tone selection if no tone is selected
   if (!data.text?.tone) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-1">
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
-          </div>
-        </div>}
+      {renderBreadcrumb()}
 
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-foreground">
@@ -414,14 +438,7 @@ export default function TextStep({
   if (data.text?.tone && !data.text?.rating) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-1">
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
-          </div>
-        </div>}
+      {renderBreadcrumb()}
 
         {/* Selected Tone Display with Edit Option */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card p-4">
@@ -470,14 +487,7 @@ export default function TextStep({
   if (!data.text?.writingPreference) {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-1">
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
-          </div>
-        </div>}
+      {renderBreadcrumb()}
 
         {/* Selected Tone and Rating Display with Edit Options */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
@@ -521,14 +531,7 @@ export default function TextStep({
   if (data.text?.writingPreference === 'no-text') {
     return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-1">
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
-          </div>
-        </div>}
+      {renderBreadcrumb()}
 
         {/* Selected Tone and Process in stacked format */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
@@ -572,14 +575,7 @@ export default function TextStep({
   // Show selected preferences and specific words input
   return <div className="space-y-6">
       {/* Category Breadcrumb - Left aligned */}
-      {data.category && data.subcategory && <div className="text-left mb-1">
-          <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}
-            {data.specificItems && data.specificItems.length > 0 && (
-              <span> &gt; {data.specificItems.join(', ')}</span>
-            )}
-          </div>
-        </div>}
+      {renderBreadcrumb()}
 
       {/* Selected Tone and Process in stacked format */}
       <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
