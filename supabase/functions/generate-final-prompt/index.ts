@@ -251,3 +251,55 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
     const one = SIX_LAYOUTS.find(L => L.key === text_layout);
+    layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
+  }
+
+  const shortLayout: Record<string,string> = {
+    "meme-text": "meme top/bottom, 6–8% padding",
+    "badge-callout": "floating badge, thin outline",
+    "negative-space": "text in open area",
+    "caption": "bottom caption",
+    "integrated-in-scene": "text as real sign",
+    "dynamic-overlay": "diagonal overlay"
+  };
+
+  const rawNeg = [
+    "misspelled","illegible","low-contrast","extra","panels",
+    "speech-bubbles","black-bars","warped","duplicate","cramped"
+  ];
+  const negative10 = limitWords(rawNeg.join(", "), 10);
+
+  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+    const layout = shortLayout[L.key] || "clean text";
+
+    const pieces = [
+      `${aspect} ${styleStr} scene`,
+      "bright natural light, no darkness",
+      "vivid color, crisp focus",
+      `layout: ${layout}`,
+      `MANDATORY TEXT: "${completed_text}"`,
+      "modern sans-serif, ~25% area, no panels",
+      visual_recommendation ? `scene: ${visual_recommendation}` : "",
+      toneStr ? `mood: ${toneStr}` : "",
+      compPos ? `composition: ${compPos}` : ""
+    ].filter(Boolean);
+
+    let positive = squeeze(pieces.join(". ") + ".");
+    if (wordCount(positive) > 50) positive = limitWords(positive, 50);
+
+    let negative = negative10;
+    if (compNeg) {
+      const withComp = squeeze(`${negative}, ${compNeg}`);
+      negative = wordCount(withComp) <= 10 ? withComp : negative;
+    }
+
+    return {
+      name: `Ideogram — ${L.key}`,
+      description: `Compact Ideogram prompt for layout: ${L.key}`,
+      positive,
+      negative
+    };
+  });
+
+  return prompts;
+}
