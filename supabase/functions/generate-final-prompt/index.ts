@@ -35,7 +35,7 @@ interface FinalPromptRequest {
   image_style?: string;        // "realistic" | "illustrated" etc.
   text_layout?: string;        // "auto" or one of six
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
-  composition_modes?: string[]; // e.g., ["very_close"]
+  composition_modes?: string[];
   visual_recommendation?: string;
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
@@ -188,7 +188,6 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     "dynamic-overlay": "diagonal overlay"
   };
 
-  // negatives capped to 10 words
   const negative10 = limitWords([
     "misspelled","illegible","low-contrast","extra","black-bars",
     "speech-bubbles","panels","warped","duplicate","cramped"
@@ -202,7 +201,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       "bright key light, vivid color",
       "crisp focus, cinematic contrast",
       `layout: ${layout}`,
-      `text: \""${completed_text}\""`, // preserve exact text
+      `text: "${completed_text}"`,
       "font modern, ~25% area",
       visual_recommendation ? `scene: ${visual_recommendation}` : "",
       toneStr ? `mood: ${toneStr}` : "",
@@ -293,16 +292,4 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     let negative = negative10;
     if (compNeg) {
       const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
-    }
-
-    return {
-      name: `Ideogram — ${L.key}`,
-      description: `Compact Ideogram prompt for layout: ${L.key}`,
-      positive,
-      negative
-    };
-  });
-
-  return prompts;
-}
+      negative = wc(withComp) <= NEG_MAX ?
