@@ -181,8 +181,17 @@ export default function CategoryStep({
   
   // Enhanced filtering for subcategories view - includes themes
   const getSubcategorySearchResults = () => {
-    if (!selectedCategoryData || !subcategorySearchQuery) {
-      return selectedCategoryData ? selectedCategoryData.subcategories as SubcategoryItem[] : [];
+    if (!selectedCategoryData) {
+      return [];
+    }
+    
+    // If no search query, return all subcategories wrapped in result format
+    if (!subcategorySearchQuery) {
+      return (selectedCategoryData.subcategories as SubcategoryItem[]).map(subcategory => ({
+        subcategory,
+        matchType: 'subcategory' as const,
+        relevance: 0
+      }));
     }
     
     const searchLower = subcategorySearchQuery.toLowerCase();
