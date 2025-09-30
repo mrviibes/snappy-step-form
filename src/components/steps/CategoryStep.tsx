@@ -178,7 +178,69 @@ export default function CategoryStep({
   const selectedSubcategoryData = selectedSubcategory && selectedCategoryData 
     ? (selectedCategoryData.subcategories as SubcategoryItem[]).find((sub: SubcategoryItem) => sub.id === selectedSubcategory) 
     : null;
-  const filteredSubcategories = selectedCategoryData ? (selectedCategoryData.subcategories as SubcategoryItem[]).filter((subcategory: SubcategoryItem) => subcategory.title.toLowerCase().includes(subcategorySearchQuery.toLowerCase())) : [];
+  
+  // Enhanced filtering for subcategories view - includes themes
+  const getSubcategorySearchResults = () => {
+    if (!selectedCategoryData || !subcategorySearchQuery) {
+      return selectedCategoryData ? selectedCategoryData.subcategories as SubcategoryItem[] : [];
+    }
+    
+    const searchLower = subcategorySearchQuery.toLowerCase();
+    const results: Array<{
+      subcategory: SubcategoryItem;
+      matchedTheme?: ThemeItem;
+      matchType: 'subcategory' | 'theme';
+      relevance: number;
+    }> = [];
+    
+    (selectedCategoryData.subcategories as SubcategoryItem[]).forEach(subcategory => {
+      // Check if subcategory title matches
+      const subcategoryLower = subcategory.title.toLowerCase();
+      const subcategoryMatches = subcategoryLower.includes(searchLower);
+      
+      if (subcategoryMatches) {
+        results.push({
+          subcategory,
+          matchType: 'subcategory',
+          relevance: subcategoryLower === searchLower ? 3 : subcategoryLower.startsWith(searchLower) ? 2 : 1
+        });
+      }
+      
+      // Check if any themes match
+      if (subcategory.themes) {
+        subcategory.themes.forEach(theme => {
+          const themeLower = theme.title.toLowerCase();
+          const exactMatch = themeLower === searchLower;
+          const startsWithMatch = themeLower.startsWith(searchLower);
+          const includesMatch = themeLower.includes(searchLower);
+          
+          if (exactMatch || startsWithMatch || includesMatch) {
+            results.push({
+              subcategory,
+              matchedTheme: theme,
+              matchType: 'theme',
+              relevance: exactMatch ? 3 : startsWithMatch ? 2 : 1
+            });
+          }
+        });
+      }
+    });
+    
+    // Sort by relevance (theme matches first, then subcategory matches)
+    return results.sort((a, b) => {
+      // Prioritize theme matches
+      if (a.matchType === 'theme' && b.matchType === 'subcategory') return -1;
+      if (a.matchType === 'subcategory' && b.matchType === 'theme') return 1;
+      // Then by relevance score
+      if (a.relevance !== b.relevance) return b.relevance - a.relevance;
+      // Finally alphabetically
+      const aTitle = a.matchedTheme?.title || a.subcategory.title;
+      const bTitle = b.matchedTheme?.title || b.subcategory.title;
+      return aTitle.localeCompare(bTitle);
+    });
+  };
+  
+  const subcategorySearchResults = getSubcategorySearchResults();
   
   const handleCategorySelection = (goalId: string) => {
     setSelectedCategory(goalId);
@@ -454,27 +516,42 @@ export default function CategoryStep({
           {/* Individual Subcategory Items */}
           <div className="max-h-80 overflow-y-auto scrollbar-hide">
             <div className="space-y-3">
-              {filteredSubcategories.map(subcategory => (
+              {subcategorySearchResults.map((result, index) => (
                 <Card 
-                  key={subcategory.id} 
+                  key={`${result.subcategory.id}-${result.matchedTheme?.id || 'sub'}-${index}`}
                   className={cn(
                     "cursor-pointer p-3 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg w-full",
                     {
-                      "border-primary bg-accent shadow-sm": data.subcategory === subcategory.id,
-                      "border-border hover:border-border": data.subcategory !== subcategory.id
+                      "border-primary bg-accent shadow-sm": data.subcategory === result.subcategory.id,
+                      "border-border hover:border-border": data.subcategory !== result.subcategory.id
                     }
                   )} 
-                  onClick={() => handleSubcategorySelection(subcategory.id)}
+                  onClick={() => {
+                    if (result.matchType === 'theme' && result.matchedTheme) {
+                      handleDirectThemeSelection(selectedCategory!, result.subcategory.id, result.matchedTheme.title);
+                    } else {
+                      handleSubcategorySelection(result.subcategory.id);
+                    }
+                  }}
                 >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-normal text-foreground text-sm">{subcategory.title}</h4>
-                    <div className="text-muted-foreground text-sm">→</div>
-                  </div>
+                  {result.matchType === 'theme' && result.matchedTheme ? (
+                    // Theme result
+                    <div className="space-y-1">
+                      <h4 className="font-medium text-foreground text-sm">{result.matchedTheme.title}</h4>
+                      <p className="text-xs text-muted-foreground">in {result.subcategory.title}</p>
+                    </div>
+                  ) : (
+                    // Subcategory result
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-normal text-foreground text-sm">{result.subcategory.title}</h4>
+                      <div className="text-muted-foreground text-sm">→</div>
+                    </div>
+                  )}
                 </Card>
               ))}
-              {filteredSubcategories.length === 0 && (
+              {subcategorySearchResults.length === 0 && (
                 <div className="p-8 text-center text-muted-foreground">
-                  No subcategories found
+                  No results found
                 </div>
               )}
             </div>
