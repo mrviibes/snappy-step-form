@@ -40,7 +40,7 @@ export default function CategoryStep({
     }
   }, [data.category, data.subcategory, showingSubcategories]);
 
-  // Create flattened search results for direct theme/subcategory selection
+  // Create flattened search results for direct theme/subcategory/category selection
   const getSearchResults = () => {
     if (!searchQuery || searchQuery.length === 0) return [];
     
@@ -48,16 +48,32 @@ export default function CategoryStep({
     const results: Array<{
       categoryId: string;
       categoryTitle: string;
-      subcategoryId: string;
-      subcategoryTitle: string;
+      subcategoryId?: string;
+      subcategoryTitle?: string;
       themeId?: string;
       themeTitle?: string;
       categoryColor: string;
-      matchType: 'theme' | 'subcategory';
+      matchType: 'category' | 'theme' | 'subcategory';
       relevance: number;
     }> = [];
 
     fitnessGoals.forEach(goal => {
+      // Check if the category title matches
+      const categoryLower = goal.title.toLowerCase();
+      const categoryExactMatch = categoryLower === searchLower;
+      const categoryStartsWithMatch = categoryLower.startsWith(searchLower);
+      const categoryIncludesMatch = categoryLower.includes(searchLower);
+      
+      if (categoryExactMatch || categoryStartsWithMatch || categoryIncludesMatch) {
+        results.push({
+          categoryId: goal.id,
+          categoryTitle: goal.title,
+          categoryColor: getCategoryColor(goal.title),
+          matchType: 'category',
+          relevance: categoryExactMatch ? 4 : categoryStartsWithMatch ? 3 : 2
+        });
+      }
+
       (goal.subcategories as SubcategoryItem[]).forEach((subcategory: SubcategoryItem) => {
         // Check themes for matches
         if (subcategory.themes) {
@@ -103,16 +119,19 @@ export default function CategoryStep({
       });
     });
 
-    // Sort by relevance (exact theme matches first, then subcategory matches)
+    // Sort by relevance (category matches first, then theme, then subcategory)
     return results.sort((a, b) => {
-      // Prioritize theme matches over subcategory matches
-      if (a.matchType === 'theme' && b.matchType === 'subcategory') return -1;
-      if (a.matchType === 'subcategory' && b.matchType === 'theme') return 1;
+      // Prioritize by match type: category > theme > subcategory
+      const typeOrder = { category: 3, theme: 2, subcategory: 1 };
+      const typeComparison = typeOrder[b.matchType] - typeOrder[a.matchType];
+      if (typeComparison !== 0) return typeComparison;
+      
       // Then sort by relevance score
       if (a.relevance !== b.relevance) return b.relevance - a.relevance;
+      
       // Finally sort alphabetically
-      const aTitle = a.themeTitle || a.subcategoryTitle;
-      const bTitle = b.themeTitle || b.subcategoryTitle;
+      const aTitle = a.themeTitle || a.subcategoryTitle || a.categoryTitle;
+      const bTitle = b.themeTitle || b.subcategoryTitle || b.categoryTitle;
       return aTitle.localeCompare(bTitle);
     });
   };
@@ -607,17 +626,35 @@ export default function CategoryStep({
               <div className="space-y-2">
                 {searchResults.map((result, index) => (
                   <Card
-                    key={`${result.categoryId}-${result.subcategoryId}-${result.themeId || 'sub'}-${index}`}
+                    key={`${result.categoryId}-${result.subcategoryId}-${result.themeId || result.matchType}-${index}`}
                     className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg"
                     onClick={() => {
-                      if (result.matchType === 'theme' && result.themeTitle) {
+                      if (result.matchType === 'category') {
+                        handleCategorySelection(result.categoryId);
+                      } else if (result.matchType === 'theme' && result.themeTitle && result.subcategoryId) {
                         handleDirectThemeSelection(result.categoryId, result.subcategoryId, result.themeTitle);
-                      } else {
+                      } else if (result.subcategoryId) {
                         handleDirectSubcategorySelection(result.categoryId, result.subcategoryId);
                       }
                     }}
                   >
-                    {result.matchType === 'theme' && result.themeTitle ? (
+                    {result.matchType === 'category' ? (
+                      // Category result - show prominently
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-xs font-medium text-white",
+                            result.categoryColor
+                          )}>
+                            {result.categoryTitle}
+                          </span>
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Browse category
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground text-sm">→</div>
+                      </div>
+                    ) : result.matchType === 'theme' && result.themeTitle ? (
                       // Theme result with breadcrumb
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
