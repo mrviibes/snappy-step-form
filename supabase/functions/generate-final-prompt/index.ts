@@ -32,12 +32,12 @@ interface FinalPromptRequest {
   tone?: string;
   rating?: string;
   insertWords?: string[];
-  image_style?: string;        // e.g., "realistic", "illustrated"
-  text_layout?: string;        // can be "auto" or one of our six; if absent we still return all six
+  image_style?: string;        // "realistic" | "illustrated" etc.
+  text_layout?: string;        // "auto" or one of six
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
-  composition_modes?: string[]; // optional, e.g., ["very_close"]
+  composition_modes?: string[]; // e.g., ["very_close"]
   visual_recommendation?: string;
-  provider?: "gemini" | "ideogram"; // NEW - defaults to gemini
+  provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
 interface PromptTemplate {
@@ -51,44 +51,44 @@ interface PromptTemplate {
 const compositionModels: Record<string, { positive: string; negative: string; label: string }> = {
   base_realistic: {
     label: "Base Realistic",
-    positive: "photoreal composition, natural anatomy and proportions, coherent lighting and perspective",
-    negative: "distorted anatomy, warped perspective, surreal limbs, extra fingers, rubbery faces"
+    positive: "photoreal composition, natural anatomy, coherent lighting",
+    negative: "distorted anatomy, warped perspective"
   },
   exaggerated_props: {
     label: "Exaggerated Proportions",
-    positive: "stylized anatomy with elongated limbs or oversized features, playful silhouette, consistent joint anatomy",
-    negative: "broken joints, melted limbs, off-model faces"
+    positive: "stylized anatomy, playful silhouette, consistent joints",
+    negative: "broken joints, melted limbs"
   },
   tiny_head: {
     label: "Tiny-Head",
-    positive: "intentionally small head (15–25% of normal), clean neck transition, confident posture",
-    negative: "oversized head, missing neck, headless, floating head, grotesque deformation"
+    positive: "small head, clean neck transition, confident posture",
+    negative: "oversized head, missing neck"
   },
   very_close: {
     label: "Very Close",
-    positive: "close-up or mid-close framing with subject dominant, shallow depth of field, clean background, crisp edge lighting",
-    negative: "busy background, cut-off features, awkward crop, harsh shadows on text"
+    positive: "close-up framing, shallow depth, crisp edge lighting",
+    negative: "busy background, awkward crop"
   },
   object_head: {
     label: "Object-Head Person",
-    positive: "human body with everyday object as head (e.g., basketball/TV/neon sign), clean neck mount, bold silhouette, editorial lighting",
-    negative: "human head still visible, object floating off-neck, unreadable silhouette, cluttered background"
+    positive: "body with object head, bold silhouette, editorial lighting",
+    negative: "object floating, unreadable silhouette"
   },
   surreal_scale: {
     label: "Surreal Mixed-Scale",
-    positive: "dramatic scale contrast (3–10x) with consistent perspective, occlusion and shadowing",
-    negative: "inconsistent shadows, double horizons, floating feet, scale drift across elements"
+    positive: "dramatic scale contrast, consistent shadows/perspective",
+    negative: "inconsistent shadows, scale drift"
   }
 };
 
 // ============== LAYOUT ORDER (six) ==============
 const SIX_LAYOUTS: Array<{ key: string; line: string }> = [
-  { key: "meme-text",          line: "Layout: bold meme text top/bottom, high-contrast, 6–8% padding." },
-  { key: "badge-callout",      line: "Layout: floating badge callout, compact stylish bubble with minimal outline." },
-  { key: "negative-space",     line: "Layout: text in open negative space, ≥10% whitespace buffer, sharp modern font." },
-  { key: "caption",            line: "Layout: strong bottom caption, centered, clean sharp typography, perfectly legible." },
-  { key: "integrated-in-scene",line: "Layout: typography integrated into scene (painted on poster or wall), natural and stylish." },
-  { key: "dynamic-overlay",    line: "Layout: diagonal overlay aligned with scene energy lines, crisp editorial style." }
+  { key: "meme-text",          line: "Layout: meme text top/bottom." },
+  { key: "badge-callout",      line: "Layout: floating badge callout." },
+  { key: "negative-space",     line: "Layout: text in open negative space." },
+  { key: "caption",            line: "Layout: strong bottom caption." },
+  { key: "integrated-in-scene",line: "Layout: typography integrated into scene." },
+  { key: "dynamic-overlay",    line: "Layout: diagonal overlay." }
 ];
 
 // ============== HTTP ==============
@@ -105,10 +105,11 @@ serve(async (req) => {
       });
     }
 
-    const provider = body.provider || "gemini";
+    const provider = (body.provider as FinalPromptRequest["provider"]) || "gemini";
     const templates = provider === "ideogram"
       ? await generateIdeogramPrompts(body as FinalPromptRequest)
       : await generatePromptTemplates(body as FinalPromptRequest);
+
     return new Response(JSON.stringify({ success: true, templates }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
@@ -128,19 +129,26 @@ function aspectLabel(dim?: string) {
   if (d === "landscape") return "16:9";
   return "1:1";
 }
-
 function getCompositionInserts(modes?: string[]) {
   if (!modes || modes.length === 0) return null;
   const first = modes[0]?.toLowerCase();
   const found = compositionModels[first as keyof typeof compositionModels];
   if (!found) return null;
-  return {
-    compPos: `Composition: ${found.positive}.`,
-    compNeg: found.negative
-  };
+  return { compPos: `Composition: ${found.positive}.`, compNeg: found.negative };
+}
+// word limiting helpers
+function wordCount(s: string) {
+  return (s || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean).length;
+}
+function limitWords(s: string, max: number) {
+  const words = (s || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+  return words.slice(0, max).join(" ");
+}
+function squeeze(s: string) {
+  return (s || "").replace(/\s+/g, " ").trim();
 }
 
-// ============== CORE ==============
+// ============== CORE (Gemini compact) ==============
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
@@ -155,64 +163,70 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
-  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "funny, witty, playful";
+  const toneStr = (toneMap[tone?.toLowerCase()] || tone || "playful").split(",")[0];
   const styleStr = image_style.toLowerCase();
 
   const comp = getCompositionInserts(composition_modes);
-  const compPos = comp?.compPos ? ` ${comp.compPos}` : "";
+  const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
-
-  let negative = `${textQualityNegatives}, ${textFailureNegatives}`;
-  const categoryNegs = getCategoryNegatives(category, rating);
-  if (categoryNegs) negative += `, ${categoryNegs}`;
-  if (compNeg) negative += `, ${compNeg}`;
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
-    layoutsToGenerate = SIX_LAYOUTS.filter(L => L.key === text_layout);
-    if (layoutsToGenerate.length === 0) {
-      layoutsToGenerate = SIX_LAYOUTS;
-    }
+    const one = SIX_LAYOUTS.find(L => L.key === text_layout);
+    layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const typeLine = "Typography: modern rounded sans-serif, clean spacing, exact spelling, area ~22–28%, no panels/bubbles.";
-  const styleGate = styleStr === "realistic"
-    ? "Avoid cartoon/3D/comic/emoji-sticker aesthetics; keep proportions and materials natural."
-    : "Stylization allowed; keep forms readable.";
+  const shortLayout: Record<string,string> = {
+    "meme-text": "meme top/bottom",
+    "badge-callout": "small badge",
+    "negative-space": "open area",
+    "caption": "bottom caption",
+    "integrated-in-scene": "in-scene text",
+    "dynamic-overlay": "diagonal overlay"
+  };
+
+  // negatives capped to 10 words
+  const negative10 = limitWords([
+    "misspelled","illegible","low-contrast","extra","black-bars",
+    "speech-bubbles","panels","warped","duplicate","cramped"
+  ].join(", "), 10);
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    const textForLayout = (L.key === "meme-text" && completed_text.includes(","))
-      ? `If possible, split at first comma for top/bottom lines.`
-      : `Place as one block with balanced line breaks.`;
+    const layout = shortLayout[L.key] || "clean text";
 
-    const positive = [
-      `Bright ${aspect} ${styleStr} exaggerated shot.
+    const pieces = [
+      `${aspect} ${styleStr} shot`,
+      "bright key light, vivid color",
+      "crisp focus, cinematic contrast",
+      `layout: ${layout}`,
+      `text: "${completed_text}"`,
+      "font modern, ~25% area",
+      visual_recommendation ? `scene: ${visual_recommendation}` : "",
+      toneStr ? `mood: ${toneStr}` : "",
+      compPos ? `composition: ${compPos}` : ""
+    ].filter(Boolean);
 
-Text: "${completed_text}" 
-Layout: ${layoutTagShort[L.key]}.
-${typeLine} ${textForLayout}
+    let positive = squeeze(pieces.join(". ") + ".");
+    if (wordCount(positive) > 50) positive = limitWords(positive, 50);
 
-Scene: ${toneStr}; close-up, zoomed framing on subject; ${visual_recommendation || "clear subject"}.
-
-Visuals: vivid colors, bold key light, crisp focus, cinematic contrast, tight crop, zoomed-in composition. 
-${styleGate}${compPos}`
-    ].join('. ');
-
-    const neg =
-      `${negative}, low contrast, dull lighting, meme borders, split captions, cramped padding`;
+    let negative = negative10;
+    if (compNeg) {
+      const withComp = squeeze(`${negative}, ${compNeg}`);
+      negative = wordCount(withComp) <= 10 ? withComp : negative;
+    }
 
     return {
       name: `Gemini — ${L.key}`,
-      description: `Compact prompt for layout: ${L.key}`,
-      positive: positive,
-      negative: neg
+      description: `Compact Gemini prompt for layout: ${L.key}`,
+      positive,
+      negative
     };
   });
 
   return prompts;
 }
 
-// ============== IDEOGRAM PROMPTS ==============
+// ============== IDEOGRAM (compact, text-first) ==============
 async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
@@ -227,54 +241,13 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
-  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "funny, witty, playful";
+  const toneStr = (toneMap[tone?.toLowerCase()] || tone || "fun").split(",")[0];
   const styleStr = image_style.toLowerCase();
 
   const comp = getCompositionInserts(composition_modes);
-  const compPos = comp?.compPos ? ` ${comp.compPos}` : "";
+  const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
-
-  let negative = `${textQualityNegatives}, ${textFailureNegatives}`;
-  const categoryNegs = getCategoryNegatives(category, rating);
-  if (categoryNegs) negative += `, ${categoryNegs}`;
-  if (compNeg) negative += `, ${compNeg}`;
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
-    layoutsToGenerate = SIX_LAYOUTS.filter(L => L.key === text_layout);
-    if (layoutsToGenerate.length === 0) {
-      layoutsToGenerate = SIX_LAYOUTS;
-    }
-  }
-
-  const styleGate = styleStr === "realistic"
-    ? "photorealistic rendering, natural materials and proportions"
-    : `${styleStr} style rendering`;
-
-  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    const layoutInstructions = layoutMap[L.key] || "clean typography placement";
-
-    const positive = `Professional ${aspect} ${styleStr} composition.
-
-MANDATORY TEXT (exact spelling): "${completed_text}"
-${layoutInstructions}
-Typography: modern rounded sans-serif, high legibility, occupies 22–28% of image area, integrated directly on scene with no filled panels, speech bubbles, or background bars; high contrast via lighting or subtle background blur.
-
-Scene: ${toneStr} mood, ${visual_recommendation || "clear focal subject with clean composition"}.
-Lighting: bright key light, vivid saturation, crisp focus, cinematic contrast, professional color grading.
-Style: ${styleGate}.${compPos}
-
-Readability: ensure high contrast text through strategic lighting, color selection, or subtle blur behind text; clean kerning and line spacing; no visual clutter near text areas.`;
-
-    const neg = `${negative}, low contrast text, cramped text spacing, text occupying less than 20% of image, text in thin caption strip`;
-
-    return {
-      name: `Ideogram — ${L.key}`,
-      description: `Detailed Ideogram prompt optimized for text rendering, layout: ${L.key}`,
-      positive: positive,
-      negative: neg
-    };
-  });
-
-  return prompts;
-}
+    const one = SIX_LAYOUTS.find(L => L.key === text_layout);
