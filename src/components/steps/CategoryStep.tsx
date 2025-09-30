@@ -33,7 +33,7 @@ export default function CategoryStep({
   const [specificItems, setSpecificItems] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState("");
 
-  // Create flattened search results for direct subcategory selection
+  // Create flattened search results for direct theme/subcategory selection
   const getSearchResults = () => {
     if (!searchQuery || searchQuery.length === 0) return [];
     
@@ -43,12 +43,40 @@ export default function CategoryStep({
       categoryTitle: string;
       subcategoryId: string;
       subcategoryTitle: string;
+      themeId?: string;
+      themeTitle?: string;
       categoryColor: string;
+      matchType: 'theme' | 'subcategory';
+      relevance: number;
     }> = [];
 
     fitnessGoals.forEach(goal => {
-      // Check subcategories for matches
       (goal.subcategories as SubcategoryItem[]).forEach((subcategory: SubcategoryItem) => {
+        // Check themes for matches
+        if (subcategory.themes) {
+          subcategory.themes.forEach((theme: ThemeItem) => {
+            const themeLower = theme.title.toLowerCase();
+            const exactMatch = themeLower === searchLower;
+            const startsWithMatch = themeLower.startsWith(searchLower);
+            const includesMatch = themeLower.includes(searchLower);
+            
+            if (exactMatch || startsWithMatch || includesMatch) {
+              results.push({
+                categoryId: goal.id,
+                categoryTitle: goal.title,
+                subcategoryId: subcategory.id,
+                subcategoryTitle: subcategory.title,
+                themeId: theme.id,
+                themeTitle: theme.title,
+                categoryColor: getCategoryColor(goal.title),
+                matchType: 'theme',
+                relevance: exactMatch ? 3 : startsWithMatch ? 2 : 1
+              });
+            }
+          });
+        }
+        
+        // Also check subcategories for matches
         const subcategoryLower = subcategory.title.toLowerCase();
         const matches = subcategoryLower.includes(searchLower) ||
                        subcategoryLower.split(' ').some((word: string) => word.startsWith(searchLower)) ||
@@ -60,19 +88,25 @@ export default function CategoryStep({
             categoryTitle: goal.title,
             subcategoryId: subcategory.id,
             subcategoryTitle: subcategory.title,
-            categoryColor: getCategoryColor(goal.title)
+            categoryColor: getCategoryColor(goal.title),
+            matchType: 'subcategory',
+            relevance: subcategoryLower === searchLower ? 3 : subcategoryLower.startsWith(searchLower) ? 2 : 1
           });
         }
       });
     });
 
-    // Sort results by relevance (exact matches first, then partial matches)
+    // Sort by relevance (exact theme matches first, then subcategory matches)
     return results.sort((a, b) => {
-      const aExact = a.subcategoryTitle.toLowerCase() === searchLower;
-      const bExact = b.subcategoryTitle.toLowerCase() === searchLower;
-      if (aExact && !bExact) return -1;
-      if (!aExact && bExact) return 1;
-      return a.subcategoryTitle.localeCompare(b.subcategoryTitle);
+      // Prioritize theme matches over subcategory matches
+      if (a.matchType === 'theme' && b.matchType === 'subcategory') return -1;
+      if (a.matchType === 'subcategory' && b.matchType === 'theme') return 1;
+      // Then sort by relevance score
+      if (a.relevance !== b.relevance) return b.relevance - a.relevance;
+      // Finally sort alphabetically
+      const aTitle = a.themeTitle || a.subcategoryTitle;
+      const bTitle = b.themeTitle || b.subcategoryTitle;
+      return aTitle.localeCompare(bTitle);
     });
   };
 
@@ -82,16 +116,52 @@ export default function CategoryStep({
       'Celebrations': 'bg-pink-500',
       'Daily Life': 'bg-blue-500', 
       'Sports': 'bg-green-500',
-      'Work & Career': 'bg-purple-500',
-      'Entertainment': 'bg-orange-500',
-      'Random & Fun': 'bg-yellow-500'
+      'Pop Culture': 'bg-purple-500',
+      'Jokes': 'bg-orange-500',
+      'Miscellaneous': 'bg-cyan-500'
     };
     return colors[categoryTitle as keyof typeof colors] || 'bg-gray-500';
   };
 
   const searchResults = getSearchResults();
 
-  // Handle direct subcategory selection from search results
+  // Handle direct theme selection from search results
+  const handleDirectThemeSelection = (categoryId: string, subcategoryId: string, themeTitle?: string) => {
+    // For Miscellaneous category - pre-fill topic input
+    if (categoryId === "miscellaneous" && themeTitle) {
+      updateData({
+        category: categoryId,
+        subcategory: subcategoryId,
+        topic: themeTitle
+      });
+      setTopicInput(themeTitle);
+      return;
+    }
+    
+    // For Pop Culture - pre-fill specific item input
+    if (categoryId === "pop-culture" && themeTitle) {
+      const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
+      if (subcategoriesRequiringSpecificItem.includes(subcategoryId)) {
+        const newItems = [themeTitle];
+        setSpecificItems(newItems);
+        updateData({
+          category: categoryId,
+          subcategory: subcategoryId,
+          specificItems: newItems,
+          specificItem: newItems.join(', ')
+        });
+        return;
+      }
+    }
+    
+    // For all other categories - complete selection
+    updateData({
+      category: categoryId,
+      subcategory: subcategoryId
+    });
+  };
+
+  // Handle direct subcategory selection from search results (no theme)
   const handleDirectSubcategorySelection = (categoryId: string, subcategoryId: string) => {
     // Check if this is Pop Culture and requires specific item input
     if (categoryId === "pop-culture") {
@@ -543,35 +613,66 @@ export default function CategoryStep({
         <div className="space-y-4">
           {searchResults.length > 0 ? (
             <>
-              <h3 className="text-lg font-semibold text-foreground mb-4">Specific Topics</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                {searchResults.some(r => r.matchType === 'theme') ? 'Search Results' : 'Specific Topics'}
+              </h3>
               <div className="space-y-2">
                 {searchResults.map((result, index) => (
                   <Card
-                    key={`${result.categoryId}-${result.subcategoryId}-${index}`}
+                    key={`${result.categoryId}-${result.subcategoryId}-${result.themeId || 'sub'}-${index}`}
                     className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 hover:border-primary/50 border rounded-lg"
-                    onClick={() => handleDirectSubcategorySelection(result.categoryId, result.subcategoryId)}
+                    onClick={() => {
+                      if (result.matchType === 'theme' && result.themeTitle) {
+                        handleDirectThemeSelection(result.categoryId, result.subcategoryId, result.themeTitle);
+                      } else {
+                        handleDirectSubcategorySelection(result.categoryId, result.subcategoryId);
+                      }
+                    }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={cn(
-                          "px-3 py-1 rounded-full text-xs font-medium text-white",
-                          result.categoryColor
-                        )}>
-                          {result.categoryTitle}
-                        </span>
-                        <span className="text-sm font-medium text-foreground">
-                          {result.subcategoryTitle}
-                        </span>
+                    {result.matchType === 'theme' && result.themeTitle ? (
+                      // Theme result with breadcrumb
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="text-base font-semibold text-foreground">
+                            {result.themeTitle}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>in {result.subcategoryTitle}</span>
+                            <span>•</span>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full text-white font-medium",
+                              result.categoryColor
+                            )}>
+                              {result.categoryTitle}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-muted-foreground text-sm">→</div>
                       </div>
-                      <div className="text-muted-foreground text-sm">—</div>
-                    </div>
+                    ) : (
+                      // Subcategory result (original format)
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-xs font-medium text-white",
+                            result.categoryColor
+                          )}>
+                            {result.categoryTitle}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {result.subcategoryTitle}
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground text-sm">→</div>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
             </>
           ) : (
             <div className="p-8 text-center text-muted-foreground">
-              <p>No specific topics found for "{searchQuery}"</p>
+              <p>No results found for "{searchQuery}"</p>
               <p className="text-xs mt-2">Try a different search term or browse categories below</p>
             </div>
           )}
