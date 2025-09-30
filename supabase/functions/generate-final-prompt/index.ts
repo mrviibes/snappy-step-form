@@ -2,7 +2,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   final_prompt_rules_gemini,
+  final_prompt_rules_ideogram,
   layoutTagShort,
+  layoutMap,
   dimensionMap,
   toneMap,
   ratingMap,
@@ -35,6 +37,7 @@ interface FinalPromptRequest {
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
   composition_modes?: string[]; // optional, e.g., ["very_close"]
   visual_recommendation?: string;
+  provider?: "gemini" | "ideogram"; // NEW - defaults to gemini
 }
 
 interface PromptTemplate {
@@ -102,7 +105,10 @@ serve(async (req) => {
       });
     }
 
-    const templates = await generatePromptTemplates(body as FinalPromptRequest);
+    const provider = body.provider || "gemini";
+    const templates = provider === "ideogram"
+      ? await generateIdeogramPrompts(body as FinalPromptRequest)
+      : await generatePromptTemplates(body as FinalPromptRequest);
     return new Response(JSON.stringify({ success: true, templates }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
@@ -198,6 +204,73 @@ ${styleGate}${compPos}`
     return {
       name: `Gemini — ${L.key}`,
       description: `Compact prompt for layout: ${L.key}`,
+      positive: positive,
+      negative: neg
+    };
+  });
+
+  return prompts;
+}
+
+// ============== IDEOGRAM PROMPTS ==============
+async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTemplate[]> {
+  const {
+    completed_text,
+    category = "celebrations",
+    tone = "humorous",
+    rating = "PG",
+    image_style = "realistic",
+    image_dimensions = "square",
+    text_layout,
+    visual_recommendation = "",
+    composition_modes = []
+  } = p;
+
+  const aspect = aspectLabel(image_dimensions);
+  const toneStr = toneMap[tone?.toLowerCase()] || tone?.toLowerCase() || "funny, witty, playful";
+  const styleStr = image_style.toLowerCase();
+
+  const comp = getCompositionInserts(composition_modes);
+  const compPos = comp?.compPos ? ` ${comp.compPos}` : "";
+  const compNeg = comp?.compNeg || "";
+
+  let negative = `${textQualityNegatives}, ${textFailureNegatives}`;
+  const categoryNegs = getCategoryNegatives(category, rating);
+  if (categoryNegs) negative += `, ${categoryNegs}`;
+  if (compNeg) negative += `, ${compNeg}`;
+
+  let layoutsToGenerate = SIX_LAYOUTS;
+  if (text_layout && text_layout !== "auto") {
+    layoutsToGenerate = SIX_LAYOUTS.filter(L => L.key === text_layout);
+    if (layoutsToGenerate.length === 0) {
+      layoutsToGenerate = SIX_LAYOUTS;
+    }
+  }
+
+  const styleGate = styleStr === "realistic"
+    ? "photorealistic rendering, natural materials and proportions"
+    : `${styleStr} style rendering`;
+
+  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+    const layoutInstructions = layoutMap[L.key] || "clean typography placement";
+
+    const positive = `Professional ${aspect} ${styleStr} composition.
+
+MANDATORY TEXT (exact spelling): "${completed_text}"
+${layoutInstructions}
+Typography: modern rounded sans-serif, high legibility, occupies 22–28% of image area, integrated directly on scene with no filled panels, speech bubbles, or background bars; high contrast via lighting or subtle background blur.
+
+Scene: ${toneStr} mood, ${visual_recommendation || "clear focal subject with clean composition"}.
+Lighting: bright key light, vivid saturation, crisp focus, cinematic contrast, professional color grading.
+Style: ${styleGate}.${compPos}
+
+Readability: ensure high contrast text through strategic lighting, color selection, or subtle blur behind text; clean kerning and line spacing; no visual clutter near text areas.`;
+
+    const neg = `${negative}, low contrast text, cramped text spacing, text occupying less than 20% of image, text in thin caption strip`;
+
+    return {
+      name: `Ideogram — ${L.key}`,
+      description: `Detailed Ideogram prompt optimized for text rendering, layout: ${L.key}`,
       positive: positive,
       negative: neg
     };
