@@ -1,185 +1,60 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { text_rules, joke_text_rules } from "../_shared/text-rules.ts";
-
-// ============== MODEL ==============
-const getTextModel = () => Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
-const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
-
-// ============== CORS ==============
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// ============== OPENAI CALL ==============
-function buildOpenAIRequest(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  options: { temperature?: number; maxTokens: number }
-) {
-  const body: any = { model, messages };
-  if (model.startsWith("gpt-5") || model.startsWith("o3") || model.startsWith("o4")) {
-    body.max_completion_tokens = options.maxTokens;
-  } else {
-    body.max_tokens = options.maxTokens;
-    if (options.temperature !== undefined) body.temperature = options.temperature;
-  }
-  return body;
+// ====== Add near Interfaces ======
+interface GeneratePayload {
+  category: string;
+  subcategory?: string;
+  theme?: string; // <-- NEW: deepest leaf, e.g., "Corgi"
+  tone?: string;
+  rating?: string;
+  insertWords?: string[];
 }
 
-async function callOpenAI(systemPrompt: string, userPrompt: string) {
-  let model = getTextModel();
-  let maxTokens = model.startsWith("gpt-5") ? 4000 : 240;
+// ====== Inside serve handler after payload parse ======
+const { category, subcategory, tone, rating, insertWords = [], theme } = payload;
 
-  try {
-    const req = buildOpenAIRequest(model, [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ], { maxTokens });
+// Compute leaf focus token(s)
+const leaf = (theme || subcategory || "").trim();
+const leafTokens = leaf
+  .toLowerCase()
+  .split(/[^\p{L}\p{N}’'-]+/u)
+  .filter(w => w.length > 2);
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-    const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
-    const content = d.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("Empty content");
-    return { content, model: d.model || model };
+// Build system prompt
+let systemPrompt = category === "Jokes" ? joke_text_rules : text_rules;
 
-  } catch {
-    model = "gpt-4o-mini";
-    const req = buildOpenAIRequest(model, [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ], { maxTokens: 200, temperature: 0.8 });
+systemPrompt += `
+CONTEXT
+- CATEGORY: ${category || "n/a"}
+- SUBCATEGORY: ${subcategory || "n/a"}
+- THEME (LEAF FOCUS): ${leaf || "n/a"}`;
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openAIApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(req)
-    });
-    const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
-    const content = d.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("Empty content (fallback)");
-    return { content, model };
-  }
+// Keep your CRITICAL FORMAT line as-is
+systemPrompt += `
+
+CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete sentence ending with punctuation. Use newline characters between each line. Do not write paragraphs or combine multiple sentences on one line.`;
+
+// ====== Build userPrompt (short and strict) ======
+let userPrompt = `Write 4 ${tone?.toLowerCase() || "humorous"} one-liners that clearly center on "${leaf || "the selected theme"}".`;
+if (category?.toLowerCase() === "jokes") {
+  userPrompt += ` Never say humor labels (dad-joke, pun, joke/jokes); imply the style only.`;
+}
+if (insertWords.length) {
+  userPrompt += ` Each line must naturally include: ${insertWords.join(", ")}.`;
+}
+userPrompt += ` One sentence per line, ≤2 punctuation marks.`;
+
+// ====== After you parse `lines`, enforce FOCUS for concrete leaves ======
+function hasLeafToken(s: string) {
+  const low = s.toLowerCase();
+  return leafTokens.length ? leafTokens.some(t => low.includes(t)) : true;
 }
 
-
-// ============== HTTP ==============
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const payload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [] } = payload;
-
-    let systemPrompt = category === "Jokes" ? joke_text_rules : text_rules;
-    let userPrompt = '';
-    //if (category) systemPrompt += `\n\nCONTEXT: ${category}`;
-   // if (subcategory) systemPrompt += ` > ${subcategory}`;
-    //if (tone) systemPrompt += `\nTONE: ${tone}`;
-   // if (rating) systemPrompt += `\nRATING: ${rating}`;
-    //if (insertWords.length) systemPrompt += `\nINSERT WORDS: ${insertWords.join(", ")}`;
-    systemPrompt += `\n\nCRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete sentence ending with punctuation. Use newline characters between each line. Do not write paragraphs or combine multiple sentences on one line.`;
-    
-    if(category.toLowerCase() == 'jokes'){
-      
-      userPrompt = `Write 4 ${tone?.toLowerCase() || 'funny'}, punchy, human-sounding jokes but never state or repeat the ${subcategory} name itself (e.g., do not write ‘dad joke’, ‘pun’, or similar labels). Imply the style through wording only. `;
-      
-      if (insertWords.length > 0) {
-        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')} and not include ${subcategory} words`;
-      }
-      
-      userPrompt += `. CRITICAL: Do not use the word "joke" in the output. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
-    } 
-    
-    else {
-      // Build dynamic user prompt based on actual selections
-      userPrompt = `Create 4 distinct, ${tone?.toLowerCase() || 'funny'} one-liners`;
-      
-      if (category && subcategory) {
-        userPrompt += ` about ${category.toLowerCase()}/${subcategory.toLowerCase()}`;
-      } else if (category) {
-        userPrompt += ` about ${category.toLowerCase()}`;
-      }
-      
-      if (insertWords.length > 0) {
-        userPrompt += `. CRITICAL: Each line must naturally include ALL of these words: ${insertWords.join(', ')}`;
-      }
-      
-      userPrompt += `. Make them substantial and complete thoughts. No headers, numbers, or formatting - just the one-liners.`;
-    }
-    
-    const { content: raw, model } = await callOpenAI(systemPrompt, userPrompt);
-
-    // Enhanced parsing with fallback for paragraph responses
-    let lines = raw
-      .split(/\r?\n+/)
-      .map((line: string) => line.replace(/^\d+\.\s*/, ' ').replace(/^-\s*/, ' ').trim())
-      .filter(Boolean);
-    
-    // Fallback: if we got fewer than 4 lines, try splitting by sentence endings
-    if (lines.length < 4) {
-      lines = raw
-        .split(/[.!?]+/)
-        .map((sentence: string) => sentence.trim())
-        .filter((sentence: string) => sentence.length > 10)
-        .slice(0, 4);
-    }
-    
-    lines = lines.slice(0, 4);
-    
-    // For jokes category, clean up any subcategory words and meta-commentary that slipped through
-    if (category.toLowerCase() === 'jokes') {
-      lines = lines.map((line: string) => {
-        let cleaned = line;
-        
-        // Remove subcategory words if they exist
-        if (subcategory) {
-          const subcatWords = subcategory.toLowerCase().replace('-', ' ').split(' ');
-          subcatWords.forEach((word: string) => {
-            const regex = new RegExp(`\\b${word}s?\\b`, 'gi');
-            cleaned = cleaned.replace(regex, '');
-          });
-        }
-        
-        // Remove meta-commentary phrases
-        cleaned = cleaned
-          .replace(/\b(I'm joking|just joking|kidding|pun intended|get it\?)\b/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-          
-        return cleaned;
-      });
-    }
-
-    const resp = {
-      lines: lines.map((line: string, i: number) => ({
-        line,
-        length: line.length,
-        index: i + 1,
-        valid: true
-      })),
-      model,
-      count: lines.length,
-      rules_used: { id: "fallback", version: 7 }
-    };
-
-    return new Response(JSON.stringify(resp), { 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
-
-  } catch (err) {
-    console.error('Generate text error:', err);
-    return new Response(JSON.stringify({ error: (err as Error).message || "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-});
-
+// If it's NOT a label-y theme (like "dad-jokes") and we have concrete tokens,
+// softly enforce presence by nudging lines that missed it.
+const looksLikeLabel = /joke|pun|one-liner|knock|lightbulb/i.test(leaf);
+if (leaf && !looksLikeLabel) {
+  lines = lines.map(l => (hasLeafToken(l) ? l : (() => {
+    // If missing, nudge by appending the most salient token once.
+    const add = leafTokens.find(t => t.length > 3) || leafTokens[0] || "";
+    return add ? `${l.replace(/\.$/,"")}, ${add}.` : l;
+  })()));
+}
