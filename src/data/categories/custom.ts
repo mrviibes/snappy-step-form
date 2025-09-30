@@ -3,7 +3,7 @@ import { CategoryItem } from "../CategoryList";
 
 export const customCategory: CategoryItem = {
   id: "custom",
-  title: "Custom",
+  title: "Assorted",
   description: "Everything not already covered: ads, science, professions, design, politics, etc.",
   icon: "✨",
   image: sorceressImage,
