@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, ArrowLeft, MoreVertical, Trash2, Edit, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -31,6 +31,14 @@ export default function CategoryStep({
   const [showingSubcategories, setShowingSubcategories] = useState(false);
   const [currentInput, setCurrentInput] = useState("");
   const [specificItems, setSpecificItems] = useState<string[]>([]);
+
+  // Sync local state with form data - if category exists but subcategory doesn't, show subcategory selection
+  useEffect(() => {
+    if (data.category && !data.subcategory && !showingSubcategories) {
+      setSelectedCategory(data.category);
+      setShowingSubcategories(true);
+    }
+  }, [data.category, data.subcategory, showingSubcategories]);
 
   // Create flattened search results for direct theme/subcategory selection
   const getSearchResults = () => {
