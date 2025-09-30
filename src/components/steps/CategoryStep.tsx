@@ -339,6 +339,9 @@ export default function CategoryStep({
     });
     setSpecificItems([]);
     setCurrentInput("");
+    setSelectedSubcategory(null);
+    setShowingSubcategories(true);
+    setSubcategorySearchQuery("");
   };
   
   const handleBack = () => {
@@ -396,6 +399,23 @@ export default function CategoryStep({
               Edit
             </button>
           </div>
+
+          {/* Selected Subcategory */}
+          {subcategoryData && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="text-sm text-foreground">
+                <span className="font-bold text-muted-foreground">Subcategory</span> - <span className="font-normal">{subcategoryData.title}</span>
+              </div>
+              <button
+                onClick={() => {
+                  handleEditSubcategory();
+                }}
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          )}
 
           {/* Specific Items Display for Pop Culture */}
           {data.category === "pop-culture" && specificItems.length > 0 && (
