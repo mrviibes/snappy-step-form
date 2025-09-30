@@ -441,7 +441,7 @@ export default function CategoryStep({
             </div>
           )}
 
-          {/* Specific Items Display for Pop Culture */} */
+          {/* Specific Items Display for Pop Culture */}
           {data.category === "pop-culture" && specificItems.length > 0 && (
             <div className="flex items-start justify-between p-4 border-t border-border">
               <div className="flex-1">
