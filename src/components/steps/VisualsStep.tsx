@@ -31,7 +31,7 @@ const visualStyles = [
 
 /** NEW: Composition modes (1–2 word labels) */
 const customVisualStyles = [
-  { value: "norman",     label: "Norman" },        // normal photoreal
+  { value: "norman",     label: "Normal" },        // normal photoreal
   { value: "big_head",   label: "Big-Head" },      // giant symmetrical caricature head
   { value: "close_up",   label: "Close-Up" },      // very tight on face, shallow DOF
   { value: "goofy",      label: "Goofy" },         // zoomed-out, playful, small subject
