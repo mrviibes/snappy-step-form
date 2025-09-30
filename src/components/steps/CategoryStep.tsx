@@ -35,6 +35,7 @@ export default function CategoryStep({
   // Sync local state with form data - if category exists but subcategory doesn't, show subcategory selection
   useEffect(() => {
     if (data.category && !data.subcategory && !showingSubcategories) {
+      console.log('Syncing from form data -> show subcategories for category:', data.category);
       setSelectedCategory(data.category);
       setShowingSubcategories(true);
     }
@@ -279,10 +280,14 @@ export default function CategoryStep({
   const subcategorySearchResults = getSubcategorySearchResults();
   
   const handleCategorySelection = (goalId: string) => {
+    console.log('Category selected from search/grid:', goalId);
     setSelectedCategory(goalId);
+    setSelectedSubcategory(null);
     setShowingSubcategories(true);
     setSearchQuery("");
     setSubcategorySearchQuery("");
+    // Keep form data in sync so the parent knows which category is active
+    updateData({ category: goalId, subcategory: "" });
   };
   
   const handleSubcategorySelection = (subcategoryId: string) => {
