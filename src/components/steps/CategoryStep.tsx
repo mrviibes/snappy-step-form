@@ -635,6 +635,15 @@ export default function CategoryStep({
               </Card>
             ))}
           </div>
+          
+          {/* Customize Your Own Button */}
+          <Button
+            variant="outline"
+            className="w-full h-[152px] text-lg font-medium border-2 hover:scale-105 transition-all duration-300"
+            onClick={() => handleCategorySelection("custom")}
+          >
+            Customize Your Own
+          </Button>
         </>
       )}
     </div>
