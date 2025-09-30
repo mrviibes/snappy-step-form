@@ -47,6 +47,10 @@ interface PromptTemplate {
   description: string;
 }
 
+// ============== WORD LIMITS ==============
+const POS_MAX = 80;
+const NEG_MAX = 10;
+
 // ============== COMPOSITION MODELS (six) ==============
 const compositionModels: Record<string, { positive: string; negative: string; label: string }> = {
   base_realistic: {
@@ -136,8 +140,7 @@ function getCompositionInserts(modes?: string[]) {
   if (!found) return null;
   return { compPos: `Composition: ${found.positive}.`, compNeg: found.negative };
 }
-// word limiting helpers
-function wordCount(s: string) {
+function wc(s: string) {
   return (s || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean).length;
 }
 function limitWords(s: string, max: number) {
@@ -189,7 +192,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const negative10 = limitWords([
     "misspelled","illegible","low-contrast","extra","black-bars",
     "speech-bubbles","panels","warped","duplicate","cramped"
-  ].join(", "), 10);
+  ].join(", "), NEG_MAX);
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layout = shortLayout[L.key] || "clean text";
@@ -199,7 +202,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       "bright key light, vivid color",
       "crisp focus, cinematic contrast",
       `layout: ${layout}`,
-      `text: "${completed_text}"`,
+      `text: \""${completed_text}\""`, // preserve exact text
       "font modern, ~25% area",
       visual_recommendation ? `scene: ${visual_recommendation}` : "",
       toneStr ? `mood: ${toneStr}` : "",
@@ -207,12 +210,12 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     ].filter(Boolean);
 
     let positive = squeeze(pieces.join(". ") + ".");
-    if (wordCount(positive) > 50) positive = limitWords(positive, 50);
+    if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
 
     let negative = negative10;
     if (compNeg) {
       const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wordCount(withComp) <= 10 ? withComp : negative;
+      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
     }
 
     return {
@@ -267,7 +270,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "misspelled","illegible","low-contrast","extra","panels",
     "speech-bubbles","black-bars","warped","duplicate","cramped"
   ];
-  const negative10 = limitWords(rawNeg.join(", "), 10);
+  const negative10 = limitWords(rawNeg.join(", "), NEG_MAX);
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layout = shortLayout[L.key] || "clean text";
@@ -285,12 +288,12 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     ].filter(Boolean);
 
     let positive = squeeze(pieces.join(". ") + ".");
-    if (wordCount(positive) > 50) positive = limitWords(positive, 50);
+    if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
 
     let negative = negative10;
     if (compNeg) {
       const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wordCount(withComp) <= 10 ? withComp : negative;
+      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
     }
 
     return {
