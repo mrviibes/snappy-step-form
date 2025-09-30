@@ -547,9 +547,6 @@ export default function CategoryStep({
           spellCheck={true}
           className="pl-14 pr-14 py-6 h-16 text-xl bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-4 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all placeholder:text-lg text-center" 
         />
-        <div className="absolute right-5 top-1/2 transform -translate-y-1/2 text-muted-foreground text-lg">
-          ||
-        </div>
       </div>
 
       {/* Search Results View */}
