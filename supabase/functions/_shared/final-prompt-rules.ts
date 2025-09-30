@@ -1,5 +1,5 @@
-// ===== RULES (compact, aligned to ≤50 / ≤10) =====
-export const final_prompt_rules_ideogram = `FINAL PROMPT GENERATION RULES (v16)
+// ===== RULES (compact, aligned to ≤80 / ≤10) =====
+export const final_prompt_rules_ideogram = `FINAL PROMPT GENERATION RULES (v17)
 
 GENERAL
 - Render mandatory text exactly; no substitutes or missing letters.
@@ -19,15 +19,15 @@ STRUCTURE
 - Dimensions: aspect ratio. Visual Recommendation: optional scene guide.
 
 PROMPT CONSTRUCTION
-- Positive (≤50 words): include mandatory text, layout rules, style, aspect, tone/rating, scene/props, readability.
+- Positive (≤80 words): include mandatory text, layout rules, style, aspect, tone/rating, scene/props, readability.
 - Negative (≤10 words): block text errors and enforce rating/category.
 
 OUTPUT
 - Return ONE Positive string + ONE Negative string, ready for API.`;
 
 // ===== GEMINI RULES (compact) =====
-export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI v16)
-- Positive prompt ≤50 words.
+export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI v17)
+- Positive prompt ≤80 words.
 - Text overlay follows chosen layout or auto negative-space.
 - If layout = meme-text: split at first comma (top/bottom).
 - Brief scene: category/subcategory style (label not named), aspect, tone/rating, 1–3 props.
