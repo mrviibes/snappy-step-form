@@ -1,3 +1,5 @@
+// ================== TEXT RULES (ALL CATEGORIES) ==================
+
 export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
@@ -8,8 +10,10 @@ HARD CONSTRAINTS
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - Follow the selected Tone and Rating. Use any required insert words naturally.
 - FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME (leaf). If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly and the line must clearly be about it.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
 - No meta-writing about writing jokes.
+- Avoid clichés/greeting-card phrasing unless the leaf theme explicitly requires them.
 
 TONES
 - Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
@@ -27,6 +31,7 @@ RATINGS
 - PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
 - R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
 `;
+
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
@@ -36,7 +41,9 @@ HARD CONSTRAINTS
 - Follow the selected Tone and Rating. Use any required insert words naturally.
 - LABEL POLICY: Never use the words "joke" / "jokes" or say the humor label (e.g., "dad-joke", "pun"). Imply the style through wording only.
 - FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME (leaf). If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly; if the theme is a style label (e.g., "dad-jokes"), never name the label—only imply it.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
+- Avoid clichés/greeting-card phrasing unless the leaf theme explicitly requires them.
 
 TONES
 - Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
@@ -54,6 +61,7 @@ RATINGS
 - PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
 - R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
 `;
+
 
 export const celebrations_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
 
@@ -66,8 +74,10 @@ HARD CONSTRAINTS
 - Follow the selected Tone and Rating. Use any required insert words naturally (names, ages, etc.).
 - FOCUS: Make the recipient/honoree feel special. Center on the specific celebration (birthday, wedding, anniversary, graduation, etc.).
 - PERSONAL CONNECTION: Use warm, congratulatory language. Make it feel like it's FOR them.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
 - Emphasize milestones, achievements, and joy.
+- Avoid clichés/greeting-card phrasing unless the celebration explicitly calls for them.
 
 TONES
 - Humorous → lighthearted celebration, playful teasing with love.
@@ -80,11 +90,9 @@ TONES
 - Serious → formal congratulations, dignified recognition.
 
 RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+- (same as text_rules)
 `;
+
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR DAILY LIFE
 
@@ -96,26 +104,15 @@ HARD CONSTRAINTS
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - Follow the selected Tone and Rating. Use any required insert words naturally.
 - FOCUS: Center on the specific daily routine, moment, or situation (morning coffee, Monday blues, commute, housework, etc.).
-- RELATABILITY: Make it feel like "we've all been there." Universal human experiences.
+- RELATABILITY: Make it feel like "we've all been there."
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
-- Situational humor about the mundane made funny or meaningful.
+- Avoid clichés unless the leaf is itself a cliché trope being referenced.
 
-TONES
-- Humorous → observational comedy, the absurdity of daily routines.
-- Savage → frustrated truth-telling, the harsh reality of everyday life.
-- Sentimental → finding beauty in small moments, gratitude for the ordinary.
-- Nostalgic → how things used to be, simpler times.
-- Romantic → finding love in everyday life, small romantic gestures.
-- Inspirational → motivation to tackle the day, finding purpose in routine.
-- Playful → silly take on boring tasks, making chores fun.
-- Serious → matter-of-fact observations, deadpan about daily grind.
-
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+TONES/RATINGS
+- (same as text_rules)
 `;
+
 
 export const sports_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR SPORTS
 
@@ -129,25 +126,14 @@ HARD CONSTRAINTS
 - FOCUS: Center on the specific sport, team, player, or athletic moment.
 - ACTION-ORIENTED: Use dynamic verbs, competitive energy, victory/defeat dynamics.
 - ATHLETIC TERMINOLOGY: Leverage sports metaphors, game language, competitive spirit.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
-- Capture the intensity, passion, and drama of sports.
+- Avoid generic pep-talk clichés unless the leaf requires them.
 
-TONES
-- Humorous → playful sports banter, funny takes on competition.
-- Savage → brutal sports roasts, competitive trash talk.
-- Sentimental → emotional sports moments, team loyalty, underdog stories.
-- Nostalgic → legendary moments, classic games, sports history.
-- Romantic → love of the game, passion for the sport.
-- Inspirational → championship mentality, motivational sports quotes.
-- Playful → fun takes on sports, lighthearted competition.
-- Serious → game analysis, strategic observations, professional tone.
-
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+TONES/RATINGS
+- (same as text_rules)
 `;
+
 
 export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR POP CULTURE
 
@@ -159,27 +145,15 @@ HARD CONSTRAINTS
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - Follow the selected Tone and Rating. Use any required insert words naturally.
 - FOCUS: Center on the specific movie, TV show, celebrity, music, meme, or cultural phenomenon.
-- REFERENCES: Feel current and culturally aware. Entertainment-savvy language.
-- FAN CULTURE: Speak the language of fans, enthusiasts, and pop culture consumers.
+- REFERENCES: Feel current and culturally aware; speak the language of fans.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
-- Capture the zeitgeist, trends, and cultural moments.
+- Avoid stale references; keep it timely unless leaf is explicitly retro.
 
-TONES
-- Humorous → witty pop culture commentary, funny takes on trends.
-- Savage → brutal celebrity roasts, cultural criticism with bite.
-- Sentimental → emotional fan moments, nostalgia for beloved shows/movies.
-- Nostalgic → throwback references, "remember when" energy about classic entertainment.
-- Romantic → love stories from movies/TV, celebrity couple energy.
-- Inspirational → inspiring celebrity quotes, empowering entertainment messages.
-- Playful → fun fandom energy, lighthearted pop culture banter.
-- Serious → critical analysis, industry observations, cultural commentary.
-
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+TONES/RATINGS
+- (same as text_rules)
 `;
+
 
 export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR MISCELLANEOUS/ANIMALS
 
@@ -190,28 +164,17 @@ HARD CONSTRAINTS
 - Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on the specific animal, creature, natural phenomenon, or miscellaneous topic.
-- OBSERVATIONAL: Comment on behaviors, characteristics, interesting facts.
-- FLEXIBILITY: Adapt to whatever the specific subject is (animals, nature, random topics).
+- FOCUS: Center on the specific animal, creature, natural phenomenon, or miscellaneous topic (leaf).
+- OBSERVATIONAL: Comment on behaviors, characteristics, or distinctive traits.
+- FLEXIBILITY: Adapt to whatever the leaf is (animals, nature, random topics).
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
-- Find the humor or insight in the subject's unique qualities.
+- Avoid generic nature clichés unless the leaf is a seasonal theme.
 
-TONES
-- Humorous → funny observations about animal behaviors or quirky facts.
-- Savage → roasting animals or nature with attitude.
-- Sentimental → love for animals, appreciation for nature's beauty.
-- Nostalgic → memories with pets, classic nature experiences.
-- Romantic → animals in love, beauty of nature.
-- Inspirational → lessons from nature, inspiring animal qualities.
-- Playful → silly animal antics, fun nature observations.
-- Serious → factual animal/nature observations, naturalist tone.
-
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+TONES/RATINGS
+- (same as text_rules)
 `;
+
 
 export const custom_design_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CUSTOM DESIGN
 
@@ -222,25 +185,12 @@ HARD CONSTRAINTS
 - Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on whatever specific theme, concept, or subject is provided.
-- FLEXIBILITY: Adapt to abstract ideas, creative concepts, unique requests.
-- ARTISTIC LANGUAGE: Use metaphors, creative expressions, imaginative phrasing.
+- FOCUS: Center on the specific theme or concept provided (leaf).
+- FLEXIBILITY: Adapt to abstract ideas while staying clear and punchy.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
 - No duplicate word pairs across the 4 outputs.
-- Embrace the unexpected, the creative, the artistic interpretation.
+- Avoid purple-prose clichés; be crisp and imaginative.
 
-TONES
-- Humorous → clever wordplay, unexpected angles on the concept.
-- Savage → edgy takes, provocative perspectives.
-- Sentimental → emotional depth, heartfelt interpretation.
-- Nostalgic → timeless themes, classic references adapted to the concept.
-- Romantic → poetic, beautiful, lyrical language.
-- Inspirational → profound insights, motivational takes on the concept.
-- Playful → whimsical, imaginative, fun creative energy.
-- Serious → thoughtful, philosophical, deep contemplation.
-
-RATINGS
-- G → no profanity or adult references.
-- PG → censored swears allowed (f**k, s**t). No uncensored profanity.
-- PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
-- R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+TONES/RATINGS
+- (same as text_rules)
 `;
