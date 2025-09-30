@@ -193,26 +193,40 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
       return options.slice(0, 4);
     }
     
+    // Handle { options: string[] } format from backend
+    if (res && typeof res === 'object' && 'options' in res) {
+      const raw = (res as any).options;
+      const normalized = Array.isArray(raw)
+        ? raw.map((o: any) => (typeof o === 'string' ? { line: o } : o))
+        : [];
+      if (!normalized.length) throw new Error('No options returned');
+      return normalized.slice(0, 4);
+    }
+    
     // Fallback: check for old response format
     if (!res || (res as any).success !== true) {
       const msg = (res as any)?.error || "Generation failed";
       throw new Error(msg);
     }
-    const options = (res as any).options as Array<{line: string}>;
-    if (!Array.isArray(options) || options.length === 0) {
-      throw new Error("No options returned");
-    }
-    
-    return options.slice(0, 4);
+    throw new Error("Invalid response format");
   } catch (error: any) {
     // Try once more with slight delay if first attempt fails
     if (error.name !== 'AbortError') {
       try {
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
         const retryRes = await ctlFetch<GenerateTextResponse>("generate-text", payload, 20000);
-        if (retryRes && (retryRes as any).success === true) {
-          const retryOptions = (retryRes as any).options as Array<{line: string}>;
-          return retryOptions.slice(0, 4);
+        
+        // Handle { options: string[] } format
+        if (retryRes && typeof retryRes === 'object' && 'options' in retryRes) {
+          const raw = (retryRes as any).options;
+          const normalized = Array.isArray(raw)
+            ? raw.map((o: any) => (typeof o === 'string' ? { line: o } : o))
+            : [];
+          if (normalized.length) return normalized.slice(0, 4);
+        }
+        
+        if (retryRes && (retryRes as any).success === true && Array.isArray((retryRes as any).options)) {
+          return (retryRes as any).options.slice(0, 4);
         }
       } catch (retryError) {
         console.error('Retry failed:', retryError);
