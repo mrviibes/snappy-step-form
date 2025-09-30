@@ -31,7 +31,6 @@ export default function CategoryStep({
   const [showingSubcategories, setShowingSubcategories] = useState(false);
   const [currentInput, setCurrentInput] = useState("");
   const [specificItems, setSpecificItems] = useState<string[]>([]);
-  const [topicInput, setTopicInput] = useState("");
 
   // Create flattened search results for direct theme/subcategory selection
   const getSearchResults = () => {
@@ -127,17 +126,6 @@ export default function CategoryStep({
 
   // Handle direct theme selection from search results
   const handleDirectThemeSelection = (categoryId: string, subcategoryId: string, themeTitle?: string) => {
-    // For Miscellaneous category - pre-fill topic input
-    if (categoryId === "miscellaneous" && themeTitle) {
-      updateData({
-        category: categoryId,
-        subcategory: subcategoryId,
-        topic: themeTitle
-      });
-      setTopicInput(themeTitle);
-      return;
-    }
-    
     // For Pop Culture - pre-fill specific item input
     if (categoryId === "pop-culture" && themeTitle) {
       const subcategoriesRequiringSpecificItem = ["movies", "tv-shows", "celebrities", "music", "anime", "fictional-characters"];
@@ -179,17 +167,6 @@ export default function CategoryStep({
       }
     }
     
-    // Check if this is Miscellaneous category and requires topic input
-    if (categoryId === "miscellaneous") {
-      updateData({
-        category: categoryId,
-        subcategory: subcategoryId,
-        topic: ""
-      });
-      setTopicInput("");
-      return;
-    }
-    
     updateData({
       category: categoryId,
       subcategory: subcategoryId
@@ -229,17 +206,6 @@ export default function CategoryStep({
       }
     }
     
-    // Check if this is Miscellaneous category and requires topic input
-    if (selectedCategory === "miscellaneous") {
-      updateData({
-        category: selectedCategory,
-        subcategory: subcategoryId,
-        topic: ""
-      });
-      setTopicInput("");
-      return;
-    }
-    
     updateData({
       category: selectedCategory,
       subcategory: subcategoryId
@@ -256,24 +222,20 @@ export default function CategoryStep({
       category: "",
       subcategory: "",
       specificItem: "",
-      specificItems: [],
-      topic: ""
+      specificItems: []
     });
     setSpecificItems([]);
     setCurrentInput("");
-    setTopicInput("");
   };
   
   const handleEditSubcategory = () => {
     updateData({
       subcategory: "",
       specificItem: "",
-      specificItems: [],
-      topic: ""
+      specificItems: []
     });
     setSpecificItems([]);
     setCurrentInput("");
-    setTopicInput("");
   };
   
   const handleBack = () => {
@@ -366,28 +328,6 @@ export default function CategoryStep({
             </div>
           )}
 
-          {/* Topic Display for Miscellaneous category */}
-          {data.category === "miscellaneous" && data.topic && (
-            <div className="flex items-start justify-between p-4 border-t border-border">
-              <div className="flex-1">
-                <div className="text-sm text-muted-foreground font-bold mb-2">
-                  Topic:
-                </div>
-                <div className="bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 px-3 py-1 rounded-full text-sm font-medium inline-block">
-                  {data.topic}
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  updateData({ topic: "" });
-                  setTopicInput("");
-                }} 
-                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-              >
-                Edit
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Specific Item Input for Pop Culture subcategories */}
@@ -477,52 +417,6 @@ export default function CategoryStep({
           </div>
         )}
 
-        {/* Topic Input for Miscellaneous category */}
-        {data.category === "miscellaneous" && data.subcategory && !data.topic && (
-          <div className="mt-8 space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Is there a certain Topic you want?
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                eg. advertisement, astronomy, high school<br />
-                <strong>in the box - enter your topic here and hit return</strong>
-              </p>
-            </div>
-            
-            <div className="bg-card p-4 rounded-lg space-y-4">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-cyan-400" size={20} />
-                <Input
-                  type="text"
-                  placeholder="Enter a specific topic..."
-                  value={topicInput}
-                  onChange={(e) => setTopicInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && topicInput.trim()) {
-                      e.preventDefault();
-                      updateData({ topic: topicInput.trim() });
-                    }
-                  }}
-                  spellCheck={true}
-                  className="w-full pl-12 pr-4 py-3 text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
-                />
-              </div>
-              
-              <div className="text-center">
-                <Button
-                  onClick={() => {
-                    updateData({ topic: "general" });
-                  }}
-                  variant="ghost"
-                  className="text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Skip - Any topic is fine
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }
