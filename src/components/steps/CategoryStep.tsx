@@ -173,7 +173,8 @@ export default function CategoryStep({
     // For all other categories - complete selection
     updateData({
       category: categoryId,
-      subcategory: subcategoryId
+      subcategory: subcategoryId,
+      selectedTheme: themeTitle || ""
     });
   };
 
@@ -197,7 +198,8 @@ export default function CategoryStep({
     
     updateData({
       category: categoryId,
-      subcategory: subcategoryId
+      subcategory: subcategoryId,
+      selectedTheme: ""
     });
   };
 
@@ -287,7 +289,7 @@ export default function CategoryStep({
     setSearchQuery("");
     setSubcategorySearchQuery("");
     // Keep form data in sync so the parent knows which category is active
-    updateData({ category: goalId, subcategory: "" });
+    updateData({ category: goalId, subcategory: "", selectedTheme: "" });
   };
   
   const handleSubcategorySelection = (subcategoryId: string) => {
@@ -302,7 +304,8 @@ export default function CategoryStep({
           category: selectedCategory,
           subcategory: subcategoryId,
           specificItem: "",
-          specificItems: []
+          specificItems: [],
+          selectedTheme: ""
         });
         setSpecificItems([]);
         return;
@@ -311,7 +314,8 @@ export default function CategoryStep({
     
     updateData({
       category: selectedCategory,
-      subcategory: subcategoryId
+      subcategory: subcategoryId,
+      selectedTheme: ""
     });
   };
   
@@ -335,7 +339,8 @@ export default function CategoryStep({
     updateData({
       subcategory: "",
       specificItem: "",
-      specificItems: []
+      specificItems: [],
+      selectedTheme: ""
     });
     setSpecificItems([]);
     setCurrentInput("");
@@ -417,7 +422,26 @@ export default function CategoryStep({
             </div>
           )}
 
-          {/* Specific Items Display for Pop Culture */}
+          {/* Selected Topic */}
+          {data.selectedTheme && data.category !== "pop-culture" && (
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="text-sm text-foreground">
+                <span className="font-bold text-muted-foreground">Topic</span> - <span className="font-normal">{data.selectedTheme}</span>
+              </div>
+              <button
+                onClick={() => {
+                  updateData({ selectedTheme: "" });
+                  setShowingSubcategories(true);
+                  setSubcategorySearchQuery("");
+                }}
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+
+          {/* Specific Items Display for Pop Culture */} */
           {data.category === "pop-culture" && specificItems.length > 0 && (
             <div className="flex items-start justify-between p-4 border-t border-border">
               <div className="flex-1">
