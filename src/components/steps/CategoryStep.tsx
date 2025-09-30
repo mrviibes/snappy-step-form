@@ -347,7 +347,7 @@ export default function CategoryStep({
                   handleInputKeyDown(e);
                 }}
                 spellCheck={true}
-                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                className="w-full text-center text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
                 autoFocus
               />
               
@@ -435,7 +435,7 @@ export default function CategoryStep({
                     }
                   }}
                   spellCheck={true}
-                  className="w-full pl-12 pr-4 py-3 text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                  className="w-full pl-12 pr-4 py-3 text-lg font-medium placeholder:text-muted-foreground bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
                 />
               </div>
               
@@ -483,7 +483,7 @@ export default function CategoryStep({
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
               spellCheck={true}
-              className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
+              className="pl-12 py-4 h-14 text-lg font-semibold text-cyan-600 placeholder:text-cyan-600 placeholder:font-semibold bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 transition-all" 
             />
           </div>
 
