@@ -66,6 +66,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           image_dimensions: data.visuals?.dimension || 'square',
           composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
           visual_recommendation: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation,
+          provider: 'ideogram' as const,
         };
 
         console.log('Generating templates with params:', params);
@@ -143,7 +144,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         negativePrompt: template.negative,
         image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
         quality: 'high' as const,
-        provider: 'gemini' as const
+        provider: 'ideogram' as const
       };
 
       const response = await generateImage(imageParams);
@@ -356,7 +357,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           Your Generated Image
         </h2>
         <p className="text-sm text-muted-foreground">
-          Generate your final image using Gemini 2.5 Flash Image
+          Generate your final image using Ideogram
         </p>
       </div>
 
@@ -428,7 +429,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         {/* Template Selection */}
         <div className="mb-4">
           <label className="text-sm font-medium text-foreground mb-2 block">
-            Choose Template ({templates.length} available) - Provider: Gemini 2.5 Flash Image
+            Choose Template ({templates.length} available) - Provider: Ideogram
           </label>
         </div>
         {isLoadingImage ? (
@@ -442,7 +443,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
                 </div>
                   <div className="text-center">
                     <p className="text-sm font-medium">Generating your image...</p>
-                    <p className="text-xs opacity-70">Using Gemini 2.5 Flash</p>
+                    <p className="text-xs opacity-70">Using Ideogram</p>
                   </div>
               </div>
             </div>

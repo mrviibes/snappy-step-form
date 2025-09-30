@@ -64,6 +64,7 @@ type GenerateFinalPromptParams = {
   image_dimensions: "square"|"portrait"|"landscape"|"custom";
   composition_modes?: string[];
   visual_recommendation?: string;
+  provider?: "gemini" | "ideogram";
 };
 
 type GenerateFinalPromptResponse = { 
