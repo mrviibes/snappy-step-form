@@ -4,7 +4,7 @@ import { dailyLifeCategory } from "./categories/daily-life";
 import { sportsCategory } from "./categories/sports";
 import { popCultureCategory } from "./categories/pop-culture";
 import { jokesCategory } from "./categories/jokes";
-import { customCategory } from "./categories/custom";
+import { miscellaneousCategory } from "./categories/miscellaneous";
 
 export interface ThemeItem {
   id: string;
@@ -32,5 +32,5 @@ export const fitnessGoals: CategoryItem[] = [
   sportsCategory,
   popCultureCategory,
   jokesCategory,
-  customCategory
+  miscellaneousCategory
 ];

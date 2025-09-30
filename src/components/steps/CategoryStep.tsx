@@ -109,8 +109,8 @@ export default function CategoryStep({
       }
     }
     
-    // Check if this is Custom category and requires topic input
-    if (categoryId === "custom") {
+    // Check if this is Miscellaneous category and requires topic input
+    if (categoryId === "miscellaneous") {
       updateData({
         category: categoryId,
         subcategory: subcategoryId,
@@ -159,8 +159,8 @@ export default function CategoryStep({
       }
     }
     
-    // Check if this is Custom category and requires topic input
-    if (selectedCategory === "custom") {
+    // Check if this is Miscellaneous category and requires topic input
+    if (selectedCategory === "miscellaneous") {
       updateData({
         category: selectedCategory,
         subcategory: subcategoryId,
@@ -296,8 +296,8 @@ export default function CategoryStep({
             </div>
           )}
 
-          {/* Topic Display for Custom category */}
-          {data.category === "custom" && data.topic && (
+          {/* Topic Display for Miscellaneous category */}
+          {data.category === "miscellaneous" && data.topic && (
             <div className="flex items-start justify-between p-4 border-t border-border">
               <div className="flex-1">
                 <div className="text-sm text-muted-foreground font-bold mb-2">
@@ -407,8 +407,8 @@ export default function CategoryStep({
           </div>
         )}
 
-        {/* Topic Input for Custom category */}
-        {data.category === "custom" && data.subcategory && !data.topic && (
+        {/* Topic Input for Miscellaneous category */}
+        {data.category === "miscellaneous" && data.subcategory && !data.topic && (
           <div className="mt-8 space-y-4">
             <div className="text-center">
               <h3 className="text-lg font-medium text-foreground mb-2">
@@ -479,7 +479,7 @@ export default function CategoryStep({
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
             <Input 
               type="text" 
-              placeholder={selectedCategoryData.id === "custom" ? "Search miscellaneous topics" : "Search subcategories..."} 
+              placeholder={selectedCategoryData.id === "miscellaneous" ? "Search miscellaneous topics" : "Search subcategories..."} 
               value={subcategorySearchQuery} 
               onChange={e => setSubcategorySearchQuery(e.target.value)} 
               spellCheck={true}
