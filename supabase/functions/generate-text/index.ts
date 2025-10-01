@@ -23,44 +23,124 @@ interface GeneratePayload {
   category: string;
   subcategory?: string;
   theme?: string;
-  tone?: string;     // e.g., "humorous"
-  rating?: string;   // G | PG | PG-13 | R
-  insertWords?: string[]; // e.g., ["Jesse"]
+  tone?: string;      // "humorous", "savage", ...
+  rating?: string;    // "G" | "PG" | "PG-13" | "R"
+  insertWords?: string[]; // e.g., ["Jesse", "gay"]
 }
 
-// ---------- Tiny helpers (keep it light) ----------
+// ---------- Minimal helpers ----------
 const MAX_LEN = 120;
 
-function trimLine(s = ""): string {
-  return s.replace(/\s+/g, " ").trim();
-}
-function endPunct(s = ""): string {
-  return /[.!?]$/.test(s) ? s : s + ".";
-}
+const RX_STRONG = [
+  /\bfuck(?:ing|er|ed|s)?\b/gi,
+  /\bshit(?:ting|ty|face(?:d)?|s|ted)?\b/gi,
+  /\bbullshit\b/gi,
+];
+const MEDIUM_WORDS = ["bastard","asshole","prick","dick","douche","crap"];
+
+const TRAIT_WORDS = new Set([
+  "gay","lesbian","bi","bisexual","queer","trans",
+  "vegan","gluten-free","introvert","extrovert",
+  "left-handed","right-handed","nerd","gamer","dad","mom"
+]);
+
+function trimLine(s = ""): string { return s.replace(/\s+/g, " ").trim(); }
+function endPunct(s = ""): string { return /[.!?]$/.test(s) ? s : s + "."; }
 function capLen(s = "", n = MAX_LEN): string {
   if (s.length <= n) return s;
   const cut = s.slice(0, n);
   const i = cut.lastIndexOf(" ");
   return (i > 40 ? cut.slice(0, i) : cut).replace(/[,\s]*$/, "") + ".";
 }
-function ensureInsertOnce(s: string, word: string): string {
-  if (!word) return s;
-  const rx = new RegExp(`\\b${escapeRE(word)}\\b`, "i");
-  const possRx = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
-  const has = rx.test(s) || possRx.test(s);
-  if (has) return s;
-  // Prefer after the first comma or after first token
-  if (s.includes(",")) return s.replace(",", `, ${word},`);
-  const j = s.indexOf(" ");
-  return (j > 0) ? s.slice(0, j) + " " + word + s.slice(j) : `${word} ${s}`;
-}
+function sanitizePunct(s = ""): string { return s.replace(/[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim(); }
+function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
 function escapeRE(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-// Very light rating normalization (we let the model do most thinking)
+function toFour(lines: string[], fallback: string): string[] {
+  let L = lines.map(trimLine).filter(Boolean);
+  if (L.length > 4) L = L.slice(0, 4);
+  while (L.length < 4) L.push(fallback);
+  return L;
+}
+
+// ---------- Insert Intelligence ----------
+type InsertKind = "name" | "trait" | "other";
+
+function classifyInsert(word: string): InsertKind {
+  const w = (word || "").trim();
+  if (!w) return "other";
+  if (/^[A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*$/.test(w)) return "name"; // simple “looks like a name”
+  if (TRAIT_WORDS.has(w.toLowerCase())) return "trait";
+  return "other";
+}
+
+function classifyInserts(words: string[]) {
+  const names: string[] = [];
+  const traits: string[] = [];
+  const others: string[] = [];
+  for (const raw of (words || [])) {
+    const w = (raw || "").trim();
+    if (!w) continue;
+    const k = classifyInsert(w);
+    if (k === "name") names.push(w);
+    else if (k === "trait") traits.push(w);
+    else others.push(w);
+  }
+  return { names, traits, others };
+}
+
+// Place a word once, naturally (never as last token)
+function ensureInsertOnce(line: string, word: string): string {
+  if (!word) return line;
+  const base = new RegExp(`\\b${escapeRE(word)}\\b`, "i");
+  const poss = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
+  if (base.test(line) || poss.test(line)) return line;
+
+  let s = line;
+  if (s.includes(",")) s = s.replace(",", `, ${word},`);
+  else {
+    const j = s.indexOf(" ");
+    s = j > 0 ? s.slice(0, j) + " " + word + s.slice(j) : `${word} ${s}`;
+  }
+  s = s.replace(new RegExp(`${escapeRE(word)}\\s*[.!?]?$`, "i"), `${word},`);
+  return s;
+}
+
+// Gentle trait polish: affirming, not a punchline by itself
+function polishTraits(line: string, traits: string[], names: string[]): string {
+  let s = line;
+  const name = names[0] || "";
+  for (const t of traits) {
+    // “Happy gay birthday” → “Happy birthday, Jesse, proudly gay and thriving.”
+    if (name) {
+      s = s.replace(new RegExp(`\\bhappy\\s+${escapeRE(t)}\\s+birthday\\b`, "i"),
+                    `Happy birthday, ${name}, proudly ${t} and thriving`);
+      // “Name gay …” → “Name, proudly gay, …”
+      s = s.replace(new RegExp(`\\b${escapeRE(name)}\\s+${escapeRE(t)}\\b`, "i"),
+                    `${name}, proudly ${t},`);
+    } else {
+      s = s.replace(new RegExp(`\\b${escapeRE(t)}\\b`, "i"), `proudly ${t}`);
+    }
+    // “Don't gay worry” → “Don't worry — your ${t} flair wins again.”
+    s = s.replace(new RegExp(`\\b${escapeRE(t)}\\s+(worry|fear)\\b`, "i"),
+                  `$1`);
+  }
+  return s.replace(/,\s*,/g, ", ").trim();
+}
+
+// ---------- Humor control (light) ----------
+type HumorMode = "high" | "med" | "soft";
+function humorModeForTone(tone?: string): HumorMode {
+  const t = (tone || "").toLowerCase();
+  if (t === "savage" || t === "humorous" || t === "playful" || t === "inspirational") return "high";
+  if (t === "serious") return "soft";
+  return "med"; // sentimental, nostalgic, romantic default to soft/med but still funny
+}
+
+// ---------- Rating normalization (minimal) ----------
 function normalizeByRating(s: string, rating: string): string {
   let out = s;
 
-  // Fix asterisk/space-mangled strong words when R (don’t add new swears)
   if (rating === "R") {
     out = out
       .replace(/\bf\*\*k(ing|er|ed|s)?\b/gi, "fuck$1")
@@ -69,11 +149,10 @@ function normalizeByRating(s: string, rating: string): string {
       .replace(/\bf\s*k(ing|er|ed|s)?\b/gi, "fuck$1")
       .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
       .replace(/\bbull\s*shit\b/gi, "bullshit")
-      .replace(/\b(fuck|shit|bullshit)[.!?]\s*$/i, "$1, champ"); // not last word vibe
+      .replace(/\b(fuck|shit|bullshit)[.!?]\s*$/i, "$1, champ"); // don't end on swear
     return out;
   }
 
-  // PG-13: remove stronger words; allow hell/damn; ban goddamn
   if (rating === "PG-13") {
     out = out
       .replace(/\bgod[-\s]?damn(ed|ing)?\b/gi, "")
@@ -83,18 +162,16 @@ function normalizeByRating(s: string, rating: string): string {
     return out.replace(/\s{2,}/g, " ").trim();
   }
 
-  // PG: map strong words to mild fully spelled
   if (rating === "PG") {
     out = out
       .replace(/\bfuck(?:ing|er|ed|s)?\b/gi, "heck")
       .replace(/\bshit(?:ting|ty|face(?:d)?|s|ted)?\b/gi, "mess")
-      .replace(/\bbullshit\b/gi, "nonsense");
-    // remove medium insults
-    out = out.replace(/\b(bastard|asshole|prick|dick|douche|crap)\b/gi, "");
+      .replace(/\bbullshit\b/gi, "nonsense")
+      .replace(/\b(bastard|asshole|prick|dick|douche|crap)\b/gi, "");
     return out.replace(/\s{2,}/g, " ").trim();
   }
 
-  // G: remove any profanity
+  // G
   out = out
     .replace(/\bfuck(?:ing|er|ed|s)?\b/gi, "")
     .replace(/\bshit(?:ting|ty|face(?:d)?|s|ted)?\b/gi, "")
@@ -103,25 +180,18 @@ function normalizeByRating(s: string, rating: string): string {
   return out.replace(/\s{2,}/g, " ").trim();
 }
 
-function toFour(lines: string[], fallback: string): string[] {
-  let L = lines.map(trimLine).filter(Boolean);
-  if (L.length > 4) L = L.slice(0, 4);
-  while (L.length < 4) L.push(fallback);
-  return L;
-}
-
 // ---------- Server ----------
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const payload: GeneratePayload = await req.json();
-    const { category, subcategory, theme, tone = "", rating = "G", insertWords = [] } = payload;
+    const { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [] } = payload;
 
     const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
 
-    // Select minimal system rules by category
+    // Route minimal system rules
     const cat = (category || "").toLowerCase().trim();
     let systemPrompt = general_text_rules;
     if (cat === "celebrations") systemPrompt = celebration_text_rules;
@@ -132,21 +202,32 @@ serve(async (req) => {
     else if (cat === "miscellaneous") systemPrompt = miscellaneous_text_rules;
     else if (cat === "custom" || cat === "custom-design") systemPrompt = custom_design_text_rules;
 
-    // Tiny tags the model actually uses
-    const toneTag   = TONE_TAGS[(tone || "").toLowerCase()] || "clear, natural, human";
+    // Tags
+    const toneTag   = TONE_TAGS[(tone || "").toLowerCase()] || "funny, witty, light";
     const ratingTag = RATING_TAGS[(rating || "").toUpperCase()] || "follow content rating appropriately";
-
+    const humorMode = humorModeForTone(tone);
     const leaf = (theme || subcategory || "").trim() || "the selected theme";
 
-    // Minimal user prompt: let the model think
-    let userPrompt =
-`Write 4 distinct one-liners about "${leaf}".
-Tone: ${toneTag}. Rating: ${ratingTag}.
-Constraints: 1 sentence per line; natural flow; exactly one Insert Word per line if provided; avoid clichés; keep each line specific and different.`;
+    // Insert intelligence
+    const { names, traits, others } = classifyInserts(insertWords || []);
+    const name = names[0] || ""; // we only require one name per line max
 
-    if (insertWords.length) {
-      userPrompt += ` Insert Words: ${insertWords.join(", ")}. Place naturally (allow possessive), not at the very end.`;
-    }
+    // Humor archetypes (the model chooses wording; we give shapes)
+    const HUMOR_MATRIX = [
+      "Vocative compliment with twist (e.g., 'Name, X … but Y.').",
+      "Imperative CTA (e.g., 'Do X, then Y, because Z.').",
+      "Metaphor or simile (e.g., 'X like Y, so Z.').",
+      "Mini-roast with affection (e.g., 'X, you Y, now Z.')."
+    ].join(" ");
+
+    // Minimal, model-led prompt (funny baseline for all tones; tone softens when needed)
+    let userPrompt =
+`Write 4 distinct one-liners about "${leaf}" for a ${cat || "general"} context.
+Tone: ${toneTag} (humor baseline = ${humorMode}).
+Rating: ${ratingTag}.
+Use one of these shapes per line (rotate): ${HUMOR_MATRIX}
+Insert Words: ${insertWords.join(", ") || "none"}.
+Rules: 1 sentence per line; natural flow; EXACTLY one Insert Word per line, placed naturally (allow “Name’s”), never as the last word; keep each line specific, human, and end with a crisp punchline. Avoid clichés and label text.`;
 
     // Call model
     const res = await fetch(
@@ -156,7 +237,7 @@ Constraints: 1 sentence per line; natural flow; exactly one Insert Word per line
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 300 }
+          generationConfig: { temperature: 0.95, maxOutputTokens: 360 }
         })
       }
     );
@@ -168,29 +249,35 @@ Constraints: 1 sentence per line; natural flow; exactly one Insert Word per line
     }
 
     const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Parse to lines, keep it simple
-    let lines = text.split("\n").map(trimLine).filter(Boolean);
-    // strip accidental labels or bullets
+    // Parse → lines
+    let lines = raw.split("\n").map(trimLine).filter(Boolean);
     lines = lines.filter(l => !/^\s*(tone|rating|insert|options?|line|^\d+[\.\)]\s+)/i.test(l));
 
-    // Ensure 4
+    // Exactly 4
     const fallback = `Celebrating ${leaf}.`;
     lines = toFour(lines, fallback);
 
-    // Insert word once per line, naturally
-    const name = (insertWords[0] || "").trim();
-    if (name) lines = lines.map(l => ensureInsertOnce(l, name));
+    // Insert once per line: name, trait, other
+    if (name)  lines = lines.map(l => ensureInsertOnce(l, name));
+    if (traits.length) lines = lines.map(l => ensureInsertOnce(l, traits[0]));
+    if (others.length) lines = lines.map(l => ensureInsertOnce(l, others[0]));
 
-    // Light rating normalization
+    // Trait polish (affirming, grammatical)
+    if (traits.length) lines = lines.map(l => polishTraits(l, traits, names));
+
+    // Rating normalization (light)
     const R = (rating || "G").toUpperCase();
     lines = lines.map(l => normalizeByRating(l, R));
 
     // Final tidy
-    lines = lines.map(l => endPunct(capLen(trimLine(l))));
+    lines = lines.map(l => endPunct(capLen(sanitizePunct(fixCommaPeriod(trimLine(l))))));
 
-    return new Response(JSON.stringify({ options: lines }), {
+    return new Response(JSON.stringify({
+      options: lines,
+      debug: { toneTag, ratingTag, humorMode, names, traits, others }
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
