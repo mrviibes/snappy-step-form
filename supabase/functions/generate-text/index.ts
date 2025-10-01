@@ -232,18 +232,47 @@ serve(async (req) => {
     const leaf = (theme || subcategory || "").trim();
     const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}’'-]+/u).filter(w => w.length > 2);
 
-    // Select rule block by category
-    const cat = (category || "").toLowerCase();
+    // Select rule block by exact category ID
+    const cat = (category || "").toLowerCase().trim();
     let used_rules = "general_text_rules";
     let systemPrompt = general_text_rules;
 
-    if (/\bjoke(s)?\b/.test(cat)) { systemPrompt = joke_text_rules; used_rules = "joke_text_rules";
-    } else if (/\bcelebration(s)?\b/.test(cat)) { systemPrompt = celebration_text_rules; used_rules = "celebration_text_rules";
-    } else if (/\bdaily\b/.test(cat)) { systemPrompt = daily_life_text_rules; used_rules = "daily_life_text_rules";
-    } else if (/\bsport(s)?\b/.test(cat)) { systemPrompt = sports_text_rules; used_rules = "sports_text_rules";
-    } else if (/\b(pop|culture|pop[-\s]?culture)\b/.test(cat)) { systemPrompt = pop_culture_text_rules; used_rules = "pop_culture_text_rules";
-    } else if (/\bmisc\b/.test(cat)) { systemPrompt = miscellaneous_text_rules; used_rules = "miscellaneous_text_rules";
-    } else if (/\b(custom|design)\b/.test(cat)) { systemPrompt = custom_design_text_rules; used_rules = "custom_design_text_rules"; }
+    switch (cat) {
+      case "jokes":
+        systemPrompt = joke_text_rules;
+        used_rules = "joke_text_rules";
+        break;
+      case "celebrations":
+        systemPrompt = celebration_text_rules;
+        used_rules = "celebration_text_rules";
+        break;
+      case "daily-life":
+      case "daily life":
+        systemPrompt = daily_life_text_rules;
+        used_rules = "daily_life_text_rules";
+        break;
+      case "sports":
+        systemPrompt = sports_text_rules;
+        used_rules = "sports_text_rules";
+        break;
+      case "pop-culture":
+      case "pop culture":
+        systemPrompt = pop_culture_text_rules;
+        used_rules = "pop_culture_text_rules";
+        break;
+      case "miscellaneous":
+        systemPrompt = miscellaneous_text_rules;
+        used_rules = "miscellaneous_text_rules";
+        break;
+      case "custom":
+      case "custom-design":
+        systemPrompt = custom_design_text_rules;
+        used_rules = "custom_design_text_rules";
+        break;
+      default:
+        // Falls back to general_text_rules (already set above)
+        break;
+    }
 
     // Context + format
     systemPrompt += `
