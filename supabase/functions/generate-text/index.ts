@@ -17,8 +17,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-
-
 // ---------------- Types ----------------
 interface GeneratePayload {
   category: string;
@@ -29,75 +27,86 @@ interface GeneratePayload {
   insertWords?: string[];   // e.g., ["Jesse"]
 }
 
-// ---------------- Helpers (post-processing guards) ----------------
+// ---------------- Helpers ----------------
 const MAX_LEN = 120;
 
 function clampLen(s: string, n = MAX_LEN): string {
+  if (!s) return s;
   if (s.length <= n) return s;
   const cut = s.slice(0, n);
   const lastSpace = cut.lastIndexOf(" ");
   return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut).replace(/[,\s]*$/, "") + ".";
 }
+function ensureEndPunct(s: string): string { return /[.!?]$/.test(s) ? s : s + "."; }
 
-function ensureEndPunct(s: string): string {
-  return /[.!?]$/.test(s) ? s : s + ".";
+// allow only . , ? !  → replace other punctuation with space
+function sanitizePunct(s: string): string {
+  return (s || "").replace(/[;:()\[\]{}"/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim();
 }
 
+// strong comma hygiene: kill leading commas, collapse runs, space-after, never space-before
+function tidyCommas(s: string): string {
+  if (!s) return s;
+  let out = s.replace(/^\s*,+\s*/g, "");
+  out = out.replace(/(\s*,\s*)+/g, ", ");
+  out = out.replace(/\s+,/g, ",");
+  out = out.replace(/,(?!\s|$)/g, ", ");
+  return out.replace(/\s{2,}/g, " ").trim();
+}
+
+// punctuation cap: keep at most two of . , ? !
 function limitPunctPerLine(s: string): string {
-  // allow at most 2 punctuation marks among .,!?
   const allowed = new Set([".", ",", "!", "?"]);
-  let count = 0;
-  let out = "";
+  let count = 0, out = "";
   for (const ch of s) {
-    if (allowed.has(ch)) {
-      count++;
-      if (count <= 2) out += ch;
-      continue;
-    }
-    out += ch;
+    if (allowed.has(ch)) { count++; if (count <= 2) out += ch; }
+    else out += ch;
   }
   return out.replace(/\s{2,}/g, " ").trim();
 }
 
-// distribute Specific Words: exactly one per line, cycle through
-function distributeSpecificWords(lines: string[], words: string[]): string[] {
-  if (!words.length) return lines.map(dedupeSpecific(words));
-  const normWords = words.map(w => (w || "").trim()).filter(Boolean);
-  return lines.map((line, i) => {
-    const target = normWords[i % normWords.length];
-    let s = line;
+function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-    // Remove all occurrences of any specific word first
-    for (const w of normWords) {
-      const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
-      s = s.replace(rx, "").replace(/\s{2,}/g, " ").trim();
-    }
-
-    // Insert target once (before final punctuation)
-    s = s.replace(/[.!?]$/, "");
-    s = (s ? s + " " : "") + target;
-    s = ensureEndPunct(s.trim());
-    s = s.replace(/\s{2,}/g, " ");
-    return s;
-  });
+// drop label/meta lines like "TONE:", "RATING:", "SPECIFIC WORDS:", etc.
+function isMetaLine(s: string): boolean {
+  return /^\s*(tone|rating|specific(?:\s+)?words?|process|category|context|rules?)\s*:/i.test(s);
 }
 
-function dedupeSpecific(words: string[]) {
-  return (s: string) => {
-    let out = s;
-    for (const w of words) {
-      const rxDup = new RegExp(`\\b(${escapeRegExp(w)})\\b([\\s\\S]*?)\\b\\1\\b`, "i");
-      out = out.replace(rxDup, "$1$2"); // drop 2nd occurrence
+// Fix orphan "'s" when the name was removed earlier
+function fixOrphanPossessive(line: string, word: string): string {
+  return line.replace(/(^|[^\p{L}\p{N}’'])(?='s\b)/u, (_m, p1) => `${p1}${word}`);
+}
+
+// Insert a specific word once, placed mid-sentence when possible
+function placeWordNaturally(line: string, word: string): string {
+  if (!word) return line;
+  let s = fixOrphanPossessive(line, word);
+
+  // Remove naked instances (leave possessives intact)
+  const rx = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
+  s = s.replace(rx, "").replace(/\s{2,}/g, " ").trim();
+
+  if (s.includes(",")) {
+    s = s.replace(",", `, ${word},`).replace(/,\s*,/g, ", ");
+    return s;
     }
-    return out;
-  };
+  const firstSpace = s.indexOf(" ");
+  if (firstSpace > 0) s = s.slice(0, firstSpace) + " " + word + s.slice(firstSpace);
+  else s = `${word} ${s}`;
+  return s;
+}
+
+// distribute Specific Words: exactly one per line, placed naturally
+function distributeSpecificWords(lines: string[], words: string[]): string[] {
+  const norm = (words || []).map(w => (w || "").trim()).filter(Boolean);
+  if (!norm.length) return lines; // bug fix: don't map to a function
+  return lines.map((line, i) => ensureEndPunct(tidyCommas(placeWordNaturally(line, norm[i % norm.length]))));
 }
 
 function enforceLeafPresence(s: string, leafTokens: string[]): string {
   if (!leafTokens.length) return s;
   const low = s.toLowerCase();
-  const present = leafTokens.some(t => low.includes(t));
-  if (present) return s;
+  if (leafTokens.some(t => low.includes(t))) return s;
   const add = leafTokens.find(t => t.length > 3) || leafTokens[0];
   return add ? s.replace(/\.$/, "") + `, ${add}.` : s;
 }
@@ -113,23 +122,31 @@ function dampenDuplicatePairs(lines: string[]): string[] {
     for (const b of bigrams) seen.add(b);
     if (!overlap) return line;
     const add = ["today", "tonight", "this year", "right now"][idx % 4];
-    let s = line.replace(/\.$/, "") + ` ${add}.`;
-    return clampLen(s);
+    return clampLen(line.replace(/\.$/, "") + ` ${add}.`);
   });
 }
 
-function escapeRegExp(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// -------- Rating enforcement (hard) --------
+// -------- Rating enforcement (hard, with PG-13 tightening) --------
 const R_WORDS = ["fuck","fucking","shit","bullshit"]; // no slurs
 const PG13_ALLOWED = ["hell","damn"];
+const MEDIUM_PROFANITY = ["bastard","asshole","prick","dick","douche","crap"]; // extend if needed
 const PG_CENSOR = [/fuck/gi,/shit/gi,/bullshit/gi,/fucking/gi];
 
 function containsAny(s: string, list: string[]) {
   const low = s.toLowerCase();
   return list.some(w => low.includes(w));
+}
+
+// For R: weave profanity after name/comma/first word; avoid ending on it
+function weaveProfanity(line: string, names: string[]): string {
+  if (containsAny(line, R_WORDS)) return line;
+  for (const name of names) {
+    const rx = new RegExp(`\\b(${escapeRegExp(name)})\\b(?!\\s+(?:fuck|fucking))`, "i");
+    if (rx.test(line)) return line.replace(rx, `$1 fuck`);
+  }
+  if (line.includes(",")) return line.replace(",", ", you lucky fuck,").replace(/,\s*,/g, ", ");
+  const i = line.indexOf(" ");
+  return i > 0 ? line.slice(0, i) + " fuck" + line.slice(i) : line + " fuck";
 }
 
 function censorPG(s: string) {
@@ -138,46 +155,45 @@ function censorPG(s: string) {
   return out;
 }
 
-function enforceRatingLine(s: string, rating: string): string {
+function enforceRatingLine(s: string, rating: string, names: string[]): string {
   let line = s.trim();
 
   if (/^R$/i.test(rating)) {
-    if (!containsAny(line, R_WORDS)) {
-      line = line.replace(/[.!?]$/, "");
-      line = (line + " fuck").trim();
-      line = ensureEndPunct(clampLen(line));
-    }
+    line = weaveProfanity(line, names);
+    // don't end on profanity
+    line = line.replace(/\b(fuck|fucking|shit|bullshit)[.!?]?\s*$/i, "$1, legend");
   } else if (/^PG-?13$/i.test(rating)) {
-    // only hell/damn allowed
     line = censorPG(line);
-    // remove any other profanities besides hell/damn
-    for (const w of R_WORDS) {
+    for (const w of [...R_WORDS, ...MEDIUM_PROFANITY]) {
       const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
       line = line.replace(rx, "");
     }
+    // keep at most one of hell/damn
+    const hadHell = /\bhell\b/i.test(line);
+    line = hadHell ? line.replace(/\bdamn\b/gi, "") : line.replace(/\bhell\b/gi, "");
     line = line.replace(/\s{2,}/g," ").trim();
   } else if (/^PG$/i.test(rating)) {
-    // censored swears only
     line = censorPG(line);
   } else if (/^G$/i.test(rating)) {
-    // remove all profane tokens entirely
-    for (const w of [...R_WORDS, ...PG13_ALLOWED]) {
+    for (const w of [...R_WORDS, ...PG13_ALLOWED, ...MEDIUM_PROFANITY]) {
       const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
       line = line.replace(rx, "");
     }
     line = line.replace(/\s{2,}/g," ").trim();
   }
 
+  // sanitize + commas + punct cap + length + final dot
+  line = sanitizePunct(line);
+  line = tidyCommas(line);
+  line = limitPunctPerLine(line);
+  line = clampLen(line);
   line = ensureEndPunct(line);
-  line = limitPunctPerLine(clampLen(line));
   return line;
 }
 
 // -------------- Server --------------
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const payload: GeneratePayload = await req.json();
@@ -187,31 +203,20 @@ serve(async (req) => {
 
     // Compute leaf focus tokens
     const leaf = (theme || subcategory || "").trim();
-    const leafTokens = leaf
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}’'-]+/u)
-      .filter(w => w.length > 2);
+    const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}’'-]+/u).filter(w => w.length > 2);
 
-    // Select rule block by category (singular + plural) and expose which is used
+    // Select rule block by category
     const cat = (category || "").toLowerCase();
     let used_rules = "general_text_rules";
     let systemPrompt = general_text_rules;
 
-    if (/\bjoke(s)?\b/.test(cat)) {
-      systemPrompt = joke_text_rules; used_rules = "joke_text_rules";
-    } else if (/\bcelebration(s)?\b/.test(cat)) {
-      systemPrompt = celebration_text_rules; used_rules = "celebration_text_rules";
-    } else if (/\bdaily\b/.test(cat)) {
-      systemPrompt = daily_life_text_rules; used_rules = "daily_life_text_rules";
-    } else if (/\bsport(s)?\b/.test(cat)) {
-      systemPrompt = sports_text_rules; used_rules = "sports_text_rules";
-    } else if (/\b(pop|culture|pop[-\s]?culture)\b/.test(cat)) {
-      systemPrompt = pop_culture_text_rules; used_rules = "pop_culture_text_rules";
-    } else if (/\bmisc\b/.test(cat)) {
-      systemPrompt = miscellaneous_text_rules; used_rules = "miscellaneous_text_rules";
-    } else if (/\b(custom|design)\b/.test(cat)) {
-      systemPrompt = custom_design_text_rules; used_rules = "custom_design_text_rules";
-    }
+    if (/\bjoke(s)?\b/.test(cat)) { systemPrompt = joke_text_rules; used_rules = "joke_text_rules";
+    } else if (/\bcelebration(s)?\b/.test(cat)) { systemPrompt = celebration_text_rules; used_rules = "celebration_text_rules";
+    } else if (/\bdaily\b/.test(cat)) { systemPrompt = daily_life_text_rules; used_rules = "daily_life_text_rules";
+    } else if (/\bsport(s)?\b/.test(cat)) { systemPrompt = sports_text_rules; used_rules = "sports_text_rules";
+    } else if (/\b(pop|culture|pop[-\s]?culture)\b/.test(cat)) { systemPrompt = pop_culture_text_rules; used_rules = "pop_culture_text_rules";
+    } else if (/\bmisc\b/.test(cat)) { systemPrompt = miscellaneous_text_rules; used_rules = "miscellaneous_text_rules";
+    } else if (/\b(custom|design)\b/.test(cat)) { systemPrompt = custom_design_text_rules; used_rules = "custom_design_text_rules"; }
 
     // Context + format
     systemPrompt += `
@@ -220,9 +225,9 @@ CONTEXT
 - SUBCATEGORY: ${subcategory || "n/a"}
 - THEME (LEAF FOCUS): ${leaf || "n/a"}
 
-CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete sentence ending with punctuation. Use newline characters between each line. Do not write paragraphs or combine multiple sentences on one line.`;
+CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one complete sentence ending with punctuation. Do not output labels, headings, or bullet points.`;
 
-    // User prompt (short, strict)
+    // User prompt
     let userPrompt =
       `Write 4 ${(tone || "Humorous")} one-liners that clearly center on "${leaf || "the selected theme"}".`;
     if (/\bjokes?\b/i.test(cat)) {
@@ -231,8 +236,7 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
     if (insertWords.length) {
       userPrompt += ` Each line must naturally include exactly one of: ${insertWords.join(", ")}.`;
     }
-    userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters.`;
-    userPrompt += ` Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific.`;
+    userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles).`;
 
     // Call Gemini
     const response = await fetch(
@@ -243,7 +247,7 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
           generationConfig: {
-            temperature: 0.7,        // tighter; fewer rambles/clichés
+            temperature: 0.8,
             maxOutputTokens: 300
           }
         })
@@ -257,50 +261,49 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
     }
 
     const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Parse raw → lines (exactly 4)
-    let lines = generatedText
-      .split("\n")
-      .map(l => l.trim())
-      .filter(l => l && !/^(output|line|option|\d+[\.\):])/i.test(l));
+    // Parse raw → candidate lines
+    let lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+    // drop label/meta lines
+    lines = lines.filter(l => !isMetaLine(l));
 
-    // If the model returned paragraphs, split on bullets or sentences
+    // If paragraphs, split on sentences
     if (lines.length < 4) {
-      const fallback = generatedText
-        .replace(/\r/g," ")
+      const fallback = raw.replace(/\r/g," ")
         .split(/(?<=[.!?])\s+/)
         .map(s => s.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter(s => !isMetaLine(s));
       if (fallback.length >= 4) lines = fallback;
     }
 
-    // Keep exactly 4 (pad if needed with themed stubs)
+    // keep exactly 4
     if (lines.length > 4) lines = lines.slice(0, 4);
-    while (lines.length < 4) {
-      const add = leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`;
-      lines.push(add);
-    }
+    while (lines.length < 4) lines.push(leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`);
 
-    // --- Enforcements ---
-    // Distribute Specific Word exactly once per line (cycle), then clean
+    // distribute Specific Word
     const specificWords = (insertWords || []).map(w => (w || "").trim()).filter(Boolean);
-    lines = distributeSpecificWords(lines, specificWords).map(s => s.trim());
+    lines = distributeSpecificWords(lines, specificWords);
 
-    // Leaf presence (when concrete)
+    // enforce leaf token presence
     lines = lines.map(s => enforceLeafPresence(s, leafTokens));
 
-    // Hard caps: punctuation count, end punctuation, char limit
-    lines = lines.map(s => limitPunctPerLine(ensureEndPunct(clampLen(s))));
+    // sanitize + commas + punct cap + length + end punct (pre-rating)
+    lines = lines.map(s =>
+      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s)))))
+    );
 
-    // Basic duplicate bigram dampening
+    // dedupe bigrams
     lines = dampenDuplicatePairs(lines);
 
-    // Final: ensure exactly 4 and formatting (do length clamping BEFORE rating enforcement)
-    lines = lines.slice(0, 4).map(s => ensureEndPunct(clampLen(s)));
+    // rating enforcement (PG, PG-13, R weaving)
+    lines = lines.map(s => enforceRatingLine(s, rating || "G", specificWords));
 
-    // Final rating enforcement per line (hard) - done AFTER length clamping
-    lines = lines.map(s => enforceRatingLine(s, rating || "G"));
+    // final safety sweep
+    lines = lines.map(s =>
+      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s)))))
+    );
 
     return new Response(
       JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
