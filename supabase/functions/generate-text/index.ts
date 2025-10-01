@@ -142,6 +142,12 @@ function humorModeForTone(tone?: string): HumorMode {
   return "med";
 }
 
+// ---------- Swear Word Variety Pool ----------
+const R_SWEARS = ["fuck", "fucking", "fucked", "shit", "shitty", "damn", "hell"];
+function pickRandomSwear(): string {
+  return R_SWEARS[Math.floor(Math.random() * R_SWEARS.length)];
+}
+
 // ---------- Rating normalization & cut-off handling ----------
 function ensureOneStrongSwearR(s: string, nameHint?: string): string {
   let out = s
@@ -151,20 +157,25 @@ function ensureOneStrongSwearR(s: string, nameHint?: string): string {
     .replace(/\bf\s*k(ing|er|ed|s)?\b/gi, "fuck$1")
     .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
     .replace(/\bbull\s*shit\b/gi, "bullshit");
-  if (!/\b(fuck|shit|bullshit)\b/i.test(out)) {
-    if (nameHint && new RegExp(`\\b${escapeRE(nameHint)}\\b`, "i").test(out)) {
-      out = out.replace(new RegExp(`\\b${escapeRE(nameHint)}\\b`, "i"), `${nameHint} fuck`);
-    } else if (out.includes(",")) {
-      out = out.replace(",", ", fuck,");
+  
+  // If no swear exists, gently add one (but NOT always next to the name)
+  if (!/\b(fuck|fucking|fucked|shit|shitty|damn|hell|bullshit)\b/i.test(out)) {
+    const swear = pickRandomSwear();
+    // Try to place after first comma if exists
+    if (out.includes(",")) {
+      out = out.replace(",", `, ${swear},`);
     } else {
-      const j = out.indexOf(" ");
-      out = j > 0 ? out.slice(0, j) + " fuck" + out.slice(j) : `fuck ${out}`;
+      // Place at the beginning
+      out = `${swear}, ${out}`;
     }
   }
+  
+  // Keep only ONE swear (but preserve which one was used)
   let kept = false;
-  out = out.replace(/\b(fuck(?:ing|er|ed|s)?|shit(?:ting|ty|faced?)?|bullshit)\b/gi,
+  out = out.replace(/\b(fuck(?:ing|ed)?|shit(?:ty)?|damn|hell|bullshit)\b/gi,
     m => kept ? "" : ((kept = true), m)).replace(/\s{2,}/g," ").trim();
-  return out.replace(/\b(fuck|shit|bullshit)[.!?]\s*$/i, "$1, champ");
+  
+  return out;
 }
 
 function normalizeByRating(s: string, rating: string, nameHint?: string): string {
@@ -289,6 +300,20 @@ EXAMPLES OF BAD PLACEMENT:
 ❌ "Happy birthday, and Jesse, you're awesome"
 ❌ "You're amazing, Jesse, keep going"
 ❌ "Looking good, and Jesse, stay strong"
+
+${R === "R" ? `
+R-RATED EXAMPLES (use variety):
+✅ "Another year older, Jesse's still fucking crushing it"
+✅ "We're here to celebrate even though you're probably already drunk as shit"
+✅ "Jesse walked in and suddenly everyone's bullshit got smaller"
+✅ "Happy birthday - may your liver forgive us for what's about to happen"
+
+R-RATED RULES:
+• Use EXACTLY ONE swear word per line (vary them: fuck, fucking, fucked, shit, shitty, damn, hell)
+• Place swears naturally in the punchline - NOT always next to insert words
+• Don't force "${name || 'name'} fuck" patterns - sounds robotic
+• Swear words should enhance the joke, not dominate it
+` : ""}
 
 PRIORITY #1: BE HILARIOUS
 • Each line must have a strong punchline or unexpected twist

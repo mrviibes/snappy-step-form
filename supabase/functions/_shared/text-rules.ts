@@ -83,5 +83,5 @@ export const RATING_TAGS: Record<string, string> = {
   G:      "all-ages; no profanity; gentle themes",
   PG:     "mild words only; kid-safe; no sexual content",
   "PG-13":"allow 'hell' or 'damn'; mild innuendo; no explicit sex/graphic content; ban 'goddamn'",
-  R:      "strong profanity allowed; adult themes; no slurs; not graphic; profanity inside sentence"
+  R:      "strong profanity allowed (fuck, shit, damn, hell - VARY them); adult themes; no slurs; not graphic; place naturally in punchline"
 };
