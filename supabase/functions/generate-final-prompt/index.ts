@@ -267,8 +267,6 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
 
     const pieces = [
       `${aspect} ${styleStr} shot`,
-      "bright key light, vivid color",
-      "crisp focus, cinematic contrast",
       `layout: ${layout}`,
       maybeSplitMeme(completed_text, L.key),
       "font modern, ~25% area",
