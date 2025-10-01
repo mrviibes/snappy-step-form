@@ -59,7 +59,11 @@ function capLenSmart(s = "", n = MAX_LEN): string {
 function sanitizePunct(s = ""): string {
   return s.replace(/[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim();
 }
+function fixSpacesBeforePunct(s: string) { return s.replace(/\s+([.!?,])/g, "$1"); }
 function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
+function fixDoubleCommas(s: string) { 
+  return s.replace(/,\s*,+/g, ",").replace(/^([^,]+),\s+([A-Z])/g, "$1. $2"); 
+}
 function escapeRE(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 function toFour(lines: string[], fallback: string): string[] {
@@ -95,7 +99,7 @@ function classifyInserts(words: string[]) {
   return { names, traits, others };
 }
 
-// Gentle fallback: only insert if truly missing
+// Gentle fallback: only insert if truly missing (trust AI to place naturally)
 function ensureInsertOnce(line: string, word: string): string {
   if (!word) return line;
   
@@ -104,8 +108,8 @@ function ensureInsertOnce(line: string, word: string): string {
   const poss = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
   if (base.test(line) || poss.test(line)) return line;
   
-  // Only if missing: prepend naturally
-  return `${word}, ${line}`;
+  // If missing, trust AI placement through prompt - don't force mechanical insertion
+  return line;
 }
 
 // Distribute exactly ONE insert per line (round-robin)
@@ -301,7 +305,8 @@ GOOD EXAMPLES (natural flow, complete sentences):
 BAD EXAMPLES (avoid these patterns):
 ❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence
 ❌ "Happy birthday, and Jesse, you're awesome" - mechanical "and" connector
-❌ "You're amazing, Jesse, keep going" - awkward comma placement
+❌ "Happy birthday, Jesse, enjoy your..." - AVOID double comma pattern
+❌ "Jesse, Another year closer..." - Don't start with name + comma + capital letter
 ❌ "Jesse's so old and their joints creak" - choppy, forced "and"
 ❌ "Jesse turned 30 and, well, that's something" - comma abuse, no punch
 
@@ -366,6 +371,9 @@ SENTIMENTAL EXAMPLES:
 CRITICAL FLOW RULES:
 • Every line must be a complete, grammatically correct sentence
 • Avoid mechanical connectors (especially overusing "and")
+• Avoid double commas (no "Happy birthday, Jesse, enjoy..." patterns)
+• Don't start with "Name, Capital Letter" patterns
+• Place insert words mid-sentence when possible, not at start with comma
 • Insert words should flow naturally within the sentence, not feel tacked on
 • Test each line: Would a real person actually say this out loud?
 • Aim for punchy, conversational, and quotable - like a great tweet
@@ -439,6 +447,8 @@ OUTPUT (start immediately):`;
     // Final tidy (punct-aware cap)
     lines = lines.map(l => {
       let out = trimLine(l);
+      out = fixSpacesBeforePunct(out);
+      out = fixDoubleCommas(out);
       out = fixCommaPeriod(out);
       out = sanitizePunct(out);
       out = capLenSmart(out, MAX_LEN);
