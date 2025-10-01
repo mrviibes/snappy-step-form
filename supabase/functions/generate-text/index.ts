@@ -17,26 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-/** ---- RULES: Celebration (concise, 60% size) ----
- * Make sure this is present in ../_shared/text-rules.ts
- * If not, paste this export there.
- */
-export const celebration_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
 
-GOAL
-Write 4 hilarious, personal one-liners for a special occasion.
-
-RULES
-- Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
-- Max 2 punctuation marks per line (. , ? !). No numbering or lists.
-- Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
-- Focus on the honoree: celebratory, personal, and funny; centered on the occasion.
-- No duplicate word pairs across the 4 lines.
-- Ratings:
-  G → wholesome. 
-  PG → censored swears allowed. 
-  PG-13 → only "hell" or "damn". 
-  R → profanity required in every line (no slurs).`;
 
 // ---------------- Types ----------------
 interface GeneratePayload {
