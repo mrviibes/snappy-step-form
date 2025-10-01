@@ -292,15 +292,18 @@ TONE: ${toneTag}
 RATING: ${ratingTag}
 INSERT WORDS (use one per line): ${insertWords.join(", ") || "none"}
 
-EXAMPLES OF HILARIOUS PLACEMENT:
+GOOD EXAMPLES (natural flow, complete sentences):
 ✅ "Jesse's so old their birth certificate is in Roman numerals"
 ✅ "Another year closer to yelling at teenagers for existing"
 ✅ "Jesse's aging like fine wine - expensive and gives you a headache"
+✅ "You're turning 30, time to adult... or just fake it better"
 
-EXAMPLES OF BAD PLACEMENT:
-❌ "Happy birthday, and Jesse, you're awesome"
-❌ "You're amazing, Jesse, keep going"
-❌ "Looking good, and Jesse, stay strong"
+BAD EXAMPLES (avoid these patterns):
+❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence
+❌ "Happy birthday, and Jesse, you're awesome" - mechanical "and" connector
+❌ "You're amazing, Jesse, keep going" - awkward comma placement
+❌ "Jesse's so old and their joints creak" - choppy, forced "and"
+❌ "Jesse turned 30 and, well, that's something" - comma abuse, no punch
 
 ${R === "R" ? `
 R-RATED EXAMPLES (use variety):
@@ -314,7 +317,16 @@ R-RATED RULES:
 • Place swears naturally in the punchline - NOT always next to insert words
 • Don't force "${name || 'name'} fuck" patterns - sounds robotic
 • Swear words should enhance the joke, not dominate it
+• COMPLETE SENTENCES ONLY - test: would a real person say this out loud?
+• Make it savage and quotable, not just profane
 ` : ""}
+
+CRITICAL FLOW RULES:
+• Every line must be a complete, grammatically correct sentence
+• Avoid mechanical connectors (especially overusing "and")
+• Insert words should flow naturally within the sentence, not feel tacked on
+• Test each line: Would a real person actually say this out loud?
+• Aim for punchy, conversational, and quotable - like a great tweet
 
 PRIORITY #1: BE HILARIOUS
 • Each line must have a strong punchline or unexpected twist
