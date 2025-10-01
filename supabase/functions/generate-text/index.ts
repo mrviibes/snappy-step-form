@@ -39,8 +39,12 @@ function clampLen(s: string, n = MAX_LEN): string {
 function ensureEndPunct(s: string): string { return /[.!?]$/.test(s) ? s : s + "."; }
 
 // allow only . , ? !  → replace other punctuation with space
-function sanitizePunct(s: string): string {
-  return (s || "").replace(/[;:()\[\]{}"/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim();
+// keepAsterisk = true only for PG where we actually display * in censored words
+function sanitizePunct(s: string, keepAsterisk = false): string {
+  const rx = keepAsterisk
+    ? /[;:()\[\]{}"\/\\<>|~`^_@#\$%&+=–—]/g
+    : /[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g;
+  return (s || "").replace(rx, " ").replace(/\s{2,}/g, " ").trim();
 }
 
 // strong comma hygiene: kill leading commas, collapse runs, space-after, never space-before
@@ -88,7 +92,7 @@ function placeWordNaturally(line: string, word: string): string {
   if (s.includes(",")) {
     s = s.replace(",", `, ${word},`).replace(/,\s*,/g, ", ");
     return s;
-    }
+  }
   const firstSpace = s.indexOf(" ");
   if (firstSpace > 0) s = s.slice(0, firstSpace) + " " + word + s.slice(firstSpace);
   else s = `${word} ${s}`;
@@ -131,6 +135,13 @@ const PG13_ALLOWED = ["hell","damn"];
 const MEDIUM_PROFANITY = ["bastard","asshole","prick","dick","douche","crap"]; // extend if needed
 const PG_CENSOR = [/fuck/gi,/shit/gi,/bullshit/gi,/fucking/gi];
 
+// Robust inflection handling for censorship/removal
+const STRONG_PATTERNS = [
+  /\bfuck(?:ing|er|ed|s)?\b/gi,
+  /\bshit(?:ting|ty|face(?:d)?|s|ted)?\b/gi,
+  /\bbullshit\b/gi,
+];
+
 function containsAny(s: string, list: string[]) {
   const low = s.toLowerCase();
   return list.some(w => low.includes(w));
@@ -149,9 +160,22 @@ function weaveProfanity(line: string, names: string[]): string {
 }
 
 function censorPG(s: string) {
+  // Keep first and last letter, middle as ** for strong profanity + inflections
   let out = s;
-  for (const rx of PG_CENSOR) out = out.replace(rx, (m) => m[0] + "**" + (m.length > 1 ? m.slice(-1) : ""));
+  for (const rx of STRONG_PATTERNS) {
+    out = out.replace(rx, (m) => {
+      const first = m[0];
+      const last = /[a-z]/i.test(m[m.length - 1]) ? m[m.length - 1] : "";
+      return `${first}**${last}`;
+    });
+  }
   return out;
+}
+
+function removeStrongForPG13(s: string) {
+  let out = s;
+  for (const rx of STRONG_PATTERNS) out = out.replace(rx, "");
+  return out.replace(/\s{2,}/g, " ").trim();
 }
 
 function enforceRatingLine(s: string, rating: string, names: string[]): string {
@@ -162,8 +186,9 @@ function enforceRatingLine(s: string, rating: string, names: string[]): string {
     // don't end on profanity
     line = line.replace(/\b(fuck|fucking|shit|bullshit)[.!?]?\s*$/i, "$1, legend");
   } else if (/^PG-?13$/i.test(rating)) {
-    line = censorPG(line);
-    for (const w of [...R_WORDS, ...MEDIUM_PROFANITY]) {
+    // remove strong profanities + inflections completely
+    line = removeStrongForPG13(line);
+    for (const w of [...MEDIUM_PROFANITY]) {
       const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
       line = line.replace(rx, "");
     }
@@ -172,6 +197,7 @@ function enforceRatingLine(s: string, rating: string, names: string[]): string {
     line = hadHell ? line.replace(/\bdamn\b/gi, "") : line.replace(/\bhell\b/gi, "");
     line = line.replace(/\s{2,}/g," ").trim();
   } else if (/^PG$/i.test(rating)) {
+    // censored swears only (keep asterisks)
     line = censorPG(line);
   } else if (/^G$/i.test(rating)) {
     for (const w of [...R_WORDS, ...PG13_ALLOWED, ...MEDIUM_PROFANITY]) {
@@ -181,138 +207,4 @@ function enforceRatingLine(s: string, rating: string, names: string[]): string {
     line = line.replace(/\s{2,}/g," ").trim();
   }
 
-  // sanitize + commas + punct cap + length + final dot
-  line = sanitizePunct(line);
-  line = tidyCommas(line);
-  line = limitPunctPerLine(line);
-  line = clampLen(line);
-  line = ensureEndPunct(line);
-  return line;
-}
-
-// -------------- Server --------------
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const payload: GeneratePayload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [], theme } = payload;
-    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
-
-    // Compute leaf focus tokens
-    const leaf = (theme || subcategory || "").trim();
-    const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}’'-]+/u).filter(w => w.length > 2);
-
-    // Select rule block by category
-    const cat = (category || "").toLowerCase();
-    let used_rules = "general_text_rules";
-    let systemPrompt = general_text_rules;
-
-    if (/\bjoke(s)?\b/.test(cat)) { systemPrompt = joke_text_rules; used_rules = "joke_text_rules";
-    } else if (/\bcelebration(s)?\b/.test(cat)) { systemPrompt = celebration_text_rules; used_rules = "celebration_text_rules";
-    } else if (/\bdaily\b/.test(cat)) { systemPrompt = daily_life_text_rules; used_rules = "daily_life_text_rules";
-    } else if (/\bsport(s)?\b/.test(cat)) { systemPrompt = sports_text_rules; used_rules = "sports_text_rules";
-    } else if (/\b(pop|culture|pop[-\s]?culture)\b/.test(cat)) { systemPrompt = pop_culture_text_rules; used_rules = "pop_culture_text_rules";
-    } else if (/\bmisc\b/.test(cat)) { systemPrompt = miscellaneous_text_rules; used_rules = "miscellaneous_text_rules";
-    } else if (/\b(custom|design)\b/.test(cat)) { systemPrompt = custom_design_text_rules; used_rules = "custom_design_text_rules"; }
-
-    // Context + format
-    systemPrompt += `
-CONTEXT
-- CATEGORY: ${category || "n/a"}
-- SUBCATEGORY: ${subcategory || "n/a"}
-- THEME (LEAF FOCUS): ${leaf || "n/a"}
-
-CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one complete sentence ending with punctuation. Do not output labels, headings, or bullet points.`;
-
-    // User prompt
-    let userPrompt =
-      `Write 4 ${(tone || "Humorous")} one-liners that clearly center on "${leaf || "the selected theme"}".`;
-    if (/\bjokes?\b/i.test(cat)) {
-      userPrompt += ` Never say humor labels (dad-joke, pun, joke/jokes); imply the style only.`;
-    }
-    if (insertWords.length) {
-      userPrompt += ` Each line must naturally include exactly one of: ${insertWords.join(", ")}.`;
-    }
-    userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles).`;
-
-    // Call Gemini
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 300
-          }
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Parse raw → candidate lines
-    let lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
-    // drop label/meta lines
-    lines = lines.filter(l => !isMetaLine(l));
-
-    // If paragraphs, split on sentences
-    if (lines.length < 4) {
-      const fallback = raw.replace(/\r/g," ")
-        .split(/(?<=[.!?])\s+/)
-        .map(s => s.trim())
-        .filter(Boolean)
-        .filter(s => !isMetaLine(s));
-      if (fallback.length >= 4) lines = fallback;
-    }
-
-    // keep exactly 4
-    if (lines.length > 4) lines = lines.slice(0, 4);
-    while (lines.length < 4) lines.push(leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`);
-
-    // distribute Specific Word
-    const specificWords = (insertWords || []).map(w => (w || "").trim()).filter(Boolean);
-    lines = distributeSpecificWords(lines, specificWords);
-
-    // enforce leaf token presence
-    lines = lines.map(s => enforceLeafPresence(s, leafTokens));
-
-    // sanitize + commas + punct cap + length + end punct (pre-rating)
-    lines = lines.map(s =>
-      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s)))))
-    );
-
-    // dedupe bigrams
-    lines = dampenDuplicatePairs(lines);
-
-    // rating enforcement (PG, PG-13, R weaving)
-    lines = lines.map(s => enforceRatingLine(s, rating || "G", specificWords));
-
-    // final safety sweep
-    lines = lines.map(s =>
-      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s)))))
-    );
-
-    return new Response(
-      JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Error in generate-text:", error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message || "Failed to generate text" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
+  // sanitize + commas
