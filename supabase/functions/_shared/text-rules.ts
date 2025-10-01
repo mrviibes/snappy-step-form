@@ -50,7 +50,7 @@ RULES
   PG → censored swears allowed.  
   PG-13 → only “hell” or “damn”.  
   R → profanity required in every line (no slurs).
-;
+`;
 
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
