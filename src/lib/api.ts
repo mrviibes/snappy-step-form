@@ -8,6 +8,7 @@ type GenerateTextParams = {
   style?: "Generic"|"Sarcastic"|"Wholesome"|"Weird";
   rating: "G"|"PG"|"PG-13"|"R";
   insertWords?: string[];      // prefer array over CSV
+  gender?: string;             // "male" | "female" | "neutral"
   userId?: string;
   rules_id?: string;           // Rules system identifier
 };
@@ -151,6 +152,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
     style: params.style || "Generic",
     rating: params.rating || "PG",
     insertWords,                          // consistent name and array
+    gender: params.gender || "neutral",   // default to neutral if not provided
     userId: params.userId ?? "anonymous",
     rules_id: params.rules_id
   };

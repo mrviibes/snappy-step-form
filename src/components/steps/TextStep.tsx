@@ -69,8 +69,10 @@ export default function TextStep({
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [showInsertWordsChoice, setShowInsertWordsChoice] = useState(false);
   const [showInsertWordsInput, setShowInsertWordsInput] = useState(false);
+  const [showGenderSelection, setShowGenderSelection] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [selectedGender, setSelectedGender] = useState<string>("neutral");
   
   const { toast } = useToast();
 
@@ -131,6 +133,7 @@ export default function TextStep({
         tone: data.text.tone,
         rating: data.text.rating,
         insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
+        gender: selectedGender,
         userId: 'anonymous'
       };
       
@@ -258,8 +261,13 @@ export default function TextStep({
       setShowInsertWordsInput(true);
     } else {
       setShowInsertWordsChoice(false);
-      setShowGeneration(true); // Skip to generation step
+      // Don't skip to generation yet, show gender selection first
     }
+  };
+
+  const handleGenderSelect = (genderId: string) => {
+    setSelectedGender(genderId);
+    setShowGeneration(true); // Now proceed to generation
   };
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
@@ -302,7 +310,7 @@ export default function TextStep({
   };
   const handleReadyToGenerate = () => {
     setShowInsertWordsInput(false);
-    setShowGeneration(true);
+    // Don't go to generation yet, show gender selection first
   };
   const handleRatingSelect = (ratingId: string) => {
     updateData({
@@ -740,6 +748,61 @@ export default function TextStep({
 
         </div>
       </div>}
+      
+      {/* Gender Selection */}
+      {showGenderSelection && <div className="space-y-4 pt-4">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Choose Gender for Pronouns</h2>
+            <p className="text-sm text-muted-foreground">This helps us use the right pronouns (he/she/they)</p>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3">
+            <button 
+              onClick={() => handleGenderSelect("male")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "male"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Male</div>
+                <div className="text-xs text-muted-foreground">he/his/him</div>
+              </div>
+            </button>
+            
+            <button 
+              onClick={() => handleGenderSelect("female")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "female"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Female</div>
+                <div className="text-xs text-muted-foreground">she/her/hers</div>
+              </div>
+            </button>
+            
+            <button 
+              onClick={() => handleGenderSelect("neutral")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "neutral"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Neutral</div>
+                <div className="text-xs text-muted-foreground">they/their/them</div>
+              </div>
+            </button>
+          </div>
+        </div>}
       
       {/* Custom Text Input for Write Myself option */}
       {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && <div className="space-y-4 pt-4">

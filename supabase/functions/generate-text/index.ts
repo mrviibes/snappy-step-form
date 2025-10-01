@@ -26,6 +26,7 @@ interface GeneratePayload {
   tone?: string;      // "humorous", "savage", ...
   rating?: string;    // "G" | "PG" | "PG-13" | "R"
   insertWords?: string[]; // e.g., ["Jesse", "gay"]
+  gender?: string;    // "male" | "female" | "neutral"
 }
 
 // ---------- Minimal helpers ----------
@@ -256,7 +257,7 @@ serve(async (req) => {
 
   try {
     const payload: GeneratePayload = await req.json();
-    const { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [] } = payload;
+    const { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [], gender = "neutral" } = payload;
 
     const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
@@ -319,11 +320,19 @@ TONE: ${toneTag}
 RATING: ${ratingTag}
 CONTEXT: ${cat || "general"}
 
-✅ POV CONSISTENCY RULE ✅
+✅ POV CONSISTENCY & PRONOUN RULE ✅
 Pick ONE point of view per line and stick to it:
 • 2nd person: "You're so old..." OR "Your age is..."
-• 3rd person: "${insertWord || 'They'}'s so old..." OR "${insertWord || 'Their'} age is..."
-NEVER mix them in the same line:
+• 3rd person: "${insertWord || (gender === 'male' ? 'He' : gender === 'female' ? 'She' : 'They')}'s so old..." OR "${insertWord || (gender === 'male' ? 'His' : gender === 'female' ? 'Her' : 'Their')} age is..."
+
+PRONOUN USAGE (CRITICAL):
+${gender === 'male' ? '• Use HE/HIS/HIM pronouns (masculine)' : gender === 'female' ? '• Use SHE/HER/HERS pronouns (feminine)' : '• Use THEY/THEIR/THEM pronouns (neutral)'}
+${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs an oil change"
+✅ "${insertWord || 'His'} age is impressive"` : gender === 'female' ? `✅ "${insertWord || 'She'}'s so old her walker needs an oil change"
+✅ "${insertWord || 'Her'} age is impressive"` : `✅ "${insertWord || 'They'}'re so old their walker needs an oil change"
+✅ "${insertWord || 'Their'} age is impressive"`}
+
+NEVER mix POV in the same line:
 ❌ "${insertWord || 'Jesse'}, you're so old" (mixing 3rd person name → 2nd person "you're")
 ❌ "Happy birthday, ${insertWord || 'Jesse'} you're ancient" (3rd → 2nd, also missing comma)
 ✅ "${insertWord || 'Jesse'}'s so old..." (consistent 3rd person)
