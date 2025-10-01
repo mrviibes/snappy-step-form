@@ -315,11 +315,11 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
     // Basic duplicate bigram dampening
     lines = dampenDuplicatePairs(lines);
 
-    // Final rating enforcement per line (hard)
-    lines = lines.map(s => enforceRatingLine(s, rating || "G"));
-
-    // Final: ensure exactly 4 and formatting
+    // Final: ensure exactly 4 and formatting (do length clamping BEFORE rating enforcement)
     lines = lines.slice(0, 4).map(s => ensureEndPunct(clampLen(s)));
+
+    // Final rating enforcement per line (hard) - done AFTER length clamping
+    lines = lines.map(s => enforceRatingLine(s, rating || "G"));
 
     return new Response(
       JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
