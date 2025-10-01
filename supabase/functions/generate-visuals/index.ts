@@ -106,6 +106,11 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
 
   const subCtx = subcategory_contexts[subcategory?.toLowerCase()] || subcategory_contexts.default;
 
+  // Add category-specific brightness rules for celebrations
+  const brightnessNote = category.toLowerCase() === "celebrations" 
+    ? "\n\nBRIGHTNESS REQUIREMENT: All scenes MUST be bright, vibrant, well-lit, cheerful. Avoid dark, dim, or moody lighting." 
+    : "";
+
   // Build system prompt (short, strict)
   const systemPrompt = `${visual_rules}
 
@@ -120,7 +125,7 @@ INPUTS
 - Specific visuals: ${specific_visuals.join(", ") || "none"}
 - Caption idea: "${completed_text}"
 
-CONTEXT: ${subCtx}
+CONTEXT: ${subCtx}${brightnessNote}
 
 TASK
 Generate exactly 4 visual scene concepts (one per line). Follow OUTPUT FORMAT and MUST INCLUDE rules.`;

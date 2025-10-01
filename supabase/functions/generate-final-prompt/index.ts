@@ -283,19 +283,21 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  // tighter baseNeg, focused on spelling splits (10 words)
+  // Strengthen negative to prevent dark/low-quality images
   const baseNeg = [
-    "misspelled","illegible","broken-words","extra","low-contrast",
-    "warped","panels","bubbles","black-bars","cramped"
+    "dark","dim","murky","shadowy","underexposed","blurry","grainy",
+    "dull-colors","washed-out","cluttered","distorted","low-quality",
+    "misspelled","illegible","broken-words","warped","panels","bubbles"
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested + min coverage
+    // Multi-line skeleton — EXACT format requested + min coverage + lighting
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
+`Lighting: bright, vibrant colors, well-lit, crisp details, professional quality.`,
 `Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
@@ -386,9 +388,10 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested + min coverage
+    // Multi-line skeleton — EXACT format requested + min coverage + lighting
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
+`Lighting: bright, vibrant colors, well-lit, crisp details, professional quality.`,
 `Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
