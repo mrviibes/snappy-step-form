@@ -19,21 +19,14 @@ HARD CONSTRAINTS
 - R PROFANITY (when Rating = R): integrate naturally inside the sentence (prefer after the honoree's name), never as the final word.
 
 TONES
-- Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
-- Savage → blunt roast, no soft language. Punchline stings, not explained.
-- Sentimental → warm, affectionate, even if raw. Punchline resolves clearly.
-- Nostalgic → references the past; avoids modern slang. Punchline ties to memory.
-- Romantic → affectionate, playful, no meanness. Punchline feels charming.
-- Inspirational → uplifting, no irony. Punchline elevates the message.
-- Playful → cheeky, silly, not formal. Punchline quick and mischievous.
-- Serious → dry, deadpan, formal. Punchline understated and concise.
+- Humorous / Savage / Sentimental / Nostalgic / Romantic / Inspirational / Playful / Serious.
 
 RATINGS
-- Ratings guide language:
-  G → wholesome; no profanity.
-  PG → no strong/medium profanity; use mild words fully spelled (heck, dang, mess, nonsense); never use asterisks.
-  PG-13 → allow only “hell” or “damn”; explicitly ban “goddamn” and all stronger words; no slurs.
-  R → profanity required; fully spelled; no slurs; weave inside the sentence (not the last word).`;
+- Ratings guide (language + topics):
+  G  → wholesome; no profanity; gentle themes.
+  PG → mild words fully spelled (heck, dang, mess, nonsense); kid-safe humor; no sexual content.
+  PG-13 → allow “hell”/“damn”; mild innuendo/romance; no explicit sex or graphic content; no “goddamn”.
+  R  → strong profanity required; adult themes (sex, booze, chaos); no slurs; no sexual violence; not graphic.`;
 
 export const celebration_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CELEBRATIONS
 
@@ -54,9 +47,8 @@ RULES
 - Ratings guide (language + topics):
   G  → all-ages; wholesome; no profanity or sexual content; gentle stakes only.
   PG → mild words (heck, dang); light peril/slapstick; chaste affection; kid-safe.
-  PG-13 → “hell”/“damn” ok; edgier teasing; mild innuendo/romance; non-graphic violence; no explicit sex/nudity or graphic gore.
+  PG-13 → “hell”/“damn” ok; edgier teasing; mild innuendo/romance; non-graphic violence; no explicit sex/nudity; no graphic gore; no “goddamn”.
   R  → strong profanity required; adult themes (sex, booze, chaos); stronger but non-graphic violence; no slurs or hate; no sexual violence.`;
-
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
@@ -64,20 +56,10 @@ GOAL
 Write 4 relatable, universal one-liners about everyday experiences.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center on the specific daily routine, moment, or situation (morning coffee, Monday blues, commute, housework, etc.).
-- RELATABILITY: Make it feel like "we've all been there."
-- No duplicate word pairs across the 4 outputs.
-- Avoid clichés unless the leaf is itself a cliché trope being referenced.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+- Same base constraints as general_text_rules (inherit all).
+- Category focus: specific daily routine, moment, or situation (coffee, commute, chores).
+- RELATABILITY: make it feel like “we’ve all been there.”
+- R PROFANITY: natural inside the sentence, never last word.`;
 
 export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
 
@@ -85,49 +67,28 @@ GOAL
 Write 4 action-packed, competitive one-liners about sports and athletics.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center on the specific sport, position, moment, or athletic achievement.
-- ENERGY: Keep it high-energy, competitive, and action-oriented.
-- No duplicate word pairs across the 4 outputs.
-- Use sport-specific terminology naturally when appropriate.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+- Same base constraints as general_text_rules (inherit all).
+- Focus: specific sport, position, moment, or achievement.
+- Energy: high-tempo verbs, competitive tone; use sport terms naturally.
+- R PROFANITY: natural inside the sentence, never last word.`;
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR JOKES
 
 GOAL
-Write 4 hilarious, well-structured jokes with clear setups and punchlines.
+Write 4 sharp one-liners with clear punchlines.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center on the specific joke type (dad jokes, puns, knock-knock, one-liners, anti-jokes, etc.).
-- STRUCTURE: Setup → Punchline. The surprise or twist should land at the end.
-- WORDPLAY: For puns and dad jokes, emphasize wordplay and double meanings.
-- No duplicate word pairs across the 4 outputs.
-- Avoid explaining the joke; let the punchline speak for itself.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
+- Same base constraints as general_text_rules (inherit all).
+- Structure: setup → punch; surprise lands at the end.
+- Label policy: never say the humor type; imply it.
+- R PROFANITY: natural inside the sentence, never last word.
 
-JOKE-SPECIFIC GUIDANCE
-- Dad Jokes → groan-worthy puns, wholesome, family-friendly.
-- Puns → clever wordplay on double meanings or similar sounds.
-- Knock-Knock → follow format if space allows.
-- One-Liners → sharp, concise, standalone wit with immediate impact.
-- Anti-Jokes → subvert expectations with literal or mundane punchlines.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+JOKE GUIDE
+- Dad Jokes: groan-worthy, wholesome puns.
+- Puns: wordplay on double meanings/sound-alikes.
+- Knock-Knock: follow format if space allows.
+- One-Liners: crisp, self-contained.
+- Anti-Jokes: literal, expectation-subverting.`;
 
 export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR POP CULTURE
 
@@ -135,21 +96,9 @@ GOAL
 Write 4 clever, culturally-aware one-liners about movies, music, celebrities, or trends.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center on the specific pop culture subject (movie, song, celebrity, TV show, meme, trend, etc.).
-- REFERENCES: Use recognizable cultural touchpoints; balance timely with timeless.
-- FAN LANGUAGE: Use fandom language if appropriate to the theme.
-- No duplicate word pairs across the 4 outputs.
-- Avoid overly niche references unless the leaf theme is that specific.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+- Same base constraints as general_text_rules (inherit all).
+- Focus: one clear subject; keep references recognizable.
+- R PROFANITY: natural inside the sentence, never last word.`;
 
 export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS TOPICS
 
@@ -157,38 +106,16 @@ GOAL
 Write 4 universally relatable one-liners about animals, food, professions, or other varied subjects.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center on the most specific subject (e.g., "Golden Retriever" not just "dogs", "espresso" not just "coffee").
-- ADAPTABILITY: Adjust tone/approach based on subject matter.
-- No duplicate word pairs across the 4 outputs.
-- Make it feel authentic to the subject matter.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+- Same base constraints as general_text_rules (inherit all).
+- Focus: the most specific subject; keep it authentic to the topic.
+- R PROFANITY: natural inside the sentence, never last word.`;
 
 export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM/USER-DEFINED TOPICS
 
 GOAL
-Write 4 flexible, adaptable one-liners for any user-defined theme or custom category.
+Write 4 flexible, adaptable one-liners for any user-defined theme.
 
 HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
-- INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center every line on the MOST SPECIFIC USER-PROVIDED THEME. If unclear, default to relatable, human experiences.
-- FLEXIBILITY: Prioritize user intent; adapt style to match the subject.
-- No duplicate word pairs across the 4 outputs.
-- Avoid generic filler; make every line specific to the user's chosen theme.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as general_text_rules)`;
+- Same base constraints as general_text_rules (inherit all).
+- Focus: the most specific user theme; if unclear, default to relatable, human experiences.
+- R PROFANITY: natural inside the sentence, never last word.`;
