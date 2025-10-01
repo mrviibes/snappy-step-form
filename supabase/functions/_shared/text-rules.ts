@@ -1,52 +1,20 @@
-// ================== TEXT RULES (MINIMAL) ==================
+SYSTEM
+You write 4 punchy, human one-liners for a {category} occasion.
+Return EXACTLY 4 lines. One sentence per line. ≤120 chars. End with punctuation.
+Use Tone and Rating as creative constraints, not labels.
+Insert Words: include exactly one per line, placed naturally (allow “Name’s”), never tacked on at the end.
+Always keep a comedic beat; gentler tones are still witty.
 
-export const general_text_rules = `SYSTEM • SHORT ONE-LINERS
+USER
+Context: {category} › {leafTheme}
+Tone: {toneTag}     (e.g., “funny, witty, light”)
+Rating: {ratingTag} (e.g., “PG-13: allow ‘hell/damn’; ban ‘goddamn’; adult themes non-graphic”)
+Insert Words: {commaSeparatedInserts or “none”}
 
-GOAL
-Write 4 punchy, human one-liners for the selected theme.
+Write 4 distinct one-liners. Vary structure across lines:
+• vocative compliment with twist
+• imperative CTA
+• metaphor/simile gag
+• affectionate mini-roast
 
-HARD CONSTRAINTS
-- Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
-- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
-- HUMOR BASELINE: all tones keep a comedic beat; gentler tones are still witty.
-- Keep language natural and flowing; avoid filler and clichés; no labels like "TONE:".
-- Prefer specificity over generic lines; make each line distinct.`;
-
-export const celebration_text_rules = `SYSTEM • SHORT ONE-LINERS • CELEBRATIONS
-
-GOAL
-Write 4 celebratory, personal one-liners that read smoothly.
-
-HARD CONSTRAINTS
-- Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
-- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
-- HUMOR BASELINE: celebratory but still witty in every tone.
-- Focus on the honoree and the occasion (birthday, wedding, graduation, etc.).
-- Keep each line distinct, concrete, and human-sounding.`;
-
-export const daily_life_text_rules    = general_text_rules;
-export const sports_text_rules        = general_text_rules;
-export const joke_text_rules          = general_text_rules;
-export const pop_culture_text_rules   = general_text_rules;
-export const miscellaneous_text_rules = general_text_rules;
-export const custom_design_text_rules = general_text_rules;
-
-// ======= Minimal tone tags (3–4 words) =======
-export const TONE_TAGS: Record<string, string> = {
-  humorous:      "funny, witty, light",
-  savage:        "harsh, blunt, cutting",
-  sentimental:   "warm, heartfelt, tender",
-  nostalgic:     "reflective, old-times, wistful",
-  romantic:      "loving, passionate, sweet",
-  inspirational: "motivating, uplifting, bold",
-  playful:       "silly, cheeky, fun",
-  serious:       "formal, direct, weighty"
-};
-
-// ======= Minimal rating tags (language + topics) =======
-export const RATING_TAGS: Record<string, string> = {
-  G:     "all-ages; no profanity; gentle themes",
-  PG:    "mild words only (heck, dang); kid-safe; no sexual content",
-  "PG-13": "allow 'hell' or 'damn'; mild innuendo; no explicit sex or graphic content; ban 'goddamn'",
-  R:     "strong profanity allowed; adult themes; no slurs; not graphic; profanity inside sentences, not last word"
-};
+Do not output labels or numbering. Output the 4 lines only.
