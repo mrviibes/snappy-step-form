@@ -17,26 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-/** ---- RULES: Celebration (concise, 60% size) ----
- * Make sure this is present in ../_shared/text-rules.ts
- * If not, paste this export there.
- */
-export const celebration_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
-
-GOAL
-Write 4 hilarious, personal one-liners for a special occasion.
-
-RULES
-- Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
-- Max 2 punctuation marks per line (. , ? !). No numbering or lists.
-- Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
-- Focus on the honoree: celebratory, personal, and funny; centered on the occasion.
-- No duplicate word pairs across the 4 lines.
-- Ratings:
-  G → wholesome. 
-  PG → censored swears allowed. 
-  PG-13 → only "hell" or "damn". 
-  R → profanity required in every line (no slurs).`;
+/** ---- Celebration rules block lives in ../_shared/text-rules.ts ---- */
 
 // ---------------- Types ----------------
 interface GeneratePayload {
@@ -52,7 +33,7 @@ interface GeneratePayload {
 const MAX_LEN = 120;
 
 function clampLen(s: string, n = MAX_LEN): string {
-  if (s.length <= n) return s;
+  if ((s || "").length <= n) return s;
   const cut = s.slice(0, n);
   const lastSpace = cut.lastIndexOf(" ");
   return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut).replace(/[,\s]*$/, "") + ".";
@@ -62,11 +43,20 @@ function ensureEndPunct(s: string): string {
   return /[.!?]$/.test(s) ? s : s + ".";
 }
 
+// Remove duplicate commas, leading commas, enforce space after comma
+function tidyCommas(s: string): string {
+  let out = s.replace(/^\s*,\s*/g, "");          // leading comma
+  out = out.replace(/,\s*,+/g, ", ");            // double+ commas
+  out = out.replace(/,\s*/g, ", ");              // space after comma
+  out = out.replace(/\s+,/g, ",");               // no space before comma
+  out = out.replace(/\s{2,}/g, " ").trim();
+  return out;
+}
+
+// limit . , ? ! to two total
 function limitPunctPerLine(s: string): string {
-  // allow at most 2 punctuation marks among .,!?
   const allowed = new Set([".", ",", "!", "?"]);
-  let count = 0;
-  let out = "";
+  let count = 0, out = "";
   for (const ch of s) {
     if (allowed.has(ch)) {
       count++;
@@ -78,38 +68,36 @@ function limitPunctPerLine(s: string): string {
   return out.replace(/\s{2,}/g, " ").trim();
 }
 
-// distribute Specific Words: exactly one per line, cycle through
-function distributeSpecificWords(lines: string[], words: string[]): string[] {
-  if (!words.length) return lines.map(dedupeSpecific(words));
-  const normWords = words.map(w => (w || "").trim()).filter(Boolean);
-  return lines.map((line, i) => {
-    const target = normWords[i % normWords.length];
-    let s = line;
+// Insert a specific word once, placed mid-sentence when possible
+function placeWordNaturally(line: string, word: string): string {
+  if (!word) return line;
+  // remove existing instances
+  const rx = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
+  let s = line.replace(rx, "").replace(/\s{2,}/g, " ").trim();
 
-    // Remove all occurrences of any specific word first
-    for (const w of normWords) {
-      const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
-      s = s.replace(rx, "").replace(/\s{2,}/g, " ").trim();
-    }
-
-    // Insert target once (before final punctuation)
-    s = s.replace(/[.!?]$/, "");
-    s = (s ? s + " " : "") + target;
-    s = ensureEndPunct(s.trim());
-    s = s.replace(/\s{2,}/g, " ");
-    return s;
-  });
+  // try to insert after first comma; else after first word
+  const hasComma = s.includes(",");
+  if (hasComma) {
+    return s.replace(",", `, ${word},`).replace(/,,/g, ",");
+  }
+  const firstSpace = s.indexOf(" ");
+  if (firstSpace > 0) {
+    s = s.slice(0, firstSpace) + " " + word + s.slice(firstSpace);
+  } else {
+    s = word + " " + s;
+  }
+  return s;
 }
 
-function dedupeSpecific(words: string[]) {
-  return (s: string) => {
-    let out = s;
-    for (const w of words) {
-      const rxDup = new RegExp(`\\b(${escapeRegExp(w)})\\b([\\s\\S]*?)\\b\\1\\b`, "i");
-      out = out.replace(rxDup, "$1$2"); // drop 2nd occurrence
-    }
-    return out;
-  };
+// distribute Specific Words: exactly one per line, placed naturally
+function distributeSpecificWords(lines: string[], words: string[]): string[] {
+  if (!words.length) return lines;
+  const norm = words.map(w => (w || "").trim()).filter(Boolean);
+  return lines.map((line, i) => {
+    const placed = placeWordNaturally(line, norm[i % norm.length]);
+    const cleaned = ensureEndPunct(tidyCommas(placed));
+    return cleaned;
+  });
 }
 
 function enforceLeafPresence(s: string, leafTokens: string[]): string {
@@ -141,7 +129,7 @@ function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// -------- Rating enforcement (hard) --------
+// -------- Rating enforcement (hard, with natural weaving) --------
 const R_WORDS = ["fuck","fucking","shit","bullshit"]; // no slurs
 const PG13_ALLOWED = ["hell","damn"];
 const PG_CENSOR = [/fuck/gi,/shit/gi,/bullshit/gi,/fucking/gi];
@@ -151,35 +139,46 @@ function containsAny(s: string, list: string[]) {
   return list.some(w => low.includes(w));
 }
 
+// For R: weave profanity after a known name if present; else after first comma; else after first word.
+function weaveProfanity(line: string, names: string[]): string {
+  const hasProf = containsAny(line, R_WORDS);
+  if (hasProf) return line;
+
+  // try after a provided name (e.g., Jesse)
+  for (const name of names) {
+    const rx = new RegExp(`\\b(${escapeRegExp(name)})\\b(?!\\s+fuck|\\s+fucking)`, "i");
+    if (rx.test(line)) {
+      return line.replace(rx, `$1 fuck`);
+    }
+  }
+  // else after first comma
+  if (line.includes(",")) return line.replace(",", ", you lucky fuck,").replace(/,,/g, ",");
+  // else after first word
+  const i = line.indexOf(" ");
+  return i > 0 ? line.slice(0, i) + " fuck" + line.slice(i) : line + " fuck";
+}
+
 function censorPG(s: string) {
   let out = s;
   for (const rx of PG_CENSOR) out = out.replace(rx, (m) => m[0] + "**" + (m.length > 1 ? m.slice(-1) : ""));
   return out;
 }
 
-function enforceRatingLine(s: string, rating: string): string {
+function enforceRatingLine(s: string, rating: string, names: string[]): string {
   let line = s.trim();
 
   if (/^R$/i.test(rating)) {
-    if (!containsAny(line, R_WORDS)) {
-      line = line.replace(/[.!?]$/, "");
-      line = (line + " fuck").trim();
-      line = ensureEndPunct(clampLen(line));
-    }
+    line = weaveProfanity(line, names);
   } else if (/^PG-?13$/i.test(rating)) {
-    // only hell/damn allowed
     line = censorPG(line);
-    // remove any other profanities besides hell/damn
     for (const w of R_WORDS) {
       const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
       line = line.replace(rx, "");
     }
     line = line.replace(/\s{2,}/g," ").trim();
   } else if (/^PG$/i.test(rating)) {
-    // censored swears only
     line = censorPG(line);
   } else if (/^G$/i.test(rating)) {
-    // remove all profane tokens entirely
     for (const w of [...R_WORDS, ...PG13_ALLOWED]) {
       const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
       line = line.replace(rx, "");
@@ -187,8 +186,11 @@ function enforceRatingLine(s: string, rating: string): string {
     line = line.replace(/\s{2,}/g," ").trim();
   }
 
+  // punctuation + comma hygiene + length + final period
+  line = tidyCommas(line);
+  line = limitPunctPerLine(line);
+  line = clampLen(line);
   line = ensureEndPunct(line);
-  line = limitPunctPerLine(clampLen(line));
   return line;
 }
 
@@ -262,7 +264,7 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
           generationConfig: {
-            temperature: 0.7,        // tighter; fewer rambles/clichés
+            temperature: 0.7,
             maxOutputTokens: 300
           }
         })
@@ -288,48 +290,3 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
     if (lines.length < 4) {
       const fallback = generatedText
         .replace(/\r/g," ")
-        .split(/(?<=[.!?])\s+/)
-        .map(s => s.trim())
-        .filter(Boolean);
-      if (fallback.length >= 4) lines = fallback;
-    }
-
-    // Keep exactly 4 (pad if needed with themed stubs)
-    if (lines.length > 4) lines = lines.slice(0, 4);
-    while (lines.length < 4) {
-      const add = leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`;
-      lines.push(add);
-    }
-
-    // --- Enforcements ---
-    // Distribute Specific Word exactly once per line (cycle), then clean
-    const specificWords = (insertWords || []).map(w => (w || "").trim()).filter(Boolean);
-    lines = distributeSpecificWords(lines, specificWords).map(s => s.trim());
-
-    // Leaf presence (when concrete)
-    lines = lines.map(s => enforceLeafPresence(s, leafTokens));
-
-    // Hard caps: punctuation count, end punctuation, char limit
-    lines = lines.map(s => limitPunctPerLine(ensureEndPunct(clampLen(s))));
-
-    // Basic duplicate bigram dampening
-    lines = dampenDuplicatePairs(lines);
-
-    // Final: ensure exactly 4 and formatting (do length clamping BEFORE rating enforcement)
-    lines = lines.slice(0, 4).map(s => ensureEndPunct(clampLen(s)));
-
-    // Final rating enforcement per line (hard) - done AFTER length clamping
-    lines = lines.map(s => enforceRatingLine(s, rating || "G"));
-
-    return new Response(
-      JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Error in generate-text:", error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message || "Failed to generate text" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
