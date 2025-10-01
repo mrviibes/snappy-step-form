@@ -50,7 +50,7 @@ RULES
 - Ratings guide language:
   G → wholesome.
   PG → censored swears allowed.
-  PG-13 → only “hell” or “damn”.
+  PG-13 → only "hell" or "damn".
   R → profanity required in every line (no slurs).`;
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
@@ -103,7 +103,6 @@ TONES
 RATINGS
 - (same as text_rules)`;
 
-// The rest of your category rules remain unchanged.
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
 GOAL
@@ -123,5 +122,78 @@ HARD CONSTRAINTS
 TONES/RATINGS
 - (same as text_rules)`;
 
-// … sports_text_rules, pop_culture_text_rules, miscellaneous_text_rules, custom_design_text_rules remain the same content you pasted, plus the final line:
- // “COMMA HYGIENE + PROFANITY INTEGRATION: same as above.”
+export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
+
+GOAL
+Write 4 energetic, sports-themed one-liners about athletic moments, teams, or events.
+
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific sport, team, player, or moment (football, basketball, comeback, victory, etc.).
+- ENERGY: Capture the excitement, tension, or drama of sports.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid clichés unless the sport itself is a cliché trope being referenced.
+- COMMA HYGIENE + PROFANITY INTEGRATION: same as above.
+
+TONES/RATINGS
+- (same as general_text_rules)`;
+
+export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR POP CULTURE
+
+GOAL
+Write 4 witty, culturally relevant one-liners about entertainment, trends, or icons.
+
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific movie, show, meme, celebrity, or trend (Star Wars, TikTok, Marvel, etc.).
+- CULTURAL RELEVANCE: Reference what people actually talk about and recognize.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid explaining references—assume the audience gets it.
+- COMMA HYGIENE + PROFANITY INTEGRATION: same as above.
+
+TONES/RATINGS
+- (same as general_text_rules)`;
+
+export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS
+
+GOAL
+Write 4 versatile, creative one-liners for topics that don't fit other categories.
+
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific theme provided (random facts, philosophical musings, observations, etc.).
+- FLEXIBILITY: Adapt to whatever topic or vibe is given.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Stay creative and unexpected within the theme.
+- COMMA HYGIENE + PROFANITY INTEGRATION: same as above.
+
+TONES/RATINGS
+- (same as general_text_rules)`;
+
+export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM DESIGNS
+
+GOAL
+Write 4 tailored one-liners based on user-specified creative direction.
+
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on whatever specific theme, style, or subject the user requests.
+- CUSTOMIZATION: Match the user's creative vision precisely.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Prioritize user intent over standard patterns.
+- COMMA HYGIENE + PROFANITY INTEGRATION: same as above.
+
+TONES/RATINGS
+- (same as general_text_rules)`;
