@@ -80,6 +80,30 @@ function isCompleteSentence(s: string): boolean {
 }
 function escapeRE(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
+// Fix run-on sentences
+function fixRunOnSentence(s: string): string {
+  return s
+    .replace(/\b([a-z]+)\s+(time|suddenly|but|now)\s+/gi, '$1—$2 ')
+    .replace(/\b(like|than)\s+([a-z]+)\s+(time|suddenly|but|now)\s+/gi, '$1 $2—$3 ');
+}
+
+// POV consistency checks
+function hasPOVMixing(s: string, name?: string): boolean {
+  if (!name) return false;
+  const hasSecondPerson = /\b(you|your|you're|you've)\b/i.test(s);
+  const hasThirdPerson = new RegExp(`\\b${escapeRE(name)}'?s?\\b`, 'i').test(s) || /\b(their|they)\b/i.test(s);
+  return hasSecondPerson && hasThirdPerson;
+}
+
+function fixPOVMixing(s: string, name?: string): string {
+  if (!name || !hasPOVMixing(s, name)) return s;
+  // Prefer 3rd person (talking ABOUT them) for birthday contexts
+  return s
+    .replace(/\bYou're\b/g, `${name}'s`)
+    .replace(/\byour\b/gi, 'their')
+    .replace(/\byou\b/gi, 'they');
+}
+
 function toFour(lines: string[], fallback: string): string[] {
   let L = lines.map(trimLine).filter(Boolean);
   if (L.length > 4) L = L.slice(0, 4);
@@ -117,12 +141,23 @@ function classifyInserts(words: string[]) {
 function ensureInsertOnce(line: string, word: string): string {
   if (!word) return line;
   
-  // Check if word already exists (including possessive)
   const base = new RegExp(`\\b${escapeRE(word)}\\b`, "i");
   const poss = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
-  if (base.test(line) || poss.test(line)) return line;
   
-  // If missing, trust AI placement through prompt - don't force mechanical insertion
+  // Check if already naturally placed
+  if (base.test(line) || poss.test(line)) {
+    // BUT reject if it's awkwardly placed at the end after punctuation
+    const awkwardEnd = new RegExp(`[.!?]\\s+${escapeRE(word)}[.!?]?$`, "i");
+    if (awkwardEnd.test(line)) {
+      // Remove awkward placement and re-insert naturally
+      line = line.replace(awkwardEnd, '.').trim();
+      // Insert at beginning with possessive
+      return `${word}'s ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+    }
+    return line;
+  }
+  
+  // If missing entirely, trust AI placement through prompt - don't force mechanical insertion
   return line;
 }
 
@@ -317,6 +352,9 @@ GOOD EXAMPLES (natural flow, complete sentences):
 ✅ "You're turning 30, time to adult... or just fake it better" - complete with natural pause
 
 BAD EXAMPLES (avoid these patterns):
+❌ "Jesse's aging like milk time to pour them down the drain" - RUN-ON SENTENCE, needs punctuation (—)
+❌ "You're not getting older, just closer to Jesse's inevitable demise" - POV MIXING (you + Jesse's)
+❌ "They're one step closer to needing help blowing out their candles. Jesse." - INSERT TACKED ON at end
 ❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence, sentence fragment
 ❌ "Jesse, closer to needing help..." - vocative comma + fragment = double bad, not a complete sentence
 ❌ "Happy birthday, and Jesse, you're awesome" - mechanical "and" connector
@@ -472,6 +510,8 @@ OUTPUT (start immediately):`;
     // Final tidy (punct-aware cap)
     lines = lines.map(l => {
       let out = trimLine(l);
+      out = fixRunOnSentence(out);  // NEW: Fix run-ons first
+      out = fixPOVMixing(out, name); // NEW: Fix POV mixing
       out = fixSpacesBeforePunct(out);
       out = fixVocativeComma(out, name);
       out = fixDoubleCommas(out);
@@ -480,6 +520,19 @@ OUTPUT (start immediately):`;
       out = capLenSmart(out, MAX_LEN);
       return endPunct(out);
     });
+
+    // Final quality check - filter out any remaining POV mixing
+    lines = lines.filter(l => {
+      const valid = !hasPOVMixing(l, name);
+      if (!valid) console.log('Rejected line (POV mixing):', l);
+      return valid;
+    });
+
+    // Ensure we still have 4 lines after filtering
+    while (lines.length < 4) {
+      lines.push(`Another year older and still awesome.`);
+    }
+    lines = lines.slice(0, 4);
 
     return new Response(JSON.stringify({
       options: lines,
