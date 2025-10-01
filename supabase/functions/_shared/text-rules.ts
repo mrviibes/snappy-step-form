@@ -14,16 +14,22 @@ Write 4 punchy, human one-liners for the selected theme.
 
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
+- COMPLETE SENTENCES ONLY: Every line must have a subject and verb (no fragments like "Jesse, closer to...")
 - Use the selected Tone and Rating.
-- INSERT WORDS: include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
+- INSERT WORDS: include exactly one per line and place it naturally mid-sentence (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
+- Avoid vocative comma abuse: not "Name, lowercase verb" patterns
 - TRAITS (e.g., "gay", "vegan", "left-handed"): treat respectfully and affirmingly; never as an insult; let the humor come from situation, not identity.
 - Prefer specificity; keep each line distinct; avoid clichés; no labels like "TONE:".
+- Maintain consistent POV: use "their/they" when talking ABOUT someone, "your/you" when talking TO them (don't mix).
 
 DO NOT
+- Do not write sentence fragments or incomplete thoughts
+- Do not use vocative comma + lowercase verb patterns ("Jesse, closer to...")
 - Do not explain what you're doing
 - Do not include phrases like "here are", "okay", "sure thing"
 - Do not number or label the output
-- Do not add commentary before or after the lines`;
+- Do not add commentary before or after the lines
+- Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
 export const celebration_text_rules = `SYSTEM • SHORT ONE-LINERS • CELEBRATIONS
 
@@ -47,17 +53,23 @@ COMEDY TECHNIQUES (use at least 2 per set):
 
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
+- COMPLETE SENTENCES ONLY: Every line must have a subject and verb (no fragments)
 - Use the selected Tone and Rating.
-- INSERT WORDS: include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
+- INSERT WORDS: include exactly one per line and place it naturally mid-sentence (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
+- Avoid vocative comma patterns like "Jesse, closer to..."
 - TRAITS (e.g., "gay"): celebrate the trait; never use it as a punchline by itself; fold it into the compliment or scenario.
 - Focus on the honoree and the occasion (birthday, wedding, graduation); keep each line concrete and human-sounding.
 - R PROFANITY: inside the sentence, not the last word (e.g., "Jesse, you glorious fuck, enjoy the cake").
+- Maintain consistent POV: use "their/they" when talking ABOUT someone, "your/you" when talking TO them (don't mix).
 
 DO NOT
+- Do not write sentence fragments or incomplete thoughts
+- Do not use vocative comma + lowercase verb patterns ("Jesse, closer to...")
 - Do not explain what you're doing
 - Do not include phrases like "here are", "okay", "sure thing"
 - Do not number or label the output
-- Do not add commentary before or after the lines`;
+- Do not add commentary before or after the lines
+- Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
 export const daily_life_text_rules    = general_text_rules;
 export const sports_text_rules        = general_text_rules;
