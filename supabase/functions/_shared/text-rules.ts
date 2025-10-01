@@ -51,11 +51,12 @@ RULES
 - No duplicate word pairs across the 4 lines.
 - Keep lines witty, playful, and occasion-centered (birthday, wedding, anniversary, graduation).
 - R PROFANITY (when Rating = R): weave inside the sentence (prefer after the honoree's name), never as the last word.
-- Ratings guide language:
-  G → wholesome; no profanity.
-  PG → no strong/medium profanity; mild words fully spelled; no asterisks.
-  PG-13 → only "hell" or "damn"; ban “goddamn” and stronger words.
-  R → profanity required, fully spelled, no slurs.`;
+- Ratings guide (language + topics):
+  G  → all-ages; wholesome; no profanity or sexual content; gentle stakes only.
+  PG → mild words (heck, dang); light peril/slapstick; chaste affection; kid-safe.
+  PG-13 → “hell”/“damn” ok; edgier teasing; mild innuendo/romance; non-graphic violence; no explicit sex/nudity or graphic gore.
+  R  → strong profanity required; adult themes (sex, booze, chaos); stronger but non-graphic violence; no slurs or hate; no sexual violence.`;
+
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
