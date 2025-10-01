@@ -1,376 +1,192 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { 
-  general_text_rules,
-  celebration_text_rules,
-  joke_text_rules, 
-  daily_life_text_rules, 
-  sports_text_rules, 
-  pop_culture_text_rules, 
-  miscellaneous_text_rules,
-  custom_design_text_rules
-} from "../_shared/text-rules.ts";
+// ================== TEXT RULES (ALL CATEGORIES) ==================
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+export const general_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
 
-// ---------------- Types ----------------
-interface GeneratePayload {
-  category: string;
-  subcategory?: string;
-  theme?: string;           // deepest leaf (preferred)
-  tone?: string;
-  rating?: string;
-  insertWords?: string[];   // e.g., ["Jesse"]
-}
+GOAL
+Write 4 funny, punchy, human-sounding distinct one-liners.
 
-// ---------------- Helpers ----------------
-const MAX_LEN = 120;
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME (leaf). If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly and the line must clearly be about it.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- No meta-writing about writing jokes.
+- Avoid clichés/greeting-card phrasing unless the leaf theme explicitly requires them.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence (prefer after the honoree's name), never as the final word.
 
-function clampLen(s: string, n = MAX_LEN): string {
-  if (!s) return s;
-  if (s.length <= n) return s;
-  const cut = s.slice(0, n);
-  const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut).replace(/[,\s]*$/, "") + ".";
-}
-function ensureEndPunct(s: string): string { return /[.!?]$/.test(s) ? s : s + "."; }
+TONES
+- Humorous → witty wordplay, exaggeration. Punchline lands fast with surprise.
+- Savage → blunt roast, no soft language. Punchline stings, not explained.
+- Sentimental → warm, affectionate, even if raw. Punchline resolves clearly.
+- Nostalgic → references the past; avoids modern slang. Punchline ties to memory.
+- Romantic → affectionate, playful, no meanness. Punchline feels charming.
+- Inspirational → uplifting, no irony. Punchline elevates the message.
+- Playful → cheeky, silly, not formal. Punchline quick and mischievous.
+- Serious → dry, deadpan, formal. Punchline understated and concise.
 
-// allow only . , ? !  → replace other punctuation with space
-// keepAsterisk = true only for PG where we actually display * in censored words
-function sanitizePunct(s: string, keepAsterisk = false): string {
-  const rx = keepAsterisk
-    ? /[;:()\[\]{}"\/\\<>|~`^_@#\$%&+=–—]/g
-    : /[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g;
-  return (s || "").replace(rx, " ").replace(/\s{2,}/g, " ").trim();
-}
+RATINGS
+- Ratings guide language:
+  G → wholesome; no profanity.
+  PG → no strong/medium profanity; use mild words fully spelled (heck, dang, mess, nonsense); never use asterisks.
+  PG-13 → allow only “hell” or “damn”; explicitly ban “goddamn” and all stronger words; no slurs.
+  R → profanity required; fully spelled; no slurs; weave inside the sentence (not the last word).`;
 
-// strong comma hygiene: kill leading commas, collapse runs, space-after, never space-before
-function tidyCommas(s: string): string {
-  if (!s) return s;
-  let out = s.replace(/^\s*,+\s*/g, "");
-  out = out.replace(/(\s*,\s*)+/g, ", ");
-  out = out.replace(/\s+,/g, ",");
-  out = out.replace(/,(?!\s|$)/g, ", ");
-  return out.replace(/\s{2,}/g, " ").trim();
-}
+export const celebration_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CELEBRATIONS
 
-// punctuation cap: keep at most two of . , ? !
-function limitPunctPerLine(s: string): string {
-  const allowed = new Set([".", ",", "!", "?"]);
-  let count = 0, out = "";
-  for (const ch of s) {
-    if (allowed.has(ch)) { count++; if (count <= 2) out += ch; }
-    else out += ch;
-  }
-  return out.replace(/\s{2,}/g, " ").trim();
-}
+GOAL
+Write 4 hilarious, personal one-liners for a special occasion that read naturally—smooth, human, not clunky.
 
-function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+RULES
+- Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
+- Max 2 punctuation marks per line (. , ? !). No numbering, lists, or em/en dashes (— / –).
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
+- Focus on the honoree: make it celebratory, personal, and funny.
+- No duplicate word pairs across the 4 lines.
+- Keep lines witty, playful, and occasion-centered (birthday, wedding, anniversary, graduation).
+- R PROFANITY (when Rating = R): weave inside the sentence (prefer after the honoree's name), never as the last word.
+- Ratings guide language:
+  G → wholesome; no profanity.
+  PG → no strong/medium profanity; mild words fully spelled; no asterisks.
+  PG-13 → only "hell" or "damn"; ban “goddamn” and stronger words.
+  R → profanity required, fully spelled, no slurs.`;
 
-// drop label/meta lines like "TONE:", "RATING:", "SPECIFIC WORDS:", etc.
-function isMetaLine(s: string): boolean {
-  return /^\s*(tone|rating|specific(?:\s+)?words?|process|category|context|rules?)\s*:/i.test(s);
-}
+export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
-// Fix orphan "'s" when the name was removed earlier
-function fixOrphanPossessive(line: string, word: string): string {
-  return line.replace(/(^|[^\p{L}\p{N}’'])(?='s\b)/u, (_m, p1) => `${p1}${word}`);
-}
+GOAL
+Write 4 relatable, universal one-liners about everyday experiences.
 
-// Insert a specific word once, placed mid-sentence when possible
-function placeWordNaturally(line: string, word: string): string {
-  if (!word) return line;
-  let s = fixOrphanPossessive(line, word);
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific daily routine, moment, or situation (morning coffee, Monday blues, commute, housework, etc.).
+- RELATABILITY: Make it feel like "we've all been there."
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid clichés unless the leaf is itself a cliché trope being referenced.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-  // Remove naked instances (leave possessives intact)
-  const rx = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
-  s = s.replace(rx, "").replace(/\s{2,}/g, " ").trim();
+TONES/RATINGS
+- (same as general_text_rules)`;
 
-  if (s.includes(",")) {
-    s = s.replace(",", `, ${word},`).replace(/,\s*,/g, ", ");
-    return s;
-  }
-  const firstSpace = s.indexOf(" ");
-  if (firstSpace > 0) s = s.slice(0, firstSpace) + " " + word + s.slice(firstSpace);
-  else s = `${word} ${s}`;
-  return s;
-}
+export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
 
-// distribute Specific Words: exactly one per line, placed naturally
-function distributeSpecificWords(lines: string[], words: string[]): string[] {
-  const norm = (words || []).map(w => (w || "").trim()).filter(Boolean);
-  if (!norm.length) return lines; // bug fix: don't map to a function
-  return lines.map((line, i) => ensureEndPunct(tidyCommas(placeWordNaturally(line, norm[i % norm.length]))));
-}
+GOAL
+Write 4 action-packed, competitive one-liners about sports and athletics.
 
-function enforceLeafPresence(s: string, leafTokens: string[]): string {
-  if (!leafTokens.length) return s;
-  const low = s.toLowerCase();
-  if (leafTokens.some(t => low.includes(t))) return s;
-  const add = leafTokens.find(t => t.length > 3) || leafTokens[0];
-  return add ? s.replace(/\.$/, "") + `, ${add}.` : s;
-}
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific sport, position, moment, or athletic achievement.
+- ENERGY: Keep it high-energy, competitive, and action-oriented.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Use sport-specific terminology naturally when appropriate.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-// Basic duplicate bigram dampener across lines
-function dampenDuplicatePairs(lines: string[]): string[] {
-  const seen = new Set<string>();
-  return lines.map((line, idx) => {
-    const tokens = line.toLowerCase().replace(/[^a-z0-9\s’'-]/gi, "").split(/\s+/).filter(Boolean);
-    const bigrams = new Set<string>();
-    for (let i = 0; i < tokens.length - 1; i++) bigrams.add(tokens[i] + " " + tokens[i + 1]);
-    const overlap = [...bigrams].some(b => seen.has(b));
-    for (const b of bigrams) seen.add(b);
-    if (!overlap) return line;
-    const add = ["today", "tonight", "this year", "right now"][idx % 4];
-    return clampLen(line.replace(/\.$/, "") + ` ${add}.`);
-  });
-}
+TONES/RATINGS
+- (same as general_text_rules)`;
 
-// -------- Rating enforcement (hard, with PG-13 tightening) --------
-const R_WORDS = ["fuck","fucking","shit","bullshit"]; // no slurs
-const PG13_ALLOWED = ["hell","damn"];
-const MEDIUM_PROFANITY = ["bastard","asshole","prick","dick","douche","crap"]; // extend if needed
-const PG_CENSOR = [/fuck/gi,/shit/gi,/bullshit/gi,/fucking/gi];
+export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR JOKES
 
-// Robust inflection handling for censorship/removal
-const STRONG_PATTERNS = [
-  /\bfuck(?:ing|er|ed|s)?\b/gi,
-  /\bshit(?:ting|ty|face(?:d)?|s|ted)?\b/gi,
-  /\bbullshit\b/gi,
-];
+GOAL
+Write 4 hilarious, well-structured jokes with clear setups and punchlines.
 
-function containsAny(s: string, list: string[]) {
-  const low = s.toLowerCase();
-  return list.some(w => low.includes(w));
-}
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific joke type (dad jokes, puns, knock-knock, one-liners, anti-jokes, etc.).
+- STRUCTURE: Setup → Punchline. The surprise or twist should land at the end.
+- WORDPLAY: For puns and dad jokes, emphasize wordplay and double meanings.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid explaining the joke; let the punchline speak for itself.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-// For R: weave profanity after name/comma/first word; avoid ending on it
-function weaveProfanity(line: string, names: string[]): string {
-  if (containsAny(line, R_WORDS)) return line;
-  for (const name of names) {
-    const rx = new RegExp(`\\b(${escapeRegExp(name)})\\b(?!\\s+(?:fuck|fucking))`, "i");
-    if (rx.test(line)) return line.replace(rx, `$1 fuck`);
-  }
-  if (line.includes(",")) return line.replace(",", ", you lucky fuck,").replace(/,\s*,/g, ", ");
-  const i = line.indexOf(" ");
-  return i > 0 ? line.slice(0, i) + " fuck" + line.slice(i) : line + " fuck";
-}
+JOKE-SPECIFIC GUIDANCE
+- Dad Jokes → groan-worthy puns, wholesome, family-friendly setup-punchline.
+- Puns → clever wordplay on double meanings or similar sounds.
+- Knock-Knock → follow format if space allows.
+- One-Liners → sharp, concise, standalone wit with immediate impact.
+- Anti-Jokes → subvert expectations with literal or mundane punchlines.
 
-function censorPG(s: string) {
-  // Keep first and last letter, middle as ** for strong profanity + inflections
-  let out = s;
-  for (const rx of STRONG_PATTERNS) {
-    out = out.replace(rx, (m) => {
-      const first = m[0];
-      const last = /[a-z]/i.test(m[m.length - 1]) ? m[m.length - 1] : "";
-      return `${first}**${last}`;
-    });
-  }
-  return out;
-}
+TONES/RATINGS
+- (same as general_text_rules)`;
 
-function removeStrongForPG13(s: string) {
-  let out = s;
-  for (const rx of STRONG_PATTERNS) out = out.replace(rx, "");
-  return out.replace(/\s{2,}/g, " ").trim();
-}
+export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR POP CULTURE
 
-function enforceRatingLine(s: string, rating: string, names: string[]): string {
-  let line = s.trim();
+GOAL
+Write 4 clever, culturally-aware one-liners about movies, music, celebrities, or trends.
 
-  if (/^R$/i.test(rating)) {
-    line = weaveProfanity(line, names);
-    // don't end on profanity
-    line = line.replace(/\b(fuck|fucking|shit|bullshit)[.!?]?\s*$/i, "$1, legend");
-  } else if (/^PG-?13$/i.test(rating)) {
-    // remove strong profanities + inflections completely
-    line = removeStrongForPG13(line);
-    for (const w of [...MEDIUM_PROFANITY]) {
-      const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
-      line = line.replace(rx, "");
-    }
-    // keep at most one of hell/damn
-    const hadHell = /\bhell\b/i.test(line);
-    line = hadHell ? line.replace(/\bdamn\b/gi, "") : line.replace(/\bhell\b/gi, "");
-    line = line.replace(/\s{2,}/g," ").trim();
-  } else if (/^PG$/i.test(rating)) {
-    // censored swears only (keep asterisks)
-    line = censorPG(line);
-  } else if (/^G$/i.test(rating)) {
-    for (const w of [...R_WORDS, ...PG13_ALLOWED, ...MEDIUM_PROFANITY]) {
-      const rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi");
-      line = line.replace(rx, "");
-    }
-    line = line.replace(/\s{2,}/g," ").trim();
-  }
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the specific pop culture subject (movie, song, celebrity, TV show, meme, trend, etc.).
+- REFERENCES: Use recognizable cultural touchpoints; balance timely with timeless.
+- FAN LANGUAGE: Can use fandom-specific language if appropriate to the theme.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid overly niche references unless the leaf theme is that specific.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-  // sanitize + commas + punct cap + length + final dot
-  // keep '*' only for PG
-  const keepStar = /^PG$/i.test(rating);
-  line = sanitizePunct(line, keepStar);
-  line = tidyCommas(line);
-  line = limitPunctPerLine(line);
-  line = clampLen(line);
-  line = ensureEndPunct(line);
-  return line;
-}
+TONES/RATINGS
+- (same as general_text_rules)`;
 
-// -------------- Server --------------
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS TOPICS
 
-  try {
-    const payload: GeneratePayload = await req.json();
-    const { category, subcategory, tone, rating, insertWords = [], theme } = payload;
-    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
+GOAL
+Write 4 universally relatable one-liners about animals, food, professions, or other varied subjects.
 
-    // Compute leaf focus tokens
-    const leaf = (theme || subcategory || "").trim();
-    const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}’'-]+/u).filter(w => w.length > 2);
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center on the most specific subject (e.g., "Golden Retriever" not just "dogs", "espresso" not just "coffee").
+- ADAPTABILITY: Adjust tone/approach based on subject matter.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Make it feel authentic to the subject matter.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-    // Select rule block by exact category ID
-    const cat = (category || "").toLowerCase().trim();
-    let used_rules = "general_text_rules";
-    let systemPrompt = general_text_rules;
+TONES/RATINGS
+- (same as general_text_rules)`;
 
-    switch (cat) {
-      case "jokes":
-        systemPrompt = joke_text_rules;
-        used_rules = "joke_text_rules";
-        break;
-      case "celebrations":
-        systemPrompt = celebration_text_rules;
-        used_rules = "celebration_text_rules";
-        break;
-      case "daily-life":
-      case "daily life":
-        systemPrompt = daily_life_text_rules;
-        used_rules = "daily_life_text_rules";
-        break;
-      case "sports":
-        systemPrompt = sports_text_rules;
-        used_rules = "sports_text_rules";
-        break;
-      case "pop-culture":
-      case "pop culture":
-        systemPrompt = pop_culture_text_rules;
-        used_rules = "pop_culture_text_rules";
-        break;
-      case "miscellaneous":
-        systemPrompt = miscellaneous_text_rules;
-        used_rules = "miscellaneous_text_rules";
-        break;
-      case "custom":
-      case "custom-design":
-        systemPrompt = custom_design_text_rules;
-        used_rules = "custom_design_text_rules";
-        break;
-      default:
-        // Falls back to general_text_rules (already set above)
-        break;
-    }
+export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM/USER-DEFINED TOPICS
 
-    // Context + format
-    systemPrompt += `
-CONTEXT
-- CATEGORY: ${category || "n/a"}
-- SUBCATEGORY: ${subcategory || "n/a"}
-- THEME (LEAF FOCUS): ${leaf || "n/a"}
+GOAL
+Write 4 flexible, adaptable one-liners for any user-defined theme or custom category.
 
-CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one complete sentence ending with punctuation. Do not output labels, headings, or bullet points.`;
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
+- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
+- Follow the selected Tone and Rating. Use any required insert words naturally.
+- FOCUS: Center every line on the MOST SPECIFIC USER-PROVIDED THEME. If unclear, default to relatable, human experiences.
+- FLEXIBILITY: Since this is a catch-all, prioritize user intent and adapt style to match the subject.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Avoid generic filler; make every line specific to the user's chosen theme.
+- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
 
-    // User prompt
-    let userPrompt =
-      `Write 4 ${(tone || "Humorous")} one-liners that clearly center on "${leaf || "the selected theme"}".`;
-    if (/\bjokes?\b/i.test(cat)) {
-      userPrompt += ` Never say humor labels (dad-joke, pun, joke/jokes); imply the style only.`;
-    }
-    if (insertWords.length) {
-      userPrompt += ` Each line must naturally include exactly one of: ${insertWords.join(", ")}.`;
-    }
-    userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles). Avoid limp filler; end with a clean punch.`;
-
-    // Call Gemini
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 300
-          }
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Parse raw → candidate lines
-    let lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
-    // drop label/meta lines
-    lines = lines.filter(l => !isMetaLine(l));
-
-    // If paragraphs, split on sentences
-    if (lines.length < 4) {
-      const fallback = raw.replace(/\r/g," ")
-        .split(/(?<=[.!?])\s+/)
-        .map(s => s.trim())
-        .filter(Boolean)
-        .filter(s => !isMetaLine(s));
-      if (fallback.length >= 4) lines = fallback;
-    }
-
-    // keep exactly 4
-    if (lines.length > 4) lines = lines.slice(0, 4);
-    while (lines.length < 4) lines.push(leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`);
-
-    // distribute Specific Word
-    const specificWords = (insertWords || []).map(w => (w || "").trim()).filter(Boolean);
-    lines = distributeSpecificWords(lines, specificWords);
-
-    // enforce leaf token presence
-    lines = lines.map(s => enforceLeafPresence(s, leafTokens));
-
-    // sanitize + commas + punct cap + length + end punct (pre-rating, no stars kept)
-    lines = lines.map(s =>
-      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s, false)))))
-    );
-
-    // dedupe bigrams
-    lines = dampenDuplicatePairs(lines);
-
-    // rating enforcement (PG uses *, PG-13 removes, R weaves)
-    lines = lines.map(s => enforceRatingLine(s, rating || "G", specificWords));
-
-    // final safety sweep (preserve * only for PG)
-    const keepStar = (rating || "G").toUpperCase() === "PG";
-    lines = lines.map(s =>
-      ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s, keepStar)))))
-    );
-
-    return new Response(
-      JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Error in generate-text:", error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message || "Failed to generate text" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
+TONES/RATINGS
+- (same as general_text_rules)`;
