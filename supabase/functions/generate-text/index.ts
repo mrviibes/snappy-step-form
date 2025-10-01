@@ -59,7 +59,7 @@ function tidyCommas(s = ""): string {
 function limitPunctPerLine(s = ""): string {
   const allowed = new Set([".", ",", "!", "?"]);
   let count = 0, out = "";
-  for (const ch of s) { if (allowed.has(ch)) { if (++count <= 2) out += ch; } else out += ch; }
+  for (const ch of s) { if (allowed.has(ch)) { if (++count <= 3) out += ch; } else out += ch; }
   return out.replace(/\s{2,}/g, " ").trim();
 }
 function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
@@ -254,7 +254,7 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
       userPrompt += ` RATING R: Use strong profanity (fuck, shit, bullshit) naturally WITHIN sentences${nameHint}. Never end sentences with profanity—place it after the subject/name or mid-sentence for emphasis. Make it flow like real human speech.`;
     }
     
-    userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles). Avoid limp filler; end with a clean punch.`;
+    userPrompt += ` One sentence per line, ≤3 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles). Avoid limp filler; end with a clean punch.`;
 
     // Call Gemini
     const response = await fetch(
