@@ -37,6 +37,14 @@ OUTPUT FORMAT
 GOAL
 Write 4 celebratory, personal one-liners that read smoothly.
 
+COMEDY TECHNIQUES (use at least 2 per set):
+- Unexpected twist endings
+- Exaggeration and absurdism
+- Self-deprecating humor
+- Observational comedy about aging/life
+- Subverted expectations
+- Sharp wit and wordplay
+
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
 - Use the selected Tone and Rating.
@@ -60,7 +68,7 @@ export const custom_design_text_rules = general_text_rules;
 
 // ======= Minimal tone tags (3–4 words) =======
 export const TONE_TAGS: Record<string, string> = {
-  humorous:      "funny, witty, light",
+  humorous:      "HILARIOUS, unexpected twists, make them laugh out loud",
   savage:        "harsh, blunt, cutting",
   sentimental:   "warm, heartfelt, tender",
   nostalgic:     "reflective, old-times, wistful",

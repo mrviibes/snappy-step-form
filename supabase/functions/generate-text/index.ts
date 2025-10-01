@@ -280,15 +280,20 @@ TONE: ${toneTag}
 RATING: ${ratingTag}
 INSERT WORDS (use one per line): ${insertWords.join(", ") || "none"}
 
-EXAMPLES OF GOOD PLACEMENT:
-✅ "Jesse's bringing the snacks and the sass"
-✅ "Another year older, still crushing it like Jesse"
-✅ "Jesse walked in and suddenly everyone's problems got smaller"
+EXAMPLES OF HILARIOUS PLACEMENT:
+✅ "Jesse's so old their birth certificate is in Roman numerals"
+✅ "Another year closer to yelling at teenagers for existing"
+✅ "Jesse's aging like fine wine - expensive and gives you a headache"
 
 EXAMPLES OF BAD PLACEMENT:
 ❌ "Happy birthday, and Jesse, you're awesome"
 ❌ "You're amazing, Jesse, keep going"
 ❌ "Looking good, and Jesse, stay strong"
+
+PRIORITY #1: BE HILARIOUS
+• Each line must have a strong punchline or unexpected twist
+• Go for the laugh - don't play it safe
+• Sharp, memorable, quotable
 
 RULES:
 • Write 4 one-liners (one sentence each, ≤${MAX_LEN} chars)
@@ -307,7 +312,7 @@ OUTPUT (start immediately):`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: { temperature: 0.95, maxOutputTokens: 360 }
+          generationConfig: { temperature: 1.0, maxOutputTokens: 360 }
         })
       }
     );
