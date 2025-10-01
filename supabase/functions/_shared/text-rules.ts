@@ -72,7 +72,7 @@ RULES
   G → wholesome.
   PG → censored swears allowed.
   PG-13 → only “hell” or “damn”.
-  R → profanity required in every line (no slurs).
+  R → profanity required in every line (no slurs).`;
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
