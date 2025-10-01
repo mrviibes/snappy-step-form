@@ -55,25 +55,24 @@ RULES
   PG-13 → only “hell” or “damn”.
   R → profanity required in every line (no slurs).`;
 
-export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
+GOAL
+Write 4 hilarious, personal one-liners for a special occasion that read naturally—smooth, human, not clunky.
 
-HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never use labels or say the humor type (e.g., "TONE:", "RATING:", "dad-joke", "pun").
+RULES
+- Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
+- Max 2 punctuation marks per line (. , ? !). No numbering, lists, or em/en dashes (— / –).
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
 - COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME (leaf). If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly; if the theme is a style label (e.g., "dad-jokes"), never name the label—only imply it.
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Avoid clichés/greeting-card phrasing unless the leaf theme explicitly requires them.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES
-- Humorous / Savage / Sentimental / Nostalgic / Romantic / Inspirational / Playful / Serious
-
-RATINGS
-- G / PG / PG-13 / R (same definitions as general_text_rules).`;
+- Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
+- Focus on the honoree: make it celebratory, personal, and funny.
+- No duplicate word pairs across the 4 lines.
+- Keep lines witty, playful, and occasion-centered (birthday, wedding, anniversary, graduation).
+- R PROFANITY (when Rating = R): weave inside the sentence (prefer after the honoree’s name), never as the last word.
+- Ratings guide language:
+  G → wholesome.
+  PG → censored swears allowed.
+  PG-13 → only “hell” or “damn”.
+  R → profanity required in every line (no slurs).
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
