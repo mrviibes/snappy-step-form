@@ -7,15 +7,15 @@ Write 4 funny, punchy, human-sounding distinct one-liners.
 
 HARD CONSTRAINTS
 - Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- ≤3 punctuation marks per line (. , ? !). No lists, headers, or numbering.
 - LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
 - COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
 - Follow the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
 - INSERT WORD FLOW: prefer after the first comma or subject; allow possessive (“Name’s”); never start with a comma or end on the name.
-- FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME (leaf). If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly and the line must clearly be about it.
+- FOCUS: Center every line on the MOST SPECIFIC SELECTED THEME provided. If the theme is a concrete subject (e.g., "Corgi", "espresso"), you may name it directly and the line must clearly be about it.
 - No duplicate word pairs across the 4 outputs.
 - No meta-writing about writing jokes.
-- Avoid clichés/greeting-card phrasing unless the leaf theme explicitly requires them.
+- Avoid clichés/greeting-card phrasing unless the theme explicitly requires them.
 - R PROFANITY (when Rating = R): integrate naturally inside the sentence (prefer after the honoree's name), never as the final word.
 
 TONES
@@ -35,7 +35,7 @@ Write 4 hilarious, personal one-liners for a special occasion that read naturall
 
 RULES
 - Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
-- Max 2 punctuation marks per line (. , ? !). No numbering, lists, or em/en dashes (— / –).
+- Max 3 punctuation marks per line (. , ? !). No numbering, lists, or em/en dashes (— / –).
 - LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "INSERT WORDS:").
 - COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
 - Follow the given Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (not tacked on).
