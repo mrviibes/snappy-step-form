@@ -56,6 +56,7 @@ interface PromptTemplate {
     scene?: string;
     mood?: string;
     tags?: string[];
+    pretty?: string; // NEW: multi-line formatted prompt for UI
   };
 }
 
@@ -206,12 +207,18 @@ function normTags(tags?: string[], max = 6) {
 
 // Split meme text at first comma for top/bottom
 function maybeSplitMeme(text: string, layoutKey?: string) {
-  if (layoutKey !== "meme-text") return `text: "${text}"`;
+  if (layoutKey !== "meme-text") return `MANDATORY TEXT: "${text}"`;
   const i = text.indexOf(",");
-  if (i === -1) return `text: "${text}"`;
+  if (i === -1) return `MANDATORY TEXT: "${text}"`;
   const top = text.slice(0, i).trim();
   const bottom = text.slice(i + 1).trim();
-  return `text top: "${top}" text bottom: "${bottom}"`;
+  return `Text top: "${top}" Text bottom: "${bottom}"`;
+}
+
+// Join an array of lines to a single line (API), cap words
+function collapseLines(lines: string[], maxWords: number) {
+  const one = squeeze(lines.filter(Boolean).join(" "));
+  return wc(one) > maxWords ? limitWords(one, maxWords) : one;
 }
 
 // ============== CORE (Gemini compact) ==============
@@ -236,10 +243,9 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const comp = getCompositionInserts(composition_modes);
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
+  const compName = (composition_modes && composition_modes[0]) || "";
 
   const tags = normTags(specific_visuals);
-  const tagLine = tags.length ? `tags: ${tags.join(", ")}` : "";
-
   const catRateNeg = getCategoryNegatives(category, rating);
 
   let layoutsToGenerate = SIX_LAYOUTS;
@@ -248,38 +254,25 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const shortLayout: Record<string, string> = {
-    "meme-text": "meme top/bottom",
-    "badge-callout": "small badge",
-    "negative-space": "open area",
-    "caption": "bottom caption",
-    "integrated-in-scene": "in-scene text",
-    "dynamic-overlay": "diagonal overlay"
-  };
-
   const baseNeg = [
     "misspelled","illegible","low-contrast","extra","black-bars",
     "speech-bubbles","panels","warped","duplicate","cramped"
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    const layout = shortLayout[L.key] || "clean text";
+    // Build the pretty, multi-line skeleton (your format)
+    const prettyLines = [
+`MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
+"Typography: modern sans-serif; ~25% area; no panels.",
+`Aspect: ${aspect} in ${styleStr}.`,
+`A ${rating} scene with ${visual_recommendation || "clear composition"} in a ${compName || "norman"}.`,
+`Mood: ${toneStr}.`
+    ];
 
-    const pieces = [
-      `${aspect} ${styleStr} shot`,
-      `layout: ${layout}`,
-      maybeSplitMeme(completed_text, L.key),
-      "font modern, ~25% area",
-      visual_recommendation ? `scene: ${visual_recommendation}` : "",
-      toneStr ? `mood: ${toneStr}` : "",
-      tagLine,
-      compPos ? `composition: ${compPos}` : ""
-    ].filter(Boolean);
+    // Collapse to single line for API (≤80 words)
+    let positive = collapseLines(prettyLines, POS_MAX);
 
-    let positive = squeeze(pieces.join(". ") + ".");
-    if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
-
-    // negatives with category/rating + light tag guard + composition neg if it fits
+    // negatives with category/rating + tags + composition negatives (≤10 words)
     let negative = limitWords(baseNeg, NEG_MAX);
     if (catRateNeg) {
       const tryCR = squeeze(`${negative}, ${catRateNeg}`);
@@ -296,13 +289,13 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
 
     const sections = {
       aspect,
-      lighting: "bright key light; vivid color; crisp focus",
-      layout,
+      layout: L.key,
       mandatoryText: completed_text,
-      typography: "modern sans-serif; ~25% area",
+      typography: "modern sans-serif; ~25% area; no panels",
       scene: visual_recommendation || "",
       mood: toneStr,
-      tags
+      tags,
+      pretty: prettyLines.join("\n")
     };
 
     return {
@@ -339,10 +332,9 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   const comp = getCompositionInserts(composition_modes);
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
+  const compName = (composition_modes && composition_modes[0]) || "";
 
   const tags = normTags(specific_visuals);
-  const tagLine = tags.length ? `tags: ${tags.join(", ")}` : "";
-
   const catRateNeg = getCategoryNegatives(category, rating);
 
   let layoutsToGenerate = SIX_LAYOUTS;
@@ -351,45 +343,28 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const shortLayout: Record<string, string> = {
-    "meme-text": "meme top/bottom, 6–8% padding",
-    "badge-callout": "floating badge, thin outline",
-    "negative-space": "text in open area",
-    "caption": "bottom caption",
-    "integrated-in-scene": "text as real sign",
-    "dynamic-overlay": "diagonal overlay"
-  };
-
   const baseNeg = [
     "misspelled","illegible","low-contrast","extra","panels",
     "speech-bubbles","black-bars","warped","duplicate","cramped"
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    const layout = shortLayout[L.key] || "clean text";
+    // Pretty, multi-line skeleton (your format)
+    const prettyLines = [
+`MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
+"Typography: modern sans-serif; ~25% area; no panels.",
+`Aspect: ${aspect} in ${styleStr}.`,
+`A ${rating} scene with ${visual_recommendation || "clear composition"} in a ${compName || "norman"}.`,
+`Mood: ${toneStr}.`
+    ];
 
-    const pieces = [
-      `${aspect} ${styleStr} scene`,
-      "bright natural light, no darkness",
-      "vivid color, crisp focus",
-      `layout: ${layout}`,
-      L.key === "meme-text" ? maybeSplitMeme(completed_text, L.key) : `MANDATORY TEXT: "${completed_text}"`,
-      "modern sans-serif, ~25% area, no panels",
-      visual_recommendation ? `scene: ${visual_recommendation}` : "",
-      toneStr ? `mood: ${toneStr}` : "",
-      tagLine,
-      compPos ? `composition: ${compPos}` : ""
-    ].filter(Boolean);
+    // Collapse to single line for API (≤80 words)
+    let positive = collapseLines(prettyLines, POS_MAX);
 
-    let positive = squeeze(pieces.join(". ") + ".");
-    if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
-
-    // negatives with category/rating + light tag guard + composition neg if it fits
+    // negatives with category/rating + tags + composition negatives (≤10 words)
     let negative = limitWords(baseNeg, NEG_MAX);
-    if (catRateNeg) {
-      const tryCR = squeeze(`${negative}, ${catRateNeg}`);
-      if (wc(tryCR) <= NEG_MAX) negative = tryCR;
-    }
+    const cr = catRateNeg ? squeeze(`${negative}, ${catRateNeg}`) : negative;
+    if (catRateNeg && wc(cr) <= NEG_MAX) negative = cr;
     if (tags.length) {
       const tryTags = squeeze(`${negative}, cluttered props`);
       if (wc(tryTags) <= NEG_MAX) negative = tryTags;
@@ -401,13 +376,13 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
 
     const sections = {
       aspect,
-      lighting: "bright natural light; vivid color; crisp focus",
-      layout,
+      layout: L.key,
       mandatoryText: completed_text,
       typography: "modern sans-serif; ~25% area; no panels",
       scene: visual_recommendation || "",
       mood: toneStr,
-      tags
+      tags,
+      pretty: prettyLines.join("\n")
     };
 
     return {
