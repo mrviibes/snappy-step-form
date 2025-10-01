@@ -60,104 +60,71 @@ interface PromptTemplate {
 }
 
 // ============== AI SYSTEM PROMPT ==============
-const buildSystemPrompt = () => `You are an expert AI image prompt engineer specializing in crafting optimized prompts for text-on-image generation.
+const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 2-line structure:
 
-LAYOUT TYPES (6 options):
-1. meme-text: Bold impact font, top/bottom split text, simple background, high contrast
-2. badge-callout: Floating badge/callout with text, clear zone around text, minimal background detail
-3. negative-space: Text in open/empty areas, environmental composition, text integrated naturally
-4. caption: Bottom-anchored text, cinematic composition, strong visual hierarchy
-5. integrated-in-scene: Text as part of environment (signs, objects, graffiti), seamless integration
-6. dynamic-overlay: Diagonal/angular text placement, energetic composition, modern typography
+POSITIVE PROMPT FORMAT (exactly 2 lines):
+Line 1: TEXT "[mandatory_text]" in a [layout] format with bright, vibrant colors, well-lit, crisp details, professional quality in a [aspect] [style] image.
+Line 2: A [rating] scene featuring [visual_description] in a [composition] composition.
 
-VISUAL STYLES:
-- Realistic: Photographic lighting, natural proportions, detailed textures, real-world physics
-- 3D Render: Clean geometry, studio lighting, polished surfaces, CGI aesthetic
-- Anime: Bold lines, expressive features, vibrant colors, stylized proportions
-- Design: Flat colors, geometric shapes, minimalist, graphic design aesthetic
-- General: Flexible style, balanced approach
-- Auto: AI chooses best style for content
+NEGATIVE PROMPT FORMAT (comma-separated list):
+dark, dim, murky, shadowy, underexposed, blurry, grainy, dull-colors, washed-out, cluttered, distorted, low-quality, misspelled, illegible, broken-words, warped, panels, bubbles
+
+⚠️ CRITICAL RULES:
+1. DO NOT extract visual keywords from the mandatory text - text is ONLY for display, NOT scene content
+2. Use ONLY the visual_recommendation and specific_visuals for actual scene elements  
+3. Keep format SHORT and CLEAN - no extra words or descriptions
+4. Always include quality attributes: "bright, vibrant colors, well-lit, crisp details, professional quality"
+5. Never use words from the text as scene descriptors (e.g., if text mentions "hieroglyphics", do NOT add hieroglyphics to the scene)
+
+LAYOUT TYPES:
+- meme-text: Text format for meme-style images
+- badge-callout: Floating badge/callout format
+- negative-space: Text in open space format
+- caption: Bottom caption format
+- integrated-in-scene: Text integrated into environment
+- dynamic-overlay: Diagonal overlay format
 
 COMPOSITION MODES:
-- norman/base_realistic: Natural anatomy, photoreal lighting, coherent perspective
-- big-head/exaggerated_props: Giant caricature head, clean neck transition, stable features
-- close-up/very_close: Tight face framing, shallow depth, crisp edges
-- goofy/goofy_wide: Zoomed-out wide frame, playful mood, ample negative space
-- zoomed: Distant subject, wide shot, strong environment emphasis
-- surreal/surreal_scale: Dramatic scale contrast, consistent shadows, coherent perspective
+- normal/base_realistic: Natural proportions, photoreal lighting
+- big-head/exaggerated_props: Caricature style
+- close-up/very_close: Tight framing
+- goofy/goofy_wide: Wide playful framing
+- zoomed: Wide environmental shot
+- surreal/surreal_scale: Dramatic scale contrast
 
-TONE EFFECTS:
-- humorous: Funny, witty, playful mood
-- savage: Bold, edgy, confident, cutting
-- sarcastic: Witty, ironic, sharp
-- wholesome: Warm, positive, uplifting
-- dark: Edgy, moody, dramatic
-- romantic: Tender, intimate, heartfelt
+EXAMPLES:
+✅ CORRECT FORMAT:
+Line 1: TEXT "Jesse's birth certificate is practically a historical artifact, complete with hieroglyphics." in a meme-text format with bright, vibrant colors, well-lit, crisp details, professional quality in a 16:9 realistic image.
+Line 2: A PG-13 scene featuring group of friends laughing around a birthday cake in a normal composition.
 
-RATING CONSTRAINTS:
-- G: Family-friendly, no controversial elements
-- PG: Mild humor, safe for most audiences
-- PG-13: Edgier humor, some innuendo allowed
-- R: Adult themes, strong language, mature humor
+❌ WRONG - Don't do this:
+"The image shows hieroglyphics and historical artifacts with Jesse's friends celebrating..."
 
-YOUR TASK:
-Analyze all input parameters (text, layout, style, tone, rating, composition, visual recommendations) and craft an OPTIMAL image generation prompt.
-
-CRITICAL REQUIREMENTS:
-1. Text must be BRIGHT, VIBRANT, WELL-LIT, CRISP - never dark or murky
-2. Text coverage must meet layout minimums (meme: 20%, badge: 25%, caption: 15%, others: 18-22%)
-3. Modern sans-serif typography unless style requires otherwise
-4. No text panels, bubbles, or frames - text directly on image
-5. Mandatory text must be EXACT and PROMINENT
-
-POSITIVE PROMPT STRUCTURE:
-- Start with mandatory text and layout specification
-- Add lighting/quality requirements (bright, vibrant, well-lit)
-- Specify typography and text coverage percentage
-- Define aspect ratio and visual style
-- Describe scene with visual recommendations
-- Include composition mode characteristics
-- Set mood/tone
-- Add specific visual elements if provided
-
-NEGATIVE PROMPT STRATEGY:
-Prioritize exclusions based on:
-1. Dark/low-quality prevention (dark, dim, murky, shadowy, underexposed)
-2. Text rendering issues (misspelled, illegible, broken-words, warped)
-3. Composition problems (cluttered, distorted, panels, bubbles)
-4. Category/rating-specific exclusions
-5. Style-specific anti-patterns
-
-Think through the BEST way to combine all parameters for maximum image quality and text readability.`;
+Remember: The text is what gets DISPLAYED as typography. The visual_recommendation describes what's IN the scene.`;
 
 // ============== AI TOOL DEFINITION ==============
 const promptCraftingTool = {
   type: "function",
   function: {
-    name: "craft_image_prompt",
-    description: "Generate optimized positive and negative prompts for text-on-image generation",
+    name: "format_prompt",
+    description: "Format the image prompt following the exact 2-line structure",
     parameters: {
       type: "object",
       properties: {
-        reasoning: {
+        positive_line1: {
           type: "string",
-          description: "Your thought process: why these specific prompt choices work best for this combination of parameters"
+          description: 'Line 1: TEXT "[text]" in a [layout] format with bright, vibrant colors, well-lit, crisp details, professional quality in a [aspect] [style] image.'
         },
-        positive_prompt: {
+        positive_line2: {
           type: "string",
-          description: "Complete positive prompt optimized for image generation (no word limit, focus on clarity and completeness)"
+          description: "Line 2: A [rating] scene featuring [visual_description] in a [composition] composition."
         },
         negative_prompt: {
           type: "string",
-          description: "Negative prompt with prioritized exclusions (focus on most important anti-patterns)"
-        },
-        emphasis_areas: {
-          type: "array",
-          items: { type: "string" },
-          description: "3-5 key focal points the generator should prioritize"
+          description: "Comma-separated negative terms: dark, dim, murky, shadowy, underexposed, blurry, grainy, dull-colors, washed-out, cluttered, distorted, low-quality, misspelled, illegible, broken-words, warped, panels, bubbles"
         }
       },
-      required: ["reasoning", "positive_prompt", "negative_prompt", "emphasis_areas"],
+      required: ["positive_line1", "positive_line2", "negative_prompt"],
       additionalProperties: false
     }
   }
@@ -385,20 +352,24 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     const minPct = minCoverageForLayout(layoutKey);
 
     // Build detailed context for AI
-    const userPrompt = `Generate an optimized image generation prompt with these parameters:
+    const userPrompt = `Format this prompt following the EXACT 2-line structure:
 
 MANDATORY TEXT: "${completed_text}"
-LAYOUT: ${layoutKey} (min ${minPct}% text coverage)
+LAYOUT: ${layoutKey}
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
 COMPOSITION MODE: ${compName}
-TONE: ${tone}
 RATING: ${rating}
-CATEGORY: ${category}
 VISUAL RECOMMENDATION: ${visPhrase}
 SPECIFIC VISUALS: ${tags.join(", ") || "none"}
 
-Craft the BEST possible prompts that combine all these elements intelligently. Think through how the layout type affects text placement, how the style affects rendering, and how to prevent dark/low-quality output.`;
+⚠️ CRITICAL: The mandatory text is what gets DISPLAYED as typography. Do NOT use words from the text as scene elements. Use ONLY the visual recommendation and specific visuals for actual scene content.
+
+Example:
+- Text says "hieroglyphics" → Display it as text, do NOT add hieroglyphics to the scene
+- Visual recommendation says "friends laughing around birthday cake" → This goes in the scene
+
+Output the 2 lines for the positive prompt and the comma-separated negative prompt.`;
 
     try {
       const aiResponse = await fetch(AI_GATEWAY_URL, {
@@ -414,7 +385,7 @@ Craft the BEST possible prompts that combine all these elements intelligently. T
             { role: "user", content: userPrompt }
           ],
           tools: [promptCraftingTool],
-          tool_choice: { type: "function", function: { name: "craft_image_prompt" } }
+          tool_choice: { type: "function", function: { name: "format_prompt" } }
         })
       });
 
@@ -434,14 +405,18 @@ Craft the BEST possible prompts that combine all these elements intelligently. T
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      console.log(`Layout ${layoutKey} - AI Reasoning:`, result.reasoning);
-      console.log(`Positive prompt (${result.positive_prompt.length} chars):`, result.positive_prompt.substring(0, 200) + "...");
-      console.log(`Negative prompt:`, result.negative_prompt);
+      // Combine the two lines
+      const positive_prompt = `${result.positive_line1}\n\n${result.positive_line2}`;
+      
+      console.log(`Layout ${layoutKey} - Structured prompt:`);
+      console.log(`Line 1:`, result.positive_line1);
+      console.log(`Line 2:`, result.positive_line2);
+      console.log(`Negative:`, result.negative_prompt);
 
       prompts.push({
-        name: `AI-Crafted — ${layoutKey}`,
-        description: result.reasoning,
-        positive: result.positive_prompt,
+        name: `${layoutKey}`,
+        description: `Clean structured prompt for ${layoutKey} layout`,
+        positive: positive_prompt,
         negative: result.negative_prompt,
         sections: {
           aspect,
@@ -451,7 +426,7 @@ Craft the BEST possible prompts that combine all these elements intelligently. T
           scene: visPhrase,
           mood: tone,
           tags,
-          pretty: `AI-Generated Prompt:\n\n${result.positive_prompt}\n\nEmphasis: ${result.emphasis_areas.join(", ")}`
+          pretty: `Line 1: ${result.positive_line1}\n\nLine 2: ${result.positive_line2}`
         }
       });
 
@@ -518,20 +493,22 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
 
-    const userPrompt = `Generate an optimized IDEOGRAM image generation prompt (Ideogram excels at text rendering and typography):
+    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 2-line structure:
 
 MANDATORY TEXT: "${completed_text}"
-LAYOUT: ${layoutKey} (min ${minPct}% text coverage)
+LAYOUT: ${layoutKey}
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
 COMPOSITION MODE: ${compName}
-TONE: ${tone}
 RATING: ${rating}
-CATEGORY: ${category}
 VISUAL RECOMMENDATION: ${visPhrase}
 SPECIFIC VISUALS: ${tags.join(", ") || "none"}
 
-IDEOGRAM-SPECIFIC: Focus heavily on text clarity, bold typography, high contrast between text and background. Ideogram is exceptional at rendering text, so emphasize text prominence and readability.`;
+⚠️ CRITICAL: The mandatory text is what gets DISPLAYED as typography. Do NOT use words from the text as scene elements.
+
+IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast. Ideogram excels at text rendering.
+
+Output the 2 lines for the positive prompt and the comma-separated negative prompt.`;
 
     try {
       const aiResponse = await fetch(AI_GATEWAY_URL, {
@@ -547,7 +524,7 @@ IDEOGRAM-SPECIFIC: Focus heavily on text clarity, bold typography, high contrast
             { role: "user", content: userPrompt }
           ],
           tools: [promptCraftingTool],
-          tool_choice: { type: "function", function: { name: "craft_image_prompt" } }
+          tool_choice: { type: "function", function: { name: "format_prompt" } }
         })
       });
 
@@ -566,12 +543,17 @@ IDEOGRAM-SPECIFIC: Focus heavily on text clarity, bold typography, high contrast
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      console.log(`Ideogram ${layoutKey} - AI Reasoning:`, result.reasoning);
+      // Combine the two lines
+      const positive_prompt = `${result.positive_line1}\n\n${result.positive_line2}`;
+      
+      console.log(`Ideogram ${layoutKey} - Structured prompt:`);
+      console.log(`Line 1:`, result.positive_line1);
+      console.log(`Line 2:`, result.positive_line2);
 
       prompts.push({
-        name: `Ideogram AI — ${layoutKey}`,
-        description: result.reasoning,
-        positive: result.positive_prompt,
+        name: `ideogram-${layoutKey}`,
+        description: `Ideogram structured prompt for ${layoutKey} layout`,
+        positive: positive_prompt,
         negative: result.negative_prompt,
         sections: {
           aspect,
@@ -581,7 +563,7 @@ IDEOGRAM-SPECIFIC: Focus heavily on text clarity, bold typography, high contrast
           scene: visPhrase,
           mood: tone,
           tags,
-          pretty: `AI-Generated Ideogram Prompt:\n\n${result.positive_prompt}\n\nEmphasis: ${result.emphasis_areas.join(", ")}`
+          pretty: `Line 1: ${result.positive_line1}\n\nLine 2: ${result.positive_line2}`
         }
       });
 
