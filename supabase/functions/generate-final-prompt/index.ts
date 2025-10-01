@@ -206,27 +206,31 @@ function normTags(tags?: string[], max = 6) {
 
 // Split meme text at first comma for top/bottom
 function maybeSplitMeme(text: string, layoutKey?: string) {
-  if (layoutKey !== "meme-text") return `MANDATORY TEXT: "${text}"`;
+  if (layoutKey !== "meme-text") return `MANDATORY TEXT (exact, verbatim): "${text}" — render as one block.`;
   const i = text.indexOf(",");
-  if (i === -1) return `MANDATORY TEXT: "${text}"`;
+  if (i === -1) return `MANDATORY TEXT (exact, verbatim): "${text}" — render as one block.`;
   const top = text.slice(0, i).trim();
   const bottom = text.slice(i + 1).trim();
-  return `Text top: "${top}" Text bottom: "${bottom}"`;
+  return `Text top (verbatim): "${top}" Text bottom (verbatim): "${bottom}"`;
 }
 
 // Clean visual_recommendation → natural phrase
 function cleanVisRec(s?: string) {
   const raw = (s || "").trim();
   if (!raw) return "clear composition";
-  let t = raw.replace(/^[Aa]n?\s+/, "");              // drop leading A/An
-  t = t.replace(/\s+/g, " ").replace(/\.*$/, "");     // collapse spaces, drop trailing dots
-  // soften common “scene shows” phrasing
-  t = t.replace(/^lively scene shows\s+/i, "lively ")
-       .replace(/^scene shows\s+/i, "");
+  let t = raw.replace(/^[Aa]n?\s+/, "");           // drop leading A/An
+  t = t.replace(/\s+/g, " ").replace(/\.*$/, ""); // collapse spaces, drop trailing dots
+  t = t.replace(/^lively scene shows\s+/i, "lively ").replace(/^scene shows\s+/i, "");
   return t;
 }
 
-// Join an array of lines to a single line (API), cap words
+// If badge-callout and long text, auto-switch to negative-space
+function enforceLayout(key: string, completedText: string, thresh = 12) {
+  if (key === "badge-callout" && wc(completedText) > thresh) return "negative-space";
+  return key;
+}
+
+// Join lines to single line (API), cap words
 function collapseLines(lines: string[], maxWords: number) {
   const one = squeeze(lines.filter(Boolean).join(" "));
   return wc(one) > maxWords ? limitWords(one, maxWords) : one;
@@ -266,15 +270,18 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
+  // tighter baseNeg, focused on spelling splits (10 words)
   const baseNeg = [
-    "misspelled","illegible","low-contrast","extra","black-bars",
-    "speech-bubbles","panels","warped","duplicate","cramped"
+    "misspelled","illegible","broken-words","extra","low-contrast",
+    "warped","panels","bubbles","black-bars","cramped"
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+    const layoutKey = enforceLayout(L.key, completed_text);
+
     // Multi-line skeleton — EXACT format requested
     const prettyLines = [
-`MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
+`MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
 "Typography: modern sans-serif; ~25% area; no panels.",
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
@@ -301,7 +308,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
 
     const sections = {
       aspect,
-      layout: L.key,
+      layout: layoutKey,
       mandatoryText: completed_text,
       typography: "modern sans-serif; ~25% area; no panels",
       scene: visPhrase,
@@ -311,8 +318,8 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     };
 
     return {
-      name: `Gemini — ${L.key}`,
-      description: `Compact Gemini prompt for layout: ${L.key}`,
+      name: `Gemini — ${layoutKey}`,
+      description: `Compact Gemini prompt for layout: ${layoutKey}`,
       positive,
       negative,
       sections
@@ -357,14 +364,16 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   }
 
   const baseNeg = [
-    "misspelled","illegible","low-contrast","extra","panels",
-    "speech-bubbles","black-bars","warped","duplicate","cramped"
+    "misspelled","illegible","broken-words","extra","low-contrast",
+    "warped","panels","bubbles","black-bars","cramped"
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+    const layoutKey = enforceLayout(L.key, completed_text);
+
     // Multi-line skeleton — EXACT format requested
     const prettyLines = [
-`MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
+`MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
 "Typography: modern sans-serif; ~25% area; no panels.",
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
@@ -389,7 +398,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
 
     const sections = {
       aspect,
-      layout: L.key,
+      layout: layoutKey,
       mandatoryText: completed_text,
       typography: "modern sans-serif; ~25% area; no panels",
       scene: visPhrase,
@@ -399,8 +408,8 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     };
 
     return {
-      name: `Ideogram — ${L.key}`,
-      description: `Compact Ideogram prompt for layout: ${L.key}`,
+      name: `Ideogram — ${layoutKey}`,
+      description: `Compact Ideogram prompt for layout: ${layoutKey}`,
       positive,
       negative,
       sections
