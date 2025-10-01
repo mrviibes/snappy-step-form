@@ -360,27 +360,19 @@ export default function TextStep({
   const layoutOptions = [{
     id: "meme-text",
     title: "Meme Text",
-    image: memeTextImage
+    description: "Text at top and bottom"
   }, {
     id: "badge-callout",
-    title: "Badge Callout",
-    image: badgeCalloutImage
+    title: "Badge Text",
+    description: "Text in colorful badge"
   }, {
     id: "negative-space",
-    title: "Negative Space",
-    image: negativeSpaceImage
-  }, {
-    id: "caption",
-    title: "Caption",
-    image: subtleCaptionImage
+    title: "Open Space",
+    description: "Text in empty areas"
   }, {
     id: "integrated-in-scene",
-    title: "Integrated In-Scene Text",
-    image: lowerBannerImage
-  }, {
-    id: "dynamic-overlay",
-    title: "Dynamic Overlay",
-    image: sideBarImage
+    title: "In Scene",
+    description: "Text naturally in image"
   }];
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
@@ -850,17 +842,17 @@ export default function TextStep({
                {(selectedTextOption !== null && !data.text?.layout || data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout) && <div className="space-y-3 p-4">
                    <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Text Layout:</h3>
                    <div className="grid grid-cols-2 gap-3">
-                     {layoutOptions.map(layout => <Card key={layout.id} className={cn("cursor-pointer overflow-hidden text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+                     {layoutOptions.map(layout => <Card key={layout.id} className={cn("cursor-pointer text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
           "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
           "border-border": data.text?.layout !== layout.id
         })} onClick={() => handleLayoutSelect(layout.id)}>
-                         <div className="w-full h-24 overflow-hidden">
-                           <img src={layout.image} alt={layout.title} className="w-full h-full object-cover" />
-                         </div>
-                         <div className="p-3 pt-2">
-                           <h3 className="text-sm font-medium text-foreground">
+                         <div className="p-6 flex flex-col items-center justify-center h-28">
+                           <h3 className="text-base font-semibold text-foreground mb-2">
                              {layout.title}
                            </h3>
+                           <p className="text-sm text-muted-foreground">
+                             {layout.description}
+                           </p>
                          </div>
                        </Card>)}
                    </div>
