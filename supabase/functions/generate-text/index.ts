@@ -8,7 +8,8 @@ import {
   sports_text_rules,
   pop_culture_text_rules,
   miscellaneous_text_rules,
-  custom_design_text_rules
+  custom_design_text_rules,
+  TONE_TAGS
 } from "../_shared/text-rules.ts";
 
 const corsHeaders = {
@@ -147,7 +148,6 @@ function uncensorStrongForR(s: string): string {
     .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
     .replace(/\bbull\s*shit\b/gi, "bullshit");
 }
-
 function replaceStrongForPG(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) {
@@ -156,7 +156,6 @@ function replaceStrongForPG(s: string): string {
   for (const w of MEDIUM_WORDS) out = out.replace(new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi"), "");
   return out.replace(/\s{2,}/g, " ").trim();
 }
-
 function enforcePG13(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) out = out.replace(rx, "");
@@ -166,7 +165,6 @@ function enforcePG13(s: string): string {
   out = hasHell ? out.replace(/\bdamn\b/gi, "") : out.replace(/\bhell\b/gi, "");
   return out.replace(/\s{2,}/g, " ").trim();
 }
-
 function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
 
 function enforceRatingLine(s: string, rating: string): string {
@@ -174,9 +172,7 @@ function enforceRatingLine(s: string, rating: string): string {
   const r = (rating || "G").toUpperCase();
 
   // For R-rating: only uncensor, don't inject profanity (let AI generate it naturally)
-  if (r === "R") {
-    out = uncensorStrongForR(out);
-  }
+  if (r === "R") out = uncensorStrongForR(out);
   else if (r === "PG-13" || r === "PG13") out = enforcePG13(out);
   else if (r === "PG") out = replaceStrongForPG(out);
   else { // G
@@ -228,6 +224,9 @@ serve(async (req) => {
       default: break;
     }
 
+    // Build tone tag (3–4 words) to hint the model
+    const toneTag = TONE_TAGS[(tone || "").toLowerCase()] || "clear, natural, human";
+
     // Context + format
     systemPrompt += `
 CONTEXT
@@ -237,23 +236,23 @@ CONTEXT
 
 CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one complete sentence ending with punctuation. Do not output labels, headings, or bullet points.`;
 
-    // User prompt with R-rating guidance
+    // User prompt with tone + rating guidance
     let userPrompt =
-      `Write 4 ${(tone || "Humorous")} one-liners that clearly center on "${leaf || "the selected theme"}".`;
+      `Write 4 one-liners in this tone: ${toneTag}. Center every line on "${leaf || "the selected theme"}".`;
     if (/\bjokes?\b/i.test(cat)) {
       userPrompt += ` Never say humor labels (dad-joke, pun, joke/jokes); imply the style only.`;
     }
     if (insertWords.length) {
       userPrompt += ` Each line must naturally include exactly one of: ${insertWords.join(", ")}.`;
     }
-    
-    // Enhanced R-rating instructions for natural profanity
+
+    // R details
     const r = (rating || "G").toUpperCase();
     if (r === "R") {
       const nameHint = insertWords.length ? ` (e.g., "${insertWords[0]}, you're fucking killing it with that cake")` : "";
-      userPrompt += ` RATING R: Use strong profanity (fuck, shit, bullshit) naturally WITHIN sentences${nameHint}. Never end sentences with profanity—place it after the subject/name or mid-sentence for emphasis. Make it flow like real human speech.`;
+      userPrompt += ` RATING R: Use strong profanity naturally WITHIN sentences${nameHint}. Never end sentences with profanity; place it after the subject/name or mid-sentence.`;
     }
-    
+
     userPrompt += ` One sentence per line, ≤3 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles). Avoid limp filler; end with a clean punch.`;
 
     // Call Gemini
@@ -303,14 +302,14 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
     // De-duplicate phrasing
     lines = dampenDuplicatePairs(lines);
 
-    // Rating enforcement (only uncensor for R, remove profanity for lower ratings)
+    // Rating enforcement (R uncensor only; PG/PG-13 clean; G scrub)
     lines = lines.map(s => enforceRatingLine(s, rating || "G"));
 
     // Final sweep
     lines = lines.map(s => ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s))))));
 
     return new Response(
-      JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating } }),
+      JSON.stringify({ options: lines, debug: { used_rules, category, subcategory, tone, rating, tone_tag: toneTag } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
