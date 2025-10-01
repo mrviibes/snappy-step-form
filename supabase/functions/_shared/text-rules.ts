@@ -34,7 +34,6 @@ RATINGS
 - PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
 - R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.`;
 
-
 export const celebration_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CELEBRATIONS
 
 GOAL
@@ -56,7 +55,6 @@ RULES
   PG-13 → only “hell” or “damn”.
   R → profanity required in every line (no slurs).`;
 
-
 export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
 
 HARD CONSTRAINTS
@@ -76,7 +74,6 @@ TONES
 
 RATINGS
 - G / PG / PG-13 / R (same definitions as general_text_rules).`;
-
 
 export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
@@ -99,7 +96,6 @@ HARD CONSTRAINTS
 TONES/RATINGS
 - (same as text_rules)`;
 
-
 export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
 
 GOAL
@@ -108,83 +104,4 @@ Write 4 action-packed, competitive one-liners about sports and athletics.
 HARD CONSTRAINTS
 - Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
 - ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on the specific sport, team, player, or athletic moment.
-- ACTION-ORIENTED: Use dynamic verbs, competitive energy, victory/defeat dynamics.
-- ATHLETIC TERMINOLOGY: Leverage sports metaphors, game language, competitive spirit.
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Avoid generic pep-talk clichés unless the leaf requires them.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as text_rules)`;
-
-
-export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR POP CULTURE
-
-GOAL
-Write 4 culturally-savvy, reference-rich one-liners about entertainment and pop culture.
-
-HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on the specific movie, TV show, celebrity, music, meme, or cultural phenomenon.
-- REFERENCES: Feel current and culturally aware; speak the language of fans.
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Avoid stale references; keep it timely unless leaf is explicitly retro.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as text_rules)`;
-
-
-export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS/ANIMALS
-
-GOAL
-Write 4 observational, quirky one-liners about animals, nature, or diverse topics.
-
-HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on the specific animal, creature, natural phenomenon, or miscellaneous topic (leaf).
-- OBSERVATIONAL: Comment on behaviors, characteristics, or distinctive traits.
-- FLEXIBILITY: Adapt to whatever the leaf is (animals, nature, random topics).
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Avoid generic nature clichés unless the leaf is a seasonal theme.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as text_rules)`;
-
-
-export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM DESIGN
-
-GOAL
-Write 4 creative, flexible one-liners for open-ended or abstract concepts.
-
-HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- LABEL POLICY: never output labels or headers (e.g., "TONE:", "RATING:", "SPECIFIC WORDS:").
-- COMMA HYGIENE: no leading commas, no double commas, exactly one space after commas.
-- Follow the selected Tone and Rating. Use any required insert words naturally.
-- FOCUS: Center on the specific theme or concept provided (leaf).
-- FLEXIBILITY: Adapt to abstract ideas while staying clear and punchy.
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Avoid purple-prose clichés; be crisp and imaginative.
-- R PROFANITY (when Rating = R): integrate naturally inside the sentence, never as the final word.
-
-TONES/RATINGS
-- (same as text_rules)`;
+- LABEL POLICY: never output labels or headers (e.g., "TONE:", "
