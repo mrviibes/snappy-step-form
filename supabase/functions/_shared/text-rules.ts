@@ -1,6 +1,6 @@
 // ================== TEXT RULES (ALL CATEGORIES) ==================
 
-export const general_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+export const general_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
 
 GOAL
 Write 4 funny, punchy, human-sounding distinct one-liners.
@@ -33,7 +33,7 @@ RATINGS
 `;
 
 
-export const celebration_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
+export const celebration_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CELEBRATIONS
 
 GOAL
 Write 4 hilarious, personal one-liners for a special occasion.
@@ -53,7 +53,7 @@ RULES
 ;
 
 
-export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS
 
 HARD CONSTRAINTS
 - Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
@@ -83,7 +83,7 @@ RATINGS
 `;
 
 
-export const celebrations_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
+export const celebrations_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CELEBRATIONS
 
 GOAL
 Write 4 celebratory, personal, heartfelt one-liners for special occasions.
@@ -114,7 +114,7 @@ RATINGS
 `;
 
 
-export const daily_life_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR DAILY LIFE
+export const daily_life_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR DAILY LIFE
 
 GOAL
 Write 4 relatable, universal one-liners about everyday experiences.
@@ -134,7 +134,7 @@ TONES/RATINGS
 `;
 
 
-export const sports_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR SPORTS
+export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
 
 GOAL
 Write 4 action-packed, competitive one-liners about sports and athletics.
@@ -155,7 +155,7 @@ TONES/RATINGS
 `;
 
 
-export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR POP CULTURE
+export const pop_culture_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR POP CULTURE
 
 GOAL
 Write 4 culturally-savvy, reference-rich one-liners about entertainment and pop culture.
@@ -175,7 +175,7 @@ TONES/RATINGS
 `;
 
 
-export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR MISCELLANEOUS/ANIMALS
+export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS/ANIMALS
 
 GOAL
 Write 4 observational, quirky one-liners about animals, nature, or diverse topics.
@@ -196,7 +196,7 @@ TONES/RATINGS
 `;
 
 
-export const custom_design_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CUSTOM DESIGN
+export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM DESIGN
 
 GOAL
 Write 4 creative, flexible one-liners for open-ended or abstract concepts.
