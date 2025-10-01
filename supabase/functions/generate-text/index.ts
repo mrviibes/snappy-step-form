@@ -321,6 +321,48 @@ R-RATED RULES:
 • Make it savage and quotable, not just profane
 ` : ""}
 
+${tone?.toLowerCase() === "savage" ? `
+SAVAGE TONE RULES (BE RUTHLESS):
+• Go for the THROAT - make it PERSONAL and devastating
+• No poetic fluff or flowery language - be brutally DIRECT
+• Cross lines that make people gasp before they laugh
+• Aim for "OHHH DAMN" reactions, not gentle teasing
+• Think roast battle, not friendly banter
+
+SAVAGE EXAMPLES:
+✅ "Jesse's so old their childhood memories are just static and regret"
+✅ "Another year older and somehow less accomplished than last year"
+✅ "Jesse walked in and lowered the room's collective IQ by 20 points"
+✅ "Happy birthday to someone whose best years are definitely behind them"
+✅ "You're getting older but not wiser - that ship sailed years ago"
+` : ""}
+
+${tone?.toLowerCase() === "playful" ? `
+PLAYFUL TONE RULES:
+• Keep it light and mischievous - never mean
+• Use wordplay, puns, and silly observations
+• Think playful teasing between friends
+• Childlike wonder meets adult humor
+
+PLAYFUL EXAMPLES:
+✅ "Jesse's got more candles than the cake can handle - fire hazard alert!"
+✅ "Another trip around the sun and you're still dodging responsibility like a pro"
+✅ "Age is just a number, but in Jesse's case it's a really big number"
+` : ""}
+
+${tone?.toLowerCase() === "sentimental" ? `
+SENTIMENTAL TONE RULES:
+• Warm, genuine, heartfelt - NO sarcasm or irony
+• Focus on appreciation, love, and meaningful moments
+• Can still be funny, but comes from a place of affection
+• Make them feel special and valued
+
+SENTIMENTAL EXAMPLES:
+✅ "Jesse makes every room brighter just by being there"
+✅ "Here's to another year of your incredible kindness changing lives"
+✅ "The world got luckier the day Jesse was born"
+` : ""}
+
 CRITICAL FLOW RULES:
 • Every line must be a complete, grammatically correct sentence
 • Avoid mechanical connectors (especially overusing "and")

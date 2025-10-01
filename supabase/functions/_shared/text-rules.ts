@@ -69,7 +69,7 @@ export const custom_design_text_rules = general_text_rules;
 // ======= Minimal tone tags (3–4 words) =======
 export const TONE_TAGS: Record<string, string> = {
   humorous:      "HILARIOUS, unexpected twists, make them laugh out loud",
-  savage:        "harsh, blunt, cutting",
+  savage:        "BRUTAL, ruthless, no mercy, cross the line, devastating roast, make them gasp",
   sentimental:   "warm, heartfelt, tender",
   nostalgic:     "reflective, old-times, wistful",
   romantic:      "loving, passionate, sweet",
@@ -81,7 +81,7 @@ export const TONE_TAGS: Record<string, string> = {
 // ======= Minimal rating tags (language + topics) =======
 export const RATING_TAGS: Record<string, string> = {
   G:      "all-ages; no profanity; gentle themes",
-  PG:     "mild words only; kid-safe; no sexual content",
-  "PG-13":"allow 'hell' or 'damn'; mild innuendo; no explicit sex/graphic content; ban 'goddamn'",
-  R:      "strong profanity allowed (fuck, shit, damn, hell - VARY them); adult themes; no slurs; not graphic; place naturally in punchline"
+  PG:     "censored swears only (f***, sh*t, a**); kid-safe themes; no sexual content",
+  "PG-13":"allow 'hell' or 'damn'; mild innuendo; no explicit sex/graphic content; NO strong profanity (no fuck, shit, goddamn)",
+  R:      "strong profanity allowed (fuck, shit, damn, hell, bastard, bullshit, goddamn, ass - VARY them); adult themes; no slurs; not graphic; place naturally in punchline"
 };
