@@ -40,7 +40,7 @@ Write 4 hilarious, personal one-liners for a special occasion.
 
 RULES
 - Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
-- Max 2 punctuation marks per line (. , ? !). No numbering or lists.
+- Max 2 punctuation marks per line (. , ? !). No numbering, lists or em dashes.
 - Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
 - Focus on the honoree: make it celebratory, personal, and funny.
 - No duplicate word pairs across the 4 lines.
