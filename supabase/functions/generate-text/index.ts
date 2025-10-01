@@ -38,12 +38,12 @@ function clampLen(s: string, n = MAX_LEN): string {
 }
 function ensureEndPunct(s: string): string { return /[.!?]$/.test(s) ? s : s + "."; }
 
-// allow only . , ? !  → replace other punctuation with space (no asterisks policy)
+// allow only . , ? !  → replace other punctuation with space (no asterisks)
 function sanitizePunct(s: string): string {
   return (s || "").replace(/[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim();
 }
 
-// strong comma hygiene: kill leading commas, collapse runs, space-after, never space-before
+// strong comma hygiene
 function tidyCommas(s: string): string {
   if (!s) return s;
   let out = s.replace(/^\s*,+\s*/g, "");
@@ -66,9 +66,9 @@ function limitPunctPerLine(s: string): string {
 
 function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-// drop label/meta lines like "TONE:", "RATING:", "SPECIFIC WORDS:", etc.
+// drop label/meta lines
 function isMetaLine(s: string): boolean {
-  return /^\s*(tone|rating|specific(?:\s+)?words?|process|category|context|rules?)\s*:/i.test(s);
+  return /^\s*(tone|rating|specific(?:\s+)?words?|insert(?:\s+)?words?|process|category|context|rules?)\s*:/i.test(s);
 }
 
 // Fix orphan "'s" when the name was removed earlier
@@ -76,30 +76,45 @@ function fixOrphanPossessive(line: string, word: string): string {
   return line.replace(/(^|[^\p{L}\p{N}’'])(?='s\b)/u, (_m, p1) => `${p1}${word}`);
 }
 
-// Insert a specific word once, placed mid-sentence when possible
+// Already contains insert (base or possessive)?
+function hasInsertAlready(s: string, word: string): boolean {
+  const base = new RegExp(`\\b${escapeRegExp(word)}\\b`, "i");
+  const poss = new RegExp(`\\b${escapeRegExp(word)}'s\\b`, "i");
+  return base.test(s) || poss.test(s);
+}
+
+// Insert a specific word once, placed mid-sentence when possible (never end on the name)
 function placeWordNaturally(line: string, word: string): string {
   if (!word) return line;
-  let s = fixOrphanPossessive(line, word);
+  if (hasInsertAlready(line, word)) return tidyCommas(line);
 
-  // Remove naked instances (leave possessives intact)
-  const rx = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
-  s = s.replace(rx, "").replace(/\s{2,}/g, " ").trim();
+  let s = fixOrphanPossessive(line, word)
+    .replace(new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi"), "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   if (s.includes(",")) {
     s = s.replace(",", `, ${word},`).replace(/,\s*,/g, ", ");
-    return s;
+  } else {
+    const i = s.indexOf(" ");
+    s = i > 0 ? s.slice(0, i) + " " + word + s.slice(i) : `${word} ${s}`;
   }
-  const firstSpace = s.indexOf(" ");
-  if (firstSpace > 0) s = s.slice(0, firstSpace) + " " + word + s.slice(firstSpace);
-  else s = `${word} ${s}`;
-  return s;
+
+  // Never end on the name
+  s = s.replace(new RegExp(`${escapeRegExp(word)}\\s*[.!?]?$`, "i"), `${word},`);
+  return tidyCommas(s);
 }
 
-// distribute Specific Words: exactly one per line, placed naturally
+// distribute Insert Words: exactly one per line, placed naturally
 function distributeSpecificWords(lines: string[], words: string[]): string[] {
   const norm = (words || []).map(w => (w || "").trim()).filter(Boolean);
   if (!norm.length) return lines;
-  return lines.map((line, i) => ensureEndPunct(tidyCommas(placeWordNaturally(line, norm[i % norm.length]))));
+  return lines.map((line, i) => {
+    const target = norm[i % norm.length];
+    const placed = hasInsertAlready(line, target) ? line : placeWordNaturally(line, target);
+    const cleaned = ensureEndPunct(tidyCommas(placed.replace(/,\s*([.!?])/g, "$1")));
+    return cleaned;
+  });
 }
 
 function enforceLeafPresence(s: string, leafTokens: string[]): string {
@@ -143,13 +158,18 @@ function containsAny(s: string, list: string[]) {
   return list.some((w) => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(low));
 }
 
-// For R: ensure fully spelled, keep exactly one strong swear, and weave it after name/comma
+// Un-censor and fix space-mangled swears for R (f**king → fucking, f king → fucking, s t → shit)
 function uncensorStrongForR(s: string): string {
-  return s
+  return (s || "")
     .replace(/\bf\*\*k(ing|er|ed|s)?\b/gi, "fuck$1")
     .replace(/\bs\*\*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
-    .replace(/\bbull\*\*t\b/gi, "bullshit");
+    .replace(/\bbull\*\*t\b/gi, "bullshit")
+    .replace(/\bf\s*k(ing|er|ed|s)?\b/gi, "fuck$1")
+    .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
+    .replace(/\bbull\s*shit\b/gi, "bullshit");
 }
+
+// R: weave profanity after name/comma if needed, keep one strong swear, never end on it
 function weaveProfanityR(line: string, names: string[]): string {
   let out = uncensorStrongForR(line);
   if (containsAny(out, ["fuck","fucking","shit","bullshit"])) return out;
@@ -162,6 +182,7 @@ function weaveProfanityR(line: string, names: string[]): string {
   const i = out.indexOf(" ");
   return i > 0 ? out.slice(0, i) + " fuck" + out.slice(i) : out + " fuck";
 }
+
 function normalizeProfanityR(line: string, names: string[]): string {
   let out = uncensorStrongForR(line);
 
@@ -171,7 +192,7 @@ function normalizeProfanityR(line: string, names: string[]): string {
     if (kept) return ""; kept = true; return m;
   }).replace(/\s{2,}/g," ").trim();
 
-  // Ensure it's placed after name/comma
+  // Ensure placement
   const name = (names && names[0]) || "";
   if (name) {
     const afterName = new RegExp(`\\b${escapeRegExp(name)}\\b\\s+(?:you\\s+)?(?:fuck|fucking|shit)`, "i");
@@ -186,7 +207,7 @@ function normalizeProfanityR(line: string, names: string[]): string {
   return out.trim();
 }
 
-// PG: replace strong words with mild fully spelled terms; remove medium entirely
+// PG: replace strong with mild fully spelled; remove medium entirely
 function replaceStrongForPG(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) {
@@ -204,7 +225,7 @@ function replaceStrongForPG(s: string): string {
   return out.replace(/\s{2,}/g, " ").trim();
 }
 
-// PG-13: allow only hell/damn; ban goddamn + all stronger/medium words
+// PG-13: only hell/damn; ban goddamn and all stronger/medium
 function enforcePG13(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) out = out.replace(rx, "");
@@ -248,6 +269,40 @@ function enforceRatingLine(s: string, rating: string, names: string[]): string {
   line = clampLen(line);
   line = ensureEndPunct(line);
   return line;
+}
+
+// Diversify R lines so they don't all read "Name, you fuck,"
+function diversifyRLines(lines: string[], names: string[]): string[] {
+  const name = (names && names[0]) || "";
+  const youFuckRx = name
+    ? new RegExp(`\\b${escapeRegExp(name)}\\b,?\\s*you\\s+(?:fuck|fucking)`, "i")
+    : /\byou\s+(?:fuck|fucking)\b/i;
+
+  const variants = [
+    (s: string) => name ? s.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "i"), `${name}, you glorious fuck`) : s,
+    (s: string) => s.includes(",") ? s.replace(",", ", you lucky fuck,") : s,
+    (s: string) => s.replace(/\b(let's)\b/i, `$1 fucking`).replace(/\b(go|eat|party|blow|dance)\b/i, `fucking $1`)
+  ];
+
+  return lines.map((line, i) => {
+    let out = line;
+
+    if (youFuckRx.test(out)) {
+      const v = variants[i % variants.length];
+      out = v(out);
+      // ensure only one strong swear remains
+      let kept = false;
+      out = out.replace(/\b(fuck(?:ing|er|ed|s)?|shit(?:ting|ty|faced?)?|bullshit)\b/gi, m => {
+        if (kept) return ""; kept = true; return m;
+      }).replace(/\s{2,}/g," ").trim();
+    } else if (!/\b(fuck|fucking|shit|bullshit)\b/i.test(out)) {
+      // if somehow none left, weave one in
+      out = out.includes(",") ? out.replace(",", ", you glorious fuck,") :
+        (name ? `${name}, you glorious fuck, ${out}` : `Buddy, you glorious fuck, ${out}`);
+    }
+
+    return out;
+  });
 }
 
 // -------------- Server --------------
@@ -347,7 +402,7 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
     if (lines.length > 4) lines = lines.slice(0, 4);
     while (lines.length < 4) lines.push(leaf ? `Celebrating ${leaf} with you.` : `Celebrating you today.`);
 
-    // distribute Specific Word
+    // distribute Insert Word
     const specificWords = (insertWords || []).map(w => (w || "").trim()).filter(Boolean);
     lines = distributeSpecificWords(lines, specificWords);
 
@@ -364,6 +419,11 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
 
     // rating enforcement (PG mild words; PG-13 hell/damn only; R woven single-strong)
     lines = lines.map(s => enforceRatingLine(s, rating || "G", specificWords));
+
+    // diversify R lines so they don't all look the same
+    if ((rating || "G").toUpperCase() === "R") {
+      lines = diversifyRLines(lines, specificWords);
+    }
 
     // final safety sweep
     lines = lines.map(s =>
