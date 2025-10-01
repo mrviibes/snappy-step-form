@@ -804,7 +804,7 @@ export default function TextStep({
             >
               <div className="flex h-full flex-col items-center justify-center space-y-1">
                 <div className="font-semibold text-sm">Neutral</div>
-                <div className="text-xs text-muted-foreground">they/their/them</div>
+                <div className="text-xs text-muted-foreground">no pronouns (use name)</div>
               </div>
             </button>
           </div>

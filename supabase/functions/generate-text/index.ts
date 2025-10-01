@@ -67,8 +67,8 @@ function fixDoubleCommas(s: string) {
 }
 function fixVocativeComma(s: string, name?: string): string {
   if (!name) return s;
-  // Fix "Jesse, verb" → "Jesse verb" when it's awkward (name followed by comma and lowercase letter)
-  return s.replace(new RegExp(`\\b${escapeRE(name)},\\s+([a-z])`, 'g'), `${name} $1`);
+  // Only fix "Jesse, is/was/will" patterns - never touch "Jesse, their/his/her"
+  return s.replace(new RegExp(`\\b${escapeRE(name)},\\s+(is|was|were|will|looks|turns|acts|got|has|had)\\b`, 'gi'), `${name} $1`);
 }
 function isCompleteSentence(s: string): boolean {
   const trimmed = s.trim();
@@ -326,11 +326,13 @@ Pick ONE point of view per line and stick to it:
 • 3rd person: "${insertWord || (gender === 'male' ? 'He' : gender === 'female' ? 'She' : 'They')}'s so old..." OR "${insertWord || (gender === 'male' ? 'His' : gender === 'female' ? 'Her' : 'Their')} age is..."
 
 PRONOUN USAGE (CRITICAL):
-${gender === 'male' ? '• Use HE/HIS/HIM pronouns (masculine)' : gender === 'female' ? '• Use SHE/HER/HERS pronouns (feminine)' : '• Use THEY/THEIR/THEM pronouns (neutral)'}
+${gender === 'male' ? '• Use HE/HIS/HIM pronouns (masculine)' : gender === 'female' ? '• Use SHE/HER/HERS pronouns (feminine)' : '• AVOID PRONOUNS - Use NAME or second-person "you/your". Do NOT use they/their.'}
 ${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs an oil change"
 ✅ "${insertWord || 'His'} age is impressive"` : gender === 'female' ? `✅ "${insertWord || 'She'}'s so old her walker needs an oil change"
-✅ "${insertWord || 'Her'} age is impressive"` : `✅ "${insertWord || 'They'}'re so old their walker needs an oil change"
-✅ "${insertWord || 'Their'} age is impressive"`}
+✅ "${insertWord || 'Her'} age is impressive"` : `✅ "${insertWord || 'Jesse'}'s so old the walker needs an oil change"
+✅ "${insertWord || 'Jesse'}'s age is impressive"
+✅ "You're getting older but still crushing it"
+❌ WRONG: "They're so old their walker..." (don't use they/their for neutral)`}
 
 ⚠️ CONTRACTION WARNING ⚠️
 NEVER create contractions with names + "re":
@@ -515,7 +517,24 @@ OUTPUT (start immediately):`;
       out = sanitizePunct(out);
       out = dedupeName(unHedge(out), name);
       out = capLenSmart(out, MAX_LEN);
-      return endPunct(out);
+      out = endPunct(out);
+      
+      // Post-process for neutral gender: replace "their/they're" with name possessive
+      if (gender === 'neutral' && name) {
+        // Replace "their [noun]" with "Name's [noun]" (not "They say..." patterns)
+        out = out.replace(/\btheir\s+([a-z]+)\b/gi, `${name}'s $1`);
+        // Replace "they're" with "Name's" (only when not at start of generic phrases)
+        if (!/^They say/i.test(out)) {
+          out = out.replace(/\bthey're\b/gi, `${name}'s`);
+        }
+      }
+      
+      // Contraction sanity check: block "Name're" patterns
+      if (name) {
+        out = out.replace(new RegExp(`\\b${escapeRE(name)}'re\\b`, 'gi'), `${name}'s`);
+      }
+      
+      return out;
     });
 
     // CRITICAL VALIDATION: Check if ALL lines have the insert word (if one was provided)
