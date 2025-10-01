@@ -4,7 +4,6 @@ import {
   general_text_rules,
   celebration_text_rules,
   joke_text_rules, 
-  celebrations_text_rules, 
   daily_life_text_rules, 
   sports_text_rules, 
   pop_culture_text_rules, 
