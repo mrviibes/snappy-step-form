@@ -270,6 +270,7 @@ serve(async (req) => {
     const ratingTag = RATING_TAGS[(rating || "").toUpperCase()] || "follow content rating appropriately";
     const humorMode = humorModeForTone(tone);
     const leaf = (theme || subcategory || "").trim() || "the selected theme";
+    const R = (rating || "G").toUpperCase();
 
     // Insert intelligence
     const { names, traits, others } = classifyInserts(insertWords || []);
@@ -369,7 +370,6 @@ OUTPUT (start immediately):`;
     lines = lines.map(l => dedupeName(unHedge(l), name));
 
     // Rating normalization (pass name for R placement)
-    const R = (rating || "G").toUpperCase();
     lines = lines.map(l => normalizeByRating(l, R, name));
 
     // Finish cut-offs with a tiny button, if needed
