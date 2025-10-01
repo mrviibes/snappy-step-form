@@ -32,19 +32,31 @@ interface FinalPromptRequest {
   tone?: string;
   rating?: string;
   insertWords?: string[];
-  image_style?: string;
-  text_layout?: string;
+  image_style?: string;         // "realistic" | "illustrated" etc.
+  text_layout?: string;         // "auto" or one of six
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
-  composition_modes?: string[];
+  composition_modes?: string[]; // e.g., ["norman"]
+  specific_visuals?: string[];  // NEW: tags from UI
   visual_recommendation?: string;
-  provider?: "gemini" | "ideogram";
+  provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
 interface PromptTemplate {
   name: string;
-  positive: string;
+  positive: string;  // API-ready single line
   negative: string;
   description: string;
+  // Optional pretty sections for UI (human-readable)
+  sections?: {
+    aspect?: string;
+    lighting?: string;
+    layout?: string;
+    mandatoryText?: string;
+    typography?: string;
+    scene?: string;
+    mood?: string;
+    tags?: string[];
+  };
 }
 
 // ============== WORD LIMITS ==============
@@ -55,34 +67,53 @@ const NEG_MAX = 10;
 const compositionModels: Record<string, { positive: string; negative: string; label: string }> = {
   base_realistic: {
     label: "Base Realistic",
-    positive: "photoreal composition, natural anatomy, coherent lighting",
+    positive: "natural anatomy and proportions, photoreal lighting, coherent perspective",
     negative: "distorted anatomy, warped perspective"
   },
   exaggerated_props: {
     label: "Exaggerated Proportions",
-    positive: "stylized anatomy, playful silhouette, consistent joints",
-    negative: "broken joints, melted limbs"
-  },
-  tiny_head: {
-    label: "Tiny-Head",
-    positive: "small head, clean neck transition, confident posture",
-    negative: "oversized head, missing neck"
+    positive: "giant symmetrical caricature head on body, clean neck transition, stable features",
+    negative: "asymmetrical head, floating head, missing neck, grotesque deformation"
   },
   very_close: {
     label: "Very Close",
-    positive: "close-up framing, shallow depth, crisp edge lighting",
-    negative: "busy background, awkward crop"
+    positive: "very tight face framing, shallow depth of field, crisp edges, clean background",
+    negative: "busy background, awkward crop, cut-off features"
   },
-  object_head: {
-    label: "Object-Head Person",
-    positive: "body with object head, bold silhouette, editorial lighting",
-    negative: "object floating, unreadable silhouette"
+  goofy_wide: {
+    label: "Goofy Wide",
+    positive: "zoomed-out wide frame, playful mood, small subject scale, ample negative space",
+    negative: "scale drift, cluttered horizon, floating subject"
+  },
+  zoomed: {
+    label: "Zoomed",
+    positive: "distant subject, wide shot, clear horizon, strong environment emphasis",
+    negative: "subject too tiny, messy composition, unclear focal point"
   },
   surreal_scale: {
-    label: "Surreal Mixed-Scale",
-    positive: "dramatic scale contrast, consistent shadows/perspective",
-    negative: "inconsistent shadows, scale drift"
+    label: "Surreal Scale",
+    positive: "dramatic scale contrast (3–10x), consistent occlusion and shadowing, coherent perspective",
+    negative: "mismatched scales, inconsistent shadows, floating elements"
   }
+};
+
+// Map your UI names → internal keys
+const legacyMap: Record<string, string> = {
+  norman: "base_realistic",
+  "big-head": "exaggerated_props",
+  big_head: "exaggerated_props",
+  "close-up": "very_close",
+  close_up: "very_close",
+  goofy: "goofy_wide",
+  zoomed: "zoomed",
+  surreal: "surreal_scale",
+  // old keys passthrough
+  base_realistic: "base_realistic",
+  exaggerated_props: "exaggerated_props",
+  very_close: "very_close",
+  goofy_wide: "goofy_wide",
+  surreal_scale: "surreal_scale",
+  object_head: "exaggerated_props" // optional fallback
 };
 
 // ============== LAYOUT ORDER (six) ==============
@@ -133,22 +164,54 @@ function aspectLabel(dim?: string) {
   if (d === "landscape") return "16:9";
   return "1:1";
 }
+
 function getCompositionInserts(modes?: string[]) {
   if (!modes || modes.length === 0) return null;
-  const first = modes[0]?.toLowerCase();
+  let first = (modes[0] || "").toLowerCase();
+  first = legacyMap[first] || first;
   const found = compositionModels[first as keyof typeof compositionModels];
   if (!found) return null;
   return { compPos: `Composition: ${found.positive}.`, compNeg: found.negative };
 }
+
 function wc(s: string) {
   return (s || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean).length;
 }
+
 function limitWords(s: string, max: number) {
   const words = (s || "").trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
   return words.slice(0, max).join(" ");
 }
+
 function squeeze(s: string) {
   return (s || "").replace(/\s+/g, " ").trim();
+}
+
+// Normalize and cap tags
+function normTags(tags?: string[], max = 6) {
+  if (!tags) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of tags) {
+    const t = (raw || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+    if (!t) continue;
+    if (!seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+      if (out.length >= max) break;
+    }
+  }
+  return out;
+}
+
+// Split meme text at first comma for top/bottom
+function maybeSplitMeme(text: string, layoutKey?: string) {
+  if (layoutKey !== "meme-text") return `text: "${text}"`;
+  const i = text.indexOf(",");
+  if (i === -1) return `text: "${text}"`;
+  const top = text.slice(0, i).trim();
+  const bottom = text.slice(i + 1).trim();
+  return `text top: "${top}" text bottom: "${bottom}"`;
 }
 
 // ============== CORE (Gemini compact) ==============
@@ -162,7 +225,8 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     image_dimensions = "square",
     text_layout,
     visual_recommendation = "",
-    composition_modes = []
+    composition_modes = [],
+    specific_visuals = []
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
@@ -173,13 +237,18 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
 
+  const tags = normTags(specific_visuals);
+  const tagLine = tags.length ? `tags: ${tags.join(", ")}` : "";
+
+  const catRateNeg = getCategoryNegatives(category, rating);
+
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
     const one = SIX_LAYOUTS.find(L => L.key === text_layout);
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const shortLayout: Record<string,string> = {
+  const shortLayout: Record<string, string> = {
     "meme-text": "meme top/bottom",
     "badge-callout": "small badge",
     "negative-space": "open area",
@@ -188,10 +257,10 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     "dynamic-overlay": "diagonal overlay"
   };
 
-  const negative10 = limitWords([
+  const baseNeg = [
     "misspelled","illegible","low-contrast","extra","black-bars",
     "speech-bubbles","panels","warped","duplicate","cramped"
-  ].join(", "), NEG_MAX);
+  ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layout = shortLayout[L.key] || "clean text";
@@ -201,27 +270,49 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       "bright key light, vivid color",
       "crisp focus, cinematic contrast",
       `layout: ${layout}`,
-      `text: "${completed_text}"`,
+      maybeSplitMeme(completed_text, L.key),
       "font modern, ~25% area",
       visual_recommendation ? `scene: ${visual_recommendation}` : "",
       toneStr ? `mood: ${toneStr}` : "",
+      tagLine,
       compPos ? `composition: ${compPos}` : ""
     ].filter(Boolean);
 
     let positive = squeeze(pieces.join(". ") + ".");
     if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
 
-    let negative = negative10;
-    if (compNeg) {
-      const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
+    // negatives with category/rating + light tag guard + composition neg if it fits
+    let negative = limitWords(baseNeg, NEG_MAX);
+    if (catRateNeg) {
+      const tryCR = squeeze(`${negative}, ${catRateNeg}`);
+      if (wc(tryCR) <= NEG_MAX) negative = tryCR;
     }
+    if (tags.length) {
+      const tryTags = squeeze(`${negative}, cluttered props`);
+      if (wc(tryTags) <= NEG_MAX) negative = tryTags;
+    }
+    if (compNeg) {
+      const tryComp = squeeze(`${negative}, ${compNeg}`);
+      if (wc(tryComp) <= NEG_MAX) negative = tryComp;
+    }
+
+    const sections = {
+      aspect,
+      lighting: "bright key light; vivid color; crisp focus",
+      layout,
+      mandatoryText: completed_text,
+      typography: "modern sans-serif; ~25% area",
+      scene: visual_recommendation || "",
+      mood: toneStr,
+      tags
+    };
 
     return {
       name: `Gemini — ${L.key}`,
       description: `Compact Gemini prompt for layout: ${L.key}`,
       positive,
-      negative
+      negative,
+      sections
     };
   });
 
@@ -239,7 +330,8 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     image_dimensions = "square",
     text_layout,
     visual_recommendation = "",
-    composition_modes = []
+    composition_modes = [],
+    specific_visuals = []
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
@@ -250,13 +342,18 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
 
+  const tags = normTags(specific_visuals);
+  const tagLine = tags.length ? `tags: ${tags.join(", ")}` : "";
+
+  const catRateNeg = getCategoryNegatives(category, rating);
+
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
     const one = SIX_LAYOUTS.find(L => L.key === text_layout);
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const shortLayout: Record<string,string> = {
+  const shortLayout: Record<string, string> = {
     "meme-text": "meme top/bottom, 6–8% padding",
     "badge-callout": "floating badge, thin outline",
     "negative-space": "text in open area",
@@ -265,11 +362,10 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "dynamic-overlay": "diagonal overlay"
   };
 
-  const rawNeg = [
+  const baseNeg = [
     "misspelled","illegible","low-contrast","extra","panels",
     "speech-bubbles","black-bars","warped","duplicate","cramped"
-  ];
-  const negative10 = limitWords(rawNeg.join(", "), NEG_MAX);
+  ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layout = shortLayout[L.key] || "clean text";
@@ -279,23 +375,51 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
       "bright natural light, no darkness",
       "vivid color, crisp focus",
       `layout: ${layout}`,
-      `MANDATORY TEXT: "${completed_text}"`,
+      L.key === "meme-text" ? maybeSplitMeme(completed_text, L.key) : `MANDATORY TEXT: "${completed_text}"`,
       "modern sans-serif, ~25% area, no panels",
       visual_recommendation ? `scene: ${visual_recommendation}` : "",
       toneStr ? `mood: ${toneStr}` : "",
+      tagLine,
       compPos ? `composition: ${compPos}` : ""
     ].filter(Boolean);
 
     let positive = squeeze(pieces.join(". ") + ".");
     if (wc(positive) > POS_MAX) positive = limitWords(positive, POS_MAX);
 
-    let negative = negative10;
-    if (compNeg) {
-      const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
+    // negatives with category/rating + light tag guard + composition neg if it fits
+    let negative = limitWords(baseNeg, NEG_MAX);
+    if (catRateNeg) {
+      const tryCR = squeeze(`${negative}, ${catRateNeg}`);
+      if (wc(tryCR) <= NEG_MAX) negative = tryCR;
     }
+    if (tags.length) {
+      const tryTags = squeeze(`${negative}, cluttered props`);
+      if (wc(tryTags) <= NEG_MAX) negative = tryTags;
+    }
+    if (compNeg) {
+      const tryComp = squeeze(`${negative}, ${compNeg}`);
+      if (wc(tryComp) <= NEG_MAX) negative = tryComp;
+    }
+
+    const sections = {
+      aspect,
+      lighting: "bright natural light; vivid color; crisp focus",
+      layout,
+      mandatoryText: completed_text,
+      typography: "modern sans-serif; ~25% area; no panels",
+      scene: visual_recommendation || "",
+      mood: toneStr,
+      tags
+    };
 
     return {
       name: `Ideogram — ${L.key}`,
       description: `Compact Ideogram prompt for layout: ${L.key}`,
-     
+      positive,
+      negative,
+      sections
+    };
+  });
+
+  return prompts;
+}
