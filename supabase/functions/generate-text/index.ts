@@ -69,7 +69,7 @@ type InsertKind = "name" | "trait" | "other";
 function classifyInsert(word: string): InsertKind {
   const w = (word || "").trim();
   if (!w) return "other";
-  if (/^[A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*$/.test(w)) return "name"; // simple “looks like a name”
+  if (/^[A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*$/.test(w)) return "name"; // simple "looks like a name"
   if (TRAIT_WORDS.has(w.toLowerCase())) return "trait";
   return "other";
 }
@@ -111,17 +111,17 @@ function polishTraits(line: string, traits: string[], names: string[]): string {
   let s = line;
   const name = names[0] || "";
   for (const t of traits) {
-    // “Happy gay birthday” → “Happy birthday, Jesse, proudly gay and thriving.”
+    // "Happy gay birthday" → "Happy birthday, Jesse, proudly gay and thriving."
     if (name) {
       s = s.replace(new RegExp(`\\bhappy\\s+${escapeRE(t)}\\s+birthday\\b`, "i"),
                     `Happy birthday, ${name}, proudly ${t} and thriving`);
-      // “Name gay …” → “Name, proudly gay, …”
+      // "Name gay …" → "Name, proudly gay, …"
       s = s.replace(new RegExp(`\\b${escapeRE(name)}\\s+${escapeRE(t)}\\b`, "i"),
                     `${name}, proudly ${t},`);
     } else {
       s = s.replace(new RegExp(`\\b${escapeRE(t)}\\b`, "i"), `proudly ${t}`);
     }
-    // “Don't gay worry” → “Don't worry — your ${t} flair wins again.”
+    // "Don't gay worry" → "Don't worry — your ${t} flair wins again."
     s = s.replace(new RegExp(`\\b${escapeRE(t)}\\s+(worry|fear)\\b`, "i"),
                   `$1`);
   }
@@ -143,6 +143,7 @@ function normalizeByRating(s: string, rating: string): string {
 
   if (rating === "R") {
     out = out
+      .replace(/\bgoddamn(ed|ing)?\b/gi, "damn$1") // filter goddamn even for R
       .replace(/\bf\*\*k(ing|er|ed|s)?\b/gi, "fuck$1")
       .replace(/\bs\*\*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
       .replace(/\bbull\*\*t\b/gi, "bullshit")
@@ -227,7 +228,7 @@ Tone: ${toneTag} (humor baseline = ${humorMode}).
 Rating: ${ratingTag}.
 Use one of these shapes per line (rotate): ${HUMOR_MATRIX}
 Insert Words: ${insertWords.join(", ") || "none"}.
-Rules: 1 sentence per line; natural flow; EXACTLY one Insert Word per line, placed naturally (allow “Name’s”), never as the last word; keep each line specific, human, and end with a crisp punchline. Avoid clichés and label text.`;
+Rules: 1 sentence per line; natural flow; EXACTLY one Insert Word per line, placed naturally (possessive forms OK, e.g., "Jesse's"), never as the last word; keep each line specific, human, and end with a crisp punchline. Avoid clichés and label text.`;
 
     // Call model
     const res = await fetch(

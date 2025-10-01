@@ -7,7 +7,7 @@ Write 4 punchy, human one-liners for the selected theme.
 
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
-- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (allow “Name’s”); do not tack it on at the end.
+- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
 - HUMOR BASELINE: all tones keep a comedic beat; gentler tones are still witty.
 - Keep language natural and flowing; avoid filler and clichés; no labels like "TONE:".
 - Prefer specificity over generic lines; make each line distinct.`;
@@ -19,7 +19,7 @@ Write 4 celebratory, personal one-liners that read smoothly.
 
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
-- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (allow “Name’s”); do not tack it on at the end.
+- Use the selected Tone and Rating. If Insert Words are provided, include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
 - HUMOR BASELINE: celebratory but still witty in every tone.
 - Focus on the honoree and the occasion (birthday, wedding, graduation, etc.).
 - Keep each line distinct, concrete, and human-sounding.`;
