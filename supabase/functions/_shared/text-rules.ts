@@ -59,7 +59,7 @@ HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Category focus: specific daily routine, moment, or situation (coffee, commute, chores).
 - RELATABILITY: make it feel like “we’ve all been there.”
-- R PROFANITY: natural inside the sentence, never last word.`;
+- R PROFANITY: integrate naturally after subject/name or mid-sentence (e.g., "Coffee, you beautiful fucking miracle"); never end sentences with profanity.`;
 
 export const sports_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR SPORTS
 
@@ -70,7 +70,7 @@ HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Focus: specific sport, position, moment, or achievement.
 - Energy: high-tempo verbs, competitive tone; use sport terms naturally.
-- R PROFANITY: natural inside the sentence, never last word.`;
+- R PROFANITY: integrate naturally after athlete's name or action verb (e.g., "Jordan's fucking unstoppable on the court"); never end sentences with profanity.`;
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR JOKES
 
@@ -81,7 +81,7 @@ HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Structure: setup → punch; surprise lands at the end.
 - Label policy: never say the humor type; imply it.
-- R PROFANITY: natural inside the sentence, never last word.
+- R PROFANITY: integrate naturally for emphasis (e.g., "That's a fucking brilliant punchline"); never end sentences with profanity.
 
 JOKE GUIDE
 - Dad Jokes: groan-worthy, wholesome puns.
@@ -98,7 +98,7 @@ Write 4 clever, culturally-aware one-liners about movies, music, celebrities, or
 HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Focus: one clear subject; keep references recognizable.
-- R PROFANITY: natural inside the sentence, never last word.`;
+- R PROFANITY: integrate naturally (e.g., "That movie was fucking incredible"); never end sentences with profanity.`;
 
 export const miscellaneous_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR MISCELLANEOUS TOPICS
 
@@ -108,7 +108,7 @@ Write 4 universally relatable one-liners about animals, food, professions, or ot
 HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Focus: the most specific subject; keep it authentic to the topic.
-- R PROFANITY: natural inside the sentence, never last word.`;
+- R PROFANITY: integrate naturally for emphasis (e.g., "Dogs are fucking loyal companions"); never end sentences with profanity.`;
 
 export const custom_design_text_rules = `SYSTEM INSTRUCTIONS: SHORT ONE-LINERS FOR CUSTOM/USER-DEFINED TOPICS
 
@@ -118,4 +118,4 @@ Write 4 flexible, adaptable one-liners for any user-defined theme.
 HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Focus: the most specific user theme; if unclear, default to relatable, human experiences.
-- R PROFANITY: natural inside the sentence, never last word.`;
+- R PROFANITY: integrate naturally for user's theme (e.g., "This wedding is fucking beautiful"); never end sentences with profanity.`;

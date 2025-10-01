@@ -4,7 +4,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { getTones, getRatings } from '@/config/aiRules';
 import { Loader2, AlertCircle } from 'lucide-react';
 import negativeSpaceImage from "@/assets/open-space-layout.jpg";
 import memeTextImage from "@/assets/meme-layout.jpg";
@@ -24,12 +23,17 @@ interface TextStepProps {
   updateData: (data: any) => void;
   onNext: () => void;
 }
-// Get configuration from AI rules
-const tones = getTones().map(tone => ({
-  id: tone.id,
-  label: tone.name,
-  description: tone.summary
-}));
+// Tone options
+const tones = [
+  { id: "humorous", label: "Humorous", description: "Funny, witty, light" },
+  { id: "savage", label: "Savage", description: "Harsh, blunt, cutting" },
+  { id: "sentimental", label: "Sentimental", description: "Warm, heartfelt, tender" },
+  { id: "nostalgic", label: "Nostalgic", description: "Reflective, old-times, wistful" },
+  { id: "romantic", label: "Romantic", description: "Loving, passionate, sweet" },
+  { id: "inspirational", label: "Inspirational", description: "Motivating, uplifting, bold" },
+  { id: "playful", label: "Playful", description: "Silly, cheeky, fun" },
+  { id: "serious", label: "Serious", description: "Formal, direct, weighty" }
+];
 const writingPreferences = [{
   id: 'ai-assist',
   label: 'AI Assist'

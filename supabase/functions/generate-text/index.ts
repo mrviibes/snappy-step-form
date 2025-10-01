@@ -69,7 +69,7 @@ function isMetaLine(s = ""): boolean {
 
 // ----- Insert Word placement -----
 function fixOrphanPossessive(line: string, word: string): string {
-  return line.replace(/(^|[^\p{L}\p{N}’'])(?='s\b)/u, (_m, p1) => `${p1}${word}`);
+  return line.replace(/(^|[^\p{L}\p{N}''])(?='s\b)/u, (_m, p1) => `${p1}${word}`);
 }
 function hasInsertAlready(s: string, word: string): boolean {
   const base = new RegExp(`\\b${escapeRegExp(word)}\\b`, "i");
@@ -124,7 +124,7 @@ function enforceLeafPresence(s: string, leafTokens: string[]): string {
 function dampenDuplicatePairs(lines: string[]): string[] {
   const seen = new Set<string>();
   return lines.map((line, idx) => {
-    const tokens = line.toLowerCase().replace(/[^a-z0-9\s’'-]/gi, "").split(/\s+/).filter(Boolean);
+    const tokens = line.toLowerCase().replace(/[^a-z0-9\s''-]/gi, "").split(/\s+/).filter(Boolean);
     const bigrams = new Set<string>();
     for (let i = 0; i < tokens.length - 1; i++) bigrams.add(tokens[i] + " " + tokens[i + 1]);
     const overlap = [...bigrams].some(b => seen.has(b));
@@ -147,28 +147,7 @@ function uncensorStrongForR(s: string): string {
     .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
     .replace(/\bbull\s*shit\b/gi, "bullshit");
 }
-function normalizeProfanityR(line: string, names: string[]): string {
-  let out = uncensorStrongForR(line);
 
-  // keep exactly one strong swear
-  let kept = false;
-  out = out.replace(/\b(fuck(?:ing|er|ed|s)?|shit(?:ting|ty|faced?)?|bullshit)\b/gi,
-    m => { if (kept) return ""; kept = true; return m; }).replace(/\s{2,}/g," ").trim();
-
-  // ensure placement after name/comma; otherwise after first word
-  const name = (names && names[0]) || "";
-  if (name) {
-    const afterName = new RegExp(`\\b${escapeRegExp(name)}\\b\\s+(?:you\\s+)?(?:fuck|fucking|shit)`, "i");
-    if (!afterName.test(out)) out = out.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "i"), `${name}, you fuck`);
-  } else if (!/,/.test(out)) {
-    const i = out.indexOf(" ");
-    out = i > 0 ? out.slice(0, i) + " fuck" + out.slice(i) : out + " fuck";
-  }
-
-  // don’t end on a swear
-  out = out.replace(/\b(fuck|fucking|shit|bullshit)[.!?]?\s*$/i, "$1, champ");
-  return out.trim();
-}
 function replaceStrongForPG(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) {
@@ -177,6 +156,7 @@ function replaceStrongForPG(s: string): string {
   for (const w of MEDIUM_WORDS) out = out.replace(new RegExp(`\\b${escapeRegExp(w)}\\b`, "gi"), "");
   return out.replace(/\s{2,}/g, " ").trim();
 }
+
 function enforcePG13(s: string): string {
   let out = s;
   for (const rx of RX_STRONG) out = out.replace(rx, "");
@@ -186,13 +166,17 @@ function enforcePG13(s: string): string {
   out = hasHell ? out.replace(/\bdamn\b/gi, "") : out.replace(/\bhell\b/gi, "");
   return out.replace(/\s{2,}/g, " ").trim();
 }
+
 function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
 
-function enforceRatingLine(s: string, rating: string, names: string[]): string {
+function enforceRatingLine(s: string, rating: string): string {
   let out = s.trim();
   const r = (rating || "G").toUpperCase();
 
-  if (r === "R")      out = normalizeProfanityR(out, names);
+  // For R-rating: only uncensor, don't inject profanity (let AI generate it naturally)
+  if (r === "R") {
+    out = uncensorStrongForR(out);
+  }
   else if (r === "PG-13" || r === "PG13") out = enforcePG13(out);
   else if (r === "PG") out = replaceStrongForPG(out);
   else { // G
@@ -210,36 +194,6 @@ function enforceRatingLine(s: string, rating: string, names: string[]): string {
   return out;
 }
 
-// Rotate phrasing for R so every line isn’t “Name, you ___”
-function diversifyRLines(lines: string[], names: string[]): string[] {
-  const name = (names && names[0]) || "";
-  const youSwearRx = name
-    ? new RegExp(`\\b${escapeRegExp(name)}\\b,?\\s*you\\s+(?:fuck|fucking)`, "i")
-    : /\byou\s+(?:fuck|fucking)\b/i;
-
-  const variants = [
-    (s: string) => name ? s.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "i"), `${name}, you glorious fuck`) : s,
-    (s: string) => s.includes(",") ? s.replace(",", ", you lucky fuck,") : s,
-    (s: string) => s.replace(/\b(let's)\b/i, `$1 fucking`).replace(/\b(go|eat|party|blow|dance)\b/i, `fucking $1`)
-  ];
-
-  return lines.map((line, i) => {
-    let out = line;
-    if (youSwearRx.test(out)) {
-      const v = variants[i % variants.length];
-      out = v(out);
-      // ensure only one strong swear remains
-      let kept = false;
-      out = out.replace(/\b(fuck(?:ing|er|ed|s)?|shit(?:ting|ty|faced?)?|bullshit)\b/gi,
-        m => { if (kept) return ""; kept = true; return m; }).replace(/\s{2,}/g," ").trim();
-    } else if (!/\b(fuck|fucking|shit|bullshit)\b/i.test(out)) {
-      out = out.includes(",") ? out.replace(",", ", you glorious fuck,")
-           : (name ? `${name}, you glorious fuck, ${out}` : `Buddy, you glorious fuck, ${out}`);
-    }
-    return out;
-  });
-}
-
 // -------------- Server --------------
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -253,7 +207,7 @@ serve(async (req) => {
 
     // Leaf tokens
     const leaf = (theme || subcategory || "").trim();
-    const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}’'-]+/u).filter(w => w.length > 2);
+    const leafTokens = leaf.toLowerCase().split(/[^\p{L}\p{N}''-]+/u).filter(w => w.length > 2);
 
     // Rule routing
     const cat = (category || "").toLowerCase().trim();
@@ -283,7 +237,7 @@ CONTEXT
 
 CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one complete sentence ending with punctuation. Do not output labels, headings, or bullet points.`;
 
-    // User prompt
+    // User prompt with R-rating guidance
     let userPrompt =
       `Write 4 ${(tone || "Humorous")} one-liners that clearly center on "${leaf || "the selected theme"}".`;
     if (/\bjokes?\b/i.test(cat)) {
@@ -292,6 +246,14 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
     if (insertWords.length) {
       userPrompt += ` Each line must naturally include exactly one of: ${insertWords.join(", ")}.`;
     }
+    
+    // Enhanced R-rating instructions for natural profanity
+    const r = (rating || "G").toUpperCase();
+    if (r === "R") {
+      const nameHint = insertWords.length ? ` (e.g., "${insertWords[0]}, you're fucking killing it with that cake")` : "";
+      userPrompt += ` RATING R: Use strong profanity (fuck, shit, bullshit) naturally WITHIN sentences${nameHint}. Never end sentences with profanity—place it after the subject/name or mid-sentence for emphasis. Make it flow like real human speech.`;
+    }
+    
     userPrompt += ` One sentence per line, ≤2 punctuation marks, ≤120 characters. Keep lines celebratory and FOR the honoree; witty, concrete, occasion-specific. Use one concrete birthday detail (age, candles, cake, wrinkles). Avoid limp filler; end with a clean punch.`;
 
     // Call Gemini
@@ -341,13 +303,8 @@ CRITICAL FORMAT: Return exactly 4 separate lines only. Each line must be one com
     // De-duplicate phrasing
     lines = dampenDuplicatePairs(lines);
 
-    // Rating enforcement
-    lines = lines.map(s => enforceRatingLine(s, rating || "G", inserts));
-
-    // R diversity
-    if ((rating || "G").toUpperCase() === "R") {
-      lines = diversifyRLines(lines, inserts);
-    }
+    // Rating enforcement (only uncensor for R, remove profanity for lower ratings)
+    lines = lines.map(s => enforceRatingLine(s, rating || "G"));
 
     // Final sweep
     lines = lines.map(s => ensureEndPunct(limitPunctPerLine(clampLen(tidyCommas(sanitizePunct(s))))));
