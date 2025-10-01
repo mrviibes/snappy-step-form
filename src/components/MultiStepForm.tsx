@@ -17,7 +17,7 @@ interface FormData {
     layout?: string;
     customText?: string;
     generatedText?: string;
-    specificWords?: string[];
+    insertWords?: string[];
     selectedOption?: number;
     style?: string;
     rating?: string;

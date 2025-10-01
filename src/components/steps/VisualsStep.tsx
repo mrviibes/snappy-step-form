@@ -236,7 +236,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
   const handleEditStyle = () => { setEditingStyle(true); setEditingDimension(false); };
   const handleEditDimension = () => { setEditingDimension(true); setEditingStyle(false); };
   const handleEditProcess = () => { updateData({ visuals: { ...data.visuals, writingProcess: undefined } }); };
-  const handleEditSpecificWords = () => { updateData({ visuals: { ...data.visuals, insertedVisuals: [] } }); };
+  const handleEditInsertWords = () => { updateData({ visuals: { ...data.visuals, insertedVisuals: [] } }); };
   const handleEditLayout = () => { updateData({ visuals: { ...data.visuals, compositionMode: undefined } }); };
   const handleEditVisualConcept = () => {
     setGeneratedVisuals([]);
@@ -316,13 +316,13 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             </div>
           )}
 
-          {/* Specific Words Row */}
+          {/* Insert Words Row */}
           {data.visuals?.insertedVisuals?.length > 0 && (
             <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (isComplete && data.visuals?.selectedVisualRecommendation)) && "border-t border-border")}>
               <div className="text-sm text-foreground">
-                <span className="font-semibold">Specific Words</span> - {data.visuals.insertedVisuals.join(', ')}
+                <span className="font-semibold">Insert Words</span> - {data.visuals.insertedVisuals.join(', ')}
               </div>
-              <button onClick={handleEditSpecificWords} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              <button onClick={handleEditInsertWords} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
                 Edit
               </button>
             </div>

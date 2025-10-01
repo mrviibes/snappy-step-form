@@ -60,7 +60,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           subcategory: data.subcategory || '',
           tone: data.text?.tone || 'Humorous',
           rating: data.text?.rating || 'PG',
-          insertWords: data.text?.specificWords || [],
+          insertWords: data.text?.insertWords || [],
           image_style: data.visuals?.style || 'general',
           text_layout: data.text?.layout || 'lower-banner',
           image_dimensions: data.visuals?.dimension || 'square',

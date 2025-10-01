@@ -63,8 +63,8 @@ export default function TextStep({
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
-  const [showSpecificWordsChoice, setShowSpecificWordsChoice] = useState(false);
-  const [showSpecificWordsInput, setShowSpecificWordsInput] = useState(false);
+  const [showInsertWordsChoice, setShowInsertWordsChoice] = useState(false);
+  const [showInsertWordsInput, setShowInsertWordsInput] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
   
@@ -72,15 +72,15 @@ export default function TextStep({
 
   // Clear stale words when category changes
   useEffect(() => {
-    if (data.category && data.text?.specificWords?.length > 0) {
+    if (data.category && data.text?.insertWords?.length > 0) {
       updateData({
         text: {
           ...data.text,
-          specificWords: []
+          insertWords: []
         }
       });
       toast({
-        title: "Specific words cleared",
+        title: "Insert words cleared",
         description: "Previous words were removed for the new category"
       });
     }
@@ -96,18 +96,18 @@ export default function TextStep({
         updateData({
           text: {
             ...data.text,
-            specificWords: [input]
+            insertWords: [input]
           }
         });
       } else {
-        const currentWords = data.text?.specificWords || [];
+        const currentWords = data.text?.insertWords || [];
         const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
         const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
         if (newWords.length > 0) {
           updateData({
             text: {
               ...data.text,
-              specificWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
+              insertWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
             }
           });
         }
@@ -126,7 +126,7 @@ export default function TextStep({
         subcategory: data.subcategory,
         tone: data.text.tone,
         rating: data.text.rating,
-        insertWords: Array.isArray(data.text?.specificWords) ? data.text.specificWords : data.text?.specificWords ? [data.text.specificWords] : [],
+        insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
         userId: 'anonymous'
       };
       
@@ -234,9 +234,9 @@ export default function TextStep({
         }
       });
     }
-    // If "AI Assist" is selected, show specific words choice
+    // If "AI Assist" is selected, show insert words choice
     else if (preferenceId === 'ai-assist') {
-      setShowSpecificWordsChoice(true);
+      setShowInsertWordsChoice(true);
     }
   };
   const handleEditWritingPreference = () => {
@@ -246,14 +246,14 @@ export default function TextStep({
         writingPreference: ""
       }
     });
-    setShowSpecificWordsChoice(false);
+    setShowInsertWordsChoice(false);
   };
-  const handleSpecificWordsChoice = (hasWords: boolean) => {
+  const handleInsertWordsChoice = (hasWords: boolean) => {
     if (hasWords) {
-      setShowSpecificWordsChoice(false);
-      setShowSpecificWordsInput(true);
+      setShowInsertWordsChoice(false);
+      setShowInsertWordsInput(true);
     } else {
-      setShowSpecificWordsChoice(false);
+      setShowInsertWordsChoice(false);
       setShowGeneration(true); // Skip to generation step
     }
   };
@@ -267,19 +267,19 @@ export default function TextStep({
         updateData({
           text: {
             ...data.text,
-            specificWords: [input] // Store as single item to preserve structure
+            insertWords: [input] // Store as single item to preserve structure
           }
         });
       } else {
         // Handle simple comma-separated words
-        const currentWords = data.text?.specificWords || [];
+        const currentWords = data.text?.insertWords || [];
         const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
         const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
         if (newWords.length > 0) {
           updateData({
             text: {
               ...data.text,
-              specificWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
+              insertWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
             }
           });
         }
@@ -288,16 +288,16 @@ export default function TextStep({
     }
   };
   const handleRemoveTag = (wordToRemove: string) => {
-    const currentWords = data.text?.specificWords || [];
+    const currentWords = data.text?.insertWords || [];
     updateData({
       text: {
         ...data.text,
-        specificWords: currentWords.filter(word => word !== wordToRemove)
+        insertWords: currentWords.filter(word => word !== wordToRemove)
       }
     });
   };
   const handleReadyToGenerate = () => {
-    setShowSpecificWordsInput(false);
+    setShowInsertWordsInput(false);
     setShowGeneration(true);
   };
   const handleRatingSelect = (ratingId: string) => {
@@ -599,15 +599,15 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Specific Words Section - show for AI assist */}
+        {/* Insert Words Section - show for AI assist */}
         {data.text?.writingPreference === 'ai-assist' && <div className="flex items-center justify-between p-4 border-t border-border">
             <div className="text-sm text-foreground">
-              <span className="font-semibold">Specific Words</span> - {data.text?.specificWords && data.text.specificWords.length > 0 ? data.text.specificWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
+              <span className="font-semibold">Insert Words</span> - {data.text?.insertWords && data.text.insertWords.length > 0 ? data.text.insertWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
             </div>
             <button onClick={() => {
           setShowGeneration(false);
-          setShowSpecificWordsChoice(true);
-          setShowSpecificWordsInput(false);
+          setShowInsertWordsChoice(true);
+          setShowInsertWordsInput(false);
         }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
@@ -669,7 +669,7 @@ export default function TextStep({
 
       {/* AI Assist Configuration - show directly when AI Assist is selected, hide when text options are shown */}
       {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
-          {/* Specific Words Section */}
+          {/* Insert Words Section */}
           <div className="space-y-3">
             <h3 className="text-lg font-semibold text-foreground">optional - Any specific words you want</h3>
             
@@ -677,8 +677,8 @@ export default function TextStep({
             <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
             
             {/* Display tags right under input box */}
-            {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
-                {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+            {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
+                {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
                     <span>{word}</span>
                     <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
                       ×
@@ -713,8 +713,8 @@ export default function TextStep({
             </div>}
         </div>}
 
-      {/* Add Specific Words Section - only show when showSpecificWordsInput is true */}
-      {showSpecificWordsInput && <div className="space-y-4 pt-4">
+      {/* Add Insert Words Section - only show when showInsertWordsInput is true */}
+      {showInsertWordsInput && <div className="space-y-4 pt-4">
         <div className="text-center min-h-[120px] flex flex-col justify-start">
           <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
           <div className="mt-3">
@@ -726,8 +726,8 @@ export default function TextStep({
           <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
           
           {/* Display tags right under input box */}
-          {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex flex-wrap gap-2">
-              {data.text.specificWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
+              {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
                   <span>{word}</span>
                   <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
                     ×
@@ -736,7 +736,7 @@ export default function TextStep({
             </div>}
 
           {/* Done button - only show when there's at least one word */}
-          {data.text?.specificWords && data.text.specificWords.length > 0 && <div className="flex justify-center pt-4">
+          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex justify-center pt-4">
               <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
                 Let's Generate the Final Text
               </Button>

@@ -4,7 +4,7 @@ export interface TextGenerationParams {
   tone: string;
   category?: string;
   subcategory?: string;
-  specificWords?: string[];
+  insertWords?: string[];
   style?: string;
   rating?: string;
 }
@@ -16,7 +16,7 @@ export class PromptBuilder {
    * Build a sophisticated prompt based on the AI rules configuration
    */
   buildPrompt(params: TextGenerationParams): string {
-    const { tone, category, subcategory, specificWords = [], style = 'generic', rating = 'g' } = params;
+    const { tone, category, subcategory, insertWords = [], style = 'generic', rating = 'g' } = params;
 
     // Get configuration objects
     const toneConfig = this.config.tones.find(t => t.id === tone);
@@ -32,8 +32,8 @@ export class PromptBuilder {
     }
 
     // Add mandatory words constraint
-    if (specificWords.length > 0) {
-      prompt += this.buildMandatoryWordsSection(specificWords);
+    if (insertWords.length > 0) {
+      prompt += this.buildMandatoryWordsSection(insertWords);
     }
 
     // Add length and formatting constraints
@@ -66,8 +66,8 @@ export class PromptBuilder {
     return context;
   }
 
-  private buildMandatoryWordsSection(specificWords: string[]): string {
-    return ` CRITICAL: Each option must naturally include ALL of these words: ${specificWords.join(', ')}.`;
+  private buildMandatoryWordsSection(insertWords: string[]): string {
+    return ` CRITICAL: Each option must naturally include ALL of these words: ${insertWords.join(', ')}.`;
   }
 
   private buildConstraintsSection(rating: string): string {
@@ -93,7 +93,7 @@ export class PromptBuilder {
     errors: string[];
   } {
     const errors: string[] = [];
-    const { specificWords = [], rating = 'g' } = params;
+    const { insertWords = [], rating = 'g' } = params;
 
     // Length validation
     if (text.length < this.config.lengthRules.minChars) {
@@ -109,7 +109,7 @@ export class PromptBuilder {
     }
 
     // Mandatory words check
-    const missingWords = specificWords.filter(word => 
+    const missingWords = insertWords.filter(word => 
       !text.toLowerCase().includes(word.toLowerCase())
     );
     if (missingWords.length > 0) {
