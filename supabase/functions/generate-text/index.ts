@@ -64,6 +64,20 @@ function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
 function fixDoubleCommas(s: string) { 
   return s.replace(/,\s*,+/g, ",").replace(/^([^,]+),\s+([A-Z])/g, "$1. $2"); 
 }
+function fixVocativeComma(s: string, name?: string): string {
+  if (!name) return s;
+  // Fix "Jesse, verb" → "Jesse verb" when it's awkward (name followed by comma and lowercase letter)
+  return s.replace(new RegExp(`\\b${escapeRE(name)},\\s+([a-z])`, 'g'), `${name} $1`);
+}
+function isCompleteSentence(s: string): boolean {
+  const trimmed = s.trim();
+  if (trimmed.length < 10) return false; // Too short to be a real sentence
+  // Must have a verb indicator and end with proper punctuation
+  const hasVerb = /\b(is|are|was|were|has|have|had|do|does|did|can|could|will|would|should|'s|'re|'ve|'d|'ll|got|get|make|made|need|turn|age|give|take|look)\b/i.test(trimmed);
+  const endsProper = /[.!?]$/.test(trimmed);
+  const hasWords = trimmed.split(/\s+/).length >= 4;
+  return hasVerb && endsProper && hasWords;
+}
 function escapeRE(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 function toFour(lines: string[], fallback: string): string[] {
@@ -297,18 +311,18 @@ RATING: ${ratingTag}
 INSERT WORDS (use one per line): ${insertWords.join(", ") || "none"}
 
 GOOD EXAMPLES (natural flow, complete sentences):
-✅ "Jesse's so old their birth certificate is in Roman numerals"
-✅ "Another year closer to yelling at teenagers for existing"
-✅ "Jesse's aging like fine wine - expensive and gives you a headache"
-✅ "You're turning 30, time to adult... or just fake it better"
+✅ "Jesse's so old their birth certificate is in Roman numerals" - complete sentence, clear structure
+✅ "Another year closer to yelling at teenagers for existing" - complete thought, no fragments
+✅ "Jesse's aging like fine wine - expensive and gives you a headache" - full sentence with dash
+✅ "You're turning 30, time to adult... or just fake it better" - complete with natural pause
 
 BAD EXAMPLES (avoid these patterns):
-❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence
+❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence, sentence fragment
+❌ "Jesse, closer to needing help..." - vocative comma + fragment = double bad, not a complete sentence
 ❌ "Happy birthday, and Jesse, you're awesome" - mechanical "and" connector
 ❌ "Happy birthday, Jesse, enjoy your..." - AVOID double comma pattern
 ❌ "Jesse, Another year closer..." - Don't start with name + comma + capital letter
 ❌ "Jesse's so old and their joints creak" - choppy, forced "and"
-❌ "Jesse turned 30 and, well, that's something" - comma abuse, no punch
 
 ${R === "R" ? `
 R-RATED EXAMPLES (use variety):
@@ -369,11 +383,14 @@ SENTIMENTAL EXAMPLES:
 ` : ""}
 
 CRITICAL FLOW RULES:
-• Every line must be a complete, grammatically correct sentence
+• Every line must be a complete, grammatically correct sentence with a clear subject and verb
+• NO SENTENCE FRAGMENTS - "Jesse, closer to..." is NOT a complete sentence
 • Avoid mechanical connectors (especially overusing "and")
 • Avoid double commas (no "Happy birthday, Jesse, enjoy..." patterns)
 • Don't start with "Name, Capital Letter" patterns
 • Place insert words mid-sentence when possible, not at start with comma
+• Maintain consistent POV: use "their/they" when talking ABOUT someone, "your/you" when talking TO them
+• Don't mix perspectives: not "Jesse's birthday" with "your doom" in the same line
 • Insert words should flow naturally within the sentence, not feel tacked on
 • Test each line: Would a real person actually say this out loud?
 • Aim for punchy, conversational, and quotable - like a great tweet
@@ -444,10 +461,19 @@ OUTPUT (start immediately):`;
     }
     lines = lines.map(l => fixTemplateArtifacts(addGlue(l), name));
 
+    // Filter out sentence fragments first
+    lines = lines.filter(l => isCompleteSentence(l));
+    
+    // If we filtered too many, keep at least one fallback
+    if (lines.length === 0) {
+      lines = ["Another year older and still awesome"];
+    }
+
     // Final tidy (punct-aware cap)
     lines = lines.map(l => {
       let out = trimLine(l);
       out = fixSpacesBeforePunct(out);
+      out = fixVocativeComma(out, name);
       out = fixDoubleCommas(out);
       out = fixCommaPeriod(out);
       out = sanitizePunct(out);
