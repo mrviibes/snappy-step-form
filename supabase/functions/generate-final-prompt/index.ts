@@ -13,10 +13,10 @@ import {
   getCategoryNegatives
 } from "../_shared/final-prompt-rules.ts";
 
-// ============== MODEL ==============
-const getFinalPromptModel = () =>
-  Deno.env.get("OPENAI_TEXT_MODEL") || "gpt-4o-mini";
-const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+// ============== AI GATEWAY ==============
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_MODEL = "google/gemini-2.5-flash";
 
 // ============== CORS ==============
 const corsHeaders = {
@@ -59,9 +59,109 @@ interface PromptTemplate {
   };
 }
 
-// ============== WORD LIMITS ==============
-const POS_MAX = 80;
-const NEG_MAX = 10;
+// ============== AI SYSTEM PROMPT ==============
+const buildSystemPrompt = () => `You are an expert AI image prompt engineer specializing in crafting optimized prompts for text-on-image generation.
+
+LAYOUT TYPES (6 options):
+1. meme-text: Bold impact font, top/bottom split text, simple background, high contrast
+2. badge-callout: Floating badge/callout with text, clear zone around text, minimal background detail
+3. negative-space: Text in open/empty areas, environmental composition, text integrated naturally
+4. caption: Bottom-anchored text, cinematic composition, strong visual hierarchy
+5. integrated-in-scene: Text as part of environment (signs, objects, graffiti), seamless integration
+6. dynamic-overlay: Diagonal/angular text placement, energetic composition, modern typography
+
+VISUAL STYLES:
+- Realistic: Photographic lighting, natural proportions, detailed textures, real-world physics
+- 3D Render: Clean geometry, studio lighting, polished surfaces, CGI aesthetic
+- Anime: Bold lines, expressive features, vibrant colors, stylized proportions
+- Design: Flat colors, geometric shapes, minimalist, graphic design aesthetic
+- General: Flexible style, balanced approach
+- Auto: AI chooses best style for content
+
+COMPOSITION MODES:
+- norman/base_realistic: Natural anatomy, photoreal lighting, coherent perspective
+- big-head/exaggerated_props: Giant caricature head, clean neck transition, stable features
+- close-up/very_close: Tight face framing, shallow depth, crisp edges
+- goofy/goofy_wide: Zoomed-out wide frame, playful mood, ample negative space
+- zoomed: Distant subject, wide shot, strong environment emphasis
+- surreal/surreal_scale: Dramatic scale contrast, consistent shadows, coherent perspective
+
+TONE EFFECTS:
+- humorous: Funny, witty, playful mood
+- savage: Bold, edgy, confident, cutting
+- sarcastic: Witty, ironic, sharp
+- wholesome: Warm, positive, uplifting
+- dark: Edgy, moody, dramatic
+- romantic: Tender, intimate, heartfelt
+
+RATING CONSTRAINTS:
+- G: Family-friendly, no controversial elements
+- PG: Mild humor, safe for most audiences
+- PG-13: Edgier humor, some innuendo allowed
+- R: Adult themes, strong language, mature humor
+
+YOUR TASK:
+Analyze all input parameters (text, layout, style, tone, rating, composition, visual recommendations) and craft an OPTIMAL image generation prompt.
+
+CRITICAL REQUIREMENTS:
+1. Text must be BRIGHT, VIBRANT, WELL-LIT, CRISP - never dark or murky
+2. Text coverage must meet layout minimums (meme: 20%, badge: 25%, caption: 15%, others: 18-22%)
+3. Modern sans-serif typography unless style requires otherwise
+4. No text panels, bubbles, or frames - text directly on image
+5. Mandatory text must be EXACT and PROMINENT
+
+POSITIVE PROMPT STRUCTURE:
+- Start with mandatory text and layout specification
+- Add lighting/quality requirements (bright, vibrant, well-lit)
+- Specify typography and text coverage percentage
+- Define aspect ratio and visual style
+- Describe scene with visual recommendations
+- Include composition mode characteristics
+- Set mood/tone
+- Add specific visual elements if provided
+
+NEGATIVE PROMPT STRATEGY:
+Prioritize exclusions based on:
+1. Dark/low-quality prevention (dark, dim, murky, shadowy, underexposed)
+2. Text rendering issues (misspelled, illegible, broken-words, warped)
+3. Composition problems (cluttered, distorted, panels, bubbles)
+4. Category/rating-specific exclusions
+5. Style-specific anti-patterns
+
+Think through the BEST way to combine all parameters for maximum image quality and text readability.`;
+
+// ============== AI TOOL DEFINITION ==============
+const promptCraftingTool = {
+  type: "function",
+  function: {
+    name: "craft_image_prompt",
+    description: "Generate optimized positive and negative prompts for text-on-image generation",
+    parameters: {
+      type: "object",
+      properties: {
+        reasoning: {
+          type: "string",
+          description: "Your thought process: why these specific prompt choices work best for this combination of parameters"
+        },
+        positive_prompt: {
+          type: "string",
+          description: "Complete positive prompt optimized for image generation (no word limit, focus on clarity and completeness)"
+        },
+        negative_prompt: {
+          type: "string",
+          description: "Negative prompt with prioritized exclusions (focus on most important anti-patterns)"
+        },
+        emphasis_areas: {
+          type: "array",
+          items: { type: "string" },
+          description: "3-5 key focal points the generator should prioritize"
+        }
+      },
+      required: ["reasoning", "positive_prompt", "negative_prompt", "emphasis_areas"],
+      additionalProperties: false
+    }
+  }
+};
 
 // ============== COMPOSITION MODELS (six) ==============
 const compositionModels: Record<string, { positive: string; negative: string; label: string }> = {
@@ -249,7 +349,7 @@ function collapseLines(lines: string[], maxWords: number) {
   return wc(one) > maxWords ? limitWords(one, maxWords) : one;
 }
 
-// ============== CORE (Gemini compact) ==============
+// ============== AI-POWERED PROMPT GENERATION ==============
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
@@ -265,17 +365,10 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
-  const toneStr = (toneMap[tone?.toLowerCase()] || tone || "playful").split(",")[0];
-  const styleStr = image_style.toLowerCase();
-
-  const comp = getCompositionInserts(composition_modes);
-  const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
-  const compNeg = comp?.compNeg || "";
+  const styleStr = image_style;
   const compName = (composition_modes && composition_modes[0]) || "norman";
-
-  const tags = normTags(specific_visuals);
-  const catRateNeg = getCategoryNegatives(category, rating);
   const visPhrase = cleanVisRec(visual_recommendation);
+  const tags = normTags(specific_visuals);
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
@@ -283,69 +376,114 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  // Strengthen negative to prevent dark/low-quality images
-  const baseNeg = [
-    "dark","dim","murky","shadowy","underexposed","blurry","grainy",
-    "dull-colors","washed-out","cluttered","distorted","low-quality",
-    "misspelled","illegible","broken-words","warped","panels","bubbles"
-  ].join(", ");
+  console.log(`Generating AI-powered prompts for ${layoutsToGenerate.length} layout(s)`);
 
-  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+  const prompts: PromptTemplate[] = [];
+
+  for (const L of layoutsToGenerate) {
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested + min coverage + lighting
-    const prettyLines = [
-`MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
-`Lighting: bright, vibrant colors, well-lit, crisp details, professional quality.`,
-`Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
-`Aspect: ${aspect} in ${styleStr}.`,
-`A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
-`Mood: ${toneStr}.`
-    ];
+    // Build detailed context for AI
+    const userPrompt = `Generate an optimized image generation prompt with these parameters:
 
-    // Collapse to single line (≤80 words)
-    let positive = collapseLines(prettyLines, POS_MAX);
+MANDATORY TEXT: "${completed_text}"
+LAYOUT: ${layoutKey} (min ${minPct}% text coverage)
+VISUAL STYLE: ${styleStr}
+ASPECT RATIO: ${aspect}
+COMPOSITION MODE: ${compName}
+TONE: ${tone}
+RATING: ${rating}
+CATEGORY: ${category}
+VISUAL RECOMMENDATION: ${visPhrase}
+SPECIFIC VISUALS: ${tags.join(", ") || "none"}
 
-    // Build compact negative (≤10 words)
-    let negative = limitWords(baseNeg, NEG_MAX);
-    if (catRateNeg) {
-      const tryCR = squeeze(`${negative}, ${catRateNeg}`);
-      if (wc(tryCR) <= NEG_MAX) negative = tryCR;
+Craft the BEST possible prompts that combine all these elements intelligently. Think through how the layout type affects text placement, how the style affects rendering, and how to prevent dark/low-quality output.`;
+
+    try {
+      const aiResponse = await fetch(AI_GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: buildSystemPrompt() },
+            { role: "user", content: userPrompt }
+          ],
+          tools: [promptCraftingTool],
+          tool_choice: { type: "function", function: { name: "craft_image_prompt" } }
+        })
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`AI Gateway error (${aiResponse.status}):`, errorText);
+        throw new Error(`AI Gateway returned ${aiResponse.status}: ${errorText}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (!toolCall?.function?.arguments) {
+        console.error("No tool call found in AI response:", JSON.stringify(aiData));
+        throw new Error("AI did not return structured prompt data");
+      }
+
+      const result = JSON.parse(toolCall.function.arguments);
+      
+      console.log(`Layout ${layoutKey} - AI Reasoning:`, result.reasoning);
+      console.log(`Positive prompt (${result.positive_prompt.length} chars):`, result.positive_prompt.substring(0, 200) + "...");
+      console.log(`Negative prompt:`, result.negative_prompt);
+
+      prompts.push({
+        name: `AI-Crafted — ${layoutKey}`,
+        description: result.reasoning,
+        positive: result.positive_prompt,
+        negative: result.negative_prompt,
+        sections: {
+          aspect,
+          layout: layoutKey,
+          mandatoryText: completed_text,
+          typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
+          scene: visPhrase,
+          mood: tone,
+          tags,
+          pretty: `AI-Generated Prompt:\n\n${result.positive_prompt}\n\nEmphasis: ${result.emphasis_areas.join(", ")}`
+        }
+      });
+
+    } catch (error) {
+      console.error(`Error generating prompt for layout ${layoutKey}:`, error);
+      // Fallback to basic template if AI fails
+      const fallbackPositive = `MANDATORY TEXT: "${completed_text}" in ${layoutKey} layout. Lighting: bright, vibrant, well-lit. Typography: modern sans-serif, ${minPct}% coverage. Aspect: ${aspect} in ${styleStr}. ${rating} scene with ${visPhrase} in ${compName} composition. Mood: ${tone}.`;
+      const fallbackNegative = "dark, dim, blurry, grainy, misspelled, illegible, panels, bubbles, distorted, low-quality";
+      
+      prompts.push({
+        name: `Fallback — ${layoutKey}`,
+        description: `Fallback template (AI generation failed)`,
+        positive: fallbackPositive,
+        negative: fallbackNegative,
+        sections: {
+          aspect,
+          layout: layoutKey,
+          mandatoryText: completed_text,
+          typography: `modern sans-serif; ≥${minPct}% coverage`,
+          scene: visPhrase,
+          mood: tone,
+          tags,
+          pretty: fallbackPositive
+        }
+      });
     }
-    if (tags.length) {
-      const tryTags = squeeze(`${negative}, cluttered props`);
-      if (wc(tryTags) <= NEG_MAX) negative = tryTags;
-    }
-    if (compNeg) {
-      const tryComp = squeeze(`${negative}, ${compNeg}`);
-      if (wc(tryComp) <= NEG_MAX) negative = tryComp;
-    }
-
-    const sections = {
-      aspect,
-      layout: layoutKey,
-      mandatoryText: completed_text,
-      typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
-      scene: visPhrase,
-      mood: toneStr,
-      tags,
-      pretty: prettyLines.join("\n")
-    };
-
-    return {
-      name: `Gemini — ${layoutKey}`,
-      description: `Compact Gemini prompt for layout: ${layoutKey}`,
-      positive,
-      negative,
-      sections
-    };
-  });
+  }
 
   return prompts;
 }
 
-// ============== IDEOGRAM (compact, text-first) ==============
+// ============== IDEOGRAM (AI-powered, text-first) ==============
 async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
@@ -361,17 +499,10 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
-  const toneStr = (toneMap[tone?.toLowerCase()] || tone || "fun").split(",")[0];
-  const styleStr = image_style.toLowerCase();
-
-  const comp = getCompositionInserts(composition_modes);
-  const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
-  const compNeg = comp?.compNeg || "";
+  const styleStr = image_style;
   const compName = (composition_modes && composition_modes[0]) || "norman";
-
-  const tags = normTags(specific_visuals);
-  const catRateNeg = getCategoryNegatives(category, rating);
   const visPhrase = cleanVisRec(visual_recommendation);
+  const tags = normTags(specific_visuals);
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
@@ -379,60 +510,104 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
   }
 
-  const baseNeg = [
-    "misspelled","illegible","broken-words","extra","low-contrast",
-    "warped","panels","bubbles","black-bars","cramped"
-  ].join(", ");
+  console.log(`Generating AI-powered Ideogram prompts for ${layoutsToGenerate.length} layout(s)`);
 
-  const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
+  const prompts: PromptTemplate[] = [];
+
+  for (const L of layoutsToGenerate) {
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested + min coverage + lighting
-    const prettyLines = [
-`MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
-`Lighting: bright, vibrant colors, well-lit, crisp details, professional quality.`,
-`Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
-`Aspect: ${aspect} in ${styleStr}.`,
-`A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
-`Mood: ${toneStr}.`
-    ];
+    const userPrompt = `Generate an optimized IDEOGRAM image generation prompt (Ideogram excels at text rendering and typography):
 
-    // Collapse to single line (≤80 words)
-    let positive = collapseLines(prettyLines, POS_MAX);
+MANDATORY TEXT: "${completed_text}"
+LAYOUT: ${layoutKey} (min ${minPct}% text coverage)
+VISUAL STYLE: ${styleStr}
+ASPECT RATIO: ${aspect}
+COMPOSITION MODE: ${compName}
+TONE: ${tone}
+RATING: ${rating}
+CATEGORY: ${category}
+VISUAL RECOMMENDATION: ${visPhrase}
+SPECIFIC VISUALS: ${tags.join(", ") || "none"}
 
-    // Build compact negative (≤10 words)
-    let negative = limitWords(baseNeg, NEG_MAX);
-    const cr = catRateNeg ? squeeze(`${negative}, ${catRateNeg}`) : negative;
-    if (catRateNeg && wc(cr) <= NEG_MAX) negative = cr;
-    if (tags.length) {
-      const tryTags = squeeze(`${negative}, cluttered props`);
-      if (wc(tryTags) <= NEG_MAX) negative = tryTags;
+IDEOGRAM-SPECIFIC: Focus heavily on text clarity, bold typography, high contrast between text and background. Ideogram is exceptional at rendering text, so emphasize text prominence and readability.`;
+
+    try {
+      const aiResponse = await fetch(AI_GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: buildSystemPrompt() + "\n\nIDEOGRAM OPTIMIZATION: Ideogram excels at text rendering. Emphasize bold typography, clear text zones, high contrast, and text prominence. Make text the PRIMARY focus." },
+            { role: "user", content: userPrompt }
+          ],
+          tools: [promptCraftingTool],
+          tool_choice: { type: "function", function: { name: "craft_image_prompt" } }
+        })
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`AI Gateway error for Ideogram (${aiResponse.status}):`, errorText);
+        throw new Error(`AI Gateway returned ${aiResponse.status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (!toolCall?.function?.arguments) {
+        throw new Error("AI did not return structured prompt data");
+      }
+
+      const result = JSON.parse(toolCall.function.arguments);
+      
+      console.log(`Ideogram ${layoutKey} - AI Reasoning:`, result.reasoning);
+
+      prompts.push({
+        name: `Ideogram AI — ${layoutKey}`,
+        description: result.reasoning,
+        positive: result.positive_prompt,
+        negative: result.negative_prompt,
+        sections: {
+          aspect,
+          layout: layoutKey,
+          mandatoryText: completed_text,
+          typography: `bold modern sans-serif; ≥${minPct}% coverage; high contrast`,
+          scene: visPhrase,
+          mood: tone,
+          tags,
+          pretty: `AI-Generated Ideogram Prompt:\n\n${result.positive_prompt}\n\nEmphasis: ${result.emphasis_areas.join(", ")}`
+        }
+      });
+
+    } catch (error) {
+      console.error(`Error generating Ideogram prompt for layout ${layoutKey}:`, error);
+      const fallbackPositive = `MANDATORY TEXT: "${completed_text}" in ${layoutKey} layout with BOLD typography. Lighting: bright, vibrant, high contrast. Text: ${minPct}% coverage, modern sans-serif. Aspect: ${aspect} in ${styleStr}. ${rating} scene with ${visPhrase} in ${compName} composition. Mood: ${tone}.`;
+      const fallbackNegative = "dark, dim, low-contrast, blurry, misspelled, illegible, panels, cramped, distorted";
+      
+      prompts.push({
+        name: `Ideogram Fallback — ${layoutKey}`,
+        description: `Fallback template (AI generation failed)`,
+        positive: fallbackPositive,
+        negative: fallbackNegative,
+        sections: {
+          aspect,
+          layout: layoutKey,
+          mandatoryText: completed_text,
+          typography: `bold sans-serif; ≥${minPct}% coverage`,
+          scene: visPhrase,
+          mood: tone,
+          tags,
+          pretty: fallbackPositive
+        }
+      });
     }
-    if (compNeg) {
-      const tryComp = squeeze(`${negative}, ${compNeg}`);
-      if (wc(tryComp) <= NEG_MAX) negative = tryComp;
-    }
-
-    const sections = {
-      aspect,
-      layout: layoutKey,
-      mandatoryText: completed_text,
-      typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
-      scene: visPhrase,
-      mood: toneStr,
-      tags,
-      pretty: prettyLines.join("\n")
-    };
-
-    return {
-      name: `Ideogram — ${layoutKey}`,
-      description: `Compact Ideogram prompt for layout: ${layoutKey}`,
-      positive,
-      negative,
-      sections
-    };
-  });
+  }
 
   return prompts;
 }
