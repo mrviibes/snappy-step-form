@@ -13,10 +13,10 @@ import {
   getCategoryNegatives
 } from "../_shared/final-prompt-rules.ts";
 
-// ============== AI GATEWAY ==============
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash";
+// ============== OPENAI DIRECT ==============
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const AI_MODEL = "gpt-4o-mini";
 
 // ============== CORS ==============
 const corsHeaders = {
@@ -372,10 +372,10 @@ Example:
 Output the 2 lines for the positive prompt and the comma-separated negative prompt.`;
 
     try {
-      const aiResponse = await fetch(AI_GATEWAY_URL, {
+      const aiResponse = await fetch(OPENAI_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -391,8 +391,8 @@ Output the 2 lines for the positive prompt and the comma-separated negative prom
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
-        console.error(`AI Gateway error (${aiResponse.status}):`, errorText);
-        throw new Error(`AI Gateway returned ${aiResponse.status}: ${errorText}`);
+        console.error(`OpenAI API error (${aiResponse.status}):`, errorText);
+        throw new Error(`OpenAI API returned ${aiResponse.status}: ${errorText}`);
       }
 
       const aiData = await aiResponse.json();
@@ -511,10 +511,10 @@ IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast. I
 Output the 2 lines for the positive prompt and the comma-separated negative prompt.`;
 
     try {
-      const aiResponse = await fetch(AI_GATEWAY_URL, {
+      const aiResponse = await fetch(OPENAI_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -530,8 +530,8 @@ Output the 2 lines for the positive prompt and the comma-separated negative prom
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
-        console.error(`AI Gateway error for Ideogram (${aiResponse.status}):`, errorText);
-        throw new Error(`AI Gateway returned ${aiResponse.status}`);
+        console.error(`OpenAI API error for Ideogram (${aiResponse.status}):`, errorText);
+        throw new Error(`OpenAI API returned ${aiResponse.status}`);
       }
 
       const aiData = await aiResponse.json();
