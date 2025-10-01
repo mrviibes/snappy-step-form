@@ -218,8 +218,8 @@ function maybeSplitMeme(text: string, layoutKey?: string) {
 function cleanVisRec(s?: string) {
   const raw = (s || "").trim();
   if (!raw) return "clear composition";
-  let t = raw.replace(/^[Aa]n?\s+/, "");           // drop leading A/An
-  t = t.replace(/\s+/g, " ").replace(/\.*$/, ""); // collapse spaces, drop trailing dots
+  let t = raw.replace(/^[Aa]n?\s+/, "");
+  t = t.replace(/\s+/g, " ").replace(/\.*$/, "");
   t = t.replace(/^lively scene shows\s+/i, "lively ").replace(/^scene shows\s+/i, "");
   return t;
 }
@@ -228,6 +228,19 @@ function cleanVisRec(s?: string) {
 function enforceLayout(key: string, completedText: string, thresh = 12) {
   if (key === "badge-callout" && wc(completedText) > thresh) return "negative-space";
   return key;
+}
+
+// NEW: Minimum text coverage per layout
+function minCoverageForLayout(key: string): number {
+  switch (key) {
+    case "badge-callout": return 25;   // requested
+    case "meme-text":     return 20;   // requested
+    case "caption":       return 15;   // requested
+    case "negative-space":return 22;   // existing policy
+    case "integrated-in-scene": return 22;
+    case "dynamic-overlay":    return 18;
+    default: return 22;
+  }
 }
 
 // Join lines to single line (API), cap words
@@ -278,11 +291,12 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layoutKey = enforceLayout(L.key, completed_text);
+    const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested
+    // Multi-line skeleton — EXACT format requested + min coverage
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
-"Typography: modern sans-serif; ~25% area; no panels.",
+`Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
 `Mood: ${toneStr}.`
@@ -310,7 +324,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       aspect,
       layout: layoutKey,
       mandatoryText: completed_text,
-      typography: "modern sans-serif; ~25% area; no panels",
+      typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
       scene: visPhrase,
       mood: toneStr,
       tags,
@@ -370,11 +384,12 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
     const layoutKey = enforceLayout(L.key, completed_text);
+    const minPct = minCoverageForLayout(layoutKey);
 
-    // Multi-line skeleton — EXACT format requested
+    // Multi-line skeleton — EXACT format requested + min coverage
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${layoutKey} format.`,
-"Typography: modern sans-serif; ~25% area; no panels.",
+`Typography: modern sans-serif; text occupies at least ${minPct}% of image area; no panels.`,
 `Aspect: ${aspect} in ${styleStr}.`,
 `A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
 `Mood: ${toneStr}.`
@@ -400,7 +415,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
       aspect,
       layout: layoutKey,
       mandatoryText: completed_text,
-      typography: "modern sans-serif; ~25% area; no panels",
+      typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
       scene: visPhrase,
       mood: toneStr,
       tags,
