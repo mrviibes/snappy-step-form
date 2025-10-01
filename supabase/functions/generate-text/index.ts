@@ -268,16 +268,32 @@ serve(async (req) => {
     const { names, traits, others } = classifyInserts(insertWords || []);
     const name = names[0] || "";
 
+    // Multi-word insert detection
+    const multiWordInserts = insertWords.filter((w: string) => w.trim().split(/\s+/).length > 1);
+    if (multiWordInserts.length > 0) {
+      console.warn("Multi-word insert phrases detected:", multiWordInserts);
+    }
+
     // Minimal, model-led prompt
     const HUMOR_MATRIX = ["vocative compliment with twist", "imperative CTA", "metaphor/simile gag", "affectionate mini-roast"].join(" • ");
 
     let userPrompt =
-`Write 4 distinct one-liners about "${leaf}" for a ${cat || "general"} context.
-Tone: ${toneTag} (humor baseline = ${humorMode}).
-Rating: ${ratingTag}.
-Use these shapes (rotate): ${HUMOR_MATRIX}
-Insert Words: ${insertWords.join(", ") || "none"}.
-Rules: one sentence per line; ≤${MAX_LEN} chars; EXACTLY one Insert Word per line, placed naturally (possessive forms OK, e.g., "Jesse's"), never as the last word; conversational voice; concrete detail; end on the funny; no labels.`;
+`THEME: "${leaf}"
+CONTEXT: ${cat || "general"}
+TONE: ${toneTag} (humor baseline = ${humorMode})
+RATING: ${ratingTag}
+HUMOR SHAPES (rotate): ${HUMOR_MATRIX}
+INSERT WORDS (use EXACTLY one per line, naturally placed): ${insertWords.join(", ") || "none"}
+
+RULES:
+• One sentence per line
+• ≤${MAX_LEN} chars per line
+• Each line must include EXACTLY one Insert Word, placed naturally (possessive forms OK, e.g., "Jesse's"), never as last word
+• Conversational voice, concrete detail
+• End on the funny
+• No labels, no meta-commentary, no explanations
+
+OUTPUT: 4 one-liners (start immediately):`;
 
     // Call model
     const res = await fetch(
