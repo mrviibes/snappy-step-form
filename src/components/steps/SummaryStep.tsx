@@ -596,8 +596,25 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
                 Positive Prompt (from Generate-Final-Prompt)
               </Badge>
             </div>
+            <p className="text-sm text-foreground leading-relaxed">
+              {selectedTemplate.positive.split('. ').map((line, i, arr) => (
+                <span key={i}>
+                  {line}{i < arr.length - 1 ? '.' : ''}
+                  {i < arr.length - 1 && <br />}
+                </span>
+              ))}
+            </p>
+          </Card>
+
+          {/* Negative Prompt */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="default" className="bg-red-100 text-red-800">
+                Negative Prompt
+              </Badge>
+            </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
-              {selectedTemplate.positive}
+              {selectedTemplate.negative}
             </p>
           </Card>
 
