@@ -7,10 +7,16 @@ GENERAL
 - Readability first: pro typography, high contrast, no clutter.
 
 TYPOGRAPHY POLICY
-- Text ~22–28% of image area (not a thin caption).
-- Integrated on-scene; no filled panels/bars, bubbles, stickers.
+- Minimum text coverage by layout:
+  - Badge-Callout ≥ 25% of image area
+  - Meme (top/bottom) ≥ 20%
+  - Caption (bottom) ≥ 15%
+  - Negative-Space ≥ 22%
+  - Integrated-in-Scene ≥ 22%
+  - Dynamic-Overlay ≥ 18%
+- Use modern rounded/geometric sans-serif; clean kerning; even spacing.
+- Integrated on-scene; no filled panels/bars or speech bubbles.
 - Contrast via lighting/color or subtle background blur (not boxes).
-- Modern rounded/geometric sans-serif; clean kerning; even spacing.
 - Exact spelling only; no duplicates or extra text.
 
 STRUCTURE
@@ -19,7 +25,7 @@ STRUCTURE
 - Dimensions: aspect ratio. Visual Recommendation: optional scene guide.
 
 PROMPT CONSTRUCTION
-- Positive (≤80 words): include mandatory text, layout rules, style, aspect, tone/rating, scene/props, readability.
+- Positive (≤80 words): include mandatory text, layout rules, style, aspect, tone/rating, scene/props, readability, and minimum coverage.
 - Negative (≤10 words): block text errors and enforce rating/category.
 
 OUTPUT
@@ -32,16 +38,16 @@ export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI 
 - If layout = meme-text: split at first comma (top/bottom).
 - Brief scene: category/subcategory style (label not named), aspect, tone/rating, 1–3 props.
 - Bright key light, vivid saturation, crisp focus, cinematic contrast.
-- Typography policy: 22–28% area, no panels/bubbles, pro spacing.`;
+- Typography policy: see minimum coverage by layout above; no panels/bubbles.`;
 
 // ===== LAYOUT MAP (updated six layouts) =====
 export const layoutMap: Record<string, string> = {
-  "meme-text": "bold top/bottom meme placement; high-contrast; no panels; 6–8% padding; line-break at first comma; area 22–28%",
-  "badge-callout": "compact floating callout; minimal 1–2 px outline; no background fill",
-  "negative-space": "text in clean open area; avoid busy detail; 10–15% whitespace buffer; area 22–28%",
-  "caption": "single strong bottom caption; centered; restrained weight; 5–7% margin above edge",
-  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and believable; preserve legibility",
-  "dynamic-overlay": "diagonal/angled overlay aligned to composition lines; crisp editorial vibe"
+  "meme-text": "bold top/bottom meme placement; high-contrast; minimum 20% text coverage; 6–8% padding; line-break at first comma",
+  "badge-callout": "compact floating callout; thin outline; minimum 25% text coverage; no background fill",
+  "negative-space": "text in clean open area; avoid busy detail; minimum 22% text coverage; 10–15% whitespace buffer",
+  "caption": "single strong bottom caption; centered; minimum 15% text coverage; restrained weight; 5–7% margin above edge",
+  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and legible; minimum 22% coverage",
+  "dynamic-overlay": "diagonal/angled overlay aligned to composition lines; crisp editorial vibe; minimum 18% coverage"
 };
 
 // ===== SHORT LAYOUT TAGS (for minimal prompts/UI) =====
