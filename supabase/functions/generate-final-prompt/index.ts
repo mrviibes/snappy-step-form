@@ -36,7 +36,7 @@ interface FinalPromptRequest {
   text_layout?: string;         // "auto" or one of six
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
   composition_modes?: string[]; // e.g., ["norman"]
-  specific_visuals?: string[];  // NEW: tags from UI
+  specific_visuals?: string[];  // tags from UI
   visual_recommendation?: string;
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
@@ -46,7 +46,6 @@ interface PromptTemplate {
   positive: string;  // API-ready single line
   negative: string;
   description: string;
-  // Optional pretty sections for UI (human-readable)
   sections?: {
     aspect?: string;
     lighting?: string;
@@ -56,7 +55,7 @@ interface PromptTemplate {
     scene?: string;
     mood?: string;
     tags?: string[];
-    pretty?: string; // NEW: multi-line formatted prompt for UI
+    pretty?: string; // multi-line formatted prompt for UI
   };
 }
 
@@ -108,13 +107,13 @@ const legacyMap: Record<string, string> = {
   goofy: "goofy_wide",
   zoomed: "zoomed",
   surreal: "surreal_scale",
-  // old keys passthrough
+  // passthrough
   base_realistic: "base_realistic",
   exaggerated_props: "exaggerated_props",
   very_close: "very_close",
   goofy_wide: "goofy_wide",
   surreal_scale: "surreal_scale",
-  object_head: "exaggerated_props" // optional fallback
+  object_head: "exaggerated_props"
 };
 
 // ============== LAYOUT ORDER (six) ==============
@@ -215,6 +214,18 @@ function maybeSplitMeme(text: string, layoutKey?: string) {
   return `Text top: "${top}" Text bottom: "${bottom}"`;
 }
 
+// Clean visual_recommendation → natural phrase
+function cleanVisRec(s?: string) {
+  const raw = (s || "").trim();
+  if (!raw) return "clear composition";
+  let t = raw.replace(/^[Aa]n?\s+/, "");              // drop leading A/An
+  t = t.replace(/\s+/g, " ").replace(/\.*$/, "");     // collapse spaces, drop trailing dots
+  // soften common “scene shows” phrasing
+  t = t.replace(/^lively scene shows\s+/i, "lively ")
+       .replace(/^scene shows\s+/i, "");
+  return t;
+}
+
 // Join an array of lines to a single line (API), cap words
 function collapseLines(lines: string[], maxWords: number) {
   const one = squeeze(lines.filter(Boolean).join(" "));
@@ -243,10 +254,11 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const comp = getCompositionInserts(composition_modes);
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
-  const compName = (composition_modes && composition_modes[0]) || "";
+  const compName = (composition_modes && composition_modes[0]) || "norman";
 
   const tags = normTags(specific_visuals);
   const catRateNeg = getCategoryNegatives(category, rating);
+  const visPhrase = cleanVisRec(visual_recommendation);
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
@@ -260,19 +272,19 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    // Build the pretty, multi-line skeleton (your format)
+    // Multi-line skeleton — EXACT format requested
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
 "Typography: modern sans-serif; ~25% area; no panels.",
 `Aspect: ${aspect} in ${styleStr}.`,
-`A ${rating} scene with ${visual_recommendation || "clear composition"} in a ${compName || "norman"}.`,
+`A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
 `Mood: ${toneStr}.`
     ];
 
-    // Collapse to single line for API (≤80 words)
+    // Collapse to single line (≤80 words)
     let positive = collapseLines(prettyLines, POS_MAX);
 
-    // negatives with category/rating + tags + composition negatives (≤10 words)
+    // Build compact negative (≤10 words)
     let negative = limitWords(baseNeg, NEG_MAX);
     if (catRateNeg) {
       const tryCR = squeeze(`${negative}, ${catRateNeg}`);
@@ -292,7 +304,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
       layout: L.key,
       mandatoryText: completed_text,
       typography: "modern sans-serif; ~25% area; no panels",
-      scene: visual_recommendation || "",
+      scene: visPhrase,
       mood: toneStr,
       tags,
       pretty: prettyLines.join("\n")
@@ -332,10 +344,11 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   const comp = getCompositionInserts(composition_modes);
   const compPos = comp?.compPos ? comp.compPos.replace("Composition: ", "") : "";
   const compNeg = comp?.compNeg || "";
-  const compName = (composition_modes && composition_modes[0]) || "";
+  const compName = (composition_modes && composition_modes[0]) || "norman";
 
   const tags = normTags(specific_visuals);
   const catRateNeg = getCategoryNegatives(category, rating);
+  const visPhrase = cleanVisRec(visual_recommendation);
 
   let layoutsToGenerate = SIX_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
@@ -349,19 +362,19 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   ].join(", ");
 
   const prompts: PromptTemplate[] = layoutsToGenerate.map((L) => {
-    // Pretty, multi-line skeleton (your format)
+    // Multi-line skeleton — EXACT format requested
     const prettyLines = [
 `MANDATORY TEXT: "${completed_text}" in a Layout: ${L.key} format.`,
 "Typography: modern sans-serif; ~25% area; no panels.",
 `Aspect: ${aspect} in ${styleStr}.`,
-`A ${rating} scene with ${visual_recommendation || "clear composition"} in a ${compName || "norman"}.`,
+`A ${rating} scene featuring ${visPhrase} in a ${compName} composition.`,
 `Mood: ${toneStr}.`
     ];
 
-    // Collapse to single line for API (≤80 words)
+    // Collapse to single line (≤80 words)
     let positive = collapseLines(prettyLines, POS_MAX);
 
-    // negatives with category/rating + tags + composition negatives (≤10 words)
+    // Build compact negative (≤10 words)
     let negative = limitWords(baseNeg, NEG_MAX);
     const cr = catRateNeg ? squeeze(`${negative}, ${catRateNeg}`) : negative;
     if (catRateNeg && wc(cr) <= NEG_MAX) negative = cr;
@@ -379,7 +392,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
       layout: L.key,
       mandatoryText: completed_text,
       typography: "modern sans-serif; ~25% area; no panels",
-      scene: visual_recommendation || "",
+      scene: visPhrase,
       mood: toneStr,
       tags,
       pretty: prettyLines.join("\n")
