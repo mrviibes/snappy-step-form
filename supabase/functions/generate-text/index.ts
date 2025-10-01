@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { 
-  text_rules, 
+  general_text_rules,
+  celebration_text_rules,
   joke_text_rules, 
   celebrations_text_rules, 
   daily_life_text_rules, 
@@ -45,9 +46,9 @@ serve(async (req) => {
 
     // Select rule block by category
     const cat = (category || "").toLowerCase();
-    let systemPrompt = text_rules;
+    let systemPrompt = general_text_rules;
     if (cat.includes("joke")) systemPrompt = joke_text_rules;
-    else if (cat.includes("celebration")) systemPrompt = celebrations_text_rules;
+    else if (cat.includes("celebration")) systemPrompt = celebration_text_rules;
     else if (cat.includes("daily")) systemPrompt = daily_life_text_rules;
     else if (cat.includes("sport")) systemPrompt = sports_text_rules;
     else if (cat.includes("pop") || cat.includes("culture")) systemPrompt = pop_culture_text_rules;

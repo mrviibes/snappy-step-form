@@ -1,6 +1,6 @@
 // ================== TEXT RULES (ALL CATEGORIES) ==================
 
-export const text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
+export const general_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
 
 GOAL
 Write 4 funny, punchy, human-sounding distinct one-liners.
@@ -30,6 +30,37 @@ RATINGS
 - PG → censored swears allowed (f**k, s**t). No uncensored profanity.
 - PG-13 → only "hell" and "damn" allowed; replace stronger profanity; no slurs or hate speech.
 - R (Raw, Unfiltered) → profanity required in every line; varied; no slurs or hate speech; can be roast or celebratory hype; Sentimental+R mixes warmth with raw language.
+`;
+
+
+export const celebration_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
+
+GOAL
+Write 4 celebratory, personal, heartfelt one-liners for special occasions.
+
+HARD CONSTRAINTS
+- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
+- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
+- Follow the selected Tone and Rating. Use any required insert words naturally (names, ages, etc.).
+- FOCUS: Make the recipient/honoree feel special. Center on the specific celebration (birthday, wedding, anniversary, graduation, etc.).
+- PERSONAL CONNECTION: Use warm, congratulatory language. Make it feel like it's FOR them.
+- If Specific Words are provided, include exactly one per line (once, not repeated).
+- No duplicate word pairs across the 4 outputs.
+- Emphasize milestones, achievements, and joy.
+- Avoid clichés/greeting-card phrasing unless the celebration explicitly calls for them.
+
+TONES
+- Humorous → lighthearted celebration, playful teasing with love.
+- Savage → roast with affection, still feels like a celebration.
+- Sentimental → heartfelt, warm, emotional connection. Punchline feels meaningful.
+- Nostalgic → references shared memories or the passage of time.
+- Romantic → affectionate for couples, charming and sweet.
+- Inspirational → uplifting about their future, their potential.
+- Playful → fun party energy, silly celebration vibes.
+- Serious → formal congratulations, dignified recognition.
+
+RATINGS
+- (same as text_rules)
 `;
 
 
