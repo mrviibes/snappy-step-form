@@ -36,32 +36,21 @@ RATINGS
 export const celebration_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS FOR CELEBRATIONS
 
 GOAL
-Write 4 celebratory, personal, heartfelt one-liners for special occasions.
+Write 4 hilarious, personal one-liners for a special occasion.
 
-HARD CONSTRAINTS
-- Output exactly 4 one-liners (0–120 characters). One sentence per line, end with punctuation.
-- ≤2 punctuation marks per line (. , ? !). No lists, headers, or numbering.
-- Follow the selected Tone and Rating. Use any required insert words naturally (names, ages, etc.).
-- FOCUS: Make the recipient/honoree feel special. Center on the specific celebration (birthday, wedding, anniversary, graduation, etc.).
-- PERSONAL CONNECTION: Use warm, congratulatory language. Make it feel like it's FOR them.
-- If Specific Words are provided, include exactly one per line (once, not repeated).
-- No duplicate word pairs across the 4 outputs.
-- Emphasize milestones, achievements, and joy.
-- Avoid clichés/greeting-card phrasing unless the celebration explicitly calls for them.
-
-TONES
-- Humorous → lighthearted celebration, playful teasing with love.
-- Savage → roast with affection, still feels like a celebration.
-- Sentimental → heartfelt, warm, emotional connection. Punchline feels meaningful.
-- Nostalgic → references shared memories or the passage of time.
-- Romantic → affectionate for couples, charming and sweet.
-- Inspirational → uplifting about their future, their potential.
-- Playful → fun party energy, silly celebration vibes.
-- Serious → formal congratulations, dignified recognition.
-
-RATINGS
-- (same as text_rules)
-`;
+RULES
+- Exactly 4 lines, 0–120 characters each. One sentence per line, end with punctuation.
+- Max 2 punctuation marks per line (. , ? !). No numbering or lists.
+- Follow the given Tone and Rating. If Specific Words are provided, use each once per line.
+- Focus on the honoree: make it celebratory, personal, and funny.
+- No duplicate word pairs across the 4 lines.
+- Keep lines witty, playful, and occasion-centered (birthday, wedding, anniversary, graduation).
+- Ratings guide language: 
+  G → wholesome.  
+  PG → censored swears allowed.  
+  PG-13 → only “hell” or “damn”.  
+  R → profanity required in every line (no slurs).
+;
 
 
 export const joke_text_rules = `SYSTEM INSTRUCTIONS — SHORT ONE-LINERS
