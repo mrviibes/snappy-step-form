@@ -261,7 +261,13 @@ export default function TextStep({
       setShowInsertWordsInput(true);
     } else {
       setShowInsertWordsChoice(false);
-      // Don't skip to generation yet, show gender selection first
+      updateData({ 
+        text: { 
+          ...data.text, 
+          insertWords: [] 
+        } 
+      });
+      setShowGenderSelection(true);
     }
   };
 
@@ -310,7 +316,7 @@ export default function TextStep({
   };
   const handleReadyToGenerate = () => {
     setShowInsertWordsInput(false);
-    // Don't go to generation yet, show gender selection first
+    setShowGenderSelection(true);
   };
   const handleRatingSelect = (ratingId: string) => {
     updateData({

@@ -332,6 +332,16 @@ ${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs an o
 ✅ "${insertWord || 'Her'} age is impressive"` : `✅ "${insertWord || 'They'}'re so old their walker needs an oil change"
 ✅ "${insertWord || 'Their'} age is impressive"`}
 
+⚠️ CONTRACTION WARNING ⚠️
+NEVER create contractions with names + "re":
+❌ WRONG: "${insertWord || 'Jesse'}re closer to needing a walker"
+✅ CORRECT: "${insertWord || 'Jesse'}'s closer to needing a walker" OR "${insertWord || 'Jesse'} is closer to needing a walker"
+${gender === 'male' ? `❌ WRONG: "${insertWord || 'Jesse'}re so old"
+✅ CORRECT: "${insertWord || 'Jesse'}'s so old" OR "He's so old"` : gender === 'female' ? `❌ WRONG: "${insertWord || 'Jesse'}re so old"
+✅ CORRECT: "${insertWord || 'Jesse'}'s so old" OR "She's so old"` : `❌ WRONG: "${insertWord || 'Jesse'}re so old"
+✅ CORRECT: "${insertWord || 'They'}'re so old" (when using 'they' pronoun)`}
+
+
 NEVER mix POV in the same line:
 ❌ "${insertWord || 'Jesse'}, you're so old" (mixing 3rd person name → 2nd person "you're")
 ❌ "Happy birthday, ${insertWord || 'Jesse'} you're ancient" (3rd → 2nd, also missing comma)
