@@ -63,19 +63,18 @@ interface PromptTemplate {
 const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 2-line structure:
 
 POSITIVE PROMPT FORMAT (exactly 2 lines):
-Line 1: TEXT "[mandatory_text]" in a [layout] format with HIGHLY SATURATED colors, MAXIMUM vibrancy, bold vivid color palette, rich warm lighting, high color saturation, punchy tones, well-lit, crisp details, professional quality in a [aspect] [style] image.
+Line 1: TEXT "[mandatory_text]" in a [layout] format. Typography: modern sans-serif, ~[coverage]% coverage. Aspect: [aspect], [style] style.
 Line 2: A [rating] scene featuring [visual_description] in a [composition] composition.
 
 NEGATIVE PROMPT FORMAT (comma-separated list):
-dark, dim, murky, shadowy, underexposed, blurry, grainy, dull-colors, washed-out, desaturated, muted colors, pale, faded, low saturation, cluttered, distorted, low-quality, misspelled, illegible, broken-words, warped, panels, bubbles
+dark, dim, murky, shadowy, underexposed, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, broken-words, warped, panels, bubbles
 
 ⚠️ CRITICAL RULES:
 1. DO NOT extract visual keywords from the mandatory text - text is ONLY for display, NOT scene content
 2. Use ONLY the visual_recommendation and specific_visuals for actual scene elements  
 3. Keep format SHORT and CLEAN - no extra words or descriptions
-4. Always include VIBRANT quality attributes: "HIGHLY SATURATED colors, MAXIMUM vibrancy, bold vivid color palette, rich warm lighting, high color saturation, punchy tones, well-lit, crisp details, professional quality"
+4. Keep colors vibrant and well-lit, but balanced and natural (not oversaturated)
 5. Never use words from the text as scene descriptors (e.g., if text mentions "hieroglyphics", do NOT add hieroglyphics to the scene)
-6. VIBRANCY IS MANDATORY: All images must have rich, saturated, vivid colors with strong color intensity
 
 LAYOUT TYPES:
 - meme-text: Text format for meme-style images
@@ -95,11 +94,11 @@ COMPOSITION MODES:
 
 EXAMPLES:
 ✅ CORRECT FORMAT:
-Line 1: TEXT "Jesse's birth certificate is practically a historical artifact, complete with hieroglyphics." in a meme-text format with HIGHLY SATURATED colors, MAXIMUM vibrancy, bold vivid color palette, rich warm lighting, high color saturation, punchy tones, well-lit, crisp details, professional quality in a 16:9 realistic image.
-Line 2: A PG-13 scene featuring group of friends laughing around a birthday cake in a normal composition.
+Line 1: TEXT "Happy birthday, Jesse! May your joy multiply this year!" in a badge-callout format. Typography: modern sans-serif, ~25% coverage. Aspect: 16:9, realistic style.
+Line 2: A PG-13 scene featuring vibrant birthday cake sits center stage surrounded by colorful balloons and playful confetti in a normal composition.
 
 ❌ WRONG - Don't do this:
-"The image shows hieroglyphics and historical artifacts with Jesse's friends celebrating..."
+"The image shows a birthday party with maximum vibrancy and highly saturated colors..."
 
 Remember: The text is what gets DISPLAYED as typography. The visual_recommendation describes what's IN the scene.`;
 
@@ -114,7 +113,7 @@ const promptCraftingTool = {
       properties: {
         positive_line1: {
           type: "string",
-          description: 'Line 1: TEXT "[text]" in a [layout] format with bright, vibrant colors, well-lit, crisp details, professional quality in a [aspect] [style] image.'
+          description: 'Line 1: TEXT "[text]" in a [layout] format. Typography: modern sans-serif, ~[coverage]% coverage. Aspect: [aspect], [style] style.'
         },
         positive_line2: {
           type: "string",
