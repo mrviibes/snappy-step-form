@@ -304,10 +304,30 @@ Line 2: [complete sentence with ${insertWord}]
 Line 3: [complete sentence with ${insertWord}]
 Line 4: [complete sentence with ${insertWord}]` : 'No insert word required.'}
 
+🚫 DO NOT CROSS - FORBIDDEN TOPICS 🚫
+Even for R-rated savage content, NEVER reference:
+• Suicide, self-harm, or assisted dying/euthanasia
+• Serious terminal illnesses or cancer
+• Death threats or violence against the person
+• Sexual abuse or assault
+• Substance addiction/recovery
+• Mental health crises (depression, PTSD, etc.)
+Playful aging jokes are OK ("closer to death than retirement"), but crossing into genuinely dark territory is NOT.
+
 THEME: "${leaf}"
 TONE: ${toneTag}
 RATING: ${ratingTag}
 CONTEXT: ${cat || "general"}
+
+✅ POV CONSISTENCY RULE ✅
+Pick ONE point of view per line and stick to it:
+• 2nd person: "You're so old..." OR "Your age is..."
+• 3rd person: "${insertWord || 'They'}'s so old..." OR "${insertWord || 'Their'} age is..."
+NEVER mix them in the same line:
+❌ "${insertWord || 'Jesse'}, you're so old" (mixing 3rd person name → 2nd person "you're")
+❌ "Happy birthday, ${insertWord || 'Jesse'} you're ancient" (3rd → 2nd, also missing comma)
+✅ "${insertWord || 'Jesse'}'s so old..." (consistent 3rd person)
+✅ "You're so old..." (consistent 2nd person)
 
 GOOD EXAMPLES ${insertWord ? `(notice ${insertWord} in EVERY line, naturally placed)` : ''}:
 ${insertWord ? `✅ "${insertWord}'s so old their birth certificate is in Roman numerals"
@@ -325,17 +345,32 @@ BAD EXAMPLES (avoid these patterns):
 ❌ "I got Jesse a gift seemed like a good idea" - BROKEN GRAMMAR, run-on
 ❌ "Happy birthday, and Jesse, you're awesome" - mechanical connector
 ❌ "Can't wait to celebrate Jesse" - no punctuation at end
+${insertWord ? `❌ "${insertWord}'s age is a damn good argument for assisted suicide" - CROSSES CONTENT BOUNDARY
+❌ "${insertWord}, you're getting old fast" - POV MIXING (3rd person name → 2nd person "you're")
+❌ "Another year, fucked, and ${insertWord}'s hairline..." - AWKWARD SWEAR PLACEMENT (interrupts flow)
+❌ "fuck, Happy birthday ${insertWord} you're closer to..." - SWEAR TACKED ON + POV MIXING` : ''}
 
 ${R === "R" ? `
-R-RATED EXAMPLES (use variety):
-✅ "Another year older, Jesse's still fucking crushing it"
+✅ NATURAL SWEAR INTEGRATION (R-rated) ✅
+Swear words must flow naturally within sentence structure:
+GOOD: "${insertWord || 'They'}'re so damn old their ID is a fossil"
+GOOD: "Another shitty year and ${insertWord || 'they'}'re still here crushing it"
+GOOD: "${insertWord || 'Their'} hairline is officially fucked"
+BAD: "Another year, fucked, and ${insertWord || 'they'}..." (awkward, interrupts flow)
+BAD: "fuck, Happy birthday ${insertWord || 'person'}..." (tacked on randomly)
+BAD: "${insertWord || 'Person'} fuck birthday" (nonsensical placement)
+
+R-RATED EXAMPLES (natural swear placement):
+✅ "Another year older, ${insertWord || 'they'}'re still fucking crushing it"
 ✅ "We're here to celebrate even though you're probably already drunk as shit"
-✅ "Jesse walked in and suddenly everyone's bullshit got smaller"
+✅ "${insertWord || 'They'} walked in and suddenly everyone's bullshit got smaller"
 ✅ "Happy birthday - may your liver forgive us for what's about to happen"
+✅ "${insertWord || 'They'}'re so damn old their birth certificate is in hieroglyphics"
 
 R-RATED RULES:
 • Use EXACTLY ONE swear word per line (vary them: fuck, fucking, fucked, shit, shitty, damn, hell)
 • Place swears naturally in the punchline - NOT always next to insert words
+• Swear should be part of the sentence structure, not an interruption
 • Don't force "${name || 'name'} fuck" patterns - sounds robotic
 • Swear words should enhance the joke, not dominate it
 • COMPLETE SENTENCES ONLY - test: would a real person say this out loud?
@@ -349,13 +384,15 @@ SAVAGE TONE RULES (BE RUTHLESS):
 • Cross lines that make people gasp before they laugh
 • Aim for "OHHH DAMN" reactions, not gentle teasing
 • Think roast battle, not friendly banter
+• BUT: Stay within content boundaries (no suicide, terminal illness, etc.)
 
-SAVAGE EXAMPLES:
-✅ "Jesse's so old their childhood memories are just static and regret"
+SAVAGE EXAMPLES (notice: brutal but not crossing boundaries):
+✅ "${insertWord || 'They'}'re so old their childhood memories are just static and regret"
 ✅ "Another year older and somehow less accomplished than last year"
-✅ "Jesse walked in and lowered the room's collective IQ by 20 points"
+✅ "${insertWord || 'They'} walked in and lowered the room's collective IQ by 20 points"
 ✅ "Happy birthday to someone whose best years are definitely behind them"
 ✅ "You're getting older but not wiser - that ship sailed years ago"
+✅ "${insertWord || 'They'}'re closer to death than retirement but still showing up"
 ` : ""}
 
 ${tone?.toLowerCase() === "playful" ? `
@@ -366,9 +403,9 @@ PLAYFUL TONE RULES:
 • Childlike wonder meets adult humor
 
 PLAYFUL EXAMPLES:
-✅ "Jesse's got more candles than the cake can handle - fire hazard alert!"
+✅ "${insertWord || 'They'}'ve got more candles than the cake can handle - fire hazard alert!"
 ✅ "Another trip around the sun and you're still dodging responsibility like a pro"
-✅ "Age is just a number, but in Jesse's case it's a really big number"
+✅ "Age is just a number, but in ${insertWord || 'their'} case it's a really big number"
 ` : ""}
 
 ${tone?.toLowerCase() === "sentimental" ? `
@@ -379,9 +416,9 @@ SENTIMENTAL TONE RULES:
 • Make them feel special and valued
 
 SENTIMENTAL EXAMPLES:
-✅ "Jesse makes every room brighter just by being there"
-✅ "Here's to another year of your incredible kindness changing lives"
-✅ "The world got luckier the day Jesse was born"
+✅ "${insertWord || 'They'} make every room brighter just by being there"
+✅ "Here's to another year of ${insertWord || 'their'} incredible kindness changing lives"
+✅ "The world got luckier the day ${insertWord || 'they'} were born"
 ` : ""}
 
 CRITICAL FLOW RULES:
@@ -389,10 +426,10 @@ CRITICAL FLOW RULES:
 • NO SENTENCE FRAGMENTS - "Jesse, closer to..." is NOT a complete sentence
 • Avoid mechanical connectors (especially overusing "and")
 • Avoid double commas (no "Happy birthday, Jesse, enjoy..." patterns)
-• Don't start with "Name, Capital Letter" patterns
+• Don't start with "Name, Capital Letter" patterns unless it's vocative address with proper comma
 • Place insert words mid-sentence when possible, not at start with comma
-• Maintain consistent POV: use "their/they" when talking ABOUT someone, "your/you" when talking TO them
-• Don't mix perspectives: not "Jesse's birthday" with "your doom" in the same line
+• Maintain consistent POV within each line: all 2nd person OR all 3rd person per line
+• Don't mix perspectives in one line: not "${insertWord || 'Jesse'}'s birthday" with "your doom"
 • Insert words should flow naturally within the sentence, not feel tacked on
 • Test each line: Would a real person actually say this out loud?
 • Aim for punchy, conversational, and quotable - like a great tweet
