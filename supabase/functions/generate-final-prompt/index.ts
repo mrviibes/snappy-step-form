@@ -32,12 +32,12 @@ interface FinalPromptRequest {
   tone?: string;
   rating?: string;
   insertWords?: string[];
-  image_style?: string;        // "realistic" | "illustrated" etc.
-  text_layout?: string;        // "auto" or one of six
+  image_style?: string;
+  text_layout?: string;
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
   composition_modes?: string[];
   visual_recommendation?: string;
-  provider?: "gemini" | "ideogram"; // defaults to gemini
+  provider?: "gemini" | "ideogram";
 }
 
 interface PromptTemplate {
@@ -292,4 +292,10 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     let negative = negative10;
     if (compNeg) {
       const withComp = squeeze(`${negative}, ${compNeg}`);
-      negative = wc(withComp) <= NEG_MAX ?
+      negative = wc(withComp) <= NEG_MAX ? withComp : negative;
+    }
+
+    return {
+      name: `Ideogram — ${L.key}`,
+      description: `Compact Ideogram prompt for layout: ${L.key}`,
+     
