@@ -95,21 +95,17 @@ function classifyInserts(words: string[]) {
   return { names, traits, others };
 }
 
-// Place a word once, naturally (never as last token)
+// Gentle fallback: only insert if truly missing
 function ensureInsertOnce(line: string, word: string): string {
   if (!word) return line;
+  
+  // Check if word already exists (including possessive)
   const base = new RegExp(`\\b${escapeRE(word)}\\b`, "i");
   const poss = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
   if (base.test(line) || poss.test(line)) return line;
-
-  let s = line;
-  if (s.includes(",")) s = s.replace(",", `, ${word},`);
-  else {
-    const j = s.indexOf(" ");
-    s = j > 0 ? s.slice(0, j) + " " + word + s.slice(j) : `${word} ${s}`;
-  }
-  s = s.replace(new RegExp(`${escapeRE(word)}\\s*[.!?]?$`, "i"), `${word},`);
-  return s;
+  
+  // Only if missing: prepend naturally
+  return `${word}, ${line}`;
 }
 
 // Distribute exactly ONE insert per line (round-robin)
@@ -280,20 +276,28 @@ serve(async (req) => {
     let userPrompt =
 `THEME: "${leaf}"
 CONTEXT: ${cat || "general"}
-TONE: ${toneTag} (humor baseline = ${humorMode})
+TONE: ${toneTag}
 RATING: ${ratingTag}
-HUMOR SHAPES (rotate): ${HUMOR_MATRIX}
-INSERT WORDS (use EXACTLY one per line, naturally placed): ${insertWords.join(", ") || "none"}
+INSERT WORDS (use one per line): ${insertWords.join(", ") || "none"}
+
+EXAMPLES OF GOOD PLACEMENT:
+✅ "Jesse's bringing the snacks and the sass"
+✅ "Another year older, still crushing it like Jesse"
+✅ "Jesse walked in and suddenly everyone's problems got smaller"
+
+EXAMPLES OF BAD PLACEMENT:
+❌ "Happy birthday, and Jesse, you're awesome"
+❌ "You're amazing, Jesse, keep going"
+❌ "Looking good, and Jesse, stay strong"
 
 RULES:
-• One sentence per line
-• ≤${MAX_LEN} chars per line
-• Each line must include EXACTLY one Insert Word, placed naturally (possessive forms OK, e.g., "Jesse's"), never as last word
-• Conversational voice, concrete detail
-• End on the funny
-• No labels, no meta-commentary, no explanations
+• Write 4 one-liners (one sentence each, ≤${MAX_LEN} chars)
+• Use EXACTLY one insert word per line
+• Place it naturally - make it sound like a human wrote it
+• Never tack it on with commas at the end
+• No meta-commentary, no labels, just the lines
 
-OUTPUT: 4 one-liners (start immediately):`;
+OUTPUT (start immediately):`;
 
     // Call model
     const res = await fetch(
