@@ -290,3 +290,55 @@ CRITICAL FORMAT: Return exactly 4 separate lines. Each line must be a complete s
     if (lines.length < 4) {
       const fallback = generatedText
         .replace(/\r/g," ")
+        .replace(/\n/g," ")
+        .split(/[.!?]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 10);
+      lines = fallback.slice(0, 4);
+    }
+
+    // Pad to exactly 4 if needed
+    while (lines.length < 4) {
+      lines.push(`${leaf || "Today"} is unforgettable.`);
+    }
+    lines = lines.slice(0, 4);
+
+    // Post-process: apply all guards
+    lines = lines.map(line => {
+      let s = line.trim();
+      s = tidyCommas(s);
+      s = limitPunctPerLine(s);
+      s = clampLen(s);
+      s = enforceLeafPresence(s, leafTokens);
+      s = enforceRatingLine(s, rating || "G", insertWords);
+      return s;
+    });
+
+    // Distribute specific words naturally (if provided)
+    if (insertWords.length) {
+      lines = distributeSpecificWords(lines, insertWords);
+    }
+
+    // Dampen duplicate bigrams
+    lines = dampenDuplicatePairs(lines);
+
+    // Final cleanup
+    lines = lines.map(s => ensureEndPunct(tidyCommas(s.trim())));
+
+    return new Response(
+      JSON.stringify({ 
+        lines, 
+        used_rules,
+        debug: { category, subcategory, theme, tone, rating, insertWords }
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error) {
+    console.error("Error in generate-text:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
