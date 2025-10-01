@@ -7,7 +7,7 @@ GENERAL
 - Readability first: pro typography, high contrast, no clutter.
 
 TYPOGRAPHY POLICY
-- Text ~22–28% of image area (not a thin caption).
+- Text ~15% to 40% of image area (not a thin caption).
 - Integrated on-scene; no filled panels/bars, bubbles, stickers.
 - Contrast via lighting/color or subtle background blur (not boxes).
 - Modern rounded/geometric sans-serif; clean kerning; even spacing.
