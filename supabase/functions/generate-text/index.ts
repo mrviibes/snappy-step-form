@@ -230,7 +230,7 @@ function finishWithButton(s: string, rating: string): string {
 const HEDGES = /\b(kinda|sort of|honestly|basically|literally|trust)\b[, ]?/gi;
 function unHedge(s: string): string { return s.replace(/\.{3,}/g, ",").replace(HEDGES, "").replace(/\s{2,}/g, " ").trim(); }
 function dedupeName(s: string, nm?: string) { return nm ? s.replace(new RegExp(`\\b${escapeRE(nm)}\\b\\s*,?\\s*\\b${escapeRE(nm)}\\b`, "i"), nm).trim() : s; }
-function addGlue(s: string): string { return s.replace(/,\s+(?=[a-z])/i, ", and "); }
+function addGlue(s: string): string { return s; } // Trust AI flow, no mechanical insertion
 
 // ---------- Server ----------
 serve(async (req) => {
