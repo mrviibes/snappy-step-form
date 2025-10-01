@@ -119,3 +119,15 @@ HARD CONSTRAINTS
 - Same base constraints as general_text_rules (inherit all).
 - Focus: the most specific user theme; if unclear, default to relatable, human experiences.
 - R PROFANITY: integrate naturally for user's theme (e.g., "This wedding is fucking beautiful"); never end sentences with profanity.`;
+
+// ======= Minimal tone tags for prompting (3–4 words each) =======
+export const TONE_TAGS: Record<string, string> = {
+  humorous:      "funny, witty, light",
+  savage:        "harsh, blunt, cutting",
+  sentimental:   "warm, heartfelt, tender",
+  nostalgic:     "reflective, old-times, wistful",
+  romantic:      "loving, passionate, sweet",
+  inspirational: "motivating, uplifting, bold",
+  playful:       "silly, cheeky, fun",
+  serious:       "formal, direct, weighty"
+};
