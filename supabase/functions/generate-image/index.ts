@@ -14,6 +14,7 @@ interface GenerateImageRequest {
   image_dimensions?: "square" | "portrait" | "landscape";
   quality?: "high" | "medium" | "low";
   provider?: "ideogram" | "gemini";
+  image_style?: string;
 }
 
 interface GenerateImageResponse {
@@ -76,6 +77,14 @@ const resolutionMap: Record<string, string> = { square: "1024x1024", landscape: 
 const modelMap: Record<string, string> = { high: "V_3", medium: "V_3", low: "V_3_TURBO" };
 const legacyModelMap: Record<string, string> = { high: "V_2", medium: "V_2", low: "V_2_TURBO" };
 const speedMap: Record<string, string> = { high: "QUALITY", medium: "DEFAULT", low: "TURBO" };
+const styleTypeMap: Record<string, string> = {
+  realistic: "REALISTIC",
+  design: "DESIGN",
+  "3d": "RENDER_3D",
+  anime: "ANIME",
+  general: "GENERAL",
+  auto: "GENERAL"
+};
 
 type Provider = "ideogram" | "gemini";
 
@@ -176,6 +185,7 @@ serve(async (req) => {
   const provider: Provider = requestBody.provider || "ideogram";
   const image_dimensions = requestBody.image_dimensions || "square";
   const quality = requestBody.quality || "high";
+  const image_style = (requestBody.image_style || "realistic").toLowerCase();
   const prompt = (requestBody.prompt || "").trim();
   const negativePrompt = (requestBody.negativePrompt || "").trim();
 
@@ -259,13 +269,25 @@ serve(async (req) => {
 
     // Provider: Ideogram V3
     const apiKey = Deno.env.get("IDEOGRAM_API_KEY")!;
+    const ideogramStyle = styleTypeMap[image_style] || "REALISTIC";
+    
     const form = new FormData();
     form.append("prompt", prompt);
-    if (negativePrompt) form.append("negative_prompt", negativePrompt);
+    
+    // Build enhanced negative prompt for realistic style
+    let finalNegativePrompt = negativePrompt;
+    if (ideogramStyle === "REALISTIC") {
+      const realisticNegatives = "illustrated, 3D render, cartoon, animated, stylized, cel-shaded, drawing, painting, digital art";
+      finalNegativePrompt = negativePrompt 
+        ? `${negativePrompt}, ${realisticNegatives}`
+        : realisticNegatives;
+    }
+    
+    if (finalNegativePrompt) form.append("negative_prompt", finalNegativePrompt);
     form.append("aspect_ratio", aspectRatioMap[image_dimensions]);
     form.append("rendering_speed", speedMap[quality]);
     form.append("magic_prompt", "OFF");
-    form.append("style_type", "GENERAL");
+    form.append("style_type", ideogramStyle);
     form.append("num_images", "1");
 
     response = await withRetry(async () => {
