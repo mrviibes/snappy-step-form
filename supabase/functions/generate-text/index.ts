@@ -80,29 +80,6 @@ function isCompleteSentence(s: string): boolean {
 }
 function escapeRE(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-// Fix run-on sentences
-function fixRunOnSentence(s: string): string {
-  return s
-    .replace(/\b([a-z]+)\s+(time|suddenly|but|now)\s+/gi, '$1—$2 ')
-    .replace(/\b(like|than)\s+([a-z]+)\s+(time|suddenly|but|now)\s+/gi, '$1 $2—$3 ');
-}
-
-// POV consistency checks
-function hasPOVMixing(s: string, name?: string): boolean {
-  if (!name) return false;
-  const hasSecondPerson = /\b(you|your|you're|you've)\b/i.test(s);
-  const hasThirdPerson = new RegExp(`\\b${escapeRE(name)}'?s?\\b`, 'i').test(s) || /\b(their|they)\b/i.test(s);
-  return hasSecondPerson && hasThirdPerson;
-}
-
-function fixPOVMixing(s: string, name?: string): string {
-  if (!name || !hasPOVMixing(s, name)) return s;
-  // Prefer 3rd person (talking ABOUT them) for birthday contexts
-  return s
-    .replace(/\bYou're\b/g, `${name}'s`)
-    .replace(/\byour\b/gi, 'their')
-    .replace(/\byou\b/gi, 'they');
-}
 
 function toFour(lines: string[], fallback: string): string[] {
   let L = lines.map(trimLine).filter(Boolean);
@@ -137,35 +114,12 @@ function classifyInserts(words: string[]) {
   return { names, traits, others };
 }
 
-// Gentle fallback: only insert if truly missing (trust AI to place naturally)
-function ensureInsertOnce(line: string, word: string): string {
-  if (!word) return line;
-  
+// Simple check - does the line have the insert word?
+function hasInsertWord(line: string, word: string): boolean {
+  if (!word) return true;
   const base = new RegExp(`\\b${escapeRE(word)}\\b`, "i");
   const poss = new RegExp(`\\b${escapeRE(word)}'s\\b`, "i");
-  
-  // Check if already naturally placed
-  if (base.test(line) || poss.test(line)) {
-    // BUT reject if it's awkwardly placed at the end after punctuation
-    const awkwardEnd = new RegExp(`[.!?]\\s+${escapeRE(word)}[.!?]?$`, "i");
-    if (awkwardEnd.test(line)) {
-      // Remove awkward placement and re-insert naturally
-      line = line.replace(awkwardEnd, '.').trim();
-      // Insert at beginning with possessive
-      return `${word}'s ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
-    }
-    return line;
-  }
-  
-  // If missing entirely, trust AI placement through prompt - don't force mechanical insertion
-  return line;
-}
-
-// Distribute exactly ONE insert per line (round-robin)
-function distributeInsertsRoundRobin(lines: string[], names: string[], traits: string[], others: string[]): string[] {
-  const queue = [...names, ...traits, ...others].filter(Boolean);
-  if (queue.length === 0) return lines;
-  return lines.map((line, i) => ensureInsertOnce(line, queue[i % queue.length]));
+  return base.test(line) || poss.test(line);
 }
 
 // Gentle trait polish
@@ -335,32 +289,42 @@ serve(async (req) => {
       console.warn("Multi-word insert phrases detected:", multiWordInserts);
     }
 
-    // Minimal, model-led prompt
-    const HUMOR_MATRIX = ["vocative compliment with twist", "imperative CTA", "metaphor/simile gag", "affectionate mini-roast"].join(" • ");
+    // ========== USER PROMPT ==========
+    const insertWord = name || insertWords[0] || '';
+    let userPrompt = `${systemPrompt}
 
-    let userPrompt =
-`THEME: "${leaf}"
-CONTEXT: ${cat || "general"}
+⚠️ CRITICAL REQUIREMENT #1 ⚠️
+${insertWord ? `YOU MUST USE "${insertWord}" IN ALL 4 LINES.
+This is NON-NEGOTIABLE. Every single line must contain "${insertWord}" naturally integrated into the sentence.
+NOT tacked on at the end. NOT awkwardly placed. NATURALLY woven into the punchline or setup.
+
+REQUIRED FORMAT (FOLLOW EXACTLY):
+Line 1: [complete sentence with ${insertWord}]
+Line 2: [complete sentence with ${insertWord}]
+Line 3: [complete sentence with ${insertWord}]
+Line 4: [complete sentence with ${insertWord}]` : 'No insert word required.'}
+
+THEME: "${leaf}"
 TONE: ${toneTag}
 RATING: ${ratingTag}
-INSERT WORDS (use one per line): ${insertWords.join(", ") || "none"}
+CONTEXT: ${cat || "general"}
 
-GOOD EXAMPLES (natural flow, complete sentences):
-✅ "Jesse's so old their birth certificate is in Roman numerals" - complete sentence, clear structure
-✅ "Another year closer to yelling at teenagers for existing" - complete thought, no fragments
-✅ "Jesse's aging like fine wine - expensive and gives you a headache" - full sentence with dash
-✅ "You're turning 30, time to adult... or just fake it better" - complete with natural pause
+GOOD EXAMPLES ${insertWord ? `(notice ${insertWord} in EVERY line, naturally placed)` : ''}:
+${insertWord ? `✅ "${insertWord}'s so old their birth certificate is in Roman numerals"
+✅ "${insertWord}'s aging like fine wine—expensive and gives you a headache"
+✅ "Another year closer to ${insertWord} needing a fire permit for their cake"
+✅ "${insertWord} walked in and lowered the room's average IQ by 20 points"` : 
+`✅ "Turning 30, time to adult... or just fake it better"
+✅ "Aging like fine wine—expensive and gives you a headache"
+✅ "Another year older means one step closer to wisdom"
+✅ "Birthday candles now require a fire permit"`}
 
 BAD EXAMPLES (avoid these patterns):
-❌ "Jesse's aging like milk time to pour them down the drain" - RUN-ON SENTENCE, needs punctuation (—)
-❌ "You're not getting older, just closer to Jesse's inevitable demise" - POV MIXING (you + Jesse's)
-❌ "They're one step closer to needing help blowing out their candles. Jesse." - INSERT TACKED ON at end
-❌ "I got Jesse a coffin seemed like" - BROKEN GRAMMAR, incomplete sentence, sentence fragment
-❌ "Jesse, closer to needing help..." - vocative comma + fragment = double bad, not a complete sentence
-❌ "Happy birthday, and Jesse, you're awesome" - mechanical "and" connector
-❌ "Happy birthday, Jesse, enjoy your..." - AVOID double comma pattern
-❌ "Jesse, Another year closer..." - Don't start with name + comma + capital letter
-❌ "Jesse's so old and their joints creak" - choppy, forced "and"
+❌ "So old their birth certificate expired. Jesse." - INSERT TACKED ON at end after period
+❌ "Jesse, getting older and closer to..." - FRAGMENT, incomplete sentence
+❌ "I got Jesse a gift seemed like a good idea" - BROKEN GRAMMAR, run-on
+❌ "Happy birthday, and Jesse, you're awesome" - mechanical connector
+❌ "Can't wait to celebrate Jesse" - no punctuation at end
 
 ${R === "R" ? `
 R-RATED EXAMPLES (use variety):
@@ -469,68 +433,71 @@ OUTPUT (start immediately):`;
     const data = await res.json();
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Parse → lines; kill meta/bullets
-    let lines = raw.split("\n").map(trimLine).filter(Boolean);
-    lines = lines.filter(l => !/^\s*(?:tone|rating|insert|options?|line|\d+[.)])\s*/i.test(l));
+    console.log("Raw Gemini response:", raw);
 
-    // Exactly 4
-    const fallback = `Celebrating ${leaf}.`;
-    lines = toFour(lines, fallback);
+    // Parse lines - basic split and filter
+    let lines = raw
+      .split("\n")
+      .map(trimLine)
+      .filter(l => l && !/^\s*(?:tone|rating|insert|options?|line|\d+[.)])\s*/i.test(l))
+      .filter(l => l.length <= MAX_LEN && isCompleteSentence(l))
+      .slice(0, 6);
 
-    // Insert once per line (round-robin so each line centers on ONE insert)
-    lines = distributeInsertsRoundRobin(lines, names, traits, others);
+    console.log("After split and filter:", lines);
 
-    // Trait polish
-    if (traits.length) lines = lines.map(l => polishTraits(l, traits, names));
-
-    // Light flow fixes before rating/cutoff
-    lines = lines.map(l => dedupeName(unHedge(l), name));
-
-    // Rating normalization (pass name for R placement)
-    lines = lines.map(l => normalizeByRating(l, R, name));
-
-    // Finish cut-offs with a tiny button, if needed
-    lines = lines.map(l => seemsCutOff(l) ? finishWithButton(l, R) : l);
-
-    // Fix any literal "Name"/"Name's" artifacts just in case
-    function fixTemplateArtifacts(s: string, nm?: string) {
-      if (!nm) return s;
-      return s.replace(/\bName's\b/g, `${nm}'s`).replace(/\bName\b/g, nm);
-    }
-    lines = lines.map(l => fixTemplateArtifacts(addGlue(l), name));
-
-    // Filter out sentence fragments first
-    lines = lines.filter(l => isCompleteSentence(l));
-    
-    // If we filtered too many, keep at least one fallback
     if (lines.length === 0) {
-      lines = ["Another year older and still awesome"];
+      throw new Error("No valid lines from Gemini");
     }
 
-    // Final tidy (punct-aware cap)
+    // Apply basic fixes only
     lines = lines.map(l => {
       let out = trimLine(l);
-      out = fixRunOnSentence(out);  // NEW: Fix run-ons first
-      out = fixPOVMixing(out, name); // NEW: Fix POV mixing
       out = fixSpacesBeforePunct(out);
       out = fixVocativeComma(out, name);
       out = fixDoubleCommas(out);
       out = fixCommaPeriod(out);
       out = sanitizePunct(out);
+      out = dedupeName(unHedge(out), name);
       out = capLenSmart(out, MAX_LEN);
       return endPunct(out);
     });
 
-    // Final quality check - filter out any remaining POV mixing
-    lines = lines.filter(l => {
-      const valid = !hasPOVMixing(l, name);
-      if (!valid) console.log('Rejected line (POV mixing):', l);
-      return valid;
-    });
+    // CRITICAL VALIDATION: Check if ALL lines have the insert word (if one was provided)
+    if (insertWord) {
+      const allLinesHaveInsert = lines.every(line => hasInsertWord(line, insertWord));
+      
+      if (!allLinesHaveInsert) {
+        console.warn(`⚠️ AI failed to include "${insertWord}" in all lines.`);
+        console.warn("Lines received:", lines);
+        console.warn("Using fallback lines with guaranteed insert word.");
+        
+        // Simple fallback with guaranteed insert word
+        lines = [
+          `${insertWord}'s getting older but somehow still crushing it.`,
+          `Another year wiser for ${insertWord}—or at least that's the plan.`,
+          `${insertWord}'s birthday means one thing: time to celebrate.`,
+          `Happy birthday ${insertWord}—may this year be legendary.`
+        ];
+      }
+    }
 
-    // Ensure we still have 4 lines after filtering
+    // Apply rating normalization
+    lines = lines.map(l => normalizeByRating(l, R, name));
+
+    // Finish cut-offs if needed
+    lines = lines.map(l => seemsCutOff(l) ? finishWithButton(l, R) : l);
+
+    // Fix template artifacts
+    function fixTemplateArtifacts(s: string, nm?: string) {
+      if (!nm) return s;
+      return s.replace(/\bName's\b/g, `${nm}'s`).replace(/\bName\b/g, nm);
+    }
+    lines = lines.map(l => fixTemplateArtifacts(l, name));
+
+    // Ensure exactly 4 lines
+    const fallback = insertWord ? `${insertWord}'s celebrating another amazing year.` : `Another year older and still awesome.`;
     while (lines.length < 4) {
-      lines.push(`Another year older and still awesome.`);
+      lines.push(fallback);
     }
     lines = lines.slice(0, 4);
 

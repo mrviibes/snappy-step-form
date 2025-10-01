@@ -1,6 +1,9 @@
 // ================== TEXT RULES (MINIMAL) ==================
 
-export const general_text_rules = `SYSTEM • SHORT ONE-LINERS
+export const general_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -31,7 +34,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const celebration_text_rules = `SYSTEM • SHORT ONE-LINERS • CELEBRATIONS
+export const celebration_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • CELEBRATIONS
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -71,7 +77,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const daily_life_text_rules = `SYSTEM • SHORT ONE-LINERS • DAILY LIFE
+export const daily_life_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • DAILY LIFE
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -110,7 +119,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const sports_text_rules = `SYSTEM • SHORT ONE-LINERS • SPORTS
+export const sports_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • SPORTS
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -149,7 +161,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const joke_text_rules = `SYSTEM • SHORT ONE-LINERS • JOKES
+export const joke_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • JOKES
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -188,7 +203,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const pop_culture_text_rules = `SYSTEM • SHORT ONE-LINERS • POP CULTURE
+export const pop_culture_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • POP CULTURE
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -227,7 +245,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const miscellaneous_text_rules = `SYSTEM • SHORT ONE-LINERS • MISCELLANEOUS
+export const miscellaneous_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • MISCELLANEOUS
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
@@ -267,7 +288,10 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const custom_design_text_rules = `SYSTEM • SHORT ONE-LINERS • CUSTOM DESIGN
+export const custom_design_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
+
+SYSTEM • SHORT ONE-LINERS • CUSTOM DESIGN
 
 OUTPUT FORMAT
 - Return exactly 4 one-liners, one per line
