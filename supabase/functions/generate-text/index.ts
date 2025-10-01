@@ -175,7 +175,10 @@ function normalizeByRating(s: string, rating: string, nameHint?: string): string
   let out = s;
   const r = (rating || "G").toUpperCase();
 
-  if (r === "R") return ensureOneStrongSwearR(out, nameHint);
+  if (r === "R") {
+    out = out.replace(/\bgod[-\s]?damn(ed|ing)?\b/gi, "damn");
+    return ensureOneStrongSwearR(out, nameHint);
+  }
 
   if (r === "PG-13") {
     out = out
@@ -210,7 +213,7 @@ const TRAIL_PUNCT = /[,;:]$/;
 const ELLIPSIS = /\.{3,}\s*$/;
 
 const BUTTONS: Record<"PG"|"PG-13"|"R", string[]> = {
-  PG:     ["deal?", "no pressure.", "we’re proud of you.", "big win today."],
+  PG:     ["deal?", "no pressure.", "we're proud of you.", "big win today."],
   "PG-13":["what the hell.", "damn right.", "**** yeah.", "own it."],
   R:      ["you glorious menace.", "now blow the candles.", "legend behavior.", "party, fucker."]
 };
@@ -274,7 +277,7 @@ Tone: ${toneTag} (humor baseline = ${humorMode}).
 Rating: ${ratingTag}.
 Use these shapes (rotate): ${HUMOR_MATRIX}
 Insert Words: ${insertWords.join(", ") || "none"}.
-Rules: one sentence per line; ≤${MAX_LEN} chars; EXACTLY one Insert Word per line, placed naturally (allow “Name’s”), never as the last word; conversational voice; concrete detail; end on the funny; no labels.`;
+Rules: one sentence per line; ≤${MAX_LEN} chars; EXACTLY one Insert Word per line, placed naturally (possessive forms OK, e.g., "Jesse's"), never as the last word; conversational voice; concrete detail; end on the funny; no labels.`;
 
     // Call model
     const res = await fetch(

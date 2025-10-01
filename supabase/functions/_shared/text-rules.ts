@@ -8,7 +8,7 @@ Write 4 punchy, human one-liners for the selected theme.
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
 - Use the selected Tone and Rating.
-- INSERT WORDS: include exactly one per line and place it naturally (allow “Name’s”); do not tack it on at the end.
+- INSERT WORDS: include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
 - TRAITS (e.g., "gay", "vegan", "left-handed"): treat respectfully and affirmingly; never as an insult; let the humor come from situation, not identity.
 - Prefer specificity; keep each line distinct; avoid clichés; no labels like "TONE:".`;
 
@@ -20,7 +20,7 @@ Write 4 celebratory, personal one-liners that read smoothly.
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
 - Use the selected Tone and Rating.
-- INSERT WORDS: include exactly one per line and place it naturally (allow “Name’s”); do not tack it on at the end.
+- INSERT WORDS: include exactly one per line and place it naturally (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
 - TRAITS (e.g., "gay"): celebrate the trait; never use it as a punchline by itself; fold it into the compliment or scenario.
 - Focus on the honoree and the occasion (birthday, wedding, graduation); keep each line concrete and human-sounding.
 - R PROFANITY: inside the sentence, not the last word (e.g., "Jesse, you glorious fuck, enjoy the cake").`;
