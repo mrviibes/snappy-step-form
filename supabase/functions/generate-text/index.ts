@@ -78,22 +78,20 @@ async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promis
     ],
     tools: [{
       type: "function",
-      function: {
-        name: "return_lines",
-        description: "Return the final 4 lines for the UI.",
-        parameters: {
-          type: "object",
-          required: ["lines"],
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string", maxLength: 140 }
-            }
-          },
-          additionalProperties: false
-        }
+      name: "return_lines",
+      description: "Return the final 4 lines for the UI.",
+      parameters: {
+        type: "object",
+        required: ["lines"],
+        properties: {
+          lines: {
+            type: "array",
+            minItems: 4,
+            maxItems: 4,
+            items: { type: "string", maxLength: 140 }
+          }
+        },
+        additionalProperties: false
       }
     }],
     tool_choice: { type: "tool", name: "return_lines" },
