@@ -63,7 +63,9 @@ function sanitizePunct(s = ""): string {
 
 // FINAL strict sanitization - removes ALL special Unicode punctuation
 function strictSanitize(s = ""): string {
-  return s.replace(/[^\w\s.,!?']/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+  // First normalize curly quotes to straight ASCII to prevent "Tree s" issues
+  let out = s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+  return out.replace(/[^\w\s.,!?']/gu, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 function fixSpacesBeforePunct(s: string) { return s.replace(/\s+([.!?,])/g, "$1"); }
 function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
@@ -492,9 +494,31 @@ EVERY line MUST explicitly include birthday vocabulary: "Happy Birthday", "birth
         'dad joke', 'dad jokes',
         'knock-knock',
         'category', 'format', 'template',
+        'wordplay', 'linguistic', 'language',
+        'punchline', 'setup', 'delivery',
+        'comedian', 'comic', 'stand-up', 'gag', 'bit', 'skit',
         'Riddle:', 'Answer:', 'Q:', 'A:'
       );
       
+      // Add puns semantic booster
+      let punsBooster = '';
+      if (subcategory === 'puns' && insertWords.length > 0) {
+        punsBooster = `
+
+🎯 PUNS SEMANTIC REQUIREMENT (HIDDEN - DO NOT OUTPUT):
+First, silently brainstorm 6-10 associations/homophones/idioms for the insert word, then use them:
+• Tree → branch, root, bark, leaf, trunk, wood, rings, timber
+• Dog → bark, paws, tail, fetch, bone, leash, howl, treat, ruff
+• Clock → hands, face, tick, time, second, alarm, wind
+
+ASSUMPTION: If the insert word is capitalized but NOT a common first name, treat it as a noun (the thing itself).
+
+Example: "Tree" → make puns about tree parts/actions: "Leaf me alone", "I'm rooting for you", "Barking up the wrong tree"
+Example: "Dog" → make puns about dog features: "Paws and reflect", "Fetch me later", "Tail of success"
+
+DO NOT output meta-commentary about puns. Just write the puns directly.`;
+      }
+
       jokeFormatRequirement = `
 🚨 JOKE FORMAT REQUIREMENT (CRITICAL):
 Generate ACTUAL ${format}, NOT meta-commentary about jokes!
@@ -505,7 +529,7 @@ ${forbiddenMetaWords.map(w => `• ${w}`).join('\n')}
 ❌ FORBIDDEN: "${insertWords[0] || 'Person'}'s jokes are so...", "They tell jokes that...", "His puns are terrible"
 ✅ REQUIRED: Proper formatted jokes that can be told as standalone jokes
 ${subcategory ? `Use the ${format} structure for all lines.` : ''}
-`;
+${punsBooster}`;
     }
     
     let userPrompt = `${systemPrompt}

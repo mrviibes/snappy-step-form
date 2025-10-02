@@ -195,8 +195,18 @@ Generate ACTUAL jokes in proper format, NOT commentary about jokes.
 • dad joke, dad jokes
 • knock-knock joke
 • category, format, template
+• wordplay, linguistic, language
+• punchline, setup, delivery
+• comedian, comic, stand-up, gag, bit, skit
 • "Riddle:", "Answer:", "Q:", "A:"
 • ANY reference to the TYPE of joke being told
+
+🎯 PUNS-SPECIFIC REQUIREMENT:
+For puns, treat the insert word as THE THING ITSELF (a common noun/object).
+• If insert word = "Tree", think: branches, roots, bark, leaves, wood
+• If insert word = "Dog", think: bark, paws, tail, fetch, bone
+• NEVER say "his puns about trees" - just make tree puns
+• NEVER personify the insert word unless it's clearly a human name
 
 ❌ BAD EXAMPLES (NEVER DO THIS):
 "His puns are terrible"
