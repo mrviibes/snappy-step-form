@@ -143,30 +143,13 @@ task
       if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${text}`);
       
       const data = JSON.parse(text);
-      
-      // Check if API returned an error
-      if (data.error) {
-        console.error("OpenAI API error:", data.error);
-        throw new Error(`OpenAI API error: ${JSON.stringify(data.error)}`);
-      }
-      
       let parsed: any = null;
 
       if (data.output_parsed) {
         parsed = data.output_parsed;
       } else {
         // Try extracting text from multiple possible locations
-        let raw = "";
-        
-        // Check data.text first (Responses API field)
-        if (data.text) {
-          raw = typeof data.text === 'string' ? data.text : JSON.stringify(data.text);
-        }
-        // Then data.output_text
-        if (!raw && data.output_text) {
-          raw = data.output_text;
-        }
-        // Then scan data.output array
+        let raw = data.output_text || "";
         if (!raw && Array.isArray(data.output)) {
           const contentTexts = (data.output ?? [])
             .flatMap((o: any) => o.content ?? [])
@@ -174,13 +157,11 @@ task
             .filter(Boolean);
           raw = contentTexts.join("");
         }
-        // Check if output is a string
-        if (!raw && typeof data.output === 'string') {
-          raw = data.output;
-        }
-        // Chat completions format
         if (!raw && data?.choices?.[0]?.message?.content) {
           raw = data.choices[0].message.content;
+        }
+        if (!raw && typeof data.output === 'string') {
+          raw = data.output;
         }
         if (!raw && data?.message?.content) {
           raw = data.message.content;
@@ -188,22 +169,16 @@ task
         
         if (!raw) {
           console.error("Empty model response. Available keys:", Object.keys(data));
-          console.error("Full data:", JSON.stringify(data, null, 2));
           throw new Error(`Empty model response (keys: ${Object.keys(data).join(", ")})`);
         }
         
         // Safe JSON parsing with code fence stripping
         try {
           parsed = JSON.parse(raw);
-        } catch (e) {
+        } catch {
           // Strip code fences and retry
           const stripped = raw.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-          try {
-            parsed = JSON.parse(stripped);
-          } catch {
-            console.error("Failed to parse model response:", raw);
-            throw new Error(`Failed to parse JSON response: ${(e as Error).message}`);
-          }
+          parsed = JSON.parse(stripped);
         }
       }
 
