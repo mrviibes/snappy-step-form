@@ -99,12 +99,11 @@ task
         model: "gpt-5-mini",
         instructions: HOUSE_RULES,
         input: JSON.stringify(inputPayload),
+        modalities: ["text"],
         text: {
-          format: "json_schema",
-          json_schema: {
-            name: "viibe_text_v3",
-            schema: VIIBE_TEXT_SCHEMA,
-            strict: true
+          format: {
+            type: "json_schema",
+            json_schema: VIIBE_TEXT_SCHEMA
           }
         },
         max_output_tokens: 600
