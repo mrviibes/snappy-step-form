@@ -335,36 +335,65 @@ serve(async (req) => {
     const { names, traits, others } = classifyInserts(insertWords || []);
     const name = names[0] || "";
 
-    // ========== SMART SINGLE-WORD PROMPT ==========
+    // ========== UNIVERSAL CONTEXT BUILDER ==========
+    function buildContextPrompt(category: string, subcategory: string, theme: string): string {
+      const cat = category.toLowerCase().trim();
+      const sub = subcategory.toLowerCase().trim();
+      const thm = theme.toLowerCase().trim();
+      
+      // The actual topic (most specific available)
+      const topic = thm || sub || cat;
+      
+      // Build hierarchical context
+      let context = `📍 CONTEXT:\n`;
+      context += `   Category: ${category}\n`;
+      if (subcategory) context += `   Subcategory: ${subcategory}\n`;
+      if (theme) context += `   Specific Theme: ${theme}\n`;
+      
+      // Add universal on-topic instruction
+      context += `\n🎯 PRIMARY GOAL: Every line must be directly about "${topic}".\n`;
+      context += `   Lines that don't relate to "${topic}" are complete failures.\n`;
+      
+      return context;
+    }
+
+    // Build universal context
+    const contextPrompt = buildContextPrompt(category, subcategory || "", theme || "");
+
+    // ========== SMART CONTEXT-AWARE INSERT INSTRUCTION ==========
     let insertInstruction = "";
     if (insertWords.length > 0) {
-      insertInstruction = "\n\n⚠️ CRITICAL: EVERY LINE MUST USE ALL THESE WORDS:\n";
+      insertInstruction = "\n📝 REQUIRED WORDS (must appear in every line):\n";
       
-      // Classify each word intelligently
       insertWords.forEach((word, index) => {
         const classification = classifyWord(word);
-        insertInstruction += `  ${index + 1}. "${word}" (${classification})\n`;
+        insertInstruction += `   • "${word}" (${classification})\n`;
       });
       
+      const topic = (theme || subcategory || category).toLowerCase().trim();
+      
       if (insertWords.length === 2) {
-        insertInstruction += "\nIntegrate BOTH words naturally and creatively. Don't just list them - weave them into the humor/message.";
+        insertInstruction += `\n✅ Weave "${insertWords[0]}" and "${insertWords[1]}" naturally into ${topic}-related humor.\n`;
+        insertInstruction += `❌ Don't create random scenarios. Keep the ${topic} theme central.\n`;
       } else {
-        insertInstruction += "\nUse this word naturally and creatively as the core of each line.";
+        insertInstruction += `\n✅ Integrate "${insertWords[0]}" naturally into ${topic}-related content.\n`;
+        insertInstruction += `❌ Don't stray from the ${topic} theme.\n`;
       }
     }
     
     let userPrompt = `${systemPrompt}
+
+${contextPrompt}
 ${insertInstruction}
 
 🚫 FORBIDDEN TOPICS (even at R-rating):
 • Suicide, self-harm, terminal illness, cancer, death threats, sexual abuse, addiction, mental health crises
 
-THEME: "${leaf}"
 TONE: ${toneTag}
 RATING: ${ratingTag}
 ${gender !== 'neutral' ? `GENDER: ${gender === 'male' ? 'he/him/his' : 'she/her/hers'}` : ''}
 
-Write 4 one-liners (≤${MAX_LEN} chars each). No labels, just lines:`;
+Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No labels, just lines:`;
 
     // Call model
     const res = await fetch(
@@ -427,16 +456,47 @@ Write 4 one-liners (≤${MAX_LEN} chars each). No labels, just lines:`;
         console.warn(`⚠️ AI failed to include ALL insert words in all lines.`);
         console.warn("Required words:", insertWords);
         console.warn("Lines received:", lines);
-        console.warn("Using fallback lines with guaranteed insert words.");
+        console.warn("Using universal contextual fallback.");
         
-        // Fallback with all insert words
-        const allWords = insertWords.join(" ");
-        lines = [
-          `${allWords} getting older but somehow still crushing it.`,
-          `Another year and ${allWords} still here.`,
-          `${allWords} means it's time to celebrate.`,
-          `Happy birthday ${allWords}—may this year be legendary.`
-        ];
+        // Universal fallback generator
+        function generateContextualFallback(
+          insertWords: string[], 
+          topic: string, 
+          tone: string, 
+          rating: string
+        ): string[] {
+          const allWords = insertWords.join(" and ");
+          const R = rating.toUpperCase();
+          const isHumorous = tone.toLowerCase().includes("humor");
+          
+          // Generic templates that work for ANY topic
+          if (R === "R" && isHumorous) {
+            return [
+              `${allWords} and ${topic}—what a fucking combination.`,
+              `${topic} just got real with ${allWords}.`,
+              `${allWords} making ${topic} legendary as hell.`,
+              `This ${topic} moment with ${allWords}? Absolutely brilliant.`
+            ];
+          } else if (R === "PG-13" && isHumorous) {
+            return [
+              `${allWords} and ${topic}—what a combo!`,
+              `${topic} just got interesting with ${allWords}.`,
+              `${allWords} making ${topic} unforgettable.`,
+              `This ${topic} moment with ${allWords}? Pretty awesome.`
+            ];
+          } else {
+            // Safe G/PG fallback
+            return [
+              `${allWords} and ${topic}—a perfect match.`,
+              `${topic} celebrating ${allWords} today.`,
+              `${allWords} making this ${topic} special.`,
+              `${topic} moments with ${allWords} are the best.`
+            ];
+          }
+        }
+        
+        const topic = (theme || subcategory || category).toLowerCase().trim();
+        lines = generateContextualFallback(insertWords, topic, tone, R);
       }
     }
 

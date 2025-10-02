@@ -1,6 +1,8 @@
 // ================== TEXT RULES (MINIMAL) ==================
 
-export const general_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const general_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS
@@ -34,7 +36,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const celebration_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const celebration_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific celebration theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • CELEBRATIONS
@@ -77,7 +81,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const daily_life_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const daily_life_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific daily life theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • DAILY LIFE
@@ -119,7 +125,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const sports_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const sports_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific sports theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • SPORTS
@@ -161,7 +169,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const joke_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const joke_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific joke theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 
 SYSTEM • JOKES & WORDPLAY
 
@@ -182,7 +192,9 @@ CONSTRAINTS:
 - Traits (e.g., "gay", "vegan") treated respectfully - humor from situation, not identity
 - Use selected tone and rating appropriately`;
 
-export const pop_culture_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const pop_culture_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific pop culture theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • POP CULTURE
@@ -224,7 +236,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const miscellaneous_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const miscellaneous_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • MISCELLANEOUS
@@ -267,7 +281,9 @@ DO NOT
 - Do not add commentary before or after the lines
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
-export const custom_design_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
+export const custom_design_text_rules = `🎯 CRITICAL: Stay on-topic. Every line must relate to the specific custom theme provided.
+
+⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
 SYSTEM • SHORT ONE-LINERS • CUSTOM DESIGN
