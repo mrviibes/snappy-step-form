@@ -142,12 +142,9 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
     ? params.insertWords.filter(Boolean)
     : params.insertWords ? [params.insertWords as unknown as string] : [];
 
-  const categoryPath = params.subcategory
-    ? `${params.category || "celebrations"} > ${params.subcategory}`
-    : (params.category || "celebrations");
-
   const payload = {
-    category: categoryPath,
+    category: params.category || "celebrations",
+    subcategory: params.subcategory,
     tone: params.tone,
     style: params.style || "Generic",
     rating: params.rating || "PG",

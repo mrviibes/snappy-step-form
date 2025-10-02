@@ -60,6 +60,11 @@ function capLenSmart(s = "", n = MAX_LEN): string {
 function sanitizePunct(s = ""): string {
   return s.replace(/[;:()\[\]{}"\/\\<>|~`^_*@#\$%&+=–—]/g, " ").replace(/\s{2,}/g, " ").trim();
 }
+
+// FINAL strict sanitization - removes ALL special Unicode punctuation
+function strictSanitize(s = ""): string {
+  return s.replace(/[^\w\s.,!?']/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+}
 function fixSpacesBeforePunct(s: string) { return s.replace(/\s+([.!?,])/g, "$1"); }
 function fixCommaPeriod(s: string) { return s.replace(/,\s*([.!?])/g, "$1"); }
 function fixDoubleCommas(s: string) { 
@@ -270,7 +275,14 @@ serve(async (req) => {
 
   try {
     const payload: GeneratePayload = await req.json();
-    const { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [], gender = "neutral" } = payload;
+    let { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [], gender = "neutral" } = payload;
+    
+    // SAFE PARSING: Handle legacy format "category > subcategory"
+    if (category && category.includes('>') && !subcategory) {
+      const parts = category.split('>').map(p => p.trim());
+      category = parts[0];
+      subcategory = parts[1] || subcategory;
+    }
 
     // ========== VALIDATE INSERT WORDS (SINGLE-WORD SYSTEM) ==========
     if (insertWords && insertWords.length > 0) {
@@ -313,8 +325,13 @@ serve(async (req) => {
     const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
 
+    // SANITIZE all context strings to prevent symbol echoing
+    category = strictSanitize(category || "");
+    subcategory = strictSanitize(subcategory || "");
+    theme = strictSanitize(theme || "");
+    
     // Route minimal system rules
-    const cat = (category || "").toLowerCase().trim();
+    const cat = category.toLowerCase().trim();
     let systemPrompt = general_text_rules;
     if (cat === "celebrations") systemPrompt = celebration_text_rules;
     else if (cat === "jokes") systemPrompt = joke_text_rules;
@@ -444,6 +461,12 @@ ${insertInstruction}
 • If no location is mentioned, don't add one ("in Vegas", "at the office", etc.)
 • Stick to what's actually provided in the context and insert words
 
+📝 PUNCTUATION RULES:
+• NEVER use symbols: no >, <, |, /, \\, #, @
+• NEVER use em dashes (—) or en dashes (–)
+• ONLY use plain punctuation: periods, commas, exclamation marks, question marks, apostrophes
+• Keep it simple and clean
+
 🚫 FORBIDDEN TOPICS (even at R-rating):
 • Suicide, self-harm, terminal illness, cancer, death threats, sexual abuse, addiction, mental health crises
 
@@ -500,6 +523,8 @@ Write 8 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
       out = sanitizePunct(out);
       out = capLenSmart(out, MAX_LEN);
       out = endPunct(out);
+      // FINAL PASS: Remove ALL special Unicode punctuation
+      out = strictSanitize(out);
       return out;
     });
 
@@ -577,6 +602,11 @@ Write 8 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
         R
       );
     }
+    
+    // FINAL SANITIZATION - ensure no symbols escaped
+    lines = lines.map(line => strictSanitize(line));
+    
+    console.log("✅ Final lines:", lines);
 
     return new Response(JSON.stringify({
       options: lines,
