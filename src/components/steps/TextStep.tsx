@@ -1,152 +1,979 @@
 import { useState, KeyboardEvent, useEffect } from 'react';
-}} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">Edit</button>
-</div>
-)}
-</div>
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { Loader2, AlertCircle } from 'lucide-react';
+import negativeSpaceImage from "@/assets/open-space-layout.jpg";
+import memeTextImage from "@/assets/meme-layout.jpg";
+import lowerBannerImage from "@/assets/lower-banner-snailed-it-peace.jpg";
+import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
+import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
+import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
+import textLayoutExample from "@/assets/text-layout-example.jpg";
+import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+// Validation imports removed
+import DebugPanel from '@/components/DebugPanel';
+import { fitnessGoals } from '@/data/CategoryList';
+
+interface TextStepProps {
+  data: any;
+  updateData: (data: any) => void;
+  onNext: () => void;
+}
+// Tone options
+const tones = [
+  { id: "humorous", label: "Humorous", description: "Funny, witty, light" },
+  { id: "savage", label: "Savage", description: "Harsh, blunt, cutting" },
+  { id: "sentimental", label: "Sentimental", description: "Warm, heartfelt, tender" },
+  { id: "nostalgic", label: "Nostalgic", description: "Reflective, old-times, wistful" },
+  { id: "romantic", label: "Romantic", description: "Loving, passionate, sweet" },
+  { id: "inspirational", label: "Inspirational", description: "Motivating, uplifting, bold" },
+  { id: "playful", label: "Playful", description: "Silly, cheeky, fun" },
+  { id: "serious", label: "Serious", description: "Formal, direct, weighty" }
+];
+const writingPreferences = [{
+  id: 'ai-assist',
+  label: 'AI Assist'
+}, {
+  id: 'write-myself',
+  label: 'Write Myself'
+}, {
+  id: 'no-text',
+  label: 'I Don\'t Want Text'
+}];
+const ratingOptions = [
+  { id: "G", label: "G", name: "G", description: "wholesome/playful" },
+  { id: "PG", label: "PG", name: "PG", description: "light sarcasm, safe ironic" },
+  { id: "PG-13", label: "PG-13", name: "PG-13", description: "edgy, ironic, sharp" },
+  { id: "R", label: "R", name: "R", description: "savage, raw, unfiltered" }
+];
+export default function TextStep({
+  data,
+  updateData,
+  onNext
+}: TextStepProps) {
+  const [tagInput, setTagInput] = useState('');
+  const [showGeneration, setShowGeneration] = useState(false);
+  const [showTextOptions, setShowTextOptions] = useState(false);
+  const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
+  const [textOptions, setTextOptions] = useState<Array<{
+    line: string;
+  }>>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showLayoutOptions, setShowLayoutOptions] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
+  const [showInsertWordsChoice, setShowInsertWordsChoice] = useState(false);
+  const [showInsertWordsInput, setShowInsertWordsInput] = useState(false);
+  const [showGenderSelection, setShowGenderSelection] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugExpanded, setDebugExpanded] = useState(false);
+  const [selectedGender, setSelectedGender] = useState<string>("neutral");
+  
+  const { toast } = useToast();
+
+  // Clear stale words when category changes
+  useEffect(() => {
+    if (data.category && data.text?.insertWords?.length > 0) {
+      updateData({
+        text: {
+          ...data.text,
+          insertWords: []
+        }
+      });
+      toast({
+        title: "Insert words cleared",
+        description: "Previous words were removed for the new category"
+      });
+    }
+  }, [data.category, data.subcategory]);
+
+  const handleGenerate = async () => {
+    if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
+
+    // Clear pending input (auto-capture removed for single-word system)
+    setTagInput('');
+
+    setIsGenerating(true);
+    setGenerationError(null);
+    setDebugExpanded(false);
+    
+    try {
+      // Create debug info
+      const requestPayload = {
+        category: data.category || 'celebrations',
+        subcategory: data.subcategory,
+        tone: data.text.tone,
+        rating: data.text.rating,
+        insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
+        gender: selectedGender,
+        userId: 'anonymous'
+      };
+      
+      setDebugInfo({
+        model: 'server-selected',
+        endpoint: 'generate-text',
+        requestPayload,
+        timestamp: new Date().toISOString(),
+        status: 'sending...'
+      });
+      
+      const response = await generateTextOptions(requestPayload);
+      
+      // Handle response format and extract model information
+      let options;
+      let usedModel = 'unknown';
+      
+      if (response && typeof response === 'object' && 'lines' in response) {
+        // New format with model information
+        options = response.lines;
+        usedModel = (response as any).model || 'unknown';
+      } else if (response && Array.isArray(response)) {
+        // Legacy format - just an array
+        options = response;
+      } else {
+        options = [];
+      }
+      
+      if (options && options.length > 0) {
+        // Update debug info with success and actual model
+        setDebugInfo(prev => ({
+          ...prev,
+          model: usedModel,
+          status: 'success',
+          responseLength: options.length,
+          rawResponse: response
+        }));
+        
+        // Format options without validation
+        const formattedOptions = options.map((option: { line: string }) => ({
+          line: option.line
+        }));
+        
+        // Ensure we have exactly 4 options
+        const finalOptions = formattedOptions.slice(0, 4);
+        
+        setTextOptions(finalOptions);
+        setShowTextOptions(true);
+      } else {
+        throw new Error('No content generated');
+      }
+      
+    } catch (error) {
+      console.error('Text generation error:', error);
+      setDebugInfo(prev => ({
+        ...prev,
+        status: 'error',
+        error: error.message,
+        errorDetails: error
+      }));
+      setGenerationError('Could not generate text options. Please try again.');
+      setDebugExpanded(true); // Auto-expand debug panel on error
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  const handleToneSelect = (toneId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        tone: toneId
+      }
+    });
+    // Compatibility check now handled by useEffect
+  };
+  const handleEditTone = () => {
+    updateData({
+      text: {
+        ...data.text,
+        tone: ""
+      }
+    });
+  };
+  const handleWritingPreferenceSelect = (preferenceId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        writingPreference: preferenceId
+      }
+    });
+
+    // If "write-myself" is selected, skip to custom text input
+    if (preferenceId === 'write-myself') {
+      setShowGeneration(false);
+      setShowTextOptions(false);
+    }
+    // If "no-text" is selected, mark as complete - no further input needed
+    else if (preferenceId === 'no-text') {
+      updateData({
+        text: {
+          ...data.text,
+          writingPreference: preferenceId,
+          generatedText: 'No text selected',
+          isComplete: true
+        }
+      });
+    }
+    // If "AI Assist" is selected, show insert words choice
+    else if (preferenceId === 'ai-assist') {
+      setShowInsertWordsChoice(true);
+    }
+  };
+  const handleEditWritingPreference = () => {
+    updateData({
+      text: {
+        ...data.text,
+        writingPreference: ""
+      }
+    });
+    setShowInsertWordsChoice(false);
+  };
+  const handleInsertWordsChoice = (hasWords: boolean) => {
+    if (hasWords) {
+      setShowInsertWordsChoice(false);
+      setShowInsertWordsInput(true);
+    } else {
+      setShowInsertWordsChoice(false);
+      updateData({ 
+        text: { 
+          ...data.text, 
+          insertWords: [] 
+        } 
+      });
+      setShowGenderSelection(true);
+    }
+  };
+
+  const handleGenderSelect = (genderId: string) => {
+    setSelectedGender(genderId);
+    setShowGeneration(true); // Now proceed to generation
+  };
+  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      const input = tagInput.trim();
+      const currentWords = data.text?.insertWords || [];
+      
+      // Validate: Max 2 words
+      if (currentWords.length >= 2) {
+        toast({ 
+          title: "Word limit reached", 
+          description: "You can only add 2 insert words maximum",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: No spaces (except hyphens allowed)
+      if (input.includes(' ')) {
+        toast({ 
+          title: "Single words only", 
+          description: "Each word must be a single word. Use hyphens for compound words (e.g., 'left-handed')",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: Max 20 chars per word
+      if (input.length > 20) {
+        toast({ 
+          title: "Word too long", 
+          description: "Each word must be 20 characters or less",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: Total character limit (50 chars across both words)
+      const totalChars = currentWords.join('').length + input.length;
+      if (totalChars > 50) {
+        toast({ 
+          title: "Character limit exceeded", 
+          description: "Total characters across all words cannot exceed 50",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: No duplicates
+      if (currentWords.includes(input)) {
+        toast({ 
+          title: "Duplicate word", 
+          description: "This word has already been added",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // All validations passed - add the word
+      updateData({
+        text: {
+          ...data.text,
+          insertWords: [...currentWords, input]
+        }
+      });
+      setTagInput('');
+    }
+  };
+  const handleRemoveTag = (wordToRemove: string) => {
+    const currentWords = data.text?.insertWords || [];
+    updateData({
+      text: {
+        ...data.text,
+        insertWords: currentWords.filter(word => word !== wordToRemove)
+      }
+    });
+  };
+  const handleReadyToGenerate = () => {
+    setShowInsertWordsInput(false);
+    setShowGenderSelection(true);
+  };
+  const handleRatingSelect = (ratingId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        rating: ratingId
+      }
+    });
+  };
+  const handleTextOptionSelect = (optionIndex: number) => {
+    setSelectedTextOption(optionIndex);
+    // Don't automatically show layout options, keep them visible in the flow
+    updateData({
+      text: {
+        ...data.text,
+        selectedOption: optionIndex,
+        generatedText: textOptions[optionIndex]?.line || ''
+      }
+    });
+  };
+  const handleCustomTextChange = (value: string) => {
+    if (value.length <= 120) {
+      setCustomText(value);
+      setIsCustomTextSaved(false); // Reset saved status when editing
+    }
+  };
+  const handleSaveCustomText = () => {
+    if (customText.trim()) {
+      updateData({
+        text: {
+          ...data.text,
+          customText: customText.trim(),
+          generatedText: customText.trim()
+        }
+      });
+      setIsCustomTextSaved(true);
+    }
+  };
+  const handleCustomTextKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && customText.trim()) {
+      handleSaveCustomText();
+    }
+  };
+  const handleLayoutSelect = (layoutId: string) => {
+    updateData({
+      text: {
+        ...data.text,
+        layout: layoutId,
+        isComplete: true // Mark as complete when layout is selected
+      }
+    });
+  };
+
+  // Layout options
+  const layoutOptions = [{
+    id: "meme-text",
+    title: "Meme Text",
+    description: "Text at top and bottom"
+  }, {
+    id: "badge-callout",
+    title: "Badge Text",
+    description: "Text in colorful badge"
+  }, {
+    id: "negative-space",
+    title: "Open Space",
+    description: "Text in empty areas"
+  }, {
+    id: "integrated-in-scene",
+    title: "In Scene",
+    description: "Text naturally in image"
+  }];
+  const selectedTone = tones.find(tone => tone.id === data.text?.tone);
+  const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
+
+  // Helper function to get category and subcategory titles
+  const getCategoryTitle = () => {
+    const category = fitnessGoals.find(cat => cat.id === data.category);
+    return category?.title || data.category;
+  };
+
+  const getSubcategoryTitle = () => {
+    const category = fitnessGoals.find(cat => cat.id === data.category);
+    const subcategory = category?.subcategories.find(sub => sub.id === data.subcategory);
+    return subcategory?.title || data.subcategory;
+  };
+
+  const renderBreadcrumb = () => {
+    if (!data.category || !data.subcategory) return null;
+    
+    return (
+      <div className="text-left mb-1">
+        <div className="text-sm text-muted-foreground">
+          <span className="font-semibold">Your selection:</span> {getCategoryTitle()} &gt; {getSubcategoryTitle()}
+          {data.selectedTheme && data.category !== "pop-culture" && (
+            <span> &gt; {data.selectedTheme}</span>
+          )}
+          {data.specificItems && data.specificItems.length > 0 && (
+            <span> &gt; {data.specificItems.join(', ')}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Show tone selection if no tone is selected
+  if (!data.text?.tone) {
+    return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold text-foreground">
+            Choose Your Tone
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {tones.map(tone => <button key={tone.id} onClick={() => handleToneSelect(tone.id)} className="h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">{tone.label}</div>
+                <div className="text-xs text-muted-foreground">{tone.description}</div>
+              </div>
+            </button>)}
+        </div>
+      </div>;
+  }
+
+  // Show rating selection if tone is selected but no rating is selected
+  if (data.text?.tone && !data.text?.rating) {
+    return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
+        {/* Selected Tone Display with Edit Option */}
+        <div className="rounded-lg border-2 border-cyan-400 bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Tone</span> - {selectedTone?.label}
+            </div>
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
 
 
-{data.text?.writingPreference === 'ai-assist' && !showTextOptions && (
-<div className="space-y-6 pt-4">
-<div className="space-y-3">
-<div className="flex items-center justify-between">
-<h3 className="text-lg font-semibold text-foreground">Optional - Any specific words you want</h3>
-<span className="text-sm text-muted-foreground">{data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars</span>
-</div>
-<Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter single word (hyphens allowed)" className="w-full" disabled={(data.text?.insertWords?.length || 0) >= 2} />
-<p className="text-xs text-muted-foreground">Tip: Use hyphens for compound words like 'left-handed'</p>
-{data.text?.insertWords && data.text.insertWords.length > 0 && (
-<div className="flex flex-wrap gap-2">
-{data.text.insertWords.map((word: string, index: number) => (
-<div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-<span>{word}</span>
-<button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">×</button>
-</div>
-))}
-</div>
-)}
-</div>
+        {/* Rating Selection */}
+        <div className="space-y-3 pt-4">
+          <div className="text-center">
+            <h2 className="mb-2 text-xl font-semibold text-foreground">
+              Choose Your Rating
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {ratingOptions.map(rating => (
+              <button 
+                key={rating.id} 
+                onClick={() => handleRatingSelect(rating.id)} 
+                className={cn(
+                  "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                  data.text?.rating === rating.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                )}
+              >
+                <div className="flex h-full flex-col items-center justify-center space-y-1">
+                  <div className="font-semibold text-sm">{rating.name}</div>
+                  <div className="text-xs text-muted-foreground">{rating.description}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>;
+  }
+
+  // Show writing preference selection if no preference is selected
+  if (!data.text?.writingPreference) {
+    return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
+        {/* Selected Tone and Rating Display with Edit Options */}
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Selected Tone */}
+          <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Tone</span> - {selectedTone?.label}
+            </div>
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Selected Rating */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
+            </div>
+            <button onClick={() => handleRatingSelect("")} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Writing Preference Selection */}
+        <div className="text-center pt-4">
+          <h2 className="mb-4 text-xl font-semibold text-foreground">
+            Choose Your Writing Process
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          {writingPreferences.map(preference => <button key={preference.id} onClick={() => handleWritingPreferenceSelect(preference.id)} className="rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50">
+              <div className="font-semibold text-sm">{preference.label}</div>
+            </button>)}
+        </div>
+      </div>;
+  }
+
+  // Special case: If "no-text" is selected, show simple confirmation
+  if (data.text?.writingPreference === 'no-text') {
+    return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
+        {/* Selected Tone and Process in stacked format */}
+        <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+          {/* Selected Tone */}
+          <div className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Tone</span> - {selectedTone?.label}
+              </div>
+            </div>
+            <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+
+          {/* Selected Writing Preference */}
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="space-y-1">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Process</span> - {selectedWritingPreference?.label}
+              </div>
+            </div>
+            <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>
+        </div>
+
+        {/* Confirmation Message */}
+        <div className="text-center p-8">
+          <div className="text-lg font-medium text-foreground mb-2">
+            Perfect! No text will be added to your design.
+          </div>
+          <div className="text-sm text-muted-foreground">
+            You can proceed to choose your visual style.
+          </div>
+        </div>
+      </div>;
+  }
+
+  // Show selected preferences and specific words input
+  return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
+      {/* Selected Tone and Process in stacked format */}
+      <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
+        {/* Selected Tone */}
+        <div className="flex items-center justify-between p-4">
+          <div className="space-y-1">
+            <div className="text-sm text-foreground"><span className="font-semibold">Tone</span> - {selectedTone?.label}</div>
+          </div>
+          <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
+        </div>
+
+        {/* Selected Writing Preference */}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="space-y-1">
+            <div className="text-sm text-foreground"><span className="font-semibold">Process</span> - {selectedWritingPreference?.label}</div>
+          </div>
+          <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
+        </div>
+        
+        {/* Insert Words Section - show for AI assist */}
+        {data.text?.writingPreference === 'ai-assist' && <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Insert Words</span> - {data.text?.insertWords && data.text.insertWords.length > 0 ? data.text.insertWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
+            </div>
+            <button onClick={() => {
+          setShowGeneration(false);
+          setShowInsertWordsChoice(true);
+          setShowInsertWordsInput(false);
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>}
+
+        {/* Rating Summary - only show after text generation */}
+        {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
+            </div>
+            <button onClick={() => {
+          setShowTextOptions(false);
+          setSelectedTextOption(null);
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>}
+
+        {/* Selected Text Summary - only show after text selection or saved custom text */}
+        {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption]?.line?.substring(0, 20) + '...'}
+            </div>
+            <button onClick={() => {
+          if (data.text?.writingPreference === 'write-myself') {
+            setCustomText('');
+            setIsCustomTextSaved(false);
+            updateData({
+              text: {
+                ...data.text,
+                customText: '',
+                generatedText: ''
+              }
+            });
+          } else {
+            setSelectedTextOption(null);
+            setShowLayoutOptions(false);
+          }
+        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>}
+
+        {/* Selected Layout Summary - only show after layout selection */}
+        {data.text?.layout && <div className="flex items-center justify-between p-4">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Layout</span> - {layoutOptions.find(l => l.id === data.text?.layout)?.title}
+            </div>
+            <button onClick={() => updateData({
+          text: {
+            ...data.text,
+            layout: ''
+          }
+        })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+              Edit
+            </button>
+          </div>}
+      </div>
+
+      {/* AI Assist Configuration - show directly when AI Assist is selected, hide when text options are shown */}
+      {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
+          {/* Insert Words Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">Optional - Any specific words you want</h3>
+              <span className="text-sm text-muted-foreground">
+                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars
+              </span>
+            </div>
+            
+            <Input 
+              value={tagInput} 
+              onChange={e => setTagInput(e.target.value)} 
+              onKeyDown={handleAddTag} 
+              placeholder="Enter single word (hyphens allowed)" 
+              className="w-full"
+              disabled={(data.text?.insertWords?.length || 0) >= 2}
+            />
+            
+            <p className="text-xs text-muted-foreground">
+              Tip: Use hyphens for compound words like 'left-handed' or 'Star-Wars'
+            </p>
+            
+            {/* Display tags right under input box */}
+            {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
+                {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                    <span>{word}</span>
+                    <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
+                      ×
+                    </button>
+                  </div>)}
+              </div>}
+          </div>
 
 
-<div className="w-full">
-<Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
-{isGenerating ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>) : 'Generate Text'}
-</Button>
-</div>
 
 
-{generationError && (
-<div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-<AlertCircle className="w-4 h-4 flex-shrink-0" />
-<div className="flex-1"><p className="text-sm">{generationError}</p></div>
-</div>
-)}
-</div>
-)}
+          {/* Generate Button */}
+          <div className="w-full">
+            <Button 
+              onClick={handleGenerate} 
+              disabled={isGenerating} 
+              className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              {isGenerating ? <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </> : 'Generate Text'}
+            </Button>
+          </div>
 
+          {/* Error Display */}
+          {generationError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm">{generationError}</p>
+              </div>
+            </div>}
+        </div>}
 
-{showInsertWordsInput && (
-<div className="space-y-4 pt-4">
-<div className="text-center min-h-[120px] flex flex-col justify-start">
-<h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
-<div className="mt-3"><p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p></div>
-</div>
-<div className="space-y-3">
-<Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
-{data.text?.insertWords && data.text.insertWords.length > 0 && (
-<div className="flex flex-wrap gap-2">
-{data.text.insertWords.map((word: string, index: number) => (
-<div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-<span>{word}</span>
-<button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">×</button>
-</div>
-))}
-</div>
-)}
-{data.text?.insertWords && data.text.insertWords.length > 0 && (
-<div className="flex justify-center pt-4">
-<Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">Let's Generate the Final Text</Button>
-</div>
-)}
-</div>
-</div>
-)}
+      {/* Add Insert Words Section - only show when showInsertWordsInput is true */}
+      {showInsertWordsInput && <div className="space-y-4 pt-4">
+        <div className="text-center min-h-[120px] flex flex-col justify-start">
+          <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
+          <div className="mt-3">
+            <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
+          </div>
+        </div>
 
+        <div className="space-y-3">
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
+          
+          {/* Display tags right under input box */}
+          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
+              {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                  <span>{word}</span>
+                  <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    ×
+                  </button>
+                </div>)}
+            </div>}
 
-{showGenderSelection && (
-<div className="space-y-4 pt-4">
-<div className="text-center">
-<h2 className="text-xl font-semibold text-foreground mb-2">Choose Gender for Pronouns</h2>
-<p className="text-sm text-muted-foreground">This helps us use the right pronouns (he/she/they)</p>
-</div>
-<div className="grid grid-cols-3 gap-3">
-{['male','female','neutral'].map(g => (
-<button key={g} onClick={() => setSelectedGender(g)} className={cn(
-"h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-selectedGender === g ? "border-primary bg-primary/10" : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-)}>
-<div className="flex h-full flex-col items-center justify-center space-y-1">
-<div className="font-semibold text-sm">{g[0].toUpperCase()+g.slice(1)}</div>
-<div className="text-xs text-muted-foreground">{g === 'male' ? 'he/his/him' : g === 'female' ? 'she/her/hers' : 'no pronouns (use name)'}</div>
-</div>
-</button>
-))}
-</div>
-</div>
-)}
+          {/* Done button - only show when there's at least one word */}
+          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex justify-center pt-4">
+              <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
+                Let's Generate the Final Text
+              </Button>
+            </div>}
 
+        </div>
+      </div>}
+      
+      {/* Gender Selection */}
+      {showGenderSelection && <div className="space-y-4 pt-4">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Choose Gender for Pronouns</h2>
+            <p className="text-sm text-muted-foreground">This helps us use the right pronouns (he/she/they)</p>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3">
+            <button 
+              onClick={() => handleGenderSelect("male")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "male"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Male</div>
+                <div className="text-xs text-muted-foreground">he/his/him</div>
+              </div>
+            </button>
+            
+            <button 
+              onClick={() => handleGenderSelect("female")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "female"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Female</div>
+                <div className="text-xs text-muted-foreground">she/her/hers</div>
+              </div>
+            </button>
+            
+            <button 
+              onClick={() => handleGenderSelect("neutral")} 
+              className={cn(
+                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                selectedGender === "neutral"
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              <div className="flex h-full flex-col items-center justify-center space-y-1">
+                <div className="font-semibold text-sm">Neutral</div>
+                <div className="text-xs text-muted-foreground">no pronouns (use name)</div>
+              </div>
+            </button>
+          </div>
+        </div>}
+      
+      {/* Custom Text Input for Write Myself option */}
+      {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && <div className="space-y-4 pt-4">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">Write Your Own Text</h2>
+          </div>
+          
+          <div className="space-y-3">
+            <Input value={customText} onChange={e => handleCustomTextChange(e.target.value)} onKeyDown={handleCustomTextKeyDown} placeholder="Enter your text here (up to 120 characters)" maxLength={120} className="w-full" />
+            <div className="text-right text-sm text-muted-foreground">
+              {customText.length}/120 characters
+            </div>
+            
+            {/* Save Button - only show when there's text to save */}
+            {customText.trim() && <div className="flex justify-center">
+                <Button onClick={handleSaveCustomText} className="bg-cyan-400 hover:bg-cyan-500 text-white px-6 py-2 rounded-md font-medium">
+                  Save Text
+                </Button>
+              </div>}
+          </div>
+        </div>}
+        
+        {/* Generation Section */}
+        {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
+            <div className="space-y-4">
+              {/* Rating Selection */}
+              <div className="space-y-3">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">
+                    Choose Your Rating
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {ratingOptions.map(rating => (
+                    <button 
+                      key={rating.id} 
+                      onClick={() => handleRatingSelect(rating.id)} 
+                      className={cn(
+                        "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
+                        data.text?.rating === rating.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex h-full flex-col items-center justify-center space-y-1">
+                        <div className="font-semibold text-sm">{rating.name}</div>
+                        <div className="text-xs text-muted-foreground">{rating.description}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
 
-{showTextOptions && selectedTextOption === null && (
-<div className="space-y-3 p-4">
-<h3 className="text-lg font-semibold text-foreground text-center">Choose your text:</h3>
-<div className="flex justify-center">
-<button onClick={handleGenerate} disabled={isGenerating} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50">
-<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-{isGenerating ? 'Generating...' : 'Generate Again'}
-</button>
-</div>
-<div className="space-y-3">
-{textOptions.map((text, index) => (
-<div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
-<p className="text-sm leading-relaxed mb-2">{text}</p>
-</div>
-))}
-</div>
-</div>
-)}
+              {/* Generate Button - Full width on mobile */}
+              <div className="w-full space-y-3">
+                <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
+                  {isGenerating ? <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </> : 'Generate Text'}
+                </Button>
+                
+                
+              </div>
 
+              {/* Error Display */}
+              {generationError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm">{generationError}</p>
+                  </div>
+                </div>}
+              
+            </div>
+          </div>}
+              
+              {/* Text Options - Show after generation but only if no text selected yet */}
+              {showTextOptions && selectedTextOption === null && <div className="space-y-3 p-4">
+                  <h3 className="text-lg font-semibold text-foreground text-center">Choose your text:</h3>
+                  
+                  {/* Generate Again Button */}
+                  <div className="flex justify-center">
+                    <button onClick={handleGenerate} disabled={isGenerating} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      {isGenerating ? 'Generating...' : 'Generate Again'}
+                    </button>
+                  </div>
+                  
+                   <div className="space-y-3">
+                     {textOptions.map((textOption, index) => <div key={index} onClick={() => handleTextOptionSelect(index)} className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTextOption === index ? 'border-primary bg-accent text-foreground' : 'border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50'}`}>
+                         <p className="text-sm leading-relaxed mb-2">{textOption.line}</p>
+                       </div>)}
+                   </div>
+                 </div>}
 
-{(selectedTextOption !== null && !data.text?.layout) && (
-<div className="space-y-3 p-4">
-<h3 className="text-lg font-semibold text-foreground text-center">Choose Your Text Layout:</h3>
-<div className="grid grid-cols-2 gap-3">
-{layoutOptions.map(layout => (
-<Card key={layout.id} className={cn("cursor-pointer text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", { "border-primary shadow-primary bg-accent": data.text?.layout === layout.id, "border-border": data.text?.layout !== layout.id })} onClick={() => handleLayoutSelect(layout.id)}>
-<div className="p-6 flex flex-col items-center justify-center h-28">
-<h3 className="text-base font-semibold text-foreground mb-2">{layout.title}</h3>
-<p className="text-sm text-muted-foreground">{layout.description}</p>
-</div>
-</Card>
-))}
-</div>
-</div>
-)}
-
-
-{debugInfo && (
-<div className="mt-6">
-<DebugPanel
-title="Text Generation Debug"
-model={debugInfo.model}
-status={debugInfo.status}
-endpoint={debugInfo.endpoint}
-timestamp={debugInfo.timestamp}
-requestPayload={debugInfo.requestPayload}
-responseData={debugInfo.rawResponse}
-error={debugInfo.error}
-className={cn("transition-all duration-300", debugExpanded && debugInfo.status === 'error' ? "ring-2 ring-red-200 border-red-200" : "")}
-/>
-</div>
-)}
-</div>
-);
+               {/* Layout Options - Show after text selection or saved custom text */}
+               {(selectedTextOption !== null && !data.text?.layout || data.text?.writingPreference === 'write-myself' && isCustomTextSaved && !data.text?.layout) && <div className="space-y-3 p-4">
+                   <h3 className="text-lg font-semibold text-foreground text-center">Choose Your Text Layout:</h3>
+                   <div className="grid grid-cols-2 gap-3">
+                     {layoutOptions.map(layout => <Card key={layout.id} className={cn("cursor-pointer text-center transition-all duration-300 hover:scale-105", "border-2 bg-card hover:bg-accent hover:border-primary", {
+          "border-primary shadow-primary bg-accent": data.text?.layout === layout.id,
+          "border-border": data.text?.layout !== layout.id
+        })} onClick={() => handleLayoutSelect(layout.id)}>
+                         <div className="p-6 flex flex-col items-center justify-center h-28">
+                           <h3 className="text-base font-semibold text-foreground mb-2">
+                             {layout.title}
+                           </h3>
+                           <p className="text-sm text-muted-foreground">
+                             {layout.description}
+                           </p>
+                         </div>
+                       </Card>)}
+                   </div>
+                   </div>}
+                   
+      {/* Enhanced Debug Panel - Auto-expands on errors */}
+      {debugInfo && (
+        <div className="mt-6">
+          <DebugPanel
+            title="Text Generation Debug"
+            model={debugInfo.model}
+            status={debugInfo.status}
+            endpoint={debugInfo.endpoint}
+            timestamp={debugInfo.timestamp}
+            requestPayload={debugInfo.requestPayload}
+            responseData={debugInfo.rawResponse}
+            error={debugInfo.error}
+            className={cn(
+              "transition-all duration-300",
+              debugExpanded && debugInfo.status === 'error' ? "ring-2 ring-red-200 border-red-200" : ""
+            )}
+          />
+        </div>
+      )}
+      
+     </div>;
 }
