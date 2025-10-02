@@ -95,31 +95,8 @@ export default function TextStep({
   const handleGenerate = async () => {
     if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
 
-    // Auto-capture pending input
-    if (tagInput.trim()) {
-      const input = tagInput.trim();
-      if (/[\[\]{}:]/.test(input)) {
-        updateData({
-          text: {
-            ...data.text,
-            insertWords: [input]
-          }
-        });
-      } else {
-        const currentWords = data.text?.insertWords || [];
-        const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
-        const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
-        if (newWords.length > 0) {
-          updateData({
-            text: {
-              ...data.text,
-              insertWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
-            }
-          });
-        }
-      }
-      setTagInput('');
-    }
+    // Clear pending input (auto-capture removed for single-word system)
+    setTagInput('');
 
     setIsGenerating(true);
     setGenerationError(null);
@@ -278,30 +255,66 @@ export default function TextStep({
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const input = tagInput.trim();
-
-      // Check if it's advanced format (contains colons, brackets, or braces)
-      if (/[\[\]{}:]/.test(input)) {
-        // Store as a single structured string for the backend to parse
-        updateData({
-          text: {
-            ...data.text,
-            insertWords: [input] // Store as single item to preserve structure
-          }
+      const currentWords = data.text?.insertWords || [];
+      
+      // Validate: Max 2 words
+      if (currentWords.length >= 2) {
+        toast({ 
+          title: "Word limit reached", 
+          description: "You can only add 2 insert words maximum",
+          variant: "destructive" 
         });
-      } else {
-        // Handle simple comma-separated words
-        const currentWords = data.text?.insertWords || [];
-        const wordsToAdd = input.split(',').map(w => w.trim()).filter(Boolean);
-        const newWords = wordsToAdd.filter(word => !currentWords.includes(word));
-        if (newWords.length > 0) {
-          updateData({
-            text: {
-              ...data.text,
-              insertWords: [...currentWords.filter(w => !/[\[\]{}:]/.test(w)), ...newWords]
-            }
-          });
-        }
+        return;
       }
+      
+      // Validate: No spaces (except hyphens allowed)
+      if (input.includes(' ')) {
+        toast({ 
+          title: "Single words only", 
+          description: "Each word must be a single word. Use hyphens for compound words (e.g., 'left-handed')",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: Max 20 chars per word
+      if (input.length > 20) {
+        toast({ 
+          title: "Word too long", 
+          description: "Each word must be 20 characters or less",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: Total character limit (50 chars across both words)
+      const totalChars = currentWords.join('').length + input.length;
+      if (totalChars > 50) {
+        toast({ 
+          title: "Character limit exceeded", 
+          description: "Total characters across all words cannot exceed 50",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // Validate: No duplicates
+      if (currentWords.includes(input)) {
+        toast({ 
+          title: "Duplicate word", 
+          description: "This word has already been added",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      // All validations passed - add the word
+      updateData({
+        text: {
+          ...data.text,
+          insertWords: [...currentWords, input]
+        }
+      });
       setTagInput('');
     }
   };
@@ -681,10 +694,25 @@ export default function TextStep({
       {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
           {/* Insert Words Section */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-foreground">optional - Any specific words you want</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">Optional - Any specific words you want</h3>
+              <span className="text-sm text-muted-foreground">
+                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars
+              </span>
+            </div>
             
+            <Input 
+              value={tagInput} 
+              onChange={e => setTagInput(e.target.value)} 
+              onKeyDown={handleAddTag} 
+              placeholder="Enter single word (hyphens allowed)" 
+              className="w-full"
+              disabled={(data.text?.insertWords?.length || 0) >= 2}
+            />
             
-            <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="e.g., names, congrats etc. and hit return" className="w-full" />
+            <p className="text-xs text-muted-foreground">
+              Tip: Use hyphens for compound words like 'left-handed' or 'Star-Wars'
+            </p>
             
             {/* Display tags right under input box */}
             {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">

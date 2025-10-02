@@ -89,15 +89,32 @@ function toFour(lines: string[], fallback: string): string[] {
   return L;
 }
 
-// ---------- Insert Intelligence ----------
-type InsertKind = "name" | "trait" | "other";
+// ---------- Insert Intelligence (Single-Word System) ----------
+type InsertKind = "name" | "adjective" | "verb" | "noun";
 
-function classifyInsert(word: string): InsertKind {
-  const w = (word || "").trim();
-  if (!w) return "other";
-  if (/^[A-Z][a-z]+(?:[-\s][A-Z][a-z]+)*$/.test(w)) return "name";
-  if (TRAIT_WORDS.has(w.toLowerCase())) return "trait";
-  return "other";
+function classifyWord(word: string): string {
+  const normalized = word.toLowerCase();
+  
+  // Check if it's a name (capitalized)
+  if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) {
+    return "person's name - use as subject";
+  }
+  
+  // Check for adjectives (common patterns)
+  if (normalized.endsWith('y') || normalized.endsWith('ful') || 
+      normalized.endsWith('less') || normalized.endsWith('ous') ||
+      normalized.endsWith('ive') || normalized.endsWith('able') ||
+      TRAIT_WORDS.has(normalized)) {
+    return "adjective - describes something";
+  }
+  
+  // Check for verbs (common patterns)
+  if (normalized.endsWith('ing') || normalized.endsWith('ed')) {
+    return "verb/action";
+  }
+  
+  // Default to noun
+  return "noun - main subject/object";
 }
 
 function classifyInserts(words: string[]) {
@@ -107,9 +124,9 @@ function classifyInserts(words: string[]) {
   for (const raw of (words || [])) {
     const w = (raw || "").trim();
     if (!w) continue;
-    const k = classifyInsert(w);
-    if (k === "name") names.push(w);
-    else if (k === "trait") traits.push(w);
+    // Use old logic for backward compatibility in other functions
+    if (/^[A-Z]/.test(w)) names.push(w);
+    else if (TRAIT_WORDS.has(w.toLowerCase())) traits.push(w);
     else others.push(w);
   }
   return { names, traits, others };
@@ -255,6 +272,44 @@ serve(async (req) => {
     const payload: GeneratePayload = await req.json();
     const { category, subcategory, theme, tone = "humorous", rating = "G", insertWords = [], gender = "neutral" } = payload;
 
+    // ========== VALIDATE INSERT WORDS (SINGLE-WORD SYSTEM) ==========
+    if (insertWords && insertWords.length > 0) {
+      // Max 2 words
+      if (insertWords.length > 2) {
+        return new Response(
+          JSON.stringify({ error: "Maximum 2 insert words allowed" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Each word must be single (no spaces, hyphens allowed)
+      const hasSpaces = insertWords.some(word => word.includes(' '));
+      if (hasSpaces) {
+        return new Response(
+          JSON.stringify({ error: "Each insert word must be a single word (no spaces). Use hyphens for compound words." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Max 20 chars per word
+      const tooLong = insertWords.some(word => word.length > 20);
+      if (tooLong) {
+        return new Response(
+          JSON.stringify({ error: "Each insert word must be 20 characters or less" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Max 50 chars total
+      const totalChars = insertWords.join('').length;
+      if (totalChars > 50) {
+        return new Response(
+          JSON.stringify({ error: "Total characters across all words cannot exceed 50" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
 
@@ -280,23 +335,26 @@ serve(async (req) => {
     const { names, traits, others } = classifyInserts(insertWords || []);
     const name = names[0] || "";
 
-    // Multi-word insert detection
-    const multiWordInserts = insertWords.filter((w: string) => w.trim().split(/\s+/).length > 1);
-    if (multiWordInserts.length > 0) {
-      console.warn("Multi-word insert phrases detected:", multiWordInserts);
+    // ========== SMART SINGLE-WORD PROMPT ==========
+    let insertInstruction = "";
+    if (insertWords.length > 0) {
+      insertInstruction = "\n\n⚠️ CRITICAL: EVERY LINE MUST USE ALL THESE WORDS:\n";
+      
+      // Classify each word intelligently
+      insertWords.forEach((word, index) => {
+        const classification = classifyWord(word);
+        insertInstruction += `  ${index + 1}. "${word}" (${classification})\n`;
+      });
+      
+      if (insertWords.length === 2) {
+        insertInstruction += "\nIntegrate BOTH words naturally and creatively. Don't just list them - weave them into the humor/message.";
+      } else {
+        insertInstruction += "\nUse this word naturally and creatively as the core of each line.";
+      }
     }
-
-    // ========== MINIMAL USER PROMPT ==========
-    const allInserts = insertWords.length > 0 ? insertWords.join(", ") : '';
-    
-    // Multi-word phrase protection
-    const multiWordNote = multiWordInserts.length > 0 
-      ? `\n⚠️ MULTI-WORD PHRASES: Keep these intact: ${multiWordInserts.map(w => `"${w}"`).join(", ")}` 
-      : '';
     
     let userPrompt = `${systemPrompt}
-
-${allInserts ? `⚠️ CRITICAL: USE ALL WORDS IN EVERY LINE: ${allInserts}${multiWordNote}` : ''}
+${insertInstruction}
 
 🚫 FORBIDDEN TOPICS (even at R-rating):
 • Suicide, self-harm, terminal illness, cancer, death threats, sexual abuse, addiction, mental health crises
@@ -395,8 +453,8 @@ Write 4 one-liners (≤${MAX_LEN} chars each). No labels, just lines:`;
     }
     lines = lines.map(l => fixTemplateArtifacts(l, name));
 
-    // Ensure exactly 4 lines
-    const fallback = insertWord ? `${insertWord}'s celebrating another amazing year.` : `Another year older and still awesome.`;
+    // Ensure exactly 4 lines (use 'name' variable that exists, not 'insertWord')
+    const fallback = name ? `${name}'s celebrating another amazing year.` : `Another year older and still awesome.`;
     while (lines.length < 4) {
       lines.push(fallback);
     }
