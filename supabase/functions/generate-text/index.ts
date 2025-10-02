@@ -331,6 +331,54 @@ serve(async (req) => {
     const leaf = (theme || subcategory || "").trim() || "the selected theme";
     const R = (rating || "G").toUpperCase();
 
+    // Deduplicate lines (case-insensitive, normalized)
+    function deduplicateLines(lines: string[]): string[] {
+      const seen = new Set<string>();
+      return lines.filter(line => {
+        const normalized = line.toLowerCase().trim().replace(/[^\w\s]/g, '');
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      });
+    }
+
+    // Universal fallback generator
+    function generateContextualFallback(
+      insertWords: string[], 
+      topic: string, 
+      tone: string, 
+      rating: string
+    ): string[] {
+      const allWords = insertWords.join(" and ");
+      const R = rating.toUpperCase();
+      const isHumorous = tone.toLowerCase().includes("humor");
+      
+      // Generic templates that work for ANY topic
+      if (R === "R" && isHumorous) {
+        return [
+          `${allWords} and ${topic}—what a fucking combination.`,
+          `${topic} just got real with ${allWords}.`,
+          `${allWords} making ${topic} legendary as hell.`,
+          `This ${topic} moment with ${allWords}? Absolutely brilliant.`
+        ];
+      } else if (R === "PG-13" && isHumorous) {
+        return [
+          `${allWords} and ${topic}—what a combo!`,
+          `${topic} just got interesting with ${allWords}.`,
+          `${allWords} making ${topic} unforgettable.`,
+          `This ${topic} moment with ${allWords}? Pretty awesome.`
+        ];
+      } else {
+        // Safe G/PG fallback
+        return [
+          `${allWords} and ${topic}—a perfect match.`,
+          `${topic} celebrating ${allWords} today.`,
+          `${allWords} making this ${topic} special.`,
+          `${topic} moments with ${allWords} are the best.`
+        ];
+      }
+    }
+
     // Insert intelligence
     const { names, traits, others } = classifyInserts(insertWords || []);
     const name = names[0] || "";
@@ -393,7 +441,7 @@ TONE: ${toneTag}
 RATING: ${ratingTag}
 ${gender !== 'neutral' ? `GENDER: ${gender === 'male' ? 'he/him/his' : 'she/her/hers'}` : ''}
 
-Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No labels, just lines:`;
+Write 8 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No labels, just lines:`;
 
     // Call model
     const res = await fetch(
@@ -403,7 +451,7 @@ Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: { temperature: 1.0, maxOutputTokens: 360 }
+          generationConfig: { temperature: 0.85, maxOutputTokens: 500 }
         })
       }
     );
@@ -424,8 +472,7 @@ Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
       .split("\n")
       .map(trimLine)
       .filter(l => l && !/^\s*(?:tone|rating|insert|options?|line|\d+[.)])\s*/i.test(l))
-      .filter(l => l.length <= MAX_LEN && isCompleteSentence(l))
-      .slice(0, 6);
+      .filter(l => l.length <= MAX_LEN && isCompleteSentence(l));
 
     console.log("After split and filter:", lines);
 
@@ -458,43 +505,6 @@ Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
         console.warn("Lines received:", lines);
         console.warn("Using universal contextual fallback.");
         
-        // Universal fallback generator
-        function generateContextualFallback(
-          insertWords: string[], 
-          topic: string, 
-          tone: string, 
-          rating: string
-        ): string[] {
-          const allWords = insertWords.join(" and ");
-          const R = rating.toUpperCase();
-          const isHumorous = tone.toLowerCase().includes("humor");
-          
-          // Generic templates that work for ANY topic
-          if (R === "R" && isHumorous) {
-            return [
-              `${allWords} and ${topic}—what a fucking combination.`,
-              `${topic} just got real with ${allWords}.`,
-              `${allWords} making ${topic} legendary as hell.`,
-              `This ${topic} moment with ${allWords}? Absolutely brilliant.`
-            ];
-          } else if (R === "PG-13" && isHumorous) {
-            return [
-              `${allWords} and ${topic}—what a combo!`,
-              `${topic} just got interesting with ${allWords}.`,
-              `${allWords} making ${topic} unforgettable.`,
-              `This ${topic} moment with ${allWords}? Pretty awesome.`
-            ];
-          } else {
-            // Safe G/PG fallback
-            return [
-              `${allWords} and ${topic}—a perfect match.`,
-              `${topic} celebrating ${allWords} today.`,
-              `${allWords} making this ${topic} special.`,
-              `${topic} moments with ${allWords} are the best.`
-            ];
-          }
-        }
-        
         const topic = (theme || subcategory || category).toLowerCase().trim();
         lines = generateContextualFallback(insertWords, topic, tone, R);
       }
@@ -513,12 +523,50 @@ Write 4 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
     }
     lines = lines.map(l => fixTemplateArtifacts(l, name));
 
-    // Ensure exactly 4 lines (use 'name' variable that exists, not 'insertWord')
-    const fallback = name ? `${name}'s celebrating another amazing year.` : `Another year older and still awesome.`;
-    while (lines.length < 4) {
-      lines.push(fallback);
+    // Apply deduplication
+    lines = deduplicateLines(lines);
+
+    // Take best 4 lines. Only use contextual fallback if needed.
+    if (lines.length >= 4) {
+      lines = lines.slice(0, 4);
+    } else if (lines.length > 0) {
+      // We have some good lines, just need to pad
+      const topic = (theme || subcategory || category).toLowerCase().trim();
+      const fallbacks = generateContextualFallback(
+        insertWords.length > 0 ? insertWords : [name || ""], 
+        topic, 
+        tone, 
+        R
+      );
+      
+      // Add fallbacks to reach 4, ensuring no duplicates
+      for (const fallback of fallbacks) {
+        if (lines.length >= 4) break;
+        const normalized = fallback.toLowerCase().trim().replace(/[^\w\s]/g, '');
+        const isDuplicate = lines.some(line => 
+          line.toLowerCase().trim().replace(/[^\w\s]/g, '') === normalized
+        );
+        if (!isDuplicate) {
+          lines.push(fallback);
+        }
+      }
+      
+      // Final safety fallback
+      while (lines.length < 4) {
+        lines.push(`Celebrating this special moment.`);
+      }
+      
+      lines = lines.slice(0, 4);
+    } else {
+      // No valid lines at all - use all contextual fallbacks
+      const topic = (theme || subcategory || category).toLowerCase().trim();
+      lines = generateContextualFallback(
+        insertWords.length > 0 ? insertWords : [name || ""], 
+        topic, 
+        tone, 
+        R
+      );
     }
-    lines = lines.slice(0, 4);
 
     return new Response(JSON.stringify({
       options: lines,
