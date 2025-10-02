@@ -52,7 +52,15 @@ async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
 
   if (error) {
     console.error(`Error calling ${functionName}:`, error);
-    throw new Error(error.message || `Failed to call ${functionName}`);
+    const detailed = (error as any)?.context?.body || error.message || `Failed to call ${functionName}`;
+    // Try to extract JSON error.message if body is JSON
+    try {
+      const parsed = typeof detailed === 'string' ? JSON.parse(detailed) : detailed;
+      const msg = parsed?.error || parsed?.message || detailed;
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } catch {
+      throw new Error(typeof detailed === 'string' ? detailed : JSON.stringify(detailed));
+    }
   }
 
   return data as T;

@@ -150,13 +150,21 @@ task
       } else {
         // Try extracting text from multiple possible locations
         let raw = data.output_text || "";
-        if (!raw) {
-          // Try scanning all content items
+        if (!raw && Array.isArray(data.output)) {
           const contentTexts = (data.output ?? [])
             .flatMap((o: any) => o.content ?? [])
-            .map((c: any) => c.text)
+            .map((c: any) => c?.text)
             .filter(Boolean);
           raw = contentTexts.join("");
+        }
+        if (!raw && data?.choices?.[0]?.message?.content) {
+          raw = data.choices[0].message.content;
+        }
+        if (!raw && typeof data.output === 'string') {
+          raw = data.output;
+        }
+        if (!raw && data?.message?.content) {
+          raw = data.message.content;
         }
         
         if (!raw) {
@@ -209,7 +217,7 @@ task
       return await call(bodyA, "A");
     } catch (e: any) {
       const msg = String(e?.message || "");
-      const wantsB = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema/i.test(msg);
+      const wantsB = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema|Empty model response|No lines returned/i.test(msg);
       if (!wantsB) throw e;
       console.log("Shape A failed, trying Shape B");
     }
