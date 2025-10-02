@@ -262,7 +262,15 @@ task
       // If we hit token limit, retry with higher budget
       if (/INCOMPLETE_MAXTOKENS/.test(msg)) {
         console.log("Hit token limit on Shape A, retrying with 1400 tokens");
-        return await call({ ...bodyA, max_output_tokens: 1400 }, "A-retry");
+        try {
+          return await call({ ...bodyA, max_output_tokens: 1400 }, "A-retry");
+        } catch (retryErr: any) {
+          // If retry also fails with token limit, fall through to Shape B
+          if (!/INCOMPLETE_MAXTOKENS/.test(String(retryErr?.message))) {
+            throw retryErr;
+          }
+          console.log("A-retry also hit token limit, falling through to Shape B");
+        }
       }
       
       // Schema mismatch → try Shape B
@@ -280,7 +288,15 @@ task
       // If we hit token limit, retry with higher budget
       if (/INCOMPLETE_MAXTOKENS/.test(msg)) {
         console.log("Hit token limit on Shape B, retrying with 1400 tokens");
-        return await call({ ...bodyB, max_output_tokens: 1400 }, "B-retry");
+        try {
+          return await call({ ...bodyB, max_output_tokens: 1400 }, "B-retry");
+        } catch (retryErr: any) {
+          // If retry also fails with token limit, fall through to loose mode
+          if (!/INCOMPLETE_MAXTOKENS/.test(String(retryErr?.message))) {
+            throw retryErr;
+          }
+          console.log("B-retry also hit token limit, falling through to loose mode");
+        }
       }
       
       // Last resort: loose mode
