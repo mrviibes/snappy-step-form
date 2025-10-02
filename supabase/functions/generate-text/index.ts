@@ -72,7 +72,9 @@ serve(async (req) => {
             text: {
               format: {
                 type: "json_schema",
-                json_schema: VIIBE_TEXT_SCHEMA
+                name: VIIBE_TEXT_SCHEMA.name,
+                schema: VIIBE_TEXT_SCHEMA.schema,
+                strict: VIIBE_TEXT_SCHEMA.strict
               }
             },
             max_output_tokens: 600
@@ -165,7 +167,9 @@ task
         text: {
           format: {
             type: "json_schema",
-            json_schema: VIIBE_TEXT_SCHEMA
+            name: VIIBE_TEXT_SCHEMA.name,
+            schema: VIIBE_TEXT_SCHEMA.schema,
+            strict: VIIBE_TEXT_SCHEMA.strict
           }
         },
         max_output_tokens: 600
