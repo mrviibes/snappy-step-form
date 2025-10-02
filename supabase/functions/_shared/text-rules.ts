@@ -186,8 +186,27 @@ OUTPUT: 4 one-liners, one per line. 0-120 chars each. No labels, no commentary.
 
 🚨 CRITICAL FORMAT REQUIREMENT:
 Generate ACTUAL jokes in proper format, NOT commentary about jokes.
-❌ FORBIDDEN: "Jesse's dad jokes are so corny...", "Jesse tells jokes that...", "His puns are so bad..."
-✅ REQUIRED: Actual formatted jokes that can be read aloud as jokes
+
+❌ ABSOLUTELY FORBIDDEN META LANGUAGE - NEVER use these words:
+• joke, jokes, joking, joked
+• pun, puns, punny, punning
+• one-liner, one-liners
+• riddle, riddles
+• dad joke, dad jokes
+• knock-knock joke
+• category, format, template
+• "Riddle:", "Answer:", "Q:", "A:"
+• ANY reference to the TYPE of joke being told
+
+❌ BAD EXAMPLES (NEVER DO THIS):
+"His puns are terrible"
+"Jesse's dad jokes make everyone groan"
+"That's a real knee-slapper"
+"Here's a riddle for you"
+
+✅ GOOD EXAMPLES (DO THIS):
+"Why did Jesse bring a ladder? He heard the drinks were on the house!"
+"What do you call Jesse at a bakery? A gluten for punishment!"
 
 FORMAT TEMPLATES BY SUBCATEGORY:
 

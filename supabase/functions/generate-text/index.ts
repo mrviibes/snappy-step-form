@@ -188,16 +188,20 @@ function ensureOneStrongSwearR(s: string, nameHint?: string): string {
     .replace(/\bs\s*t(ting|ty|face(?:d)?|s|ted)?\b/gi, "shit$1")
     .replace(/\bbull\s*shit\b/gi, "bullshit");
   
-  // If no swear exists, gently add one (but NOT always next to the name)
-  if (!/\b(fuck|fucking|fucked|shit|shitty|damn|hell|bullshit)\b/i.test(out)) {
-    const swear = pickRandomSwear();
-    // Try to place after first comma if exists
-    if (out.includes(",")) {
-      out = out.replace(",", `, ${swear},`);
-    } else {
-      // Place at the beginning
-      out = `${swear}, ${out}`;
+  // Don't force-add swears if line already has strong language
+  // This prevents awkward prepending like "fuck His puns..."
+  const hasStrongSwear = /\b(fuck|fucking|fucked|shit|shitty|damn|hell|bullshit|ass|bitch|bastard)\b/i.test(out);
+  
+  if (!hasStrongSwear) {
+    // Only add if line is long enough to insert naturally
+    const tokens = out.split(' ');
+    if (tokens.length > 4) {
+      const swear = pickRandomSwear();
+      // Insert in middle, not at beginning
+      tokens.splice(Math.floor(tokens.length / 2), 0, swear);
+      out = tokens.join(' ');
     }
+    // If too short, don't force it
   }
   
   // Keep only ONE swear (but preserve which one was used)
@@ -463,6 +467,7 @@ EVERY line MUST explicitly include birthday vocabulary: "Happy Birthday", "birth
     // JOKE FORMAT ENFORCEMENT
     const isJokeCategory = cat === "jokes";
     let jokeFormatRequirement = '';
+    const forbiddenMetaWords: string[] = [];
     
     if (isJokeCategory) {
       const formatMap: Record<string, string> = {
@@ -478,10 +483,26 @@ EVERY line MUST explicitly include birthday vocabulary: "Happy Birthday", "birth
       
       const format = formatMap[subcategory] || 'standard joke format';
       
+      // Build comprehensive forbidden words list
+      forbiddenMetaWords.push(
+        'joke', 'jokes', 'joking', 'joked',
+        'pun', 'puns', 'punny', 'punning',
+        'one-liner', 'one-liners',
+        'riddle', 'riddles',
+        'dad joke', 'dad jokes',
+        'knock-knock',
+        'category', 'format', 'template',
+        'Riddle:', 'Answer:', 'Q:', 'A:'
+      );
+      
       jokeFormatRequirement = `
 🚨 JOKE FORMAT REQUIREMENT (CRITICAL):
 Generate ACTUAL ${format}, NOT meta-commentary about jokes!
-❌ FORBIDDEN: "${insertWords[0] || 'Person'}'s jokes are so...", "They tell jokes that..."
+
+NEVER use these words/phrases in any line:
+${forbiddenMetaWords.map(w => `• ${w}`).join('\n')}
+
+❌ FORBIDDEN: "${insertWords[0] || 'Person'}'s jokes are so...", "They tell jokes that...", "His puns are terrible"
 ✅ REQUIRED: Proper formatted jokes that can be told as standalone jokes
 ${subcategory ? `Use the ${format} structure for all lines.` : ''}
 `;
@@ -579,6 +600,19 @@ Write 8 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No label
         console.warn("Lines received:", lines);
         console.warn("Using universal contextual fallback.");
         
+        const topic = (theme || subcategory || category).toLowerCase().trim();
+        lines = generateContextualFallback(insertWords, topic, tone, R);
+      }
+    }
+
+    // Filter out meta-language for jokes
+    if (isJokeCategory && forbiddenMetaWords.length > 0) {
+      const metaRegex = new RegExp(forbiddenMetaWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
+      const beforeFilter = lines.length;
+      lines = lines.filter(ln => !metaRegex.test(ln));
+      
+      if (lines.length < 2 && beforeFilter > 0) {
+        console.warn('⚠️ Meta-language filter removed too many lines, using fallback');
         const topic = (theme || subcategory || category).toLowerCase().trim();
         lines = generateContextualFallback(insertWords, topic, tone, R);
       }
