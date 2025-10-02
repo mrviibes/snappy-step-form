@@ -1,171 +1,154 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
+const ctlFetch = async <T>(fn: string, body: any, timeoutMs = 30000): Promise<T> => {
+const timeoutPromise = new Promise((_, reject) =>
+setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+);
+try {
+const invokePromise = supabase.functions.invoke(fn, { body });
+const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
+if (error) throw error;
+return (data as T) ?? ({} as T);
+} catch (error) {
+throw error;
+}
+};
 
-// Types
-export interface GenerateTextParams {
-  category: string;
-  subcategory?: string;
-  tone?: string;
-  rating?: string;
-  insertWords?: string[];
-  gender?: string;
+
+export async function checkServerHealth(): Promise<boolean> {
+try {
+const res = await ctlFetch<{ ok: boolean }>("health", {});
+return !!res.ok;
+} catch {
+return false;
+}
 }
 
-export interface TextOptionsResponse {
-  line: string;
+
+export async function getServerModels(): Promise<{ text: string; visuals: string; images: string } | null> {
+try {
+const res = await ctlFetch<{ ok: boolean; models?: { text: string; visuals: string; images: string } }>("health", {});
+return res.models || null;
+} catch {
+return null;
+}
 }
 
-export interface VisualRecommendation {
-  scene: string;
-  composition: string;
-  description?: string;
-  interpretation?: string;
+
+// =====================
+// TEXT GENERATION (lean)
+// =====================
+export async function generateTextOptions(params: GenerateTextParams): Promise<{ line: string }[]> {
+// Normalize insertWords to array
+const insertWords = Array.isArray(params.insertWords)
+? params.insertWords.filter(Boolean)
+: params.insertWords ? [params.insertWords as unknown as string] : [];
+
+
+const payload = {
+category: params.category || "celebrations",
+subcategory: params.subcategory,
+tone: params.tone,
+rating: params.rating || "PG",
+insertWords,
+gender: params.gender || "neutral",
+userId: params.userId ?? "anonymous",
+rules_id: params.rules_id
+};
+
+
+const res = await ctlFetch<GenerateTextResponse>("generate-text", payload);
+if (!res || res.success !== true || !Array.isArray(res.options) || res.options.length === 0) {
+throw new Error((res as any)?.error || "Generation failed");
+}
+// Normalize to { line }[] for UI
+return res.options.slice(0, 4).map((line: string) => ({ line }));
 }
 
-export interface PromptTemplate {
-  name: string;
-  positive: string;
-  negative: string;
-  description: string;
+
+// =====================
+// VISUAL RECOMMENDATIONS
+// =====================
+export async function generateVisualOptions(params: GenerateVisualsParams): Promise<VisualRecommendation[]> {
+try {
+const res = await ctlFetch<GenerateVisualsResponse>("generate-visuals", params, 90000); // 90s timeout
+if (!res || (res as any).success !== true) {
+throw new Error((res as any)?.error || "Visual generation failed");
+}
+const visuals = (res as any).visuals as VisualRecommendation[];
+if (!Array.isArray(visuals) || visuals.length === 0) throw new Error("No visuals returned");
+return visuals.slice(0, 4);
+} catch (error) {
+console.error('Visual generation failed:', error);
+throw error;
+}
 }
 
-export interface GenerateImageResponse {
-  success: boolean;
-  imageData?: string;
-  jobId?: string;
-  provider?: 'ideogram' | 'openai' | 'gemini';
-  error?: string;
+
+// =====================
+// FINAL PROMPT TEMPLATES
+// =====================
+export async function generateFinalPrompt(params: GenerateFinalPromptParams): Promise<{templates: Array<{name: string, positive: string, negative: string, description: string}>}> {
+try {
+const rawRes = await ctlFetch<GenerateFinalPromptResponse>("generate-final-prompt", params);
+const res = typeof rawRes === "string" ? JSON.parse(rawRes) : rawRes;
+if (!res || !res.success) {
+const errorMessage = res?.error || "Template generation failed";
+throw new Error(errorMessage);
+}
+return { templates: res.templates };
+} catch (error) {
+console.error('Template generation failed:', error);
+throw error;
+}
 }
 
-export interface PollImageStatusResponse {
-  success: boolean;
-  status: string;
-  imageData?: string;
-  error?: string;
-  progress?: number;
+
+// =====================
+// IMAGE GENERATION + POLLING
+// =====================
+export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResponse> {
+try {
+const response = await ctlFetch<GenerateImageResponse>("generate-image", params, 60000);
+return response;
+} catch (error) {
+console.error('Error generating image:', error);
+throw new Error(error instanceof Error ? error.message : 'Failed to generate image');
+}
 }
 
-// Helper function to call edge functions
-async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(functionName, {
-    body: payload,
-  });
 
-  if (error) {
-    console.error(`Error calling ${functionName}:`, error);
-    throw new Error(error.message || `Failed to call ${functionName}`);
-  }
-
-  return data as T;
+export async function pollImageStatus(jobId: string, provider: 'ideogram' | 'openai' | 'gemini'): Promise<{
+success: boolean;
+status: 'pending' | 'completed' | 'failed';
+imageData?: string;
+error?: string;
+progress?: number;
+}> {
+try {
+const response = await ctlFetch<{
+success: boolean;
+status: 'pending' | 'completed' | 'failed';
+imageData?: string;
+error?: string;
+progress?: number;
+}>("poll-image-status", { jobId, provider }, 15000);
+return response;
+} catch (error) {
+console.error('Error polling image status:', error);
+return { success: false, status: 'failed', error: error instanceof Error ? error.message : 'Failed to poll image status' };
+}
 }
 
-// Text generation
-export async function generateTextOptions(params: GenerateTextParams): Promise<TextOptionsResponse[]> {
-  const insertWords = Array.isArray(params.insertWords)
-    ? params.insertWords.filter(Boolean)
-    : params.insertWords ? [params.insertWords as unknown as string] : [];
 
-  const payload = {
-    category: params.category || "celebrations",
-    subcategory: params.subcategory,
-    tone: params.tone,
-    rating: params.rating || "PG",
-    insertWords,
-    gender: params.gender || "neutral"
-  };
-
-  const res = await ctlFetch<any>("generate-text", payload);
-  if (!res || res.success !== true || !Array.isArray(res.options) || res.options.length === 0) {
-    throw new Error(res?.error || "Generation failed");
-  }
-  return res.options.slice(0, 4).map((line: string) => ({ line }));
+// =====================
+// GEMINI TEST (unchanged)
+// =====================
+export async function testGeminiAPI(): Promise<any> {
+try {
+const response = await ctlFetch<any>("test-gemini", {}, 15000);
+return response;
+} catch (error) {
+console.error('Error testing Gemini API:', error);
+throw error;
 }
-
-// Visual generation
-export async function generateVisualOptions(params: {
-  category: string;
-  subcategory?: string;
-  tone?: string;
-  style?: string;
-  layout?: string;
-}): Promise<VisualRecommendation[]> {
-  const payload = {
-    category: params.category || "celebrations",
-    subcategory: params.subcategory,
-    tone: params.tone || "humorous",
-    style: params.style || "Auto",
-    layout: params.layout || "Open Space",
-  };
-
-  const res = await ctlFetch<any>("generate-visuals", payload);
-  if (!res || res.success !== true || !Array.isArray(res.visuals) || res.visuals.length === 0) {
-    throw new Error(res?.error || "Visual generation failed");
-  }
-  return res.visuals.slice(0, 3).map((visual: any) => ({
-    scene: visual.scene || visual,
-    composition: visual.composition || "",
-  }));
-}
-
-// Final prompt generation
-export async function generateFinalPrompt(params: {
-  category: string;
-  subcategory?: string;
-  tone?: string;
-  rating?: string;
-  style?: string;
-  layout?: string;
-  textLine?: string;
-  visualScene?: string;
-}): Promise<{ templates: PromptTemplate[] }> {
-  const payload = {
-    category: params.category || "celebrations",
-    subcategory: params.subcategory,
-    tone: params.tone || "humorous",
-    rating: params.rating || "PG",
-    style: params.style || "Auto",
-    layout: params.layout || "Open Space",
-    textLine: params.textLine,
-    visualScene: params.visualScene,
-  };
-
-  const res = await ctlFetch<any>("generate-final-prompt", payload);
-  if (!res || res.success !== true || !Array.isArray(res.templates) || res.templates.length === 0) {
-    throw new Error(res?.error || "Prompt generation failed");
-  }
-  return { templates: res.templates };
-}
-
-// Image generation
-export async function generateImage(params: {
-  prompt?: string;
-  positivePrompt?: string;
-  negativePrompt?: string;
-  style?: string;
-  aspectRatio?: string;
-  image_dimensions?: string;
-  quality?: string;
-  provider?: string;
-}): Promise<GenerateImageResponse> {
-  const payload = {
-    prompt: params.prompt || params.positivePrompt || "",
-    positivePrompt: params.prompt || params.positivePrompt || "",
-    negativePrompt: params.negativePrompt || "",
-    style: params.style || "Auto",
-    aspectRatio: params.aspectRatio || "ASPECT_1_1",
-    image_dimensions: params.image_dimensions,
-    quality: params.quality,
-    provider: params.provider,
-  };
-
-  const res = await ctlFetch<GenerateImageResponse>("generate-image", payload);
-  return res;
-}
-
-// Poll image status
-export async function pollImageStatus(jobId: string, provider: string): Promise<PollImageStatusResponse> {
-  const res = await ctlFetch<PollImageStatusResponse>("poll-image-status", {
-    jobId,
-    provider,
-  });
-  return res;
 }
