@@ -328,8 +328,8 @@ serve(async (req) => {
       }
     }
 
-    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!GOOGLE_AI_API_KEY) throw new Error("GOOGLE_AI_API_KEY not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     // SANITIZE all context strings to prevent symbol echoing
     category = strictSanitize(category || "");
@@ -560,29 +560,36 @@ ${gender !== 'neutral' ? `GENDER: ${gender === 'male' ? 'he/him/his' : 'she/her/
 
 Write 8 one-liners (≤${MAX_LEN} chars each) that are about "${leaf}". No labels, just lines:`;
 
-    // Call model
+    // Call OpenAI GPT-5-mini
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      "https://api.openai.com/v1/chat/completions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]}],
-          generationConfig: { temperature: 0.85, maxOutputTokens: 500 }
+          model: "gpt-5-mini-2025-08-07",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          max_completion_tokens: 500
         })
       }
     );
 
     if (!res.ok) {
       const t = await res.text();
-      console.error("Gemini error:", res.status, t);
-      throw new Error(`Gemini API error: ${res.status}`);
+      console.error("OpenAI error:", res.status, t);
+      throw new Error(`OpenAI API error: ${res.status}`);
     }
 
     const data = await res.json();
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const raw = data.choices?.[0]?.message?.content || "";
 
-    console.log("Raw Gemini response:", raw);
+    console.log("Raw OpenAI response:", raw);
 
     // Parse lines - basic split and filter
     let lines = raw

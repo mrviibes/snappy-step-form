@@ -16,7 +16,7 @@ import {
 // ============== OPENAI DIRECT ==============
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const AI_MODEL = "gpt-4o-mini";
+const AI_MODEL = "gpt-5-mini-2025-08-07";
 
 // ============== CORS ==============
 const corsHeaders = {

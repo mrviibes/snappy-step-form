@@ -36,8 +36,8 @@ serve(async (req) => {
 
     // Get active models from environment
     const models = {
-      text: Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5-2025-08-07',
-      visuals: Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-5-2025-08-07',
+      text: Deno.env.get('OPENAI_TEXT_MODEL') || 'gpt-5-mini-2025-08-07',
+      visuals: Deno.env.get('OPENAI_VISUALS_MODEL') || 'gpt-5-mini-2025-08-07',
       images: Deno.env.get('OPENAI_IMAGE_MODEL') || 'gpt-image-1'
     };
 
