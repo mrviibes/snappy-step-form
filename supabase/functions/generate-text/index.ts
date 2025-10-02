@@ -33,6 +33,21 @@ const RETURN_LINES_TOOL = {
   }
 } as const;
 
+// Global cache to remember if tools actually work for this model
+let supportsTools: boolean | null = null;
+
+const SYS_TOOL = "Call return_lines exactly once via tool. Output only via tool. 4 lines, 40–120 chars, each ends with punctuation.";
+const SYS_JSON = "Return only JSON matching the schema. No prose.";
+
+function logBody(label: string, body: unknown) {
+  try {
+    const s = JSON.stringify(body);
+    console.log(`[${label}] ${s.slice(0, 2000)}`); // log first 2k chars to avoid spam
+  } catch {
+    console.log(`[${label}] <unserializable>`);
+  }
+}
+
 type GeneratePayload = {
   category: string;
   subcategory?: string;
@@ -73,6 +88,8 @@ function pickLines(data: any): string[] | null {
 }
 
 async function openaiRequest(body: Record<string, unknown>, apiKey: string) {
+  logBody("OPENAI_REQ", body);
+  
   const resp = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
@@ -82,6 +99,16 @@ async function openaiRequest(body: Record<string, unknown>, apiKey: string) {
     body: JSON.stringify(body)
   });
 
+  const text = await resp.text();
+  console.log(`[OPENAI_RES_${resp.status}] ${text.slice(0, 2000)}`);
+  
+  let data: any = null;
+  try { 
+    data = JSON.parse(text); 
+  } catch { 
+    /* leave text for debugging */ 
+  }
+
   // Handle rate limits and payment issues explicitly
   if (resp.status === 402) {
     return { ok: false as const, code: 402, error: "Payment required or credits exhausted" };
@@ -90,19 +117,12 @@ async function openaiRequest(body: Record<string, unknown>, apiKey: string) {
     return { ok: false as const, code: 429, error: "Rate limited, please try again later" };
   }
 
-  let data: any = null;
-  try { 
-    data = await resp.json(); 
-  } catch { 
-    /* ignore parse errors */ 
-  }
-
   if (!resp.ok) {
     const msg = data?.error?.message || `OpenAI error ${resp.status}`;
-    return { ok: false as const, code: resp.status, error: msg, raw: data };
+    return { ok: false as const, code: resp.status, error: msg, raw: data ?? text };
   }
 
-  return { ok: true as const, data };
+  return { ok: true as const, data: data ?? text };
 }
 
 function pickLinesFromJson(data: any): string[] | null {
@@ -128,65 +148,64 @@ function pickLinesFromJson(data: any): string[] | null {
   }
 }
 
-async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promise<string[]> {
-  // Minimal system prompt
-  const systemPrompt = isRetry 
-    ? "Immediately call return_lines with 4 strings. No text."
-    : "Call the function once. Return exactly 4 lines via tool only. Each 40–120 chars, end with punctuation. No other output.";
-
-  // Cap task length based on retry
-  const taskMaxLen = isRetry ? 280 : 400;
-  const userMessage = JSON.stringify({
-    version: payload.version ?? "v1",
-    tone_hint: payload.tone_hint ?? null,
-    rating_hint: payload.rating_hint ?? null,
-    insert_words: payload.task?.insert_words ?? [],
-    insert_word_mode: payload.task?.insert_word_mode ?? "per_line",
-    avoid_terms: payload.task?.avoid_terms ?? [],
-    forbidden_terms: payload.task?.forbidden_terms ?? [],
-    birthday_explicit: payload.task?.birthday_explicit ?? false,
-    task: (payload.task?.topic ?? "").slice(0, taskMaxLen)
-  });
-
-  const input = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userMessage }
-  ];
-
-  // PHASE 1: Try tool calling
-  const toolBody = {
+// Capability probe: can this model emit a tool_call at all?
+async function probeToolsOnce(apiKey: string): Promise<boolean> {
+  if (supportsTools !== null) return supportsTools;
+  
+  const body = {
     model: MODEL,
-    input,
+    input: [
+      { role: "system", content: SYS_TOOL },
+      { role: "user", content: "{\"task\":\"Probe: say four neutral lines about coffee.\"}" }
+    ],
     tools: [RETURN_LINES_TOOL],
     tool_choice: "required",
-    max_output_tokens: isRetry ? 256 : 512
-    // Do NOT send: temperature, top_p, parallel_tool_calls, response_format
+    max_output_tokens: 256
   };
-
-  const toolResult = await openaiRequest(toolBody, apiKey);
   
-  // Handle errors from tool call
-  if (!toolResult.ok) {
-    throw new Error(`OpenAI ${toolResult.code}: ${toolResult.error}`);
+  const r = await openaiRequest(body, apiKey);
+  if (!r.ok) { 
+    supportsTools = false; 
+    return supportsTools; 
   }
-
-  // Try to extract tool output
-  const linesFromTool = pickLines(toolResult.data);
   
-  if (linesFromTool) {
-    // Success! Check if incomplete but still valid
-    if (toolResult.data?.incomplete_details?.reason === "max_output_tokens") {
-      console.log("⚠️ Model hit token limit but tool output is valid");
-    }
-    return linesFromTool;
-  }
+  const lines = pickLines(r.data);
+  supportsTools = !!lines;
+  console.log(`[PROBE] supportsTools=${supportsTools}`);
+  return supportsTools;
+}
 
-  // PHASE 2: Tool didn't fire - try strict JSON schema fallback
-  console.log("No tool output, trying JSON schema fallback...");
-  
-  const jsonBody = {
+async function callToolPath(userJson: any, apiKey: string) {
+  const body = {
     model: MODEL,
-    input,
+    input: [
+      { role: "system", content: SYS_TOOL },
+      { role: "user", content: JSON.stringify(userJson) }
+    ],
+    tools: [RETURN_LINES_TOOL],
+    tool_choice: "required",
+    max_output_tokens: 512
+  };
+  
+  const r = await openaiRequest(body, apiKey);
+  if (!r.ok) return r;
+  
+  const lines = pickLines(r.data);
+  if (lines) {
+    const inc = r.data?.incomplete_details?.reason === "max_output_tokens" ? "tool_ok_incomplete" : null;
+    return { ok: true as const, lines, path: "tool", warning: inc };
+  }
+  
+  return { ok: false as const, code: 500, error: "No tool output" };
+}
+
+async function callJsonPath(userJson: any, apiKey: string) {
+  const body = {
+    model: MODEL,
+    input: [
+      { role: "system", content: SYS_JSON },
+      { role: "user", content: JSON.stringify(userJson) }
+    ],
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -196,41 +215,76 @@ async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promis
           required: ["lines"],
           additionalProperties: false,
           properties: {
-            lines: { 
-              type: "array", 
-              minItems: 4, 
-              maxItems: 4, 
-              items: { type: "string", maxLength: 140 } 
-            }
+            lines: { type: "array", minItems: 4, maxItems: 4, items: { type: "string", maxLength: 140 } }
           }
         },
         strict: true
       }
     },
-    max_output_tokens: isRetry ? 256 : 512
+    max_output_tokens: 512
+  };
+  
+  const r = await openaiRequest(body, apiKey);
+  if (!r.ok) return r;
+
+  try {
+    const txt = r.data?.output_text ?? "";
+    const obj = txt ? JSON.parse(txt) : null;
+    const lines = obj?.lines;
+    const ok = Array.isArray(lines) && lines.length === 4 &&
+      lines.every((l: any) => typeof l === "string" && l.length >= 40 && l.length <= 140 && /[.!?]$/.test(l));
+    if (ok) return { ok: true as const, lines, path: "json_schema" };
+  } catch { /* fall through */ }
+
+  return { ok: false as const, code: 500, error: "JSON schema fallback parse failed" };
+}
+
+async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
+  const toolsOK = await probeToolsOnce(apiKey).catch(() => false);
+
+  // Build user JSON from payload
+  const userJson = {
+    version: payload.version ?? "v1",
+    tone_hint: payload.tone_hint ?? null,
+    rating_hint: payload.rating_hint ?? null,
+    insert_words: payload.task?.insert_words ?? [],
+    insert_word_mode: payload.task?.insert_word_mode ?? "per_line",
+    avoid_terms: payload.task?.avoid_terms ?? [],
+    forbidden_terms: payload.task?.forbidden_terms ?? [],
+    birthday_explicit: payload.task?.birthday_explicit ?? false,
+    task: (payload.task?.topic ?? "").slice(0, 400),
+    fix_hint: payload.fix_hint ?? null
   };
 
-  const jsonResult = await openaiRequest(jsonBody, apiKey);
-  
-  if (!jsonResult.ok) {
-    throw new Error(`OpenAI JSON fallback ${jsonResult.code}: ${jsonResult.error}`);
+  if (toolsOK) {
+    // Try tool path first
+    const r1 = await callToolPath(userJson, apiKey);
+    if (r1.ok) return r1.lines;
+    
+    // Single retry with shorter task
+    userJson.task = String(userJson.task).slice(0, 280);
+    const r2 = await callToolPath(userJson, apiKey);
+    if (r2.ok) return r2.lines;
+    
+    // Fallback to JSON
+    console.log("Tool path failed twice, falling back to JSON schema...");
+    const r3 = await callJsonPath(userJson, apiKey);
+    if (r3.ok) {
+      console.log("✅ JSON schema fallback succeeded");
+      return r3.lines;
+    }
+    
+    throw new Error(`All paths failed: ${r3.error}`);
+  } else {
+    // Go straight to JSON path for this model
+    console.log("Model doesn't support tools, using JSON schema directly");
+    const r = await callJsonPath(userJson, apiKey);
+    if (!r.ok) {
+      throw new Error(`JSON schema path failed: ${r.error}`);
+    }
+    console.log("✅ JSON schema succeeded");
+    return r.lines;
   }
-
-  const linesFromJson = pickLinesFromJson(jsonResult.data);
-  
-  if (linesFromJson) {
-    console.log("✅ JSON schema fallback succeeded");
-    return linesFromJson;
-  }
-
-  // PHASE 3: If we're not already retrying, do ONE retry with tighter prompt
-  if (!isRetry) {
-    console.log("Both tool and JSON failed, retrying with minimal prompt...");
-    return callOpenAI(payload, apiKey, true);
-  }
-
-  // Failed all attempts
-  throw new Error("No valid output from model after tool, JSON fallback, and retry");
 }
 
 serve(async (req) => {
@@ -259,7 +313,7 @@ serve(async (req) => {
     };
     
     try {
-      const lines = await callOpenAI(sample, OPENAI_API_KEY);
+      const lines = await callModelSmart(sample, OPENAI_API_KEY);
       return new Response(JSON.stringify({ ok: true, lines }), {
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });
@@ -315,7 +369,7 @@ serve(async (req) => {
       task
     };
 
-    let lines = await callOpenAI(userPayload, OPENAI_API_KEY);
+    let lines = await callModelSmart(userPayload, OPENAI_API_KEY);
 
     // Validate batch; if issues, one guided retry
     const issues = batchCheck(lines, task);
@@ -328,7 +382,7 @@ serve(async (req) => {
         }, 
         task 
       };
-      lines = await callOpenAI(fix, OPENAI_API_KEY);
+      lines = await callModelSmart(fix, OPENAI_API_KEY);
     }
 
     // Final check and crop
