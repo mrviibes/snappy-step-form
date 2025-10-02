@@ -184,7 +184,37 @@ SYSTEM • JOKES & WORDPLAY
 
 OUTPUT: 4 one-liners, one per line. 0-120 chars each. No labels, no commentary.
 
-GOAL: Write punchy jokes using wordplay, puns, misdirection, absurd logic, or classic setup-punchline formats.
+🚨 CRITICAL FORMAT REQUIREMENT:
+Generate ACTUAL jokes in proper format, NOT commentary about jokes.
+❌ FORBIDDEN: "Jesse's dad jokes are so corny...", "Jesse tells jokes that...", "His puns are so bad..."
+✅ REQUIRED: Actual formatted jokes that can be read aloud as jokes
+
+FORMAT TEMPLATES BY SUBCATEGORY:
+
+Dad Jokes:
+- "Why did [insert word] [action]? [punchline]!"
+- "What do you call [insert word] when [situation]? [punchline]!"
+- "How does [insert word] [action]? [punchline]!"
+
+Knock-Knock:
+- Format: "Knock knock. Who's there? [Name]. [Name] who? [punchline using insert word]!"
+
+Yo Mama:
+- "Yo mama so [adjective], [punchline with insert word]!"
+
+Walks into a Bar:
+- "[Insert word] walks into a bar. [Setup]. [Punchline]!"
+
+Light Bulb:
+- "How many [insert word] does it take to change a light bulb? [Punchline]!"
+
+Riddles:
+- "What [description with insert word]? [Answer]!"
+- "Why [question with insert word]? [Answer]!"
+
+Puns/One-Liners:
+- Direct wordplay on insert word
+- Setup-punchline in one sentence
 
 JOKE TECHNIQUES (use at least 2):
 - Wordplay and puns

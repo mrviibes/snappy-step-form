@@ -460,11 +460,39 @@ EVERY line MUST explicitly include birthday vocabulary: "Happy Birthday", "birth
 ✅ REQUIRED: clear birthday language that leaves NO DOUBT this is a birthday card
 ` : '';
     
+    // JOKE FORMAT ENFORCEMENT
+    const isJokeCategory = cat === "jokes";
+    let jokeFormatRequirement = '';
+    
+    if (isJokeCategory) {
+      const formatMap: Record<string, string> = {
+        'dad-jokes': 'Dad Jokes (Why did/What do you call/How does)',
+        'knock-knock-jokes': 'Knock-Knock format',
+        'yo-mama-jokes': 'Yo Mama so [adjective]',
+        'walks-into-a-bar': '[Thing] walks into a bar',
+        'light-bulb-jokes': 'How many [type] to change a light bulb',
+        'riddles': 'What/Why [question]? [Answer]',
+        'puns': 'Direct wordplay puns',
+        'one-liners': 'Setup-punchline one-liners'
+      };
+      
+      const format = formatMap[subcategory] || 'standard joke format';
+      
+      jokeFormatRequirement = `
+🚨 JOKE FORMAT REQUIREMENT (CRITICAL):
+Generate ACTUAL ${format}, NOT meta-commentary about jokes!
+❌ FORBIDDEN: "${insertWords[0] || 'Person'}'s jokes are so...", "They tell jokes that..."
+✅ REQUIRED: Proper formatted jokes that can be told as standalone jokes
+${subcategory ? `Use the ${format} structure for all lines.` : ''}
+`;
+    }
+    
     let userPrompt = `${systemPrompt}
 
 ${contextPrompt}
 ${insertInstruction}
 ${birthdayRequirement}
+${jokeFormatRequirement}
 
 ⚠️ DO NOT INVENT SPECIFIC DETAILS:
 • If no age is mentioned, don't make one up (no "turning 40", "30 years old", etc.)
