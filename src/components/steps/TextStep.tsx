@@ -165,11 +165,18 @@ export default function TextStep({
       
     } catch (error) {
       console.error('Text generation error:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorObj = error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : { message: String(error) };
+      
       setDebugInfo(prev => ({
         ...prev,
         status: 'error',
-        error: error.message,
-        errorDetails: error
+        error: errorMsg,
+        errorDetails: errorObj
       }));
       setGenerationError('Could not generate text options. Please try again.');
       setDebugExpanded(true); // Auto-expand debug panel on error
