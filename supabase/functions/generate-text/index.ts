@@ -245,11 +245,7 @@ function finishWithButton(s: string, rating: string): string {
   return out + (out.endsWith(",") ? " " : ", ") + tag;
 }
 
-// --- Small flow fixes ---
-const HEDGES = /\b(kinda|sort of|honestly|basically|literally|trust)\b[, ]?/gi;
-function unHedge(s: string): string { return s.replace(/\.{3,}/g, ",").replace(HEDGES, "").replace(/\s{2,}/g, " ").trim(); }
-function dedupeName(s: string, nm?: string) { return nm ? s.replace(new RegExp(`\\b${escapeRE(nm)}\\b\\s*,?\\s*\\b${escapeRE(nm)}\\b`, "i"), nm).trim() : s; }
-function addGlue(s: string): string { return s; } // Trust AI flow, no mechanical insertion
+// Trust AI for natural flow - minimal post-processing only
 
 // ---------- Server ----------
 serve(async (req) => {
@@ -291,19 +287,21 @@ serve(async (req) => {
     }
 
     // ========== USER PROMPT ==========
+    const allInserts = insertWords.length > 0 ? insertWords.join(", ") : '';
     const insertWord = name || insertWords[0] || '';
     let userPrompt = `${systemPrompt}
 
 ⚠️ CRITICAL REQUIREMENT #1 ⚠️
-${insertWord ? `YOU MUST USE "${insertWord}" IN ALL 4 LINES.
-This is NON-NEGOTIABLE. Every single line must contain "${insertWord}" naturally integrated into the sentence.
+${allInserts ? `YOU MUST USE ALL OF THESE WORDS IN EVERY LINE: ${allInserts}
+This is NON-NEGOTIABLE. Every single line must contain ALL of these words naturally integrated.
+${insertWords.length > 1 ? `You have ${insertWords.length} words to include: ${insertWords.map(w => `"${w}"`).join(", ")}` : `You must include "${insertWord}"`}
 NOT tacked on at the end. NOT awkwardly placed. NATURALLY woven into the punchline or setup.
 
 REQUIRED FORMAT (FOLLOW EXACTLY):
-Line 1: [complete sentence with ${insertWord}]
-Line 2: [complete sentence with ${insertWord}]
-Line 3: [complete sentence with ${insertWord}]
-Line 4: [complete sentence with ${insertWord}]` : 'No insert word required.'}
+Line 1: [complete sentence with ALL insert words: ${allInserts}]
+Line 2: [complete sentence with ALL insert words: ${allInserts}]
+Line 3: [complete sentence with ALL insert words: ${allInserts}]
+Line 4: [complete sentence with ALL insert words: ${allInserts}]` : 'No insert words required.'}
 
 🚫 DO NOT CROSS - FORBIDDEN TOPICS 🚫
 Even for R-rated savage content, NEVER reference:
@@ -326,148 +324,27 @@ Pick ONE point of view per line and stick to it:
 • 3rd person: "${insertWord || (gender === 'male' ? 'He' : gender === 'female' ? 'She' : 'They')}'s so old..." OR "${insertWord || (gender === 'male' ? 'His' : gender === 'female' ? 'Her' : 'Their')} age is..."
 
 PRONOUN USAGE (CRITICAL):
-${gender === 'male' ? '• Use HE/HIS/HIM pronouns (masculine)' : gender === 'female' ? '• Use SHE/HER/HERS pronouns (feminine)' : '• AVOID PRONOUNS - Use NAME or second-person "you/your". Do NOT use they/their.'}
-${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs an oil change"
-✅ "${insertWord || 'His'} age is impressive"` : gender === 'female' ? `✅ "${insertWord || 'She'}'s so old her walker needs an oil change"
-✅ "${insertWord || 'Her'} age is impressive"` : `✅ "${insertWord || 'Jesse'}'s so old the walker needs an oil change"
-✅ "${insertWord || 'Jesse'}'s age is impressive"
-✅ "You're getting older but still crushing it"
-❌ WRONG: "They're so old their walker..." (don't use they/their for neutral)`}
+${gender === 'male' ? '• Use HE/HIS/HIM' : gender === 'female' ? '• Use SHE/HER/HERS' : '• Use NAME or "you/your" - NEVER use they/their/them'}
 
-⚠️ CONTRACTION WARNING ⚠️
-NEVER create contractions with names + "re":
-❌ WRONG: "${insertWord || 'Jesse'}re closer to needing a walker"
-✅ CORRECT: "${insertWord || 'Jesse'}'s closer to needing a walker" OR "${insertWord || 'Jesse'} is closer to needing a walker"
-${gender === 'male' ? `❌ WRONG: "${insertWord || 'Jesse'}re so old"
-✅ CORRECT: "${insertWord || 'Jesse'}'s so old" OR "He's so old"` : gender === 'female' ? `❌ WRONG: "${insertWord || 'Jesse'}re so old"
-✅ CORRECT: "${insertWord || 'Jesse'}'s so old" OR "She's so old"` : `❌ WRONG: "${insertWord || 'Jesse'}re so old"
-✅ CORRECT: "${insertWord || 'They'}'re so old" (when using 'they' pronoun)`}
+POV CONSISTENCY:
+• Pick 2nd person ("You're...") OR 3rd person ("${insertWord || 'Name'}'s...") per line
+• NEVER mix: ❌ "${insertWord || 'Jesse'}, you're old" ✅ "${insertWord || 'Jesse'}'s old" OR ✅ "You're old"
 
+EXAMPLES:
+${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs repairs"` : gender === 'female' ? `✅ "${insertWord || 'She'}'s so old her walker needs repairs"` : `✅ "${insertWord || 'Jesse'}'s so old the walker needs repairs"
+✅ "You're getting older but still crushing it"`}
 
-NEVER mix POV in the same line:
-❌ "${insertWord || 'Jesse'}, you're so old" (mixing 3rd person name → 2nd person "you're")
-❌ "Happy birthday, ${insertWord || 'Jesse'} you're ancient" (3rd → 2nd, also missing comma)
-✅ "${insertWord || 'Jesse'}'s so old..." (consistent 3rd person)
-✅ "You're so old..." (consistent 2nd person)
+${R === "R" ? `R-RATING: Use ONE natural swear per line (fuck, shit, damn, hell). Place naturally, not tacked on.` : ""}
+${tone?.toLowerCase() === "savage" ? `SAVAGE: Be ruthless and direct. Aim for gasps before laughs. Stay within boundaries.` : ""}
+${tone?.toLowerCase() === "playful" ? `PLAYFUL: Light, mischievous, wordplay. Never mean.` : ""}
+${tone?.toLowerCase() === "sentimental" ? `SENTIMENTAL: Warm, genuine, heartfelt. No sarcasm.` : ""}
 
-GOOD EXAMPLES ${insertWord ? `(notice ${insertWord} in EVERY line, naturally placed)` : ''}:
-${insertWord ? `✅ "${insertWord}'s so old their birth certificate is in Roman numerals"
-✅ "${insertWord}'s aging like fine wine—expensive and gives you a headache"
-✅ "Another year closer to ${insertWord} needing a fire permit for their cake"
-✅ "${insertWord} walked in and lowered the room's average IQ by 20 points"` : 
-`✅ "Turning 30, time to adult... or just fake it better"
-✅ "Aging like fine wine—expensive and gives you a headache"
-✅ "Another year older means one step closer to wisdom"
-✅ "Birthday candles now require a fire permit"`}
+FLOW RULES:
+• Complete sentences only - test: would someone say this out loud?
+• Natural placement of insert words - never tacked on
+• Punchy, conversational, quotable
 
-BAD EXAMPLES (avoid these patterns):
-❌ "So old their birth certificate expired. Jesse." - INSERT TACKED ON at end after period
-❌ "Jesse, getting older and closer to..." - FRAGMENT, incomplete sentence
-❌ "I got Jesse a gift seemed like a good idea" - BROKEN GRAMMAR, run-on
-❌ "Happy birthday, and Jesse, you're awesome" - mechanical connector
-❌ "Can't wait to celebrate Jesse" - no punctuation at end
-${insertWord ? `❌ "${insertWord}'s age is a damn good argument for assisted suicide" - CROSSES CONTENT BOUNDARY
-❌ "${insertWord}, you're getting old fast" - POV MIXING (3rd person name → 2nd person "you're")
-❌ "Another year, fucked, and ${insertWord}'s hairline..." - AWKWARD SWEAR PLACEMENT (interrupts flow)
-❌ "fuck, Happy birthday ${insertWord} you're closer to..." - SWEAR TACKED ON + POV MIXING` : ''}
-
-${R === "R" ? `
-✅ NATURAL SWEAR INTEGRATION (R-rated) ✅
-Swear words must flow naturally within sentence structure:
-GOOD: "${insertWord || 'They'}'re so damn old their ID is a fossil"
-GOOD: "Another shitty year and ${insertWord || 'they'}'re still here crushing it"
-GOOD: "${insertWord || 'Their'} hairline is officially fucked"
-BAD: "Another year, fucked, and ${insertWord || 'they'}..." (awkward, interrupts flow)
-BAD: "fuck, Happy birthday ${insertWord || 'person'}..." (tacked on randomly)
-BAD: "${insertWord || 'Person'} fuck birthday" (nonsensical placement)
-
-R-RATED EXAMPLES (natural swear placement):
-✅ "Another year older, ${insertWord || 'they'}'re still fucking crushing it"
-✅ "We're here to celebrate even though you're probably already drunk as shit"
-✅ "${insertWord || 'They'} walked in and suddenly everyone's bullshit got smaller"
-✅ "Happy birthday - may your liver forgive us for what's about to happen"
-✅ "${insertWord || 'They'}'re so damn old their birth certificate is in hieroglyphics"
-
-R-RATED RULES:
-• Use EXACTLY ONE swear word per line (vary them: fuck, fucking, fucked, shit, shitty, damn, hell)
-• Place swears naturally in the punchline - NOT always next to insert words
-• Swear should be part of the sentence structure, not an interruption
-• Don't force "${name || 'name'} fuck" patterns - sounds robotic
-• Swear words should enhance the joke, not dominate it
-• COMPLETE SENTENCES ONLY - test: would a real person say this out loud?
-• Make it savage and quotable, not just profane
-` : ""}
-
-${tone?.toLowerCase() === "savage" ? `
-SAVAGE TONE RULES (BE RUTHLESS):
-• Go for the THROAT - make it PERSONAL and devastating
-• No poetic fluff or flowery language - be brutally DIRECT
-• Cross lines that make people gasp before they laugh
-• Aim for "OHHH DAMN" reactions, not gentle teasing
-• Think roast battle, not friendly banter
-• BUT: Stay within content boundaries (no suicide, terminal illness, etc.)
-
-SAVAGE EXAMPLES (notice: brutal but not crossing boundaries):
-✅ "${insertWord || 'They'}'re so old their childhood memories are just static and regret"
-✅ "Another year older and somehow less accomplished than last year"
-✅ "${insertWord || 'They'} walked in and lowered the room's collective IQ by 20 points"
-✅ "Happy birthday to someone whose best years are definitely behind them"
-✅ "You're getting older but not wiser - that ship sailed years ago"
-✅ "${insertWord || 'They'}'re closer to death than retirement but still showing up"
-` : ""}
-
-${tone?.toLowerCase() === "playful" ? `
-PLAYFUL TONE RULES:
-• Keep it light and mischievous - never mean
-• Use wordplay, puns, and silly observations
-• Think playful teasing between friends
-• Childlike wonder meets adult humor
-
-PLAYFUL EXAMPLES:
-✅ "${insertWord || 'They'}'ve got more candles than the cake can handle - fire hazard alert!"
-✅ "Another trip around the sun and you're still dodging responsibility like a pro"
-✅ "Age is just a number, but in ${insertWord || 'their'} case it's a really big number"
-` : ""}
-
-${tone?.toLowerCase() === "sentimental" ? `
-SENTIMENTAL TONE RULES:
-• Warm, genuine, heartfelt - NO sarcasm or irony
-• Focus on appreciation, love, and meaningful moments
-• Can still be funny, but comes from a place of affection
-• Make them feel special and valued
-
-SENTIMENTAL EXAMPLES:
-✅ "${insertWord || 'They'} make every room brighter just by being there"
-✅ "Here's to another year of ${insertWord || 'their'} incredible kindness changing lives"
-✅ "The world got luckier the day ${insertWord || 'they'} were born"
-` : ""}
-
-CRITICAL FLOW RULES:
-• Every line must be a complete, grammatically correct sentence with a clear subject and verb
-• NO SENTENCE FRAGMENTS - "Jesse, closer to..." is NOT a complete sentence
-• Avoid mechanical connectors (especially overusing "and")
-• Avoid double commas (no "Happy birthday, Jesse, enjoy..." patterns)
-• Don't start with "Name, Capital Letter" patterns unless it's vocative address with proper comma
-• Place insert words mid-sentence when possible, not at start with comma
-• Maintain consistent POV within each line: all 2nd person OR all 3rd person per line
-• Don't mix perspectives in one line: not "${insertWord || 'Jesse'}'s birthday" with "your doom"
-• Insert words should flow naturally within the sentence, not feel tacked on
-• Test each line: Would a real person actually say this out loud?
-• Aim for punchy, conversational, and quotable - like a great tweet
-
-PRIORITY #1: BE HILARIOUS
-• Each line must have a strong punchline or unexpected twist
-• Go for the laugh - don't play it safe
-• Sharp, memorable, quotable
-
-RULES:
-• Write 4 one-liners (one sentence each, ≤${MAX_LEN} chars)
-• Use EXACTLY one insert word per line
-• Place it naturally - make it sound like a human wrote it
-• Never tack it on with commas at the end
-• No meta-commentary, no labels, just the lines
-
-OUTPUT (start immediately):`;
+Write 4 one-liners (≤${MAX_LEN} chars each). ${allInserts ? `Include ALL insert words naturally: ${allInserts}` : ''} No labels, just lines:`;
 
     // Call model
     const res = await fetch(
@@ -507,7 +384,7 @@ OUTPUT (start immediately):`;
       throw new Error("No valid lines from Gemini");
     }
 
-    // Apply basic fixes only
+    // Minimal post-processing - trust the AI
     lines = lines.map(l => {
       let out = trimLine(l);
       out = fixSpacesBeforePunct(out);
@@ -515,43 +392,30 @@ OUTPUT (start immediately):`;
       out = fixDoubleCommas(out);
       out = fixCommaPeriod(out);
       out = sanitizePunct(out);
-      out = dedupeName(unHedge(out), name);
       out = capLenSmart(out, MAX_LEN);
       out = endPunct(out);
-      
-      // Post-process for neutral gender: replace "their/they're" with name possessive
-      if (gender === 'neutral' && name) {
-        // Replace "their [noun]" with "Name's [noun]" (not "They say..." patterns)
-        out = out.replace(/\btheir\s+([a-z]+)\b/gi, `${name}'s $1`);
-        // Replace "they're" with "Name's" (only when not at start of generic phrases)
-        if (!/^They say/i.test(out)) {
-          out = out.replace(/\bthey're\b/gi, `${name}'s`);
-        }
-      }
-      
-      // Contraction sanity check: block "Name're" patterns
-      if (name) {
-        out = out.replace(new RegExp(`\\b${escapeRE(name)}'re\\b`, 'gi'), `${name}'s`);
-      }
-      
       return out;
     });
 
-    // CRITICAL VALIDATION: Check if ALL lines have the insert word (if one was provided)
-    if (insertWord) {
-      const allLinesHaveInsert = lines.every(line => hasInsertWord(line, insertWord));
+    // CRITICAL VALIDATION: Check if ALL insert words appear in EVERY line
+    if (insertWords.length > 0) {
+      const allLinesValid = lines.every(line => 
+        insertWords.every(word => hasInsertWord(line, word))
+      );
       
-      if (!allLinesHaveInsert) {
-        console.warn(`⚠️ AI failed to include "${insertWord}" in all lines.`);
+      if (!allLinesValid) {
+        console.warn(`⚠️ AI failed to include ALL insert words in all lines.`);
+        console.warn("Required words:", insertWords);
         console.warn("Lines received:", lines);
-        console.warn("Using fallback lines with guaranteed insert word.");
+        console.warn("Using fallback lines with guaranteed insert words.");
         
-        // Simple fallback with guaranteed insert word
+        // Fallback with all insert words
+        const allWords = insertWords.join(" ");
         lines = [
-          `${insertWord}'s getting older but somehow still crushing it.`,
-          `Another year wiser for ${insertWord}—or at least that's the plan.`,
-          `${insertWord}'s birthday means one thing: time to celebrate.`,
-          `Happy birthday ${insertWord}—may this year be legendary.`
+          `${allWords} getting older but somehow still crushing it.`,
+          `Another year and ${allWords} still here.`,
+          `${allWords} means it's time to celebrate.`,
+          `Happy birthday ${allWords}—may this year be legendary.`
         ];
       }
     }
