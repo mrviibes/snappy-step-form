@@ -26,13 +26,38 @@ type GeneratePayload = {
   avoidTerms?: string[];
 };
 
-async function callOpenAI(payload: any, apiKey: string): Promise<string[]> {
-  // Slim system prompt (2-3 lines max)
-  const systemPrompt = `Generate 4 short, punchy lines (40-120 chars each) for image overlays.
-Use rhetorical devices. End with punctuation. Follow tone/rating hints exactly.
-If insert_words provided: per_line mode = use each word in separate lines; at_least_one mode = use at least one word across all lines.`;
+// Helper to extract and validate tool output from Responses API
+function pickLines(data: any): string[] | null {
+  const output = Array.isArray(data?.output) ? data.output : [];
+  const tool = output.find((o: any) => o?.type === "tool_call" && o?.tool_name === "return_lines");
+  
+  if (!tool?.tool_arguments) return null;
+  
+  const args = typeof tool.tool_arguments === "string" 
+    ? JSON.parse(tool.tool_arguments) 
+    : tool.tool_arguments;
+  
+  const lines = args?.lines;
+  const valid = Array.isArray(lines) && 
+    lines.length === 4 && 
+    lines.every((l: any) => 
+      typeof l === "string" && 
+      l.length >= 40 && 
+      l.length <= 140 && 
+      /[.!?]$/.test(l)
+    );
+  
+  return valid ? lines : null;
+}
 
-  // Compact user message
+async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promise<string[]> {
+  // Minimal system prompt
+  const systemPrompt = isRetry 
+    ? "Immediately call return_lines with 4 strings. No text."
+    : "Call the function once. Return exactly 4 lines via tool only. Each 40–120 chars, end with punctuation. No other output.";
+
+  // Cap task length based on retry
+  const taskMaxLen = isRetry ? 280 : 400;
   const userMessage = JSON.stringify({
     version: payload.version ?? "v1",
     tone_hint: payload.tone_hint ?? null,
@@ -42,12 +67,12 @@ If insert_words provided: per_line mode = use each word in separate lines; at_le
     avoid_terms: payload.task?.avoid_terms ?? [],
     forbidden_terms: payload.task?.forbidden_terms ?? [],
     birthday_explicit: payload.task?.birthday_explicit ?? false,
-    task: (payload.task?.topic ?? "").slice(0, 400)  // Cap task length
+    task: (payload.task?.topic ?? "").slice(0, taskMaxLen)
   });
 
   const body = {
     model: "gpt-5-mini",
-    messages: [
+    input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage }
     ],
@@ -71,12 +96,14 @@ If insert_words provided: per_line mode = use each word in separate lines; at_le
         }
       }
     }],
-    tool_choice: { type: "function", function: { name: "return_lines" } },
+    tool_choice: { type: "tool", name: "return_lines" },
     parallel_tool_calls: false,
-    max_completion_tokens: 1024  // Generous but won't need much
+    temperature: isRetry ? 0.1 : 0.3,
+    top_p: 1,
+    max_output_tokens: isRetry ? 256 : 512
   };
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
@@ -92,29 +119,25 @@ If insert_words provided: per_line mode = use each word in separate lines; at_le
 
   const data = await resp.json();
 
-  // Extract tool call
-  const toolCalls = data?.choices?.[0]?.message?.tool_calls;
-  const toolCall = toolCalls?.[0];
-
-  // If we have tool arguments, WE WIN even if incomplete
-  if (toolCall?.function?.arguments) {
-    const args = JSON.parse(toolCall.function.arguments);
-    const lines = args?.lines;
-
-    // Validate shape
-    if (Array.isArray(lines) && lines.length === 4 && lines.every((l: any) => typeof l === "string")) {
-      const warning = data?.choices?.[0]?.finish_reason === "length" ? "tool_ok_incomplete" : null;
-      if (warning) console.log("⚠️ Model hit token limit but tool output is valid");
-      return lines;
+  // Try to extract tool output
+  const lines = pickLines(data);
+  
+  if (lines) {
+    // Success! Check if incomplete but still valid
+    if (data?.incomplete_details?.reason === "max_output_tokens") {
+      console.log("⚠️ Model hit token limit but tool output is valid");
     }
+    return lines;
   }
 
-  // No tool output → real error
-  const finishReason = data?.choices?.[0]?.finish_reason;
-  if (finishReason === "length") {
-    throw new Error("Model hit max_completion_tokens before tool output");
+  // No tool output on first try? Do ONE retry with tighter prompt
+  if (!isRetry) {
+    console.log("No tool output on first attempt, retrying with minimal prompt...");
+    return callOpenAI(payload, apiKey, true);
   }
-  throw new Error("No tool output from model");
+
+  // Failed both attempts
+  throw new Error("No tool output from model after retry");
 }
 
 serve(async (req) => {
