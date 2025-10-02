@@ -99,8 +99,8 @@ task
         model: "gpt-5-mini",
         instructions: HOUSE_RULES,
         input: JSON.stringify(inputPayload),
-        response_format: {
-          type: "json_schema",
+        text: {
+          format: "json_schema",
           json_schema: {
             name: "viibe_text_v3",
             schema: VIIBE_TEXT_SCHEMA,
@@ -116,11 +116,23 @@ task
       throw new Error(`OpenAI ${resp.status}: ${body}`);
     }
     const data = await resp.json();
-    const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-    if (!raw) throw new Error("Empty model response");
-    let parsed: { lines: Array<{ text: string; device: string; uses_insert_words: boolean }> };
-    try { parsed = JSON.parse(raw); } catch { throw new Error("Invalid JSON from model"); }
-    return parsed.lines.map(x => x.text.trim());
+    // Prefer structured output if provided by Responses API
+    let parsed: { lines: Array<{ text: string; device: string; uses_insert_words: boolean }> } | null = null;
+
+    if (data.output_parsed) {
+      parsed = data.output_parsed;
+    } else {
+      const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
+      if (!raw) throw new Error("Empty model response");
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error("Invalid JSON from model");
+      }
+    }
+
+    if (!parsed?.lines?.length) throw new Error("No lines returned");
+    return parsed.lines.map((x: any) => String(x.text || "").trim());
   }
 
 
