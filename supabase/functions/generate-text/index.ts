@@ -253,6 +253,8 @@ task
       }
     };
 
+    // Track fallthrough reasons
+    let proceedToBDueToToken = false;
     // Try Shape A first
     try {
       return await call(bodyA, "A");
@@ -270,16 +272,19 @@ task
             throw retryErr;
           }
           console.log("A-retry also hit token limit, falling through to Shape B");
+          proceedToBDueToToken = true;
         }
       }
       
-      // Schema mismatch → try Shape B
-      const wantsB = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema|Empty model response|No lines returned/i.test(msg);
+      // Schema mismatch or token limit → try Shape B
+      const schemaGate = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema|Empty model response|No lines returned/i.test(msg);
+      const wantsB = proceedToBDueToToken || schemaGate;
       if (!wantsB) throw e;
-      console.log("Shape A failed, trying Shape B");
+      console.log(proceedToBDueToToken ? "Shape A token limit; proceeding to Shape B" : "Shape A failed, trying Shape B");
     }
 
     // Try Shape B
+    let proceedToLooseDueToToken = false;
     try {
       return await call(bodyB, "B");
     } catch (e: any) {
@@ -296,18 +301,21 @@ task
             throw retryErr;
           }
           console.log("B-retry also hit token limit, falling through to loose mode");
+          proceedToLooseDueToToken = true;
         }
       }
       
-      // Last resort: loose mode
-      const wantsLoose = /(format|json_schema|response_format|unsupported parameter|unknown parameter|Empty model response|No lines returned)/i.test(msg);
+      // Last resort: loose mode (schema issue or token limit)
+      const schemaGateLoose = /(format|json_schema|response_format|unsupported parameter|unknown parameter|Empty model response|No lines returned)/i.test(msg);
+      const wantsLoose = proceedToLooseDueToToken || schemaGateLoose;
       if (!wantsLoose) throw e;
-      console.log("Shape B failed, trying loose mode");
+      console.log(proceedToLooseDueToToken ? "Shape B token limit; proceeding to Loose mode" : "Shape B failed, trying loose mode");
     }
 
     // Final fallback: loose mode (no schema)
     const bodyLoose = {
       ...baseBody,
+      ...(proceedToLooseDueToToken ? { max_output_tokens: 1400 } : {}),
       instructions: HOUSE_RULES + "\nReturn ONLY JSON matching { lines: [string, string, string, string] }. No extra text."
     };
     
@@ -316,8 +324,9 @@ task
     } catch (e: any) {
       // If loose mode hits token limit, one final retry
       if (/INCOMPLETE_MAXTOKENS/.test(String(e?.message))) {
-        console.log("Hit token limit on loose mode, final retry with 1400 tokens");
-        return await call({ ...bodyLoose, max_output_tokens: 1400 }, "Loose-retry");
+        const nextBudget = proceedToLooseDueToToken ? 2000 : 1400;
+        console.log(`Hit token limit on loose mode, final retry with ${nextBudget} tokens`);
+        return await call({ ...bodyLoose, max_output_tokens: nextBudget }, "Loose-retry");
       }
       throw e;
     }
