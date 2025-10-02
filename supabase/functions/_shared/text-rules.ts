@@ -106,32 +106,23 @@ return { forbidden_terms: [...base, ...ALWAYS, ...HOWTO] };
 }
 
 
-// ---------- Structured Outputs schema ----------
+// ---------- Structured Outputs schema (compact) ----------
 export const VIIBE_TEXT_SCHEMA = {
-name: "ViibeTextV3",
-schema: {
-type: "object",
-additionalProperties: false,
-properties: {
-lines: {
-type: "array",
-minItems: 4,
-maxItems: 4,
-items: {
-type: "object",
-additionalProperties: false,
-properties: {
-text: { type: "string", maxLength: 160 }, // hard cap, we still check 40–120
-device: { type: "string" }, // observational, misdirection, contrast, understatement, escalation...
-uses_insert_words: { type: "boolean" }
-},
-required: ["text","device","uses_insert_words"]
-}
-}
-},
-required: ["lines"]
-},
-strict: true
+  name: "ViibeTextCompactV1",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      lines: {
+        type: "array",
+        minItems: 4,
+        maxItems: 4,
+        items: { type: "string", maxLength: 140 }
+      }
+    },
+    required: ["lines"]
+  },
+  strict: true
 } as const;
 
 

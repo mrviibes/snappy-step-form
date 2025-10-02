@@ -54,6 +54,18 @@ function extractRawText(data: any): string {
   return "";
 }
 
+// Flexible parser that accepts both old and new schema formats
+function normalizeLines(parsed: any): string[] {
+  const L = parsed?.lines;
+  // New compact format: array of strings
+  if (Array.isArray(L) && L.every((x: any) => typeof x === "string")) return L;
+  // Old format: array of objects with .text property
+  if (Array.isArray(L) && L.every((x: any) => typeof x?.text === "string")) {
+    return L.map((x: any) => x.text);
+  }
+  throw new Error("No lines returned");
+}
+
 const corsHeaders = {
 "Access-Control-Allow-Origin": "*",
 "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -163,13 +175,13 @@ task
 };
 
 
-  // ---- Resilient OpenAI caller (tries both schema shapes) ----
+  // ---- Resilient OpenAI caller with auto-retry on token limit ----
   async function callModelResilient(inputPayload: any, apiKey: string): Promise<string[]> {
     const baseBody = {
       model: "gpt-5-mini",
       instructions: HOUSE_RULES,
       input: JSON.stringify(inputPayload),
-      max_output_tokens: 600
+      max_output_tokens: 900  // Increased from 600
     };
 
     // Helper to make the actual API call
@@ -183,6 +195,14 @@ task
       if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${text}`);
       
       const data = JSON.parse(text);
+      
+      // Check for incomplete response due to token limit
+      if (data?.status && data.status !== "completed") {
+        if (data?.incomplete_details?.reason === "max_output_tokens") {
+          throw new Error(`INCOMPLETE_MAXTOKENS ${JSON.stringify(data.incomplete_details)}`);
+        }
+      }
+
       let parsed: any = null;
 
       if (data.output_parsed) {
@@ -199,14 +219,12 @@ task
         try {
           parsed = JSON.parse(raw);
         } catch {
-          // Strip code fences and retry
           const stripped = raw.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
           parsed = JSON.parse(stripped);
         }
       }
 
-      if (!parsed?.lines?.length) throw new Error("No lines returned");
-      const lines = parsed.lines.map((x: any) => String(x.text || "").trim());
+      const lines = normalizeLines(parsed);
       console.log(`✓ Shape ${shape} succeeded`);
       return lines;
     }
@@ -240,6 +258,14 @@ task
       return await call(bodyA, "A");
     } catch (e: any) {
       const msg = String(e?.message || "");
+      
+      // If we hit token limit, retry with higher budget
+      if (/INCOMPLETE_MAXTOKENS/.test(msg)) {
+        console.log("Hit token limit on Shape A, retrying with 1400 tokens");
+        return await call({ ...bodyA, max_output_tokens: 1400 }, "A-retry");
+      }
+      
+      // Schema mismatch → try Shape B
       const wantsB = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema|Empty model response|No lines returned/i.test(msg);
       if (!wantsB) throw e;
       console.log("Shape A failed, trying Shape B");
@@ -250,6 +276,14 @@ task
       return await call(bodyB, "B");
     } catch (e: any) {
       const msg = String(e?.message || "");
+      
+      // If we hit token limit, retry with higher budget
+      if (/INCOMPLETE_MAXTOKENS/.test(msg)) {
+        console.log("Hit token limit on Shape B, retrying with 1400 tokens");
+        return await call({ ...bodyB, max_output_tokens: 1400 }, "B-retry");
+      }
+      
+      // Last resort: loose mode
       const wantsLoose = /(format|json_schema|response_format|unsupported parameter|unknown parameter|Empty model response|No lines returned)/i.test(msg);
       if (!wantsLoose) throw e;
       console.log("Shape B failed, trying loose mode");
@@ -258,9 +292,19 @@ task
     // Final fallback: loose mode (no schema)
     const bodyLoose = {
       ...baseBody,
-      instructions: HOUSE_RULES + "\nReturn ONLY JSON matching { lines: [{ text, device, uses_insert_words }] }. No extra text."
+      instructions: HOUSE_RULES + "\nReturn ONLY JSON matching { lines: [string, string, string, string] }. No extra text."
     };
-    return await call(bodyLoose, "Loose");
+    
+    try {
+      return await call(bodyLoose, "Loose");
+    } catch (e: any) {
+      // If loose mode hits token limit, one final retry
+      if (/INCOMPLETE_MAXTOKENS/.test(String(e?.message))) {
+        console.log("Hit token limit on loose mode, final retry with 1400 tokens");
+        return await call({ ...bodyLoose, max_output_tokens: 1400 }, "Loose-retry");
+      }
+      throw e;
+    }
   }
 
   let lines = await callModelResilient(userPayload, OPENAI_API_KEY);
