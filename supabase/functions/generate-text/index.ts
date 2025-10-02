@@ -74,10 +74,14 @@ category.toLowerCase(), subcategory.toLowerCase(), theme.toLowerCase()
 };
 
 
-const task: TaskObject = { ...baseTask, ...categoryAdapter(baseTask), ...ratingAdapter(baseTask) };
+  const task: TaskObject = { ...baseTask, ...categoryAdapter(baseTask), ...ratingAdapter(baseTask) };
 
+  // Safety: remove birthday from avoid_terms if birthday_explicit is required
+  if (task.birthday_explicit && task.avoid_terms) {
+    task.avoid_terms = task.avoid_terms.filter(t => !/(birthday|b-day)/i.test(t));
+  }
 
-// Compose minimal user payload
+  // Compose minimal user payload
 const userPayload = {
 version: "viibe-text-v3",
 tone_hint: TONE_HINTS[tone],
@@ -95,7 +99,6 @@ task
         model: "gpt-5-mini",
         instructions: HOUSE_RULES,
         input: JSON.stringify(inputPayload),
-        modalities: ["text"],
         text: {
           format: "json_schema",
           json_schema: VIIBE_TEXT_SCHEMA
