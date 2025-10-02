@@ -286,65 +286,27 @@ serve(async (req) => {
       console.warn("Multi-word insert phrases detected:", multiWordInserts);
     }
 
-    // ========== USER PROMPT ==========
+    // ========== MINIMAL USER PROMPT ==========
     const allInserts = insertWords.length > 0 ? insertWords.join(", ") : '';
-    const insertWord = name || insertWords[0] || '';
+    
+    // Multi-word phrase protection
+    const multiWordNote = multiWordInserts.length > 0 
+      ? `\n⚠️ MULTI-WORD PHRASES: Keep these intact: ${multiWordInserts.map(w => `"${w}"`).join(", ")}` 
+      : '';
+    
     let userPrompt = `${systemPrompt}
 
-⚠️ CRITICAL REQUIREMENT #1 ⚠️
-${allInserts ? `YOU MUST USE ALL OF THESE WORDS IN EVERY LINE: ${allInserts}
-This is NON-NEGOTIABLE. Every single line must contain ALL of these words naturally integrated.
-${insertWords.length > 1 ? `You have ${insertWords.length} words to include: ${insertWords.map(w => `"${w}"`).join(", ")}` : `You must include "${insertWord}"`}
-NOT tacked on at the end. NOT awkwardly placed. NATURALLY woven into the punchline or setup.
+${allInserts ? `⚠️ CRITICAL: USE ALL WORDS IN EVERY LINE: ${allInserts}${multiWordNote}` : ''}
 
-REQUIRED FORMAT (FOLLOW EXACTLY):
-Line 1: [complete sentence with ALL insert words: ${allInserts}]
-Line 2: [complete sentence with ALL insert words: ${allInserts}]
-Line 3: [complete sentence with ALL insert words: ${allInserts}]
-Line 4: [complete sentence with ALL insert words: ${allInserts}]` : 'No insert words required.'}
-
-🚫 DO NOT CROSS - FORBIDDEN TOPICS 🚫
-Even for R-rated savage content, NEVER reference:
-• Suicide, self-harm, or assisted dying/euthanasia
-• Serious terminal illnesses or cancer
-• Death threats or violence against the person
-• Sexual abuse or assault
-• Substance addiction/recovery
-• Mental health crises (depression, PTSD, etc.)
-Playful aging jokes are OK ("closer to death than retirement"), but crossing into genuinely dark territory is NOT.
+🚫 FORBIDDEN TOPICS (even at R-rating):
+• Suicide, self-harm, terminal illness, cancer, death threats, sexual abuse, addiction, mental health crises
 
 THEME: "${leaf}"
 TONE: ${toneTag}
 RATING: ${ratingTag}
-CONTEXT: ${cat || "general"}
+${gender !== 'neutral' ? `GENDER: ${gender === 'male' ? 'he/him/his' : 'she/her/hers'}` : ''}
 
-✅ POV CONSISTENCY & PRONOUN RULE ✅
-Pick ONE point of view per line and stick to it:
-• 2nd person: "You're so old..." OR "Your age is..."
-• 3rd person: "${insertWord || (gender === 'male' ? 'He' : gender === 'female' ? 'She' : 'They')}'s so old..." OR "${insertWord || (gender === 'male' ? 'His' : gender === 'female' ? 'Her' : 'Their')} age is..."
-
-PRONOUN USAGE (CRITICAL):
-${gender === 'male' ? '• Use HE/HIS/HIM' : gender === 'female' ? '• Use SHE/HER/HERS' : '• Use NAME or "you/your" - NEVER use they/their/them'}
-
-POV CONSISTENCY:
-• Pick 2nd person ("You're...") OR 3rd person ("${insertWord || 'Name'}'s...") per line
-• NEVER mix: ❌ "${insertWord || 'Jesse'}, you're old" ✅ "${insertWord || 'Jesse'}'s old" OR ✅ "You're old"
-
-EXAMPLES:
-${gender === 'male' ? `✅ "${insertWord || 'He'}'s so old his walker needs repairs"` : gender === 'female' ? `✅ "${insertWord || 'She'}'s so old her walker needs repairs"` : `✅ "${insertWord || 'Jesse'}'s so old the walker needs repairs"
-✅ "You're getting older but still crushing it"`}
-
-${R === "R" ? `R-RATING: Use ONE natural swear per line (fuck, shit, damn, hell). Place naturally, not tacked on.` : ""}
-${tone?.toLowerCase() === "savage" ? `SAVAGE: Be ruthless and direct. Aim for gasps before laughs. Stay within boundaries.` : ""}
-${tone?.toLowerCase() === "playful" ? `PLAYFUL: Light, mischievous, wordplay. Never mean.` : ""}
-${tone?.toLowerCase() === "sentimental" ? `SENTIMENTAL: Warm, genuine, heartfelt. No sarcasm.` : ""}
-
-FLOW RULES:
-• Complete sentences only - test: would someone say this out loud?
-• Natural placement of insert words - never tacked on
-• Punchy, conversational, quotable
-
-Write 4 one-liners (≤${MAX_LEN} chars each). ${allInserts ? `Include ALL insert words naturally: ${allInserts}` : ''} No labels, just lines:`;
+Write 4 one-liners (≤${MAX_LEN} chars each). No labels, just lines:`;
 
     // Call model
     const res = await fetch(

@@ -162,46 +162,25 @@ DO NOT
 - Do not mix POV (pick "their/they" OR "your/you", not both)`;
 
 export const joke_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
-Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
 
-SYSTEM • SHORT ONE-LINERS • JOKES
+SYSTEM • JOKES & WORDPLAY
 
-OUTPUT FORMAT
-- Return exactly 4 one-liners, one per line
-- Each line: ONE complete sentence, 0-120 characters, ends with punctuation
-- Do not number lines. Do not use bullet points or prefixes
-- Do not include meta-commentary, explanations, or framing language
-- Jump straight into the content
+OUTPUT: 4 one-liners, one per line. 0-120 chars each. No labels, no commentary.
 
-GOAL
-Write 4 punchy one-liners using classic joke formats: dad jokes, puns, knock-knock jokes, wordplay, and setups with punchlines.
+GOAL: Write punchy jokes using wordplay, puns, misdirection, absurd logic, or classic setup-punchline formats.
 
-COMEDY TECHNIQUES (use at least 2 per set):
+JOKE TECHNIQUES (use at least 2):
 - Wordplay and puns
 - Misdirection and surprise endings
-- Absurdist logic
+- Absurdist logic and unexpected twists
 - Self-aware corniness (embrace the groan)
-- Double meanings
-- Classic setup-punchline structure
+- Double meanings and subverted expectations
 
-HARD CONSTRAINTS
-- Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
-- COMPLETE SENTENCES ONLY: Every line must have a subject and verb (no fragments like "Jesse, closer to...")
-- Use the selected Tone and Rating.
-- INSERT WORDS: include exactly one per line and place it naturally mid-sentence (possessive forms OK, e.g., "Jesse's"); do not tack it on at the end.
-- Avoid vocative comma abuse: not "Name, lowercase verb" patterns
-- TRAITS (e.g., "gay", "vegan", "left-handed"): treat respectfully and affirmingly; never as an insult; let the humor come from situation, not identity.
-- Prefer specificity; keep each line distinct; avoid clichés; no labels like "TONE:".
-- Maintain consistent POV: use "their/they" when talking ABOUT someone, "your/you" when talking TO them (don't mix).
-
-DO NOT
-- Do not write sentence fragments or incomplete thoughts
-- Do not use vocative comma + lowercase verb patterns ("Jesse, closer to...")
-- Do not explain what you're doing
-- Do not include phrases like "here are", "okay", "sure thing"
-- Do not number or label the output
-- Do not add commentary before or after the lines
-- Do not mix POV (pick "their/they" OR "your/you", not both)`;
+CONSTRAINTS:
+- Complete sentences only (subject + verb)
+- Insert words placed naturally, not tacked on
+- Traits (e.g., "gay", "vegan") treated respectfully - humor from situation, not identity
+- Use selected tone and rating appropriately`;
 
 export const pop_culture_text_rules = `⚠️ CRITICAL: IF PROVIDED, INSERT WORDS MUST APPEAR IN ALL 4 LINES ⚠️
 Missing an insert word is a COMPLETE FAILURE. Every line MUST contain the insert word naturally.
