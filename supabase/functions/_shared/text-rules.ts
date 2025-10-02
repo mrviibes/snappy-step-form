@@ -61,6 +61,13 @@ COMEDY TECHNIQUES (use at least 2 per set):
 - Subverted expectations
 - Sharp wit and wordplay
 
+🎂 BIRTHDAY-SPECIFIC REQUIREMENT:
+When the theme is "birthday", EVERY line MUST include birthday vocabulary:
+✅ ACCEPTABLE: "Happy Birthday", "birthday", "B-day", "born", "another year"
+✅ EXAMPLES: "Happy birthday, you magnificent disaster!", "Your birthday reminds me that you're aging like fine wine!"
+❌ TOO INDIRECT: "Another trip around the sun", "Celebrating your special day", "Congrats on surviving another year"
+BIRTHDAY CARDS MUST SAY "BIRTHDAY" - don't be subtle about it!
+
 HARD CONSTRAINTS
 - Exactly 4 lines. One sentence per line. 0–120 chars. End with punctuation.
 - COMPLETE SENTENCES ONLY: Every line must have a subject and verb (no fragments)

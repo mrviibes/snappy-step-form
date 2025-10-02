@@ -450,10 +450,21 @@ serve(async (req) => {
       }
     }
     
+    // BIRTHDAY VOCABULARY ENFORCEMENT
+    const isBirthday = theme?.toLowerCase().includes('birthday') || 
+                       subcategory?.toLowerCase().includes('birthday');
+    const birthdayRequirement = isBirthday ? `
+🎂 BIRTHDAY REQUIREMENT (CRITICAL):
+EVERY line MUST explicitly include birthday vocabulary: "Happy Birthday", "birthday", "B-day", "born", or "another year"
+❌ FORBIDDEN: indirect references like "trip around the sun", "special day", "celebrating you"
+✅ REQUIRED: clear birthday language that leaves NO DOUBT this is a birthday card
+` : '';
+    
     let userPrompt = `${systemPrompt}
 
 ${contextPrompt}
 ${insertInstruction}
+${birthdayRequirement}
 
 ⚠️ DO NOT INVENT SPECIFIC DETAILS:
 • If no age is mentioned, don't make one up (no "turning 40", "30 years old", etc.)
