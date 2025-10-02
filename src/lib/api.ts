@@ -63,6 +63,12 @@ async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
     }
   }
 
+  // Check for error in response body (status 200 but success: false)
+  if (data && typeof data === 'object' && 'success' in data && !data.success) {
+    const errorMsg = (data as any).error || 'Request failed';
+    throw new Error(errorMsg);
+  }
+
   return data as T;
 }
 

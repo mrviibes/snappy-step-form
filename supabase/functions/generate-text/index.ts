@@ -14,6 +14,34 @@ If mode is "at_least_one", use at least one insert_word across all lines.
 Avoid forbidden_terms and avoid_terms. For birthdays, always mention "birthday" explicitly.`;
 
 
+
+// Hardened text extraction that tries all sane API response locations
+function extractRawText(data: any): string {
+  // 1) Most common on Responses API now
+  if (typeof data?.text === "string" && data.text.trim()) return data.text;
+
+  // 2) Older Responses convenience field
+  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text;
+
+  // 3) Canonical Responses blocks
+  if (Array.isArray(data?.output)) {
+    const parts: string[] = [];
+    for (const item of data.output) {
+      const content = Array.isArray(item?.content) ? item.content : [];
+      for (const c of content) {
+        if (typeof c?.text === "string" && c.text.trim()) parts.push(c.text);
+      }
+    }
+    if (parts.length) return parts.join("\n");
+  }
+
+  // 4) Ancient Chat Completions fallback
+  const cc = data?.choices?.[0]?.message?.content;
+  if (typeof cc === "string" && cc.trim()) return cc;
+
+  return "";
+}
+
 const corsHeaders = {
 "Access-Control-Allow-Origin": "*",
 "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -148,26 +176,7 @@ task
       if (data.output_parsed) {
         parsed = data.output_parsed;
       } else {
-        // Try extracting text from multiple possible locations
-        let raw = (typeof data.text === 'string' ? data.text : null) || 
-                  (typeof data.output_text === 'string' ? data.output_text : null) || 
-                  "";
-        if (!raw && Array.isArray(data.output)) {
-          const contentTexts = (data.output ?? [])
-            .flatMap((o: any) => o.content ?? [])
-            .map((c: any) => c?.text)
-            .filter(Boolean);
-          raw = contentTexts.join("");
-        }
-        if (!raw && data?.choices?.[0]?.message?.content) {
-          raw = data.choices[0].message.content;
-        }
-        if (!raw && typeof data.output === 'string') {
-          raw = data.output;
-        }
-        if (!raw && data?.message?.content) {
-          raw = data.message.content;
-        }
+        const raw = extractRawText(data);
         
         if (!raw) {
           console.error("Empty model response. Available keys:", Object.keys(data));
@@ -270,10 +279,14 @@ count: lines.length
 
 
 } catch (err) {
-console.error("generate-text error:", err);
-return new Response(JSON.stringify({ success: false, error: (err as Error).message || "failed" }), {
-status: 500,
-headers: { ...corsHeaders, "Content-Type": "application/json" }
-});
+  console.error("generate-text error:", err);
+  // Return 200 with error in body so frontend can display it
+  return new Response(JSON.stringify({ 
+    success: false, 
+    error: (err as Error).message || "failed" 
+  }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
 }
 });
