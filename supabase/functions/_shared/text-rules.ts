@@ -1,6 +1,33 @@
 // =============== VIIBE TEXT RULES (LEAN, V3) ===============
-playful: "silly, cheeky, fun",
-serious: "formal, direct, weighty; minimal humor"
+
+export type Tone = "humorous"|"savage"|"sentimental"|"nostalgic"|"romantic"|"inspirational"|"playful"|"serious";
+export type Rating = "G"|"PG"|"PG-13"|"R";
+
+export interface TaskObject {
+  tone: Tone;
+  rating: Rating;
+  category_path: string[];
+  topic: string;
+  layout?: string;
+  style?: string;
+  dimensions?: string;
+  insert_words?: string[];
+  insert_word_mode?: "per_line"|"at_least_one";
+  avoid_terms?: string[];
+  forbidden_terms?: string[];
+  birthday_explicit?: boolean;
+  humor_bias?: string;
+}
+
+export const TONE_HINTS: Record<Tone, string> = {
+  humorous: "witty, wordplay, exaggerated",
+  savage: "blunt, cutting, roast-style",
+  sentimental: "warm, affectionate, heartfelt",
+  nostalgic: "memory-focused, past references",
+  romantic: "affectionate, playful, charming",
+  inspirational: "uplifting, positive, motivating",
+  playful: "silly, cheeky, fun",
+  serious: "formal, direct, weighty; minimal humor"
 };
 
 

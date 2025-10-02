@@ -1,7 +1,17 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-batchCheck,
-type TaskObject, type Tone, type Rating
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  TONE_HINTS, RATING_HINTS, VIIBE_TEXT_SCHEMA,
+  categoryAdapter, ratingAdapter, batchCheck,
+  type TaskObject, type Tone, type Rating
 } from "../_shared/text-rules.ts";
+
+const HOUSE_RULES = `You generate 4 short, punchy lines for image overlays (40–120 chars each).
+Return valid JSON matching the schema. No meta-commentary. Follow tone/rating hints exactly.
+Use rhetorical devices (misdirection, contrast, escalation, understatement). End each line with punctuation.
+If insert_words are provided and mode is "per_line", use each word in a separate line.
+If mode is "at_least_one", use at least one insert_word across all lines.
+Avoid forbidden_terms and avoid_terms. For birthdays, always mention "birthday" explicitly.`;
 
 
 const corsHeaders = {
@@ -76,42 +86,41 @@ task
 };
 
 
-// ---- Call OpenAI Responses API with Structured Outputs ----
-async function callModel(input: any, temp = 0.9) {
-const resp = await fetch("https://api.openai.com/v1/responses", {
-method: "POST",
-headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-body: JSON.stringify({
-model: "gpt-5-mini",
-input: [
-{ role: "system", content: HOUSE_RULES },
-{ role: "user", content: JSON.stringify(input) }
-],
-response_format: { type: "json_schema", json_schema: VIIBE_TEXT_SCHEMA },
-temperature: temp,
-top_p: 0.95,
-max_output_tokens: 600
-})
-});
-if (!resp.ok) throw new Error(`OpenAI ${resp.status}`);
-const data = await resp.json();
-const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-if (!raw) throw new Error("Empty model response");
-let parsed: { lines: Array<{ text: string; device: string; uses_insert_words: boolean }> };
-try { parsed = JSON.parse(raw); } catch { throw new Error("Invalid JSON from model"); }
-return parsed.lines.map(x => x.text.trim());
-}
+  // ---- Call OpenAI Responses API with Structured Outputs ----
+  async function callModel(inputPayload: any) {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        instructions: HOUSE_RULES,
+        input: JSON.stringify(inputPayload),
+        response_format: { type: "json_schema", json_schema: VIIBE_TEXT_SCHEMA },
+        max_output_tokens: 600
+      })
+    });
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.error(`OpenAI API error ${resp.status}:`, body);
+      throw new Error(`OpenAI ${resp.status}: ${body}`);
+    }
+    const data = await resp.json();
+    const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
+    if (!raw) throw new Error("Empty model response");
+    let parsed: { lines: Array<{ text: string; device: string; uses_insert_words: boolean }> };
+    try { parsed = JSON.parse(raw); } catch { throw new Error("Invalid JSON from model"); }
+    return parsed.lines.map(x => x.text.trim());
+  }
 
 
-let lines = await callModel(userPayload, 0.9);
+  let lines = await callModel(userPayload);
 
-
-// Validate batch; if issues, one guided retry
-const issues = batchCheck(lines, task);
-if (issues.length) {
-const fix = { fix_hint: { issues, guidance: "Return JSON again with 4 lines that meet all constraints." }, task };
-lines = await callModel(fix, 0.7);
-}
+  // Validate batch; if issues, one guided retry
+  const issues = batchCheck(lines, task);
+  if (issues.length) {
+    const fix = { fix_hint: { issues, guidance: "Return JSON again with 4 lines that meet all constraints." }, task };
+    lines = await callModel(fix);
+  }
 
 
 // Final check and crop
