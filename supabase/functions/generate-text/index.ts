@@ -95,9 +95,6 @@ async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promis
       }
     }],
     tool_choice: "required",
-    parallel_tool_calls: false,
-    temperature: isRetry ? 0.1 : 0.3,
-    top_p: 1,
     max_output_tokens: isRetry ? 256 : 512
   };
 
