@@ -95,7 +95,11 @@ task
         model: "gpt-5-mini",
         instructions: HOUSE_RULES,
         input: JSON.stringify(inputPayload),
-        response_format: { type: "json_schema", json_schema: VIIBE_TEXT_SCHEMA },
+        modalities: ["text"],
+        text: {
+          format: "json_schema",
+          json_schema: VIIBE_TEXT_SCHEMA
+        },
         max_output_tokens: 600
       })
     });
