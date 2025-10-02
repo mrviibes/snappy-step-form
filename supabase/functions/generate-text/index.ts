@@ -11,6 +11,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const OPENAI_API_URL = "https://api.openai.com/v1/responses";
+const MODEL = "gpt-5-mini";
+
+const RETURN_LINES_TOOL = {
+  type: "function",
+  name: "return_lines",
+  description: "Return the final 4 lines for the UI.",
+  parameters: {
+    type: "object",
+    required: ["lines"],
+    properties: {
+      lines: {
+        type: "array",
+        minItems: 4,
+        maxItems: 4,
+        items: { type: "string", maxLength: 140 }
+      }
+    },
+    additionalProperties: false
+  }
+} as const;
+
 type GeneratePayload = {
   category: string;
   subcategory?: string;
@@ -50,6 +72,62 @@ function pickLines(data: any): string[] | null {
   return valid ? lines : null;
 }
 
+async function openaiRequest(body: Record<string, unknown>, apiKey: string) {
+  const resp = await fetch(OPENAI_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  // Handle rate limits and payment issues explicitly
+  if (resp.status === 402) {
+    return { ok: false as const, code: 402, error: "Payment required or credits exhausted" };
+  }
+  if (resp.status === 429) {
+    return { ok: false as const, code: 429, error: "Rate limited, please try again later" };
+  }
+
+  let data: any = null;
+  try { 
+    data = await resp.json(); 
+  } catch { 
+    /* ignore parse errors */ 
+  }
+
+  if (!resp.ok) {
+    const msg = data?.error?.message || `OpenAI error ${resp.status}`;
+    return { ok: false as const, code: resp.status, error: msg, raw: data };
+  }
+
+  return { ok: true as const, data };
+}
+
+function pickLinesFromJson(data: any): string[] | null {
+  try {
+    const text = data?.output_text; // Responses API returns JSON in output_text field
+    if (!text) return null;
+    
+    const obj = JSON.parse(text);
+    const lines = obj?.lines;
+    
+    const valid = Array.isArray(lines) && 
+      lines.length === 4 && 
+      lines.every((l: any) => 
+        typeof l === "string" && 
+        l.length >= 40 && 
+        l.length <= 140 && 
+        /[.!?]$/.test(l)
+      );
+    
+    return valid ? lines : null;
+  } catch {
+    return null;
+  }
+}
+
 async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promise<string[]> {
   // Minimal system prompt
   const systemPrompt = isRetry 
@@ -70,69 +148,89 @@ async function callOpenAI(payload: any, apiKey: string, isRetry = false): Promis
     task: (payload.task?.topic ?? "").slice(0, taskMaxLen)
   });
 
-  const body = {
-    model: "gpt-5-mini",
-    input: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage }
-    ],
-    tools: [{
-      type: "function",
-      name: "return_lines",
-      description: "Return the final 4 lines for the UI.",
-      parameters: {
-        type: "object",
-        required: ["lines"],
-        properties: {
-          lines: {
-            type: "array",
-            minItems: 4,
-            maxItems: 4,
-            items: { type: "string", maxLength: 140 }
+  const input = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userMessage }
+  ];
+
+  // PHASE 1: Try tool calling
+  const toolBody = {
+    model: MODEL,
+    input,
+    tools: [RETURN_LINES_TOOL],
+    tool_choice: "required",
+    max_output_tokens: isRetry ? 256 : 512
+    // Do NOT send: temperature, top_p, parallel_tool_calls, response_format
+  };
+
+  const toolResult = await openaiRequest(toolBody, apiKey);
+  
+  // Handle errors from tool call
+  if (!toolResult.ok) {
+    throw new Error(`OpenAI ${toolResult.code}: ${toolResult.error}`);
+  }
+
+  // Try to extract tool output
+  const linesFromTool = pickLines(toolResult.data);
+  
+  if (linesFromTool) {
+    // Success! Check if incomplete but still valid
+    if (toolResult.data?.incomplete_details?.reason === "max_output_tokens") {
+      console.log("⚠️ Model hit token limit but tool output is valid");
+    }
+    return linesFromTool;
+  }
+
+  // PHASE 2: Tool didn't fire - try strict JSON schema fallback
+  console.log("No tool output, trying JSON schema fallback...");
+  
+  const jsonBody = {
+    model: MODEL,
+    input,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "return_lines_payload",
+        schema: {
+          type: "object",
+          required: ["lines"],
+          additionalProperties: false,
+          properties: {
+            lines: { 
+              type: "array", 
+              minItems: 4, 
+              maxItems: 4, 
+              items: { type: "string", maxLength: 140 } 
+            }
           }
         },
-        additionalProperties: false
+        strict: true
       }
-    }],
-    tool_choice: "required",
+    },
     max_output_tokens: isRetry ? 256 : 512
   };
 
-  const resp = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!resp.ok) {
-    const errorText = await resp.text();
-    throw new Error(`OpenAI ${resp.status}: ${errorText}`);
-  }
-
-  const data = await resp.json();
-
-  // Try to extract tool output
-  const lines = pickLines(data);
+  const jsonResult = await openaiRequest(jsonBody, apiKey);
   
-  if (lines) {
-    // Success! Check if incomplete but still valid
-    if (data?.incomplete_details?.reason === "max_output_tokens") {
-      console.log("⚠️ Model hit token limit but tool output is valid");
-    }
-    return lines;
+  if (!jsonResult.ok) {
+    throw new Error(`OpenAI JSON fallback ${jsonResult.code}: ${jsonResult.error}`);
   }
 
-  // No tool output on first try? Do ONE retry with tighter prompt
+  const linesFromJson = pickLinesFromJson(jsonResult.data);
+  
+  if (linesFromJson) {
+    console.log("✅ JSON schema fallback succeeded");
+    return linesFromJson;
+  }
+
+  // PHASE 3: If we're not already retrying, do ONE retry with tighter prompt
   if (!isRetry) {
-    console.log("No tool output on first attempt, retrying with minimal prompt...");
+    console.log("Both tool and JSON failed, retrying with minimal prompt...");
     return callOpenAI(payload, apiKey, true);
   }
 
-  // Failed both attempts
-  throw new Error("No tool output from model after retry");
+  // Failed all attempts
+  throw new Error("No valid output from model after tool, JSON fallback, and retry");
 }
 
 serve(async (req) => {
