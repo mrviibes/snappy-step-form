@@ -44,32 +44,42 @@ export interface PollImageStatusResponse {
   progress?: number;
 }
 
-// Helper function to call edge functions
+// Helper function to call edge functions with timeout
 async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(functionName, {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Request timeout - please try again')), 25000);
+  });
+
+  const invokePromise = supabase.functions.invoke(functionName, {
     body: payload,
   });
 
-  if (error) {
-    console.error(`Error calling ${functionName}:`, error);
-    const detailed = (error as any)?.context?.body || error.message || `Failed to call ${functionName}`;
-    // Try to extract JSON error.message if body is JSON
-    try {
-      const parsed = typeof detailed === 'string' ? JSON.parse(detailed) : detailed;
-      const msg = parsed?.error || parsed?.message || detailed;
-      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
-    } catch {
-      throw new Error(typeof detailed === 'string' ? detailed : JSON.stringify(detailed));
+  try {
+    const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+
+    if (error) {
+      console.error(`Error calling ${functionName}:`, error);
+      const detailed = (error as any)?.context?.body || error.message || `Failed to call ${functionName}`;
+      // Try to extract JSON error.message if body is JSON
+      try {
+        const parsed = typeof detailed === 'string' ? JSON.parse(detailed) : detailed;
+        const msg = parsed?.error || parsed?.message || detailed;
+        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      } catch {
+        throw new Error(typeof detailed === 'string' ? detailed : JSON.stringify(detailed));
+      }
     }
-  }
 
-  // Check for error in response body (status 200 but success: false)
-  if (data && typeof data === 'object' && 'success' in data && !data.success) {
-    const errorMsg = (data as any).error || 'Request failed';
-    throw new Error(errorMsg);
-  }
+    // Check for error in response body (status 200 but success: false)
+    if (data && typeof data === 'object' && 'success' in data && !data.success) {
+      const errorMsg = (data as any).error || 'Request failed';
+      throw new Error(errorMsg);
+    }
 
-  return data as T;
+    return data as T;
+  } catch (error: any) {
+    throw error;
+  }
 }
 
 // Text generation
