@@ -39,6 +39,18 @@ function extractRawText(data: any): string {
   const cc = data?.choices?.[0]?.message?.content;
   if (typeof cc === "string" && cc.trim()) return cc;
 
+  // 5) Surface provider errors instead of hiding them
+  if (data?.error) {
+    const msg = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+    throw new Error(`Provider error: ${msg}`);
+  }
+
+  // 6) Surface incomplete/failed status
+  if (data?.status && data.status !== "completed") {
+    const det = data?.incomplete_details ? JSON.stringify(data.incomplete_details) : "";
+    throw new Error(`Response status = ${data.status}${det ? " :: " + det : ""}`);
+  }
+
   return "";
 }
 
