@@ -354,29 +354,33 @@ serve(async (req) => {
       const isHumorous = tone.toLowerCase().includes("humor");
       
       // Generic templates that work for ANY topic
+      const fallbacks = [];
       if (R === "R" && isHumorous) {
-        return [
-          `${allWords} and ${topic}—what a fucking combination.`,
+        fallbacks.push(
+          `${allWords} and ${topic}, what a fucking combination.`,
           `${topic} just got real with ${allWords}.`,
           `${allWords} making ${topic} legendary as hell.`,
           `This ${topic} moment with ${allWords}? Absolutely brilliant.`
-        ];
+        );
       } else if (R === "PG-13" && isHumorous) {
-        return [
-          `${allWords} and ${topic}—what a combo!`,
+        fallbacks.push(
+          `${allWords} and ${topic}, what a combo!`,
           `${topic} just got interesting with ${allWords}.`,
           `${allWords} making ${topic} unforgettable.`,
           `This ${topic} moment with ${allWords}? Pretty awesome.`
-        ];
+        );
       } else {
         // Safe G/PG fallback
-        return [
-          `${allWords} and ${topic}—a perfect match.`,
+        fallbacks.push(
+          `${allWords} and ${topic}, a perfect match.`,
           `${topic} celebrating ${allWords} today.`,
           `${allWords} making this ${topic} special.`,
           `${topic} moments with ${allWords} are the best.`
-        ];
+        );
       }
+      
+      // Sanitize all fallbacks before returning
+      return fallbacks.map(line => sanitizePunct(line));
     }
 
     // Insert intelligence
@@ -433,6 +437,12 @@ serve(async (req) => {
 
 ${contextPrompt}
 ${insertInstruction}
+
+⚠️ DO NOT INVENT SPECIFIC DETAILS:
+• If no age is mentioned, don't make one up (no "turning 40", "30 years old", etc.)
+• If no date/time is given, don't invent one ("next Tuesday", "last summer", etc.)
+• If no location is mentioned, don't add one ("in Vegas", "at the office", etc.)
+• Stick to what's actually provided in the context and insert words
 
 🚫 FORBIDDEN TOPICS (even at R-rating):
 • Suicide, self-harm, terminal illness, cancer, death threats, sexual abuse, addiction, mental health crises
