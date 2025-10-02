@@ -93,13 +93,9 @@ task
       headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        modalities: ["text"],
         instructions: HOUSE_RULES,
         input: JSON.stringify(inputPayload),
-        text: {
-          format: "json_schema",
-          json_schema: VIIBE_TEXT_SCHEMA
-        },
+        response_format: { type: "json_schema", json_schema: VIIBE_TEXT_SCHEMA },
         max_output_tokens: 600
       })
     });
