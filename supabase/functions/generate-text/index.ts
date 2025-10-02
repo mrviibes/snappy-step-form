@@ -148,9 +148,30 @@ task
       if (data.output_parsed) {
         parsed = data.output_parsed;
       } else {
-        const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-        if (!raw) throw new Error("Empty model response");
-        parsed = JSON.parse(raw);
+        // Try extracting text from multiple possible locations
+        let raw = data.output_text || "";
+        if (!raw) {
+          // Try scanning all content items
+          const contentTexts = (data.output ?? [])
+            .flatMap((o: any) => o.content ?? [])
+            .map((c: any) => c.text)
+            .filter(Boolean);
+          raw = contentTexts.join("");
+        }
+        
+        if (!raw) {
+          console.error("Empty model response. Available keys:", Object.keys(data));
+          throw new Error(`Empty model response (keys: ${Object.keys(data).join(", ")})`);
+        }
+        
+        // Safe JSON parsing with code fence stripping
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          // Strip code fences and retry
+          const stripped = raw.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+          parsed = JSON.parse(stripped);
+        }
       }
 
       if (!parsed?.lines?.length) throw new Error("No lines returned");
@@ -198,7 +219,7 @@ task
       return await call(bodyB, "B");
     } catch (e: any) {
       const msg = String(e?.message || "");
-      const wantsLoose = /format|json_schema|unsupported parameter|unknown parameter/i.test(msg);
+      const wantsLoose = /(format|json_schema|response_format|unsupported parameter|unknown parameter|Empty model response|No lines returned)/i.test(msg);
       if (!wantsLoose) throw e;
       console.log("Shape B failed, trying loose mode");
     }
