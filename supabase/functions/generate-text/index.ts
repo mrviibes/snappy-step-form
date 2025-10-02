@@ -149,7 +149,9 @@ task
         parsed = data.output_parsed;
       } else {
         // Try extracting text from multiple possible locations
-        let raw = data.text || data.output_text || "";
+        let raw = (typeof data.text === 'string' ? data.text : null) || 
+                  (typeof data.output_text === 'string' ? data.output_text : null) || 
+                  "";
         if (!raw && Array.isArray(data.output)) {
           const contentTexts = (data.output ?? [])
             .flatMap((o: any) => o.content ?? [])
