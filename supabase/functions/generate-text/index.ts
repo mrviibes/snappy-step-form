@@ -39,10 +39,11 @@ avoidTerms?: string[];
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  
   // Self-test endpoint
   const url = new URL(req.url);
   if (url.searchParams.get("selftest") === "1") {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     const sample = {
@@ -61,35 +62,7 @@ serve(async (req) => {
     };
     
     try {
-      async function callModelTest(inputPayload: any) {
-        const resp = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "gpt-5-mini",
-            instructions: HOUSE_RULES,
-            input: JSON.stringify(inputPayload),
-            text: {
-              format: {
-                type: "json_schema",
-                json_schema: VIIBE_TEXT_SCHEMA
-              }
-            },
-            max_output_tokens: 600
-          })
-        });
-        if (!resp.ok) {
-          const body = await resp.text();
-          throw new Error(`OpenAI ${resp.status}: ${body}`);
-        }
-        const data = await resp.json();
-        const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-        if (!raw) throw new Error("Empty model response");
-        const parsed = JSON.parse(raw);
-        return parsed.lines.map((x: any) => String(x.text || "").trim());
-      }
-
-      const lines = await callModelTest(sample);
+      const lines = await callModelResilient(sample, OPENAI_API_KEY);
       return new Response(JSON.stringify({ ok: true, lines }), {
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });
@@ -103,10 +76,7 @@ serve(async (req) => {
 
   try {
     const body: GeneratePayload = await req.json();
-
-
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
 
 // Normalize inputs
@@ -153,102 +123,101 @@ task
 };
 
 
-  // ---- Call OpenAI Responses API with Structured Outputs ----
-  async function callModel(inputPayload: any) {
-    const resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-5-mini",
-        instructions: HOUSE_RULES,
-        input: JSON.stringify(inputPayload),
-        text: {
-          format: {
-            type: "json_schema",
-            json_schema: VIIBE_TEXT_SCHEMA
-          }
-        },
-        max_output_tokens: 600
-      })
-    });
-    if (!resp.ok) {
-      const body = await resp.text();
-      console.error(`OpenAI API error ${resp.status}:`, body);
-      throw new Error(`OpenAI ${resp.status}: ${body}`);
-    }
-    const data = await resp.json();
-    // Prefer structured output if provided by Responses API
-    let parsed: { lines: Array<{ text: string; device: string; uses_insert_words: boolean }> } | null = null;
+  // ---- Resilient OpenAI caller (tries both schema shapes) ----
+  async function callModelResilient(inputPayload: any, apiKey: string): Promise<string[]> {
+    const baseBody = {
+      model: "gpt-5-mini",
+      instructions: HOUSE_RULES,
+      input: JSON.stringify(inputPayload),
+      max_output_tokens: 600
+    };
 
-    if (data.output_parsed) {
-      parsed = data.output_parsed;
-    } else {
-      const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-      if (!raw) throw new Error("Empty model response");
-      try {
+    // Helper to make the actual API call
+    async function call(body: any, shape: string) {
+      const resp = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const text = await resp.text();
+      if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${text}`);
+      
+      const data = JSON.parse(text);
+      let parsed: any = null;
+
+      if (data.output_parsed) {
+        parsed = data.output_parsed;
+      } else {
+        const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
+        if (!raw) throw new Error("Empty model response");
         parsed = JSON.parse(raw);
-      } catch {
-        throw new Error("Invalid JSON from model");
       }
+
+      if (!parsed?.lines?.length) throw new Error("No lines returned");
+      const lines = parsed.lines.map((x: any) => String(x.text || "").trim());
+      console.log(`✓ Shape ${shape} succeeded`);
+      return lines;
     }
 
-    if (!parsed?.lines?.length) throw new Error("No lines returned");
-    return parsed.lines.map((x: any) => String(x.text || "").trim());
-  }
+    // Shape A: nested json_schema
+    const bodyA = {
+      ...baseBody,
+      text: {
+        format: {
+          type: "json_schema",
+          json_schema: VIIBE_TEXT_SCHEMA
+        }
+      }
+    };
 
+    // Shape B: flattened fields
+    const bodyB = {
+      ...baseBody,
+      text: {
+        format: {
+          type: "json_schema",
+          name: VIIBE_TEXT_SCHEMA.name,
+          schema: VIIBE_TEXT_SCHEMA.schema,
+          strict: VIIBE_TEXT_SCHEMA.strict
+        }
+      }
+    };
 
-  // Fallback function without structured outputs (insurance against API changes)
-  async function callModelLoose(inputPayload: any) {
-    const resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-5-mini",
-        instructions: HOUSE_RULES + "\nReturn ONLY JSON matching { lines: [{ text, device, uses_insert_words }] }. No extra text.",
-        input: JSON.stringify(inputPayload),
-        max_output_tokens: 600
-      })
-    });
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(`OpenAI ${resp.status}: ${body}`);
+    // Try Shape A first
+    try {
+      return await call(bodyA, "A");
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      const wantsB = /format\.name|missing required parameter.+format\.name|json_schema.+unsupported|unknown parameter.+json_schema/i.test(msg);
+      if (!wantsB) throw e;
+      console.log("Shape A failed, trying Shape B");
     }
-    const data = await resp.json();
-    const raw = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
-    if (!raw) throw new Error("Empty model response");
-    const parsed = JSON.parse(raw);
-    return parsed.lines.map((x: any) => String(x.text || "").trim());
-  }
 
-  function wantsSchemaFallback(msg: string) {
-    return /format|json_schema|response_format|unsupported parameter/i.test(msg || "");
-  }
-
-  let lines: string[];
-  try {
-    lines = await callModel(userPayload);
-  } catch (e: any) {
-    if (wantsSchemaFallback(e?.message || "")) {
-      console.log("Schema error detected, retrying without structured outputs");
-      lines = await callModelLoose(userPayload);
-    } else {
-      throw e;
+    // Try Shape B
+    try {
+      return await call(bodyB, "B");
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      const wantsLoose = /format|json_schema|unsupported parameter|unknown parameter/i.test(msg);
+      if (!wantsLoose) throw e;
+      console.log("Shape B failed, trying loose mode");
     }
+
+    // Final fallback: loose mode (no schema)
+    const bodyLoose = {
+      ...baseBody,
+      instructions: HOUSE_RULES + "\nReturn ONLY JSON matching { lines: [{ text, device, uses_insert_words }] }. No extra text."
+    };
+    return await call(bodyLoose, "Loose");
   }
+
+  let lines = await callModelResilient(userPayload, OPENAI_API_KEY);
 
   // Validate batch; if issues, one guided retry
   const issues = batchCheck(lines, task);
   if (issues.length) {
     const fix = { fix_hint: { issues, guidance: "Return JSON again with 4 lines that meet all constraints." }, task };
-    try {
-      lines = await callModel(fix);
-    } catch (e: any) {
-      if (wantsSchemaFallback(e?.message || "")) {
-        lines = await callModelLoose(fix);
-      } else {
-        throw e;
-      }
-    }
+    lines = await callModelResilient(fix, OPENAI_API_KEY);
   }
 
 
