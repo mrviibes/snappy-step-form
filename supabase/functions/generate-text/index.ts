@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-5-mini";
+const MODEL = "gpt-5-nano-2025-08-07";
 
 const RETURN_LINES_TOOL = {
   type: "function",
