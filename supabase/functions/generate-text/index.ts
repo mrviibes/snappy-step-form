@@ -206,8 +206,8 @@ serve(async (req) => {
       task
     };
 
-    // GPT-5 needs reasonable token limit for speed
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 1024);
+    // Increase token budget to avoid 'length' truncation with GPT-5
+    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 2048);
 
     return new Response(JSON.stringify({
       success: true,
