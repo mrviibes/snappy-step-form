@@ -12,8 +12,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENAI_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const MODEL = "gpt-4o-mini";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
@@ -100,7 +100,8 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
       { role: "system", content: SYSTEM },
       { role: "user", content: JSON.stringify(userJson) }
     ],
-    response_format: { type: "json_schema", json_schema: schema }
+    response_format: { type: "json_schema", json_schema: schema },
+    max_tokens: maxTokens
   };
 
   const controller = new AbortController();
@@ -126,7 +127,7 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
 
   if (resp.status === 402) throw new Error("Payment required or credits exhausted");
   if (resp.status === 429) throw new Error("Rate limited, please try again later");
-  if (!resp.ok) throw new Error(`AI gateway ${resp.status}: ${raw.slice(0, 600)}`);
+  if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 600)}`);
 
   let data: any = null;
   try { data = JSON.parse(raw); } catch { throw new Error("Provider returned non-JSON"); }
@@ -148,9 +149,9 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   try {
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     const body: GeneratePayload = await req.json();
 
@@ -206,7 +207,7 @@ serve(async (req) => {
     };
 
     // single fast call (256 tokens). This avoids the "length" trims we saw at 160.
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, LOVABLE_API_KEY, 2048);
+    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 2048);
 
     return new Response(JSON.stringify({
       success: true,
