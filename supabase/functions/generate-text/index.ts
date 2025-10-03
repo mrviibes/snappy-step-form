@@ -160,7 +160,7 @@ async function callModelFast(payload: any, SYSTEM: string, apiKey: string, opts?
     ],
     tool_choice: { type: "function", function: { name: "return_lines" } },
     parallel_tool_calls: false,
-    max_completion_tokens: (opts?.maxTokens ?? 640)
+    max_completion_tokens: (opts?.maxTokens ?? 1280)
   };
 
   const resp = await fetch(OPENAI_API_URL, {
@@ -275,14 +275,14 @@ serve(async (req) => {
     // Try once, then retry on length error with higher token budget and trimmed anchors
     let lines: string[];
     try {
-      lines = await callModelFast(userPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 640 });
+      lines = await callModelFast(userPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 1280 });
     } catch (e) {
       const msg = (e as Error)?.message?.toLowerCase() || "";
       if (msg.includes("length")) {
         const trimmedTask = { ...task, anchors: Array.isArray(task.anchors) ? task.anchors.slice(0, 4) : [] };
         const retryPayload = { ...userPayload, task: trimmedTask };
         console.warn("generate-text retry: increasing token budget and trimming anchors");
-        lines = await callModelFast(retryPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 896 });
+        lines = await callModelFast(retryPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 1536 });
       } else {
         throw e;
       }
