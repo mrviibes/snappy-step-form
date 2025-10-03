@@ -49,7 +49,7 @@ async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
     "generate-text": 120000,          // text gen can take longer after higher token caps
     "generate-final-prompt": 120000,  // prompt assembly may use LLM too
-    "generate-visuals": 60000,        // quick suggestions
+    "generate-visuals": 120000,       // allow more time for LLM
     "generate-image": 45000,          // returns jobId fast; long work happens via polling
     "poll-image-status": 15000        // each poll should be quick
   };
@@ -150,15 +150,21 @@ export async function generateFinalPrompt(params: {
   textLine?: string;
   visualScene?: string;
 }): Promise<{ templates: PromptTemplate[] }> {
-  const payload = {
+  const payload: any = {
+    // Required by edge function
+    completed_text: (params as any).completed_text ?? params.textLine ?? "",
+    image_dimensions: (params as any).image_dimensions ?? (params as any).aspectRatio ?? "square",
+
+    // Optional context
     category: params.category || "celebrations",
     subcategory: params.subcategory,
     tone: params.tone || "humorous",
     rating: params.rating || "PG",
-    style: params.style || "Auto",
-    layout: params.layout || "Open Space",
-    textLine: params.textLine,
-    visualScene: params.visualScene,
+    image_style: ((params as any).image_style ?? params.style) || "Auto",
+    text_layout: ((params as any).text_layout ?? params.layout) || "Open Space",
+    composition_modes: (params as any).composition_modes,
+    visual_recommendation: (params as any).visual_recommendation ?? params.visualScene,
+    provider: (params as any).provider || "ideogram",
   };
 
   const res = await ctlFetch<any>("generate-final-prompt", payload);

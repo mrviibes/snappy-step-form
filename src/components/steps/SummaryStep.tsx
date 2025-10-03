@@ -429,7 +429,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
         {/* Template Selection */}
         <div className="mb-4">
           <label className="text-sm font-medium text-foreground mb-2 block">
-            Choose Template ({templates.length} available) - Provider: Ideogram
+            Choose Template ({templates.length} available) - Provider: Ideogram (async)
           </label>
         </div>
         {isLoadingImage ? (
