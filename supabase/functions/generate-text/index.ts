@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-5-nano-2025-08-07";
+const MODEL = "gpt-5-mini-2025-08-07";
 
 const RETURN_LINES_TOOL = {
   type: "function",
@@ -456,7 +456,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       options: lines,
-      model: "gpt-5-nano-2025-08-07",
+      model: "gpt-5-mini-2025-08-07",
       count: lines.length
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
