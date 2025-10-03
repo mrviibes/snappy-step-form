@@ -47,7 +47,7 @@ export interface PollImageStatusResponse {
 // Helper function to call edge functions with timeout
 async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout - please try again')), 25000);
+    setTimeout(() => reject(new Error('Request timeout (60s) - please try again')), 60000);
   });
 
   const invokePromise = supabase.functions.invoke(functionName, {
