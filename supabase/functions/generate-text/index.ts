@@ -90,14 +90,29 @@ function pickLines(data: any): string[] | null {
 async function openaiRequest(body: Record<string, unknown>, apiKey: string) {
   logBody("OPENAI_REQ", body);
   
-  const resp = await fetch(OPENAI_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort("timeout"), 45000);
+
+  let resp: Response;
+  try {
+    resp = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    const aborted = (e as any)?.name === "AbortError" || String(e).includes("abort");
+    const msg = aborted ? "Upstream model timeout (45s)" : `Upstream request failed: ${e instanceof Error ? e.message : String(e)}`;
+    console.error("OPENAI_FETCH_ERROR:", e);
+    return { ok: false as const, code: 504, error: msg };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const text = await resp.text();
   console.log(`[OPENAI_RES_${resp.status}] ${text.slice(0, 2000)}`);
@@ -309,11 +324,17 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
     // Try tool path first
     const r1 = await callToolPath(userJson, apiKey);
     if (r1.ok) return r1.lines;
+    if ((r1 as any)?.code === 504) {
+      throw new Error("Upstream model timeout (tool path)");
+    }
     
     // Single retry with shorter task
     userJson.task = String(userJson.task).slice(0, 280);
     const r2 = await callToolPath(userJson, apiKey);
     if (r2.ok) return r2.lines;
+    if ((r2 as any)?.code === 504) {
+      throw new Error("Upstream model timeout (tool path retry)");
+    }
     
     // Fallback to JSON
     console.log("Tool path failed twice, falling back to JSON schema...");
@@ -321,6 +342,9 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
     if (r3.ok) {
       console.log("✅ JSON schema fallback succeeded");
       return r3.lines;
+    }
+    if ((r3 as any)?.code === 504) {
+      throw new Error("Upstream model timeout (json schema)");
     }
     
     throw new Error(`All paths failed: ${r3.error}`);
@@ -339,6 +363,7 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
       r = await callJsonPath(userJson, apiKey);
     }
     if (!r.ok) {
+      if (r.code === 504) throw new Error("Upstream model timeout (json schema)");
       throw new Error(`JSON schema path failed: ${r.error}`);
     }
     console.log("✅ JSON schema succeeded");
