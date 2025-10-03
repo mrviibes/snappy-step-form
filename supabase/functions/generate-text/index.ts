@@ -26,7 +26,7 @@ const RETURN_LINES_TOOL = {
         type: "array",
         minItems: 4,
         maxItems: 4,
-        items: { type: "string", maxLength: 140 }
+          items: { type: "string", minLength: 40, maxLength: 140, pattern: "[.!?]$" }
       }
     },
     additionalProperties: false
@@ -36,7 +36,7 @@ const RETURN_LINES_TOOL = {
 // Global cache to remember if tools actually work for this model
 let supportsTools: boolean | null = null;
 
-const SYS_TOOL = "Call return_lines exactly once via tool. Output only via tool. 4 lines, 40–120 chars, each ends with punctuation.";
+const SYS_TOOL = "Call return_lines exactly once via tool. Output only via tool. 4 lines, 40–140 chars, each ends with punctuation.";
 const SYS_JSON = "Return only JSON matching the schema. No prose.";
 
 function logBody(label: string, body: unknown) {
@@ -262,7 +262,7 @@ async function callJsonPath(userJson: any, apiKey: string) {
               type: "array",
               minItems: 4,
               maxItems: 4,
-              items: { type: "string", maxLength: 140 }
+              items: { type: "string", minLength: 40, maxLength: 140, pattern: "[.!?]$" }
             }
           }
         },
@@ -327,7 +327,17 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
   } else {
     // Go straight to JSON path for this model
     console.log("Model doesn't support tools, using JSON schema directly");
-    const r = await callJsonPath(userJson, apiKey);
+    let r = await callJsonPath(userJson, apiKey);
+    if (!r.ok && r.code === 422) {
+      console.log("Shape check failed, retrying with fix_hint...");
+      userJson.fix_hint = {
+        issues: [
+          "Line shape checks failed: Return exactly 4 strings, each 40–140 chars and end with . ! or ?"
+        ],
+        guidance: "Output only valid JSON: { \"lines\": [ ... ] } with 4 strings. No extra text."
+      };
+      r = await callJsonPath(userJson, apiKey);
+    }
     if (!r.ok) {
       throw new Error(`JSON schema path failed: ${r.error}`);
     }
@@ -446,7 +456,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       options: lines,
-      model: "gpt-5-mini",
+      model: "gpt-5-nano-2025-08-07",
       count: lines.length
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
