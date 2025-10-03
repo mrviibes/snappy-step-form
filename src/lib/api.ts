@@ -47,7 +47,7 @@ export interface PollImageStatusResponse {
 }
 
 // Helper function to call edge functions with timeout
-async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
+async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
     "generate-text": 45000,
     "generate-final-prompt": 120000,
@@ -57,70 +57,46 @@ async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
   };
   const timeoutMs = TIMEOUTS[functionName] ?? 60000;
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(
-      () => reject(new Error(`Request timeout (${Math.round(timeoutMs / 1000)}s) - please try again`)),
-      timeoutMs
-    );
-  });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Request timeout (${Math.round(timeoutMs/1000)}s)`)), timeoutMs)
+  );
 
-  try {
-    const { data, error } = await Promise.race([
-      supabase.functions.invoke(functionName, { body: payload }),
-      timeoutPromise,
-    ]);
-
+  const call = (async () => {
+    const { data, error } = await supabase.functions.invoke(functionName, { body: payload });
     if (error) {
       const ctx: any = (error as any).context || {};
       let msg: string | undefined;
       if (typeof ctx.body === "string" && ctx.body.trim()) {
-        try {
-          const parsed = JSON.parse(ctx.body);
-          msg = parsed?.error || parsed?.message || ctx.body;
-        } catch {
-          msg = ctx.body;
-        }
+        try { msg = JSON.parse(ctx.body)?.error; } catch { msg = ctx.body; }
       }
-      if (!msg) msg = (error as any).message || `Failed to call ${functionName}`;
-      throw new Error(msg);
+      throw new Error(msg || (error as any).message || `Failed to call ${functionName}`);
     }
-
-    // Normalize potential string body
     let body: any = data;
-    if (typeof body === "string") {
-      try { body = JSON.parse(body); } catch { /* leave as string */ }
-    }
-
-    if (body && typeof body === "object" && 'success' in body && body.success === false) {
+    if (typeof body === "string") { try { body = JSON.parse(body); } catch {} }
+    if (body && typeof body === "object" && body.success === false) {
       throw new Error(body.error || `Request failed (${functionName})`);
     }
-
     return body as T;
-  } catch (e: any) {
-    const msg = e instanceof Error ? e.message : String(e ?? 'Unknown error');
-    throw new Error(msg && msg !== '[object Object]' ? msg : `Failed to call ${functionName}`);
-  }
+  })();
+
+  return Promise.race([call, timeout]);
 }
 
 // Text generation
 export async function generateTextOptions(params: GenerateTextParams): Promise<TextOptionsResponse[]> {
-  const insertWords = Array.isArray(params.insertWords)
-    ? params.insertWords.filter(Boolean)
-    : params.insertWords ? [params.insertWords as unknown as string] : [];
-
+  const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
   const payload = {
     category: params.category || "celebrations",
-    subcategory: params.subcategory,
+    subcategory: params.subcategory || "birthday",
     theme: params.theme,
     movieAnchors: params.movieAnchors,
-    tone: params.tone,
+    tone: params.tone || "humorous",
     rating: params.rating || "PG",
     insertWords,
     gender: params.gender || "neutral"
   };
-
   const res = await ctlFetch<any>("generate-text", payload);
-  if (!res || res.success !== true || !Array.isArray(res.options) || res.options.length === 0) {
+  if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }
   return res.options.slice(0, 4).map((line: string) => ({ line }));
