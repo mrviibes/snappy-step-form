@@ -103,7 +103,13 @@ async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 6
       { role: "user",   content: JSON.stringify(userJson) }
     ],
     max_output_tokens: maxTokens,
-    text: { format: { type: "json_schema", json_schema: schema } }
+    text: {
+      format: {
+        type: "json_schema",
+        name: "ViibeTextCompactV1",
+        json_schema: schema
+      }
+    }
   };
 
   const ctl = new AbortController();
