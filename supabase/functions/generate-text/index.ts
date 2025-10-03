@@ -250,22 +250,20 @@ async function callJsonPath(userJson: any, apiKey: string) {
       format: {
         name: "return_lines_payload",
         type: "json_schema",
-        json_schema: {
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["lines"],
-            properties: {
-              lines: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string", maxLength: 140 }
-              }
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["lines"],
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string", maxLength: 140 }
             }
           }
-        }
+        },
+        strict: true
       }
     },
     max_output_tokens: 512
