@@ -1,4 +1,4 @@
-// =============== VIIBE TEXT RULES (LEAN, V4) ===============
+// =============== VIIBE TEXT RULES (LEAN, V4.1) ===============
 
 export type Tone =
   | "humorous" | "savage" | "sentimental" | "nostalgic"
@@ -20,9 +20,13 @@ export interface TaskObject {
   forbidden_terms?: string[];
   birthday_explicit?: boolean;
   humor_bias?: string;
+
+  // NEW: anchors for pop-culture movies (or any category that wants required tokens)
+  anchors?: string[];           // e.g., ["Miss Lippy","penguin","O'Doyle"]
+  require_anchors?: boolean;    // default true for Movies
 }
 
-// Tone & rating hints used in the House Rules
+// Tone & rating hints
 export const TONE_HINTS: Record<Tone, string> = {
   humorous:      "funny, witty, punchy",
   savage:        "blunt, cutting, roast-style",
@@ -41,42 +45,92 @@ export const RATING_HINTS: Record<Rating, string> = {
   R:       "adult non-graphic sex OK; alcohol + any drug names OK; strong profanity OK; no slurs; no illegal how-to"
 };
 
-// ---------- House Rules builder: comedy craft + theatre ratings ----------
-export function buildHouseRules(tone_hint: string, rating_hint: string) {
-  return [
-    // Voice + medium
-    "You write short, hilarious, punchy humor for on-image captions (overlay text).",
-    "Return exactly 4 lines (each 28-140 chars), each a complete sentence ending with . ! or ?",
-    "Be specific to the provided topic. No meta about prompts or jokes. No emojis/hashtags/lists/dialogue labels.",
+// Small, token-cheap **style blurbs**. Pick one per call server-side.
+const STYLE_BLURBS: Record<Tone, string[]> = {
+  humorous: [
+    "Tight setup, quick twist, one vivid noun, out clean",
+    "Everyday truth flipped sideways, keep words short",
+    "One image, one turn, then leave"
+  ],
+  savage: [
+    "Roast with confidence, one ruthless image, smile after",
+    "Clean hit, no hedge, leave scorch marks",
+    "Say the quiet part loudly and cleanly"
+  ],
+  sentimental: [
+    "Warm truth with one playful spark",
+    "Small detail, big heart, gentle turn",
+    "Tender image, honest flaw, kind twist"
+  ],
+  nostalgic: [
+    "One relic detail, one modern twist",
+    "Dusty snapshot, fresh punchline",
+    "Old rule, new problem, laugh"
+  ],
+  romantic: [
+    "Flirt with timing, not adjectives",
+    "One charm move, one honest flaw",
+    "Cute image, honest heartbeat, done"
+  ],
+  inspirational: [
+    "Grit first, glitter later",
+    "Small action, loud momentum",
+    "Earned optimism, no sparkle dust"
+  ],
+  playful: [
+    "Silly premise, serious commitment",
+    "Bounce the rhythm, pop the end",
+    "Mischief with manners"
+  ],
+  serious: [
+    "Plain words, heavy idea, tidy end",
+    "Direct voice, unblinking truth, small grin",
+    "One fact, one consequence, one light"
+  ]
+};
 
-    // Steering
+export function pickStyleBlurb(tone: Tone): string {
+  const pool = STYLE_BLURBS[tone] || STYLE_BLURBS.humorous;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ---------- House Rules builder: comedy craft + theatre ratings + anchors ----------
+export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?: string[]) {
+  // keep anchor hint short to save tokens
+  const a = Array.isArray(anchors) && anchors.length ? anchors.slice(0, 8) : [];
+  const anchorLine = a.length
+    ? `ANCHOR HINT: Use at least one of these tokens per line: ${a.join(", ")}`
+    : "";
+
+  return [
+    "You write short, hilarious, punchy humor for on-image captions.",
+    "Return exactly 4 lines (each 28-140 chars), each a complete sentence ending with . ! or ?",
+    "Be specific to the provided topic. No meta about prompts or jokes. No emojis or hashtags.",
+
     `TONE: ${tone_hint}`,
     `RATING: ${rating_hint}`,
 
-    // Theatre gates
     "THEATRE RATINGS:",
     "- G: no profanity or sexual terms; no drugs; gentle humor only.",
     "- PG: mild language only (hell/damn OK); kiss/romance OK; alcohol OK; no drugs; no sex mentions.",
     "- PG-13: non-graphic sex mentions OK; alcohol + cannabis OK; NO f-bomb; no porn/anatomy.",
     "- R: adult non-graphic sex OK; alcohol + any drug names OK; strong profanity allowed; no slurs; no illegal 'how-to'.",
 
-    // Comedy craft
-    "COMEDY PLAYBOOK (pick ≥2 per line): misdirection, contrast, absurd escalation, rule-of-three, sharp specificity, wordplay, understatement.",
-    "SPECIFICITY: include at least one concrete, topic-relevant detail (object, action, or scenario) per line.",
+    "COMEDY PLAYBOOK: pick two or more per line — misdirection, contrast, absurd escalation, rule of three, sharp specificity, wordplay, understatement.",
+    "SPECIFICITY: include one concrete, topic-relevant detail per line.",
     "CADENCE: front-load or land the twist cleanly; avoid meandering setups.",
-    "BAN BLAND: no 'Congrats on your special day', 'Here’s a joke', 'another trip around the sun', 'live laugh love', 'you got this'.",
-    "ACTIVE voice; vivid nouns/verbs; avoid clichés.",
+    "BAN BLAND: no generic greetings or clichés like 'special day' or 'trip around the sun'.",
 
-    // R spice policy
-    "R PROFANITY POLICY: if tone is Savage or Humorous, include at least one strong profanity per line (max two), inside the sentence (not the last word).",
+    "R PROFANITY POLICY: if tone is Savage or Humorous, include at least one strong profanity per line (max two), inside the sentence (not last word).",
 
-    // Inserts & guardrails
     "INSERT WORDS: if provided, weave naturally (per_line = every line).",
-    "ALWAYS FORBIDDEN: slurs; minors/non-consent; self-harm; pornographic detail; illegal how-to."
-  ].join("\\n");
+    "ALWAYS FORBIDDEN: slurs; minors/non-consent; self-harm; pornographic detail; illegal how-to.",
+
+    anchorLine
+  ].filter(Boolean).join("\n");
 }
 
-// ---------- Category adapter: tiny nudges, not a novel ----------
+// ---------- Category adapter ----------
 export function categoryAdapter(task: TaskObject): Partial<TaskObject> & { notes?: string } {
   const [root, leaf = ""] = task.category_path.map(s => (s || "").toLowerCase());
   const result: Partial<TaskObject> & { notes?: string } = {
@@ -91,6 +145,13 @@ export function categoryAdapter(task: TaskObject): Partial<TaskObject> & { notes
     result.avoid_terms = [...(task.avoid_terms || []), "special day","trip around the sun"];
   }
 
+  // Movies anchor requirement by default
+  if (root === "pop culture" || root === "pop-culture") {
+    if (leaf === "movies") {
+      result.require_anchors = true;
+    }
+  }
+
   // Jokes: forbid meta terms
   if (root === "jokes") {
     result.forbidden_terms = [
@@ -103,20 +164,13 @@ export function categoryAdapter(task: TaskObject): Partial<TaskObject> & { notes
   return result;
 }
 
-// ---------- Rating adapter: opens PG-13/R, blocks tutorials/minors ----------
+// ---------- Rating adapter ----------
 export function ratingAdapter(task: TaskObject): Partial<TaskObject> {
   const base = task.forbidden_terms || [];
 
-  const ALWAYS = [
-    "underage","minor","teen","non-consensual","rape","incest","bestiality","child"
-  ];
-  const HOWTO = [
-    "how to","here's how","step by step","recipe","tutorial",
-    "make meth","cook meth","synthesize","extract",
-    "buy weed","buy coke","score","plug","DM me to buy"
-  ];
+  const ALWAYS = ["underage","minor","teen","non-consensual","rape","incest","bestiality","child"];
+  const HOWTO  = ["how to","here's how","step by step","recipe","tutorial","make meth","cook meth","synthesize","extract","buy weed","buy coke","score","plug","DM me to buy"];
 
-  // Words we actively block for lower ratings
   const ALCOHOL = ["beer","wine","vodka","tequila","whiskey","rum","shots","hangover","bar tab","drunk","tipsy"];
   const CANNABIS = ["weed","cannabis","edible","gummies","joint","blunt","bong","dab","vape pen","stoned","high"];
   const PORNISH  = ["porn","pornhub","onlyfans","nsfw","blowjob","handjob","anal","pussy","cock","dick","tits","boobs","cum"];
@@ -128,14 +182,12 @@ export function ratingAdapter(task: TaskObject): Partial<TaskObject> {
     return { forbidden_terms: [...base, ...ALWAYS, ...HOWTO, ...CANNABIS, ...PORNISH, "sex","hookup","hook up","naked","nude"] };
   }
   if (task.rating === "PG-13") {
-    // allow alcohol + cannabis; block porn/anatomy and how-to
     return { forbidden_terms: [...base, ...ALWAYS, ...HOWTO, ...PORNISH] };
   }
-  // R: allow adult references; still no how-to or ALWAYS
   return { forbidden_terms: [...base, ...ALWAYS, ...HOWTO] };
 }
 
-// ---------- Structured Outputs schema (compact, strings only) ----------
+// ---------- Structured Outputs schema ----------
 export const VIIBE_TEXT_SCHEMA = {
   name: "ViibeTextCompactV1",
   schema: {
@@ -168,7 +220,7 @@ function hasConcreteWord(line: string): boolean {
   return words.some(w => w.length >= 5 && !STOPWORDS.has(w));
 }
 
-// ---------- “how-to” patterns ----------
+// ---------- Illegal "how-to" patterns ----------
 const INSTRUCTION_PATTERNS = [
   /\bhow to\b/i, /\bhere'?s how\b/i, /\bstep[-\s]?by[-\s]?step\b/i, /\brecipe\b/i, /\btutorial\b/i,
   /\b(make|cook|extract|synthesize)\b.*\b(meth|cocaine|heroin|lsd|mdma|dmt|opioid|opiate)\b/i,
@@ -177,7 +229,11 @@ const INSTRUCTION_PATTERNS = [
 
 function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
-// ---------- Validation (line + batch) ----------
+function hasAnchor(line: string, anchors: string[]): boolean {
+  return anchors.some(a => new RegExp(`\\b${esc(a)}\\b`, "i").test(line));
+}
+
+// ---------- Validation ----------
 export function validateLine(l: string, task: TaskObject): string[] {
   const errs: string[] = [];
   const text = (l || "").trim();
@@ -197,10 +253,10 @@ export function validateLine(l: string, task: TaskObject): string[] {
   const forbid = task.forbidden_terms || [];
   if (forbid.length && new RegExp(`\\b(${forbid.map(esc).join("|")})\\b`, "i").test(text)) errs.push("forbidden_term_present");
 
-  // No how-to illegal content
+  // Illegal instructions
   if (INSTRUCTION_PATTERNS.some(rx => rx.test(text))) errs.push("instructional_phrasing");
 
-  // Ratings enforcement (movie-style)
+  // Ratings enforcement
   const toneIsSpicy = /^(savage|humorous|playful)$/i.test(task.tone || "");
   const strongCount = (text.match(RX_STRONG) || []).length;
   const fCount      = (text.match(RX_FBOMB) || []).length;
@@ -227,7 +283,12 @@ export function validateLine(l: string, task: TaskObject): string[] {
   if (BLAND_PHRASES.test(text)) errs.push("bland_phrase");
   if (!hasConcreteWord(text))   errs.push("needs_specific_detail");
 
-  // Comedy device proxy: require some tension marker for spicy tones
+  // Movies anchors
+  if (task.require_anchors && Array.isArray(task.anchors) && task.anchors.length) {
+    if (!hasAnchor(text, task.anchors)) errs.push("needs_movie_anchor");
+  }
+
+  // Spicy tone should show tension or twist markers
   if (toneIsSpicy && !/[?!]/.test(text) && !/(but|yet|except|until|though|still)\b/i.test(text)) {
     errs.push("needs_device_tension");
   }

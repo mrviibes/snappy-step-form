@@ -1,7 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
-  TONE_HINTS, RATING_HINTS, buildHouseRules,
+  TONE_HINTS, RATING_HINTS,
+  buildHouseRules, pickStyleBlurb,
   categoryAdapter, ratingAdapter, batchCheck,
   type TaskObject, type Tone, type Rating
 } from "../_shared/text-rules.ts";
@@ -12,10 +13,14 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-5-mini"; // canonical id (stop pinning dates)
+const MODEL = "gpt-5-mini"; // canonical id
 
-// Style blurbs for comedian voice variation
-const STYLE_BLURBS: Record<string, string[]> = {
+// Movie anchors map (expand as needed)
+const MOVIE_ANCHORS: Record<string, string[]> = {
+  "billy madison": ["Billy", "Miss Lippy", "penguin", "O'Doyle", "bus", "dodgeball", "shampoo"],
+  "the matrix": ["Neo", "Morpheus", "red pill", "blue pill", "Agent Smith", "bullet time", "Matrix"],
+  "star wars": ["lightsaber", "Jedi", "Force", "stormtrooper", "Millennium Falcon", "Darth Vader"]
+};
   humorous: [
     "Tight setup, quick twist, one vivid noun, out clean",
     "Everyday truth flipped sideways, keep words short and punchy",
@@ -163,6 +168,7 @@ type GeneratePayload = {
   dimensions?: "Square" | "Landscape" | "Portrait" | "Custom";
   insertWordMode?: "per_line" | "at_least_one";
   avoidTerms?: string[];
+  movieAnchors?: string[];
 };
 
 // ---------- OpenAI request wrapper ----------
@@ -464,17 +470,27 @@ serve(async (req) => {
     const insert_words = (body.insertWords || []).slice(0, 2);
     const insert_word_mode = body.insertWordMode || "per_line";
 
+    // Anchors for Movies
+    let anchors: string[] = Array.isArray(body.movieAnchors) ? body.movieAnchors.filter(Boolean) : [];
+    const root = category.toLowerCase();
+    const leaf = subcategory.toLowerCase();
+    if (!anchors.length && (root === "pop culture" || root === "pop-culture") && leaf === "movies") {
+      anchors = MOVIE_ANCHORS[theme.toLowerCase()] || [];
+    }
+
     // Base task & adapters
     const defaults = [category, subcategory, theme]
       .map(s => (s || "").toLowerCase())
       .filter(Boolean)
-      .filter(w => w !== "birthday"); // don't block what we require
+      .filter(w => w !== "birthday");
 
     const baseTask: TaskObject = {
       tone, rating, category_path, topic,
       layout: body.layout, style: body.style, dimensions: body.dimensions,
       insert_words, insert_word_mode,
-      avoid_terms: [...(body.avoidTerms || []), ...defaults]
+      avoid_terms: [...(body.avoidTerms || []), ...defaults],
+      anchors,
+      require_anchors: anchors.length > 0
     };
 
     let task: TaskObject = { ...baseTask, ...categoryAdapter(baseTask), ...ratingAdapter(baseTask) };
@@ -484,9 +500,9 @@ serve(async (req) => {
       task.avoid_terms = task.avoid_terms.filter(t => !/(birthday|b-day)/i.test(t));
     }
 
-    // Build system rules for this tone/rating
+    // Build system rules with anchors + random style blurb
     const styleBlurb = pickStyleBlurb(tone);
-    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating]) + `\n\nCOMEDIAN STYLE HINT: ${styleBlurb}`;
+    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating], task.anchors) + `\n\nCOMEDIAN STYLE HINT: ${styleBlurb}`;
 
     const userPayload = {
       version: "viibe-text-v3",
@@ -502,7 +518,7 @@ serve(async (req) => {
     const issues = batchCheck(lines, task);
     if (issues.length) {
       console.log("Validation issues, retrying with guidance:", issues);
-      const fix = { fix_hint: { issues, guidance: "Return 4 lines that meet all constraints." }, task };
+      const fix = { fix_hint: { issues, guidance: "Add specificity, device, and required anchors. Return 4 lines that meet all constraints." }, task };
       lines = await callModelSmart(fix, SYSTEM, OPENAI_API_KEY);
     }
 
