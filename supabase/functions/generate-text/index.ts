@@ -118,7 +118,7 @@ async function callModelFast(payload: any, SYSTEM: string, apiKey: string): Prom
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 140, pattern: "[.!?]$" }
+          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" }
         }
       }
     }
@@ -162,7 +162,7 @@ SELF-CHECK:
         strict: schema.strict
       }
     },
-    max_completion_tokens: 320
+    max_completion_tokens: 512
   };
 
   const resp = await fetch(OPENAI_API_URL, {

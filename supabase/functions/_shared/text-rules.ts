@@ -101,7 +101,7 @@ export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?
 
   return [
     "Short, hilarious, punchy captions for images.",
-    "Return 4 lines, each 28-140 chars, sentence ends with . ! or ?",
+    "Return 4 lines, each 28-120 chars, sentence ends with . ! or ?",
     "Specific to the topic. No meta, hashtags, or emojis.",
     `TONE: ${tone_hint}`,
     `RATING: ${rating_hint}`,
@@ -181,7 +181,7 @@ export const VIIBE_TEXT_SCHEMA = {
         type: "array",
         minItems: 4,
         maxItems: 4,
-        items: { type: "string", maxLength: 140 }
+        items: { type: "string", maxLength: 120 }
       }
     },
     required: ["lines"]
@@ -223,7 +223,7 @@ export function validateLine(l: string, task: TaskObject): string[] {
 
   // Base structure
   if (!/[.!?]$/.test(text)) errs.push("no_end_punctuation");
-  if (text.length < 28 || text.length > 140) errs.push("bad_length");
+  if (text.length < 28 || text.length > 120) errs.push("bad_length");
 
   // Birthday explicit
   if (task.birthday_explicit && !/\bbirthday|b-day|happy birthday|born|another year\b/i.test(text)) {
