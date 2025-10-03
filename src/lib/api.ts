@@ -138,8 +138,9 @@ export async function generateVisualOptions(params: {
     throw new Error(res?.error || "Visual generation failed");
   }
   return res.visuals.slice(0, 3).map((visual: any) => ({
-    scene: visual.scene || visual,
-    composition: visual.composition || "",
+    scene: visual.scene || visual.description || String(visual),
+    composition: visual.composition || visual.cue || "",
+    description: visual.description || visual.scene || "",
   }));
 }
 
