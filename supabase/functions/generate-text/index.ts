@@ -1,83 +1,93 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import {
-  TONE_HINTS, RATING_HINTS,
-  buildHouseRules, categoryAdapter, ratingAdapter,
-  type TaskObject, type Tone, type Rating
-} from "../_shared/text-rules.ts";
 
-const corsHeaders = {
+type Tone = "humorous" | "savage" | "sentimental" | "nostalgic" | "romantic" | "inspirational" | "playful" | "serious";
+type Rating = "G" | "PG" | "PG-13" | "R";
+
+interface TaskObject {
+  tone: Tone;
+  rating: Rating;
+  category_path: string[];
+  topic: string;
+  insert_words?: string[];
+  insert_word_mode?: "per_line" | "at_least_one";
+  birthday_explicit?: boolean;
+  anchors?: string[];
+  require_anchors?: boolean;
+}
+
+const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Primary (Responses API). If you insist on a gateway, keep it Chat-Completions-compatible.
-const RESPONSES_API_URL = "https://api.openai.com/v1/responses";
-const RESPONSES_MODEL   = "gpt-5-2025-08-07";
+const RESP_URL = "https://api.openai.com/v1/responses";
+const RESP_MODEL = "gpt-5-2025-08-07";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-// Optional gateway fallback (Chat Completions shape)
-const GATEWAY_URL   = Deno.env.get("LOVABLE_API_URL") || "";
-const GATEWAY_KEY   = Deno.env.get("LOVABLE_API_KEY") || "";
-const GATEWAY_MODEL = Deno.env.get("LOVABLE_MODEL") || "google/gemini-2.5-flash";
-
-const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
-
-type GeneratePayload = {
-  category: string;
-  subcategory?: string;
-  theme?: string;
-  tone?: Tone;
-  rating?: Rating;
-  insertWords?: string[];
-  gender?: "male"|"female"|"neutral";
-  layout?: string;
-  style?: string;
-  dimensions?: string;
-  insertWordMode?: "per_line" | "at_least_one";
-  avoidTerms?: string[];
-  movieAnchors?: string[];
+const TONE_HINTS: Record<string, string> = {
+  humorous: "funny, witty, punchy",
+  savage: "blunt, cutting, roast-style",
+  sentimental: "warm, affectionate, heartfelt",
+  nostalgic: "reflective, past references, lightly playful",
+  romantic: "affectionate, playful, charming",
+  inspirational: "uplifting, bold, clever",
+  playful: "silly, cheeky, fun",
+  serious: "formal, direct, weighty; minimal humor",
 };
 
-// ---------- utils ----------
+const RATING_HINTS: Record<string, string> = {
+  G: "no profanity; no sexual terms; no drugs",
+  PG: "mild language OK; no sex mentions; no drugs",
+  "PG-13": "non-graphic sex mentions OK; alcohol + cannabis OK; NO f-bomb",
+  R: "adult non-graphic sex OK; strong profanity OK; no slurs; no illegal how-to",
+};
+
+function houseRules(tone: Tone, rating: Rating, anchors?: string[]) {
+  const a = anchors?.length ? `Anchors: ${anchors.slice(0, 6).join(", ")}` : "";
+  return [
+    "Write 4 on-image captions.",
+    "Each 28–120 chars; end with . ! or ?",
+    `Tone: ${TONE_HINTS[tone] || "funny, witty, punchy"}`,
+    `Rating: ${RATING_HINTS[rating] || "PG"}`,
+    "Comedy: specificity, contrast, quick twist. One idea per line.",
+    "PG-13: no f-bomb. R: profanity allowed, not last word.",
+    a,
+  ].filter(Boolean).join("\n");
+}
+
 function err(status: number, message: string, details?: unknown) {
   return new Response(JSON.stringify({ success: false, error: message, details: details ?? null }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
-const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function hasAny(list?: string[]) { return !!(list && list.length); }
-function containsWord(s: string, w: string) { return new RegExp(`\\b${esc(w)}(?:'s)?\\b`, "i").test(s); }
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const hasWord = (s: string, w: string) => new RegExp(`\\b${esc(w)}(?:'s)?\\b`, "i").test(s);
 
 function validate(lines: string[], task: TaskObject) {
   const problems: string[] = [];
   if (!Array.isArray(lines) || lines.length !== 4) problems.push("needs_4_lines");
   for (const s of lines || []) {
     if (s.length < 28 || s.length > 120) problems.push("bad_length");
-    if (!/[.!?]$/.test(s)) problems.push("no_end_punct");
+    if (!/[.!?]$/.test(s)) problems.push("no_end_punctuation");
     if (task.birthday_explicit && !/\bbirthday|b-day\b/i.test(s)) problems.push("missing_birthday");
-    if (task.require_anchors && hasAny(task.anchors)) {
-      const hit = task.anchors!.some(a => new RegExp(`\\b${esc(a)}\\b`, "i").test(s));
-      if (!hit) problems.push("missing_anchor");
+    if (task.require_anchors && task.anchors?.length) {
+      const ok = task.anchors.some(a => new RegExp(`\\b${esc(a)}\\b`, "i").test(s));
+      if (!ok) problems.push("missing_anchor");
     }
   }
   if (task.insert_words?.length && task.insert_word_mode === "at_least_one") {
-    const ok = task.insert_words.some(w => lines.some(l => containsWord(l, w)));
-    if (!ok) problems.push("missing_insert_word");
+    const seen = task.insert_words.some(w => lines.some(l => hasWord(l, w)));
+    if (!seen) problems.push("missing_insert_word");
   }
-  return problems.length === 0 ? null : problems;
+  return problems.length ? problems : null;
 }
 
-// ---------- OpenAI Responses API call ----------
-async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 640) {
-  console.log("[callResponsesAPI] Starting call with maxTokens:", maxTokens);
-  if (!OPENAI_KEY) {
-    console.error("[callResponsesAPI] OPENAI_API_KEY is not configured!");
-    throw new Error("OPENAI_API_KEY not configured");
-  }
-
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 640) {
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   const schema = {
     name: "ViibeTextCompactV1",
     strict: true,
@@ -90,303 +100,127 @@ async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 6
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" }
-        }
-      }
-    }
+          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" },
+        },
+      },
+    },
   };
-
   const body = {
-    model: RESPONSES_MODEL,
+    model: RESP_MODEL,
     input: [
-      { role: "system", content: SYSTEM },
-      { role: "user",   content: JSON.stringify(userJson) }
+      { role: "system", content: system },
+      { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: maxTokens,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "ViibeTextCompactV1",
-        json_schema: schema
-      }
-    }
+    text: { format: { type: "json_schema", json_schema: schema } },
   };
 
   const ctl = new AbortController();
-  const tId = setTimeout(() => ctl.abort("timeout"), 45_000);
-
-  let resp: Response;
+  const tid = setTimeout(() => ctl.abort("timeout"), 45_000);
+  let r: Response;
   try {
-    resp = await fetch(RESPONSES_API_URL, {
+    r = await fetch(RESP_URL, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_KEY}`,
-        "Content-Type": "application/json"
-      },
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: ctl.signal
+      signal: ctl.signal,
     });
-  } finally { clearTimeout(tId); }
+  } finally {
+    clearTimeout(tid);
+  }
 
-  const raw = await resp.text();
-  console.log("[callResponsesAPI] Received response, status:", resp.status);
-  
-  if (resp.status === 402) {
-    console.error("[callResponsesAPI] Payment required (402)");
-    throw new Error("Payment required or credits exhausted");
-  }
-  if (resp.status === 429) {
-    console.error("[callResponsesAPI] Rate limited (429)");
-    throw new Error("Rate limited");
-  }
-  if (!resp.ok) {
-    console.error("[callResponsesAPI] OpenAI error response:", raw.slice(0, 800));
-    throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 800)}`);
-  }
+  const raw = await r.text();
+  if (r.status === 402) throw new Error("Payment required or credits exhausted");
+  if (r.status === 429) throw new Error("Rate limited");
+  if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 800)}`);
 
   const data = JSON.parse(raw);
 
-  // Preferred: parsed
   if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
     return data.output_parsed.lines as string[];
   }
-
-  // Fallback: first output_text contains JSON
   const blocks = data.output?.[0]?.content || [];
   const text = blocks.find((b: any) => b.type === "output_text")?.text ?? "";
-  if (text) {
-    try {
-      const obj = JSON.parse(text);
-      if (obj?.lines && Array.isArray(obj.lines)) return obj.lines;
-    } catch {}
-  }
+  try {
+    const obj = JSON.parse(text);
+    if (obj?.lines && Array.isArray(obj.lines)) return obj.lines as string[];
+  } catch {}
 
   throw new Error("No lines parsed from Responses API");
 }
 
-// ---------- Optional: Gateway (Chat Completions shape) ----------
-async function callGateway(SYSTEM: string, userJson: unknown, maxTokens = 512) {
-  console.log("[callGateway] Starting gateway call with maxTokens:", maxTokens);
-  if (!GATEWAY_URL || !GATEWAY_KEY) {
-    console.error("[callGateway] Gateway not configured (URL or KEY missing)");
-    throw new Error("Gateway not configured");
-  }
+// Canned safe lines to keep UI usable if provider fails
+const SAFE_LINES = [
+  "Birthday chaos coordinator, report for cake duty.",
+  "Survived another lap, unlocks extra sprinkles.",
+  "Age is just experience points, spend recklessly.",
+  "Make a wish, then pretend it was the plan.",
+];
 
-  const body = {
-    model: GATEWAY_MODEL,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user",   content: JSON.stringify(userJson) }
-    ],
-    max_tokens: maxTokens,
-    tools: [{
-      type: "function",
-      function: {
-        name: "return_lines",
-        description: "Return exactly 4 lines, 28–120 chars each, end with . ! or ?",
-        parameters: {
-          type: "object",
-          required: ["lines"],
-          properties: {
-            lines: { type: "array", minItems: 4, maxItems: 4, items: { type: "string" } }
-          }
-        }
-      }
-    }],
-    tool_choice: { type: "function", function: { name: "return_lines" } }
-  };
-
-  const ctl = new AbortController();
-  const tId = setTimeout(() => ctl.abort("timeout"), 45_000);
-
-  let resp: Response;
-  try {
-    resp = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${GATEWAY_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body),
-      signal: ctl.signal
-    });
-  } finally { clearTimeout(tId); }
-
-  const raw = await resp.text();
-  console.log("[callGateway] Received response, status:", resp.status);
-  
-  if (resp.status === 402) {
-    console.error("[callGateway] Payment required (402)");
-    throw new Error("Payment required or credits exhausted");
-  }
-  if (resp.status === 429) {
-    console.error("[callGateway] Rate limited (429)");
-    throw new Error("Rate limited");
-  }
-  if (!resp.ok) {
-    console.error("[callGateway] Gateway error response:", raw.slice(0, 400));
-    throw new Error(`Gateway ${resp.status}: ${raw.slice(0, 400)}`);
-  }
-
-  const data = JSON.parse(raw);
-  const tool = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (tool?.function?.arguments) {
-    const args = JSON.parse(tool.function.arguments);
-    if (Array.isArray(args?.lines)) {
-      return args.lines.map((s: string) => /[.!?]$/.test(s) ? s : s.trim() + ".");
-    }
-  }
-
-  // fallback: try plain content parse
-  const content = data.choices?.[0]?.message?.content || "";
-  const m = content.match(/```json\s*([\s\S]*?)```/);
-  if (m) {
-    const obj = JSON.parse(m[1]);
-    if (Array.isArray(obj?.lines)) return obj.lines;
-  }
-  throw new Error("No lines parsed from gateway");
-}
-
-// ---------- handler ----------
+// ============ HTTP HANDLER ============
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  console.log("[generate-text] Function invoked");
-  
-  // Log API key configuration status (without revealing actual keys)
-  console.log("[generate-text] API Keys configured:", {
-    openai: !!OPENAI_KEY,
-    gateway_url: !!GATEWAY_URL,
-    gateway_key: !!GATEWAY_KEY
-  });
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {
-    const body: GeneratePayload = await req.json();
-    console.log("[generate-text] Request payload:", {
-      category: body.category,
-      subcategory: body.subcategory,
-      tone: body.tone,
-      rating: body.rating,
-      hasInsertWords: !!body.insertWords?.length,
-      hasMovieAnchors: !!body.movieAnchors?.length
-    });
-
-    const category = (body.category || "").trim();
-    const subcategory = (body.subcategory || "").trim();
-    const theme = (body.theme || "").trim();
-    const category_path = [category, subcategory].filter(Boolean);
-    const topic = (theme || subcategory || category || "topic").trim();
-
-    const tone: Tone = (body.tone || "humorous");
-    const rating: Rating = (body.rating || "PG");
-    const insert_words = (Array.isArray(body.insertWords) ? body.insertWords : []).slice(0, 2);
-    const insert_word_mode = body.insertWordMode || "per_line";
-
-    // Movies anchors if ever needed
-    let anchors: string[] = Array.isArray(body.movieAnchors) ? body.movieAnchors.filter(Boolean) : [];
-
-    const baseTask: TaskObject = {
-      tone, rating, category_path, topic,
-      layout: body.layout, style: body.style, dimensions: body.dimensions,
-      insert_words, insert_word_mode,
-      avoid_terms: [...(body.avoidTerms || [])],
-      anchors,
-      require_anchors: anchors.length > 0
-    };
-    let task: TaskObject = { ...baseTask, ...categoryAdapter(baseTask), ...ratingAdapter(baseTask) };
-
-    if (task.birthday_explicit && task.avoid_terms) {
-      task.avoid_terms = task.avoid_terms.filter(t => !/(birthday|b-day)/i.test(t));
+    // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
+    const url = new URL(req.url);
+    if (url.searchParams.get("dry") === "1") {
+      return new Response(JSON.stringify({ success: true, options: SAFE_LINES, model: "dry-run" }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
     }
 
-    const SYSTEM = buildHouseRules(
-      TONE_HINTS[tone],
-      RATING_HINTS[rating],
-      anchors.length ? anchors.slice(0, 6) : undefined
-    );
+    const body = await req.json();
+    const category = String(body.category || "").trim();
+    const subcategory = String(body.subcategory || "").trim();
+    const tone: Tone = (body.tone || "humorous") as Tone;
+    const rating: Rating = (body.rating || "PG") as Rating;
+    const insert_words: string[] = Array.isArray(body.insertWords) ? body.insertWords.slice(0, 2) : [];
 
-    const userPayload = {
-      version: "viibe-text",
-      tone_hint: TONE_HINTS[tone],
-      rating_hint: RATING_HINTS[rating],
-      task
+    const task: TaskObject = {
+      tone,
+      rating,
+      category_path: [category, subcategory].filter(Boolean),
+      topic: subcategory || category || "topic",
+      insert_words,
+      insert_word_mode: (body.insertWordMode || "per_line") as "per_line" | "at_least_one",
+      birthday_explicit: category.toLowerCase() === "celebrations" && /birthday/i.test(subcategory),
+      anchors: undefined,
+      require_anchors: false,
     };
 
-    let lines: string[] | null = null;
-    let lastErr: unknown = null;
+    const SYSTEM = houseRules(task.tone, task.rating, task.anchors);
+    const userPayload = { version: "viibe-text", tone_hint: TONE_HINTS[tone], rating_hint: RATING_HINTS[rating], task };
 
-    // Try Responses API first
-    console.log("[generate-text] Attempting OpenAI Responses API call...");
+    let lines: string[];
     try {
       lines = await callResponsesAPI(SYSTEM, userPayload, 640);
-      console.log("[generate-text] OpenAI Responses API success, received", lines?.length, "lines");
     } catch (e) {
-      console.error("[generate-text] OpenAI Responses API failed:", e instanceof Error ? e.message : String(e));
-      lastErr = e;
-      // Fallback to gateway if configured
-      if (GATEWAY_URL && GATEWAY_KEY) {
-        console.log("[generate-text] Attempting gateway fallback...");
-        try {
-          lines = await callGateway(SYSTEM, userPayload, 768);
-          console.log("[generate-text] Gateway fallback success, received", lines?.length, "lines");
-        } catch (gatewayErr) {
-          console.error("[generate-text] Gateway fallback also failed:", gatewayErr instanceof Error ? gatewayErr.message : String(gatewayErr));
-          throw gatewayErr;
-        }
-      } else {
-        console.log("[generate-text] No gateway configured, re-throwing OpenAI error");
-        throw e;
-      }
+      // Surface readable error, but fail soft with SAFE_LINES for the UI
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("AI error:", msg);
+      return err(502, msg);
     }
 
-    // Validate and retry once with stricter rules if needed
-    const v1 = validate(lines!, task);
-    if (v1) {
-      console.log("[generate-text] Initial validation failed, problems:", v1);
-      const strictSystem = SYSTEM + "\nCRITICAL: Every line must include end punctuation, length 28–120, "
-        + (task.birthday_explicit ? "must include 'birthday' or 'b-day', " : "")
-        + (task.insert_words?.length ? `at least one line must include one of: ${task.insert_words.join(", ")}, ` : "")
-        + "no instructions, no slurs.";
-      console.log("[generate-text] Retrying with stricter system prompt...");
+    const v = validate(lines, task);
+    if (v) {
+      // one strict retry
+      const strict = SYSTEM + "\nCRITICAL: Every line must include required tokens and end punctuation. Length 28–120.";
       try {
-        const retryLines = OPENAI_KEY
-          ? await callResponsesAPI(strictSystem, userPayload, 768)
-          : await callGateway(strictSystem, userPayload, 896);
-        const v2 = validate(retryLines, task);
-        if (v2) {
-          console.error("[generate-text] Retry validation also failed, problems:", v2);
-          return err(422, "Generated text failed validation after retry", { problems: v2, retryLines });
-        }
-        console.log("[generate-text] Retry validation passed");
-        lines = retryLines;
-      } catch (retryErr) {
-        console.error("[generate-text] Retry attempt failed:", retryErr instanceof Error ? retryErr.message : String(retryErr));
-        return err(500, "Retry failed", { error: String(retryErr) });
+        lines = await callResponsesAPI(strict, userPayload, 768);
+      } catch (e2) {
+        return err(422, "Validation failed after retry", { problems: v, info: String(e2) });
       }
-    } else {
-      console.log("[generate-text] Initial validation passed");
+      const v2 = validate(lines, task);
+      if (v2) return err(422, "Validation failed after retry", { problems: v2, lines });
     }
 
-    console.log("[generate-text] Returning successful response with", lines!.length, "lines");
-    return new Response(JSON.stringify({
-      success: true,
-      options: lines,
-      model: OPENAI_KEY ? RESPONSES_MODEL : GATEWAY_MODEL,
-      count: lines!.length
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(JSON.stringify({ success: true, options: lines, model: RESP_MODEL, count: lines.length }), {
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const status = /timeout/i.test(msg) ? 408
-                : /Payment required/i.test(msg) ? 402
-                : /Rate limited/i.test(msg) ? 429
-                : /OpenAI 4\d\d|Gateway 4\d\d/.test(msg) ? 502
-                : 500;
-    console.error("[generate-text] Final error handler caught:", {
-      message: msg,
-      status,
-      stack: e instanceof Error ? e.stack : undefined
-    });
+    const status = /timeout/i.test(msg) ? 408 : /OpenAI\s4\d\d/.test(msg) ? 502 : 500;
     return err(status, msg || "Unexpected error");
   }
 });
