@@ -41,30 +41,55 @@ type GeneratePayload = {
 
 // ---------- Fast single-call generator ----------
 function extractJsonObject(resp: any): any | null {
-  // OpenAI chat completions format
+  // 1) Direct convenience fields
+  if (resp && typeof resp?.text === "string") {
+    const s = resp.text.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(s); } catch {}
+  }
+  if (resp && typeof resp?.output_text === "string") {
+    const s = resp.output_text.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(s); } catch {}
+  }
+
+  // 2) OpenAI chat completions format
   const content = resp?.choices?.[0]?.message?.content;
   if (typeof content === "string") {
-    try {
-      return JSON.parse(content.trim());
-    } catch {}
+    const trimmed = content.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(trimmed); } catch {}
   }
 
-  // Fallback to other formats
-  const candidates: string[] = [];
-  if (typeof resp?.text === "string") candidates.push(resp.text);
-  if (typeof resp?.output_text === "string") candidates.push(resp.output_text);
-
+  // 3) Canonical Responses blocks
   const out = Array.isArray(resp?.output) ? resp.output : [];
+  const candidates: string[] = [];
   for (const o of out) {
+    // Some shapes put the JSON as a real object
     const parts = Array.isArray(o?.content) ? o.content : [];
     for (const p of parts) {
-      if (typeof p?.text === "string") candidates.push(p.text);
+      if (p && typeof p.json === "object" && p.json !== null) {
+        return p.json;                 // ← prefer the parsed JSON if present
+      }
+      if (typeof p?.text === "string") {
+        candidates.push(p.text);       // ← textual JSON, collect for parsing
+      }
+      if (typeof p?.output_text === "string") {
+        candidates.push(p.output_text);
+      }
     }
+    // Some SDKs return content as a whole string
+    if (typeof o?.content === "string") candidates.push(o.content);
   }
 
+  // 4) Parse any string candidates (strip code fences)
   for (const raw of candidates) {
     const trimmed = String(raw).trim().replace(/^```json\s*|\s*```$/g, "").trim();
     try { return JSON.parse(trimmed); } catch {}
+    // last-ditch: parse first {...} block
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      const slice = trimmed.slice(start, end + 1);
+      try { return JSON.parse(slice); } catch {}
+    }
   }
   return null;
 }
