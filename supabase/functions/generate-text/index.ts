@@ -168,7 +168,7 @@ function buildStricterSystemPrompt(
   return baseSystem + "\n\n" + extras.join("\n");
 }
 
-async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 320, abortMs = 22000) {
+async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 512, abortMs = 22000) {
   const schema = {
     name: "ViibeTextCompactV1",
     strict: true,
@@ -243,12 +243,12 @@ async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string
 // ---------- hedged request orchestrator ----------
 async function callFastWithHedge(system: string, userObj: unknown, apiKey: string) {
   // Primary starts now
-  const p1 = callOnceChatJSON(system, userObj, apiKey, 320, 22000);
+  const p1 = callOnceChatJSON(system, userObj, apiKey, 512, 22000);
 
   // Hedge fires after 3s with slightly larger budget to beat tail latency
   const p2 = new Promise<string[]>((resolve, reject) => {
     const timer = setTimeout(async () => {
-      try { resolve(await callOnceChatJSON(system, userObj, apiKey, 448, 22000)); }
+      try { resolve(await callOnceChatJSON(system, userObj, apiKey, 768, 22000)); }
       catch (e) { reject(e); }
     }, 3000);
     // If p1 wins, cancel hedge timer
@@ -363,7 +363,7 @@ serve(async (req) => {
       };
       
       try {
-        lines = await callOnceChatJSON(stricterSystem, stricterUserPayload, OPENAI_API_KEY, 640, 22000);
+        lines = await callOnceChatJSON(stricterSystem, stricterUserPayload, OPENAI_API_KEY, 896, 22000);
         
         // Validate again
         const secondValidation = validateLines(lines, task);
