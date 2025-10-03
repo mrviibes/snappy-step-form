@@ -113,7 +113,16 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 64
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: maxTokens,
-    text: { format: { type: "json_schema", json_schema: schema } },
+    text: {
+      format: {
+        type: "json_schema",
+        name: schema.name,
+        json_schema: {
+          strict: schema.strict,
+          schema: schema.schema
+        }
+      }
+    },
   };
 
   const ctl = new AbortController();
