@@ -70,6 +70,104 @@ function pickLinesFromChat(data: any): string[] | null {
   return null;
 }
 
+// ---------- validation & retry helpers ----------
+function validateLines(lines: string[], task: TaskObject): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Length check (already enforced by schema, but double-check)
+    if (trimmed.length < 28 || trimmed.length > 120) {
+      errors.push("length");
+    }
+    
+    // Punctuation check (already handled by backend, but validate)
+    if (!/[.!?]$/.test(trimmed)) {
+      errors.push("punctuation");
+    }
+  }
+  
+  // Birthday keyword check (if birthday_explicit is true)
+  if (task.birthday_explicit) {
+    const hasBirthdayKeyword = lines.some(line => 
+      /\b(birthday|b-day|bday|born|cake day)\b/i.test(line)
+    );
+    if (!hasBirthdayKeyword) {
+      errors.push("missing_birthday_keyword");
+    }
+  }
+  
+  // Anchor check (if require_anchors is true and anchors exist)
+  if (task.require_anchors && task.anchors && task.anchors.length > 0) {
+    const hasAnchor = lines.some(line => {
+      return task.anchors!.some(anchor => {
+        // Escape regex special chars and create word boundary match
+        const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        return regex.test(line);
+      });
+    });
+    if (!hasAnchor) {
+      errors.push("missing_anchor");
+    }
+  }
+  
+  // Insert words check (if insert_word_mode is "at_least_one")
+  if (task.insert_word_mode === "at_least_one" && task.insert_words && task.insert_words.length > 0) {
+    const hasInsertWord = lines.some(line => {
+      return task.insert_words!.some(word => {
+        const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        return regex.test(line);
+      });
+    });
+    if (!hasInsertWord) {
+      errors.push("missing_insert_word");
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: Array.from(new Set(errors)) // Remove duplicates
+  };
+}
+
+function errorResponse(status: number, message: string, details?: any) {
+  return new Response(JSON.stringify({
+    success: false,
+    error: message,
+    details
+  }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+}
+
+function buildStricterSystemPrompt(
+  baseSystem: string, 
+  task: TaskObject, 
+  failedValidation: string[]
+): string {
+  const extras: string[] = [];
+  
+  if (failedValidation.includes("missing_birthday_keyword")) {
+    extras.push("CRITICAL: Every line MUST include the word 'birthday' or 'b-day'.");
+  }
+  
+  if (failedValidation.includes("missing_anchor") && task.anchors) {
+    extras.push(`CRITICAL: At least one line MUST include one of: ${task.anchors.slice(0, 6).join(", ")}`);
+  }
+  
+  if (failedValidation.includes("missing_insert_word") && task.insert_words) {
+    extras.push(`CRITICAL: At least one line MUST include one of: ${task.insert_words.join(", ")}`);
+  }
+  
+  if (extras.length === 0) return baseSystem;
+  
+  return baseSystem + "\n\n" + extras.join("\n");
+}
+
 async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 320, abortMs = 22000) {
   const schema = {
     name: "ViibeTextCompactV1",
@@ -228,7 +326,62 @@ serve(async (req) => {
       task
     };
 
-    const lines = await callFastWithHedge(SYSTEM, userPayload, OPENAI_API_KEY);
+    // First attempt with standard prompt
+    let lines: string[];
+    try {
+      lines = await callFastWithHedge(SYSTEM, userPayload, OPENAI_API_KEY);
+    } catch (err) {
+      console.error("First attempt failed:", err);
+      
+      // Check specific error types for better status codes
+      const errMsg = (err as Error).message || "";
+      if (errMsg.includes("Payment required") || errMsg.includes("credits exhausted")) {
+        return errorResponse(402, "Payment required or credits exhausted");
+      }
+      if (errMsg.includes("Rate limited")) {
+        return errorResponse(429, "Rate limited, please try again later");
+      }
+      if (errMsg.includes("timeout")) {
+        return errorResponse(408, "Request timeout");
+      }
+      
+      return errorResponse(502, "AI provider error", { message: errMsg });
+    }
+
+    // Validate the generated lines
+    const validation = validateLines(lines, task);
+
+    if (!validation.valid) {
+      console.warn("Validation failed on first attempt:", validation.errors);
+      
+      // Retry once with stricter prompt
+      const stricterSystem = buildStricterSystemPrompt(SYSTEM, task, validation.errors);
+      const stricterUserPayload = {
+        ...userPayload,
+        retry: true,
+        previous_errors: validation.errors
+      };
+      
+      try {
+        lines = await callOnceChatJSON(stricterSystem, stricterUserPayload, OPENAI_API_KEY, 640, 22000);
+        
+        // Validate again
+        const secondValidation = validateLines(lines, task);
+        if (!secondValidation.valid) {
+          console.error("Validation failed on retry:", secondValidation.errors);
+          return errorResponse(422, "Generated text does not meet requirements", {
+            errors: secondValidation.errors,
+            lines // Include what was generated for debugging
+          });
+        }
+      } catch (retryErr) {
+        console.error("Retry attempt failed:", retryErr);
+        return errorResponse(500, "Failed to generate valid text after retry", {
+          original_errors: validation.errors,
+          retry_error: (retryErr as Error).message
+        });
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -239,12 +392,9 @@ serve(async (req) => {
 
   } catch (err) {
     console.error("generate-text error:", err);
-    return new Response(JSON.stringify({
-      success: false,
-      error: (err as Error).message || "failed"
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    const errMsg = (err as Error).message || "Unknown error";
+    
+    // Return 500 for unexpected errors
+    return errorResponse(500, "Unexpected error", { message: errMsg });
   }
 });
