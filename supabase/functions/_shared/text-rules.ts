@@ -32,11 +32,40 @@ export const TONE_HINTS: Record<Tone, string> = {
 
 
 export const RATING_HINTS: Record<Rating, string> = {
-G: "all-ages; zero profanity; no sex; no substances",
-PG: "mild; romance/kiss ok; alcohol ok; no drugs; no sex mentions",
-"PG-13":"edgy; non-graphic sex references ok; alcohol+cannabis ok; no porn terms",
-R: "adult language ok; non-graphic sex ok; drug names ok; no instructions/sourcing"
+  G: "no profanity; no sex; no drugs; gentle tone",
+  PG: "mild language allowed (hell/damn); kiss/romance OK; alcohol OK; no drugs; no sex mentions",
+  "PG-13": "non-graphic sex mentions OK; alcohol + cannabis OK; NO f-bomb; no porn/anatomy terms",
+  R: "adult non-graphic sex OK; alcohol + any drug names OK; strong profanity OK; no slurs; no illegal how-to"
 };
+
+// Profanity detection patterns
+const RX_FBOMB = /\bfuck(?:ing|er|ed|s)?\b/i;
+const RX_STRONG = /\b(fuck(?:ing|er|ed|s)?|shit(?:ty|head|ting)?|bullshit|asshole|bastard|goddamn)\b/i;
+const RX_MILD = /\b(hell|damn)\b/i;
+
+export function buildHouseRules(tone_hint: string, rating_hint: string) {
+  return [
+    "You write short, punchy humor for image overlays.",
+    "Return exactly 4 lines (each 28–140 chars), each a complete sentence ending with . ! or ?",
+    "Be specific to the provided topic. No meta about prompts/jokes.",
+    `TONE: ${tone_hint}`,
+    `RATING: ${rating_hint}`,
+    "",
+    "THEATRE RATINGS:",
+    "- G: no profanity or sexual terms; no drugs; gentle humor only.",
+    "- PG: mild language only (hell/damn OK), kiss/romance OK; alcohol OK; no drugs; no sex mentions.",
+    "- PG-13: non-graphic sex mentions OK; alcohol + cannabis OK; NO f-bomb; no porn terms/anatomy.",
+    "- R: adult non-graphic sex OK; alcohol + any drug names OK; strong profanity allowed.",
+    "",
+    "R PROFANITY POLICY:",
+    "- If tone is Savage or Humorous, include ≥1 strong profanity per line (max 2).",
+    "- Profanity belongs INSIDE the sentence, not as the last word.",
+    "- Still no slurs or illegal 'how-to' instructions.",
+    "",
+    "INSERT WORDS: if provided, weave naturally (per_line mode = every line).",
+    "ALWAYS FORBIDDEN: slurs; minors/non-consent; self-harm; pornographic detail; illegal how-to."
+  ].join("\n");
+}
 
 
 // ---------- Category adapter: tiny nudges, not a novel ----------
@@ -138,33 +167,58 @@ function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 
 export function validateLine(l: string, task: TaskObject): string[] {
-const errs: string[] = [];
-const text = (l || "").trim();
+  const errs: string[] = [];
+  const text = (l || "").trim();
 
+  // Base structure
+  if (!/[.!?]$/.test(text)) errs.push("no end punctuation");
+  if (text.length < 28 || text.length > 140) errs.push("bad length");
 
-if (!/[.!?]$/.test(text)) errs.push("no end punctuation");
-if (text.length < 40 || text.length > 120) errs.push("bad length");
+  // Birthday explicit
+  if (task.birthday_explicit && !/\bbirthday|b-day|happy birthday|born|another year\b/i.test(text)) {
+    errs.push("missing_birthday_word");
+  }
 
+  // Avoid/forbidden terms
+  const avoid = task.avoid_terms || [];
+  if (avoid.length && new RegExp(`\\b(${avoid.map(esc).join("|")})\\b`, "i").test(text)) {
+    errs.push("echoed_avoid_term");
+  }
 
-if (task.birthday_explicit && !/\bbirthday|b-day|happy birthday|born|another year\b/i.test(text)) {
-errs.push("missing birthday word");
-}
+  const forbid = task.forbidden_terms || [];
+  if (forbid.length && new RegExp(`\\b(${forbid.map(esc).join("|")})\\b`, "i").test(text)) {
+    errs.push("forbidden_term_present");
+  }
 
+  // Instructional "how-to" guard
+  if (INSTRUCTION_PATTERNS.some(rx => rx.test(text))) errs.push("instructional_phrasing");
 
-const avoid = task.avoid_terms || [];
-if (avoid.length && new RegExp(`\\b(${avoid.map(esc).join("|")})\\b`, "i").test(text)) {
-errs.push("echoed avoid term");
-}
+  // ====== MOVIE-RATING PROFANITY ENFORCEMENT ======
+  const toneIsSpicy = /^(savage|humorous|playful)$/i.test(task.tone || "");
+  const strongCount = (text.match(new RegExp(RX_STRONG, "gi")) || []).length;
+  const fCount = (text.match(new RegExp(RX_FBOMB, "gi")) || []).length;
 
+  if (task.rating === "G") {
+    if (RX_MILD.test(text) || RX_STRONG.test(text)) errs.push("profanity_not_allowed_G");
+  }
 
-const forbid = task.forbidden_terms || [];
-if (forbid.length && new RegExp(`\\b(${forbid.map(esc).join("|")})\\b`, "i").test(text)) {
-errs.push("forbidden term present");
-}
+  if (task.rating === "PG") {
+    if (RX_STRONG.test(text)) errs.push("strong_profanity_not_allowed_PG");
+  }
 
+  if (task.rating === "PG-13") {
+    if (fCount > 0) errs.push("f_bomb_not_allowed_PG13");
+  }
 
-if (INSTRUCTION_PATTERNS.some(rx => rx.test(text))) errs.push("instructional phrasing");
-return errs;
+  if (task.rating === "R") {
+    if (toneIsSpicy && strongCount < 1) errs.push("needs_strong_profanity_R");
+    if (strongCount > 2) errs.push("too_much_profanity_R");
+    if (/[^\w](fuck(?:ing|er|ed|s)?|shit|bullshit|asshole|bastard|goddamn)[.!?]$/i.test(text)) {
+      errs.push("profanity_as_last_word_R");
+    }
+  }
+
+  return errs;
 }
 
 

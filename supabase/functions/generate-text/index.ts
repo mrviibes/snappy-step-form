@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
-  TONE_HINTS, RATING_HINTS,
+  TONE_HINTS, RATING_HINTS, buildHouseRules,
   categoryAdapter, ratingAdapter, batchCheck,
   type TaskObject, type Tone, type Rating
 } from "../_shared/text-rules.ts";
@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-5-mini-2025-08-07";
+const MODEL = "gpt-5-mini";
 
 const RETURN_LINES_TOOL = {
   type: "function",
@@ -26,7 +26,7 @@ const RETURN_LINES_TOOL = {
         type: "array",
         minItems: 4,
         maxItems: 4,
-          items: { type: "string", minLength: 40, maxLength: 140, pattern: "[.!?]$" }
+        items: { type: "string", minLength: 28, maxLength: 140, pattern: "[.!?]$" }
       }
     },
     additionalProperties: false
@@ -35,9 +35,6 @@ const RETURN_LINES_TOOL = {
 
 // Global cache to remember if tools actually work for this model
 let supportsTools: boolean | null = null;
-
-const SYS_TOOL = "Call return_lines exactly once via tool. Output only via tool. 4 lines, 40–140 chars, each ends with punctuation.";
-const SYS_JSON = "Return only JSON matching the schema. No prose.";
 
 function logBody(label: string, body: unknown) {
   try {
@@ -151,10 +148,10 @@ function pickLinesFromJson(data: any): string[] | null {
     const valid = Array.isArray(lines) && 
       lines.length === 4 && 
       lines.every((l: any) => 
-        typeof l === "string" && 
-        l.length >= 40 && 
-        l.length <= 140 && 
-        /[.!?]$/.test(l)
+      typeof l === "string" && 
+      l.length >= 28 && 
+      l.length <= 140 && 
+      /[.!?]$/.test(l)
       );
     
     return valid ? lines : null;
@@ -167,10 +164,11 @@ function pickLinesFromJson(data: any): string[] | null {
 async function probeToolsOnce(apiKey: string): Promise<boolean> {
   if (supportsTools !== null) return supportsTools;
   
+  const probeSystem = "Call return_lines exactly once via tool. 4 lines, 28–140 chars, each ends with punctuation.";
   const body = {
     model: MODEL,
     input: [
-      { role: "system", content: SYS_TOOL },
+      { role: "system", content: probeSystem },
       { role: "user", content: "{\"task\":\"Probe: say four neutral lines about coffee.\"}" }
     ],
     tools: [RETURN_LINES_TOOL],
@@ -190,11 +188,11 @@ async function probeToolsOnce(apiKey: string): Promise<boolean> {
   return supportsTools;
 }
 
-async function callToolPath(userJson: any, apiKey: string) {
+async function callToolPath(userJson: any, apiKey: string, systemPrompt: string) {
   const body = {
     model: MODEL,
     input: [
-      { role: "system", content: SYS_TOOL },
+      { role: "system", content: systemPrompt + "\nCall return_lines exactly once via tool. Output only via tool." },
       { role: "user", content: JSON.stringify(userJson) }
     ],
     tools: [RETURN_LINES_TOOL],
@@ -254,11 +252,11 @@ function extractJsonObject(resp: any): any | null {
   return null;
 }
 
-async function callJsonPath(userJson: any, apiKey: string) {
+async function callJsonPath(userJson: any, apiKey: string, systemPrompt: string) {
   const body = {
     model: MODEL,
     input: [
-      { role: "system", content: "Return ONLY JSON that matches the schema. No prose, no markdown, no code fences." },
+      { role: "system", content: systemPrompt + "\nReturn ONLY JSON that matches the schema. No prose, no markdown, no code fences." },
       { role: "user", content: JSON.stringify(userJson) }
     ],
     reasoning: {
@@ -277,7 +275,7 @@ async function callJsonPath(userJson: any, apiKey: string) {
               type: "array",
               minItems: 4,
               maxItems: 4,
-              items: { type: "string", minLength: 40, maxLength: 140, pattern: "[.!?]$" }
+              items: { type: "string", minLength: 28, maxLength: 140, pattern: "[.!?]$" }
             }
           }
         },
@@ -296,7 +294,7 @@ async function callJsonPath(userJson: any, apiKey: string) {
   const lines = obj?.lines;
   const valid = Array.isArray(lines) &&
     lines.length === 4 &&
-    lines.every((l: any) => typeof l === "string" && l.length >= 40 && l.length <= 140 && /[.!?]$/.test(l));
+    lines.every((l: any) => typeof l === "string" && l.length >= 28 && l.length <= 140 && /[.!?]$/.test(l));
 
   return valid
     ? { ok: true as const, lines, path: "json_schema" }
@@ -305,6 +303,9 @@ async function callJsonPath(userJson: any, apiKey: string) {
 
 async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
   const toolsOK = await probeToolsOnce(apiKey).catch(() => false);
+
+  // Build system prompt
+  const SYSTEM = buildHouseRules(payload.tone_hint ?? "", payload.rating_hint ?? "");
 
   // Build user JSON from payload
   const userJson = {
@@ -322,7 +323,7 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
 
   if (toolsOK) {
     // Try tool path first
-    const r1 = await callToolPath(userJson, apiKey);
+    const r1 = await callToolPath(userJson, apiKey, SYSTEM);
     if (r1.ok) return r1.lines;
     if ((r1 as any)?.code === 504) {
       throw new Error("Upstream model timeout (tool path)");
@@ -330,7 +331,7 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
     
     // Single retry with shorter task
     userJson.task = String(userJson.task).slice(0, 280);
-    const r2 = await callToolPath(userJson, apiKey);
+    const r2 = await callToolPath(userJson, apiKey, SYSTEM);
     if (r2.ok) return r2.lines;
     if ((r2 as any)?.code === 504) {
       throw new Error("Upstream model timeout (tool path retry)");
@@ -338,7 +339,7 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
     
     // Fallback to JSON
     console.log("Tool path failed twice, falling back to JSON schema...");
-    const r3 = await callJsonPath(userJson, apiKey);
+    const r3 = await callJsonPath(userJson, apiKey, SYSTEM);
     if (r3.ok) {
       console.log("✅ JSON schema fallback succeeded");
       return r3.lines;
@@ -351,16 +352,16 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
   } else {
     // Go straight to JSON path for this model
     console.log("Model doesn't support tools, using JSON schema directly");
-    let r = await callJsonPath(userJson, apiKey);
+    let r = await callJsonPath(userJson, apiKey, SYSTEM);
     if (!r.ok && r.code === 422) {
       console.log("Shape check failed, retrying with fix_hint...");
       userJson.fix_hint = {
         issues: [
-          "Line shape checks failed: Return exactly 4 strings, each 40–140 chars and end with . ! or ?"
+          "Line shape checks failed: Return exactly 4 strings, each 28–140 chars and end with . ! or ?"
         ],
         guidance: "Output only valid JSON: { \"lines\": [ ... ] } with 4 strings. No extra text."
       };
-      r = await callJsonPath(userJson, apiKey);
+      r = await callJsonPath(userJson, apiKey, SYSTEM);
     }
     if (!r.ok) {
       if (r.code === 504) throw new Error("Upstream model timeout (json schema)");
@@ -481,7 +482,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       options: lines,
-      model: "gpt-5-mini-2025-08-07",
+      model: "gpt-5-mini",
       count: lines.length
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
