@@ -24,7 +24,7 @@ const cors = {
 };
 
 const RESP_URL = "https://api.openai.com/v1/responses";
-const RESP_MODEL = "gpt-5-2025-08-07";
+const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-2025-08-07";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const TONE_HINTS: Record<string, string> = {

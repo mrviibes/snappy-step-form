@@ -25,3 +25,6 @@ verify_jwt = false
 
 [functions.test-gemini]
 verify_jwt = false
+
+[functions.generate-text-debug]
+verify_jwt = false

@@ -63,19 +63,37 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 
   const call = (async () => {
     const { data, error } = await supabase.functions.invoke(functionName, { body: payload });
+
+    // Non-2xx: surface the actual error body if present
     if (error) {
       const ctx: any = (error as any).context || {};
       let msg: string | undefined;
+
+      // Supabase often puts the server error JSON into ctx.body (string)
       if (typeof ctx.body === "string" && ctx.body.trim()) {
-        try { msg = JSON.parse(ctx.body)?.error; } catch { msg = ctx.body; }
+        try {
+          const parsed = JSON.parse(ctx.body);
+          msg = parsed?.error || parsed?.message || ctx.body;
+        } catch {
+          msg = ctx.body;
+        }
       }
-      throw new Error(msg || (error as any).message || `Failed to call ${functionName}`);
+
+      if (!msg) msg = (error as any).message || `Failed to call ${functionName}`;
+      throw new Error(msg);
     }
+
+    // Parse string payload if needed
     let body: any = data;
-    if (typeof body === "string") { try { body = JSON.parse(body); } catch {} }
+    if (typeof body === "string") {
+      try { body = JSON.parse(body); } catch {}
+    }
+
+    // Edge returned structured failure
     if (body && typeof body === "object" && body.success === false) {
       throw new Error(body.error || `Request failed (${functionName})`);
     }
+
     return body as T;
   })();
 
@@ -95,7 +113,13 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
     insertWords,
     gender: params.gender || "neutral"
   };
-  const res = await ctlFetch<any>("generate-text", payload);
+  
+  // TEMP: switch target function for debugging
+  const targetFn = import.meta.env.VITE_USE_TEXT_DEBUG === "true" 
+    ? "generate-text-debug" 
+    : "generate-text";
+  
+  const res = await ctlFetch<any>(targetFn, payload);
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }
