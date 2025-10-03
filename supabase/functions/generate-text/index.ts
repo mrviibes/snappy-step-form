@@ -96,24 +96,20 @@ function buildStricterSystemPrompt(
 }
 
 async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, maxTokens = 512): Promise<string[]> {
-  const schema = {
-    name: "ViibeTextCompactV1",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["lines"],
-      properties: {
-        lines: {
-          type: "array",
-          minItems: 4,
-          maxItems: 4,
-          items: { 
-            type: "string", 
-            minLength: 28, 
-            maxLength: 120,
-            pattern: "[.!?]$"
-          }
+  const jsonSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["lines"],
+    properties: {
+      lines: {
+        type: "array",
+        minItems: 4,
+        maxItems: 4,
+        items: { 
+          type: "string", 
+          minLength: 28, 
+          maxLength: 120,
+          pattern: "[.!?]$"
         }
       }
     }
@@ -130,7 +126,8 @@ async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, 
       format: { 
         type: "json_schema",
         name: "ViibeTextCompactV1",
-        schema: schema 
+        strict: true,
+        schema: jsonSchema 
       } 
     }
   };
