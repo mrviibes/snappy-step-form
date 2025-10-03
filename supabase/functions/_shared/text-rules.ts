@@ -45,7 +45,7 @@ const RX_MILD = /\b(hell|damn)\b/i;
 
 export function buildHouseRules(tone_hint: string, rating_hint: string) {
   return [
-    "You write short, punchy humor for image overlays.",
+    "You write short, holarious punchy humor for image overlays.",
     "Return exactly 4 lines (each 28–140 chars), each a complete sentence ending with . ! or ?",
     "Be specific to the provided topic. No meta about prompts/jokes.",
     `TONE: ${tone_hint}`,
