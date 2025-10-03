@@ -14,6 +14,111 @@ const corsHeaders = {
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
 const MODEL = "gpt-5-mini"; // canonical id (stop pinning dates)
 
+// Style blurbs for comedian voice variation
+const STYLE_BLURBS: Record<string, string[]> = {
+  humorous: [
+    "Tight setup, quick twist, one vivid noun, out clean",
+    "Everyday truth flipped sideways, keep words short and punchy",
+    "One image, one turn, then leave",
+    "Light jab, happy landing, no apology",
+    "Setup in six words, twist in four",
+    "Keep it breezy, land one sharp verb",
+    "Small problem, big logic, quiet grin",
+    "Say the obvious, then the real obvious harder",
+    "Build to a wink, not a lecture",
+    "End on the funniest word"
+  ],
+  savage: [
+    "Roast with confidence, one ruthless image, smile after impact",
+    "Knife in the setup, candy in the tag",
+    "Clean hit, no hedge, leave scorch marks",
+    "Brutal honesty, one surprise angle, no safety rails",
+    "Punch up the stakes, punch down the ego",
+    "One insult the crowd repeats later",
+    "Say the quiet part loudly and cleanly",
+    "Cut the fat, keep the menace",
+    "The turn should sting, not explain",
+    "Swagger in the rhythm, snap in the ending"
+  ],
+  sentimental: [
+    "Warm truth with one playful spark",
+    "Small detail, big heart, gentle turn",
+    "Honest memory, soft punchline, grounded voice",
+    "Comfort first, chuckle second",
+    "Nostalgia without syrup, smile without sparkle dust",
+    "Tender image, real flaw, kind twist",
+    "Speak like a friend at 2 a.m.",
+    "Hopeful line, human mess, tidy finish",
+    "Hug in the setup, grin in the tag",
+    "Keep it close, keep it real"
+  ],
+  nostalgic: [
+    "One relic detail, one modern twist",
+    "Dusty snapshot, fresh punchline",
+    "Yesterday's logic meeting today's chaos",
+    "Old rule, new problem, laugh",
+    "VCR energy, streaming brain",
+    "Childhood confidence, adult bill, boom",
+    "Retro vibe, present slap, clean exit",
+    "Remember it wrong, fix it funny",
+    "Warm film grain, crisp turn",
+    "Past you advising present you badly"
+  ],
+  romantic: [
+    "Flirt with timing, not adjectives",
+    "One charm move, one honest flaw",
+    "Compliment with teeth, grin after",
+    "Soft setup, sparkling turn",
+    "Love note that can take a joke",
+    "Tease, praise, land sweet",
+    "Keep it human, not greeting card",
+    "Real chemistry, little chaos, kiss of truth",
+    "Adorable mess, confident punchline",
+    "Cute image, honest heartbeat, done"
+  ],
+  inspirational: [
+    "Grit first, glitter later",
+    "Small action, loud momentum",
+    "Remove excuses with a joke",
+    "One rule, one challenge, go",
+    "Make the next step feel winnable",
+    "Tough love in plain words",
+    "Earned optimism, no sparkle dust",
+    "Turn fear into a chore list",
+    "Quiet courage, sharp verb, finish",
+    "Motivation that can carry groceries"
+  ],
+  playful: [
+    "Silly premise, serious commitment",
+    "Cartoon energy in real shoes",
+    "One goofy verb, one crisp turn",
+    "Mischief with manners",
+    "Bounce the rhythm, pop the end",
+    "Keep stakes low, laughs high",
+    "Joy first, logic later",
+    "Punchline wearing a party hat",
+    "Nonsense that lands somewhere true",
+    "Whimsy with steering"
+  ],
+  serious: [
+    "Direct voice, unblinking truth, small grin",
+    "Plain words, heavy idea, tidy end",
+    "One fact, one consequence, one light",
+    "Quiet authority, zero fluff",
+    "Respect the moment, allow one human crack",
+    "Measured tone, exact verb, closure",
+    "Build calm pressure, release politely",
+    "No theatrics, just clean gravity",
+    "Speak like a mentor who swears rarely",
+    "Strong line, soft echo"
+  ]
+};
+
+function pickStyleBlurb(tone: string): string {
+  const blurbs = STYLE_BLURBS[tone] || STYLE_BLURBS.humorous;
+  return blurbs[Math.floor(Math.random() * blurbs.length)];
+}
+
 // Tool schema (short & overlay-safe)
 const RETURN_LINES_TOOL = {
   type: "function",
@@ -313,7 +418,8 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
     const tone: Tone = "humorous";
     const rating: Rating = "PG-13";
-    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating]);
+    const styleBlurb = pickStyleBlurb(tone);
+    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating]) + `\n\nCOMEDIAN STYLE HINT: ${styleBlurb}`;
 
     const sampleTask: TaskObject = {
       tone, rating,
@@ -379,7 +485,8 @@ serve(async (req) => {
     }
 
     // Build system rules for this tone/rating
-    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating]);
+    const styleBlurb = pickStyleBlurb(tone);
+    const SYSTEM = buildHouseRules(TONE_HINTS[tone], RATING_HINTS[rating]) + `\n\nCOMEDIAN STYLE HINT: ${styleBlurb}`;
 
     const userPayload = {
       version: "viibe-text-v3",
