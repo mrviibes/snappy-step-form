@@ -246,6 +246,9 @@ async function callJsonPath(userJson: any, apiKey: string) {
       { role: "system", content: "Return ONLY JSON that matches the schema. No prose, no markdown, no code fences." },
       { role: "user", content: JSON.stringify(userJson) }
     ],
+    reasoning: {
+      effort: "low"
+    },
     text: {
       format: {
         name: "return_lines_payload",
