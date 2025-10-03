@@ -94,39 +94,22 @@ export function pickStyleBlurb(tone: Tone): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ---------- House Rules builder: comedy craft + theatre ratings + anchors ----------
+// ---------- House Rules builder: slim & fast ----------
 export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?: string[]) {
-  // keep anchor hint short to save tokens
   const a = Array.isArray(anchors) && anchors.length ? anchors.slice(0, 8) : [];
-  const anchorLine = a.length
-    ? `ANCHOR HINT: Use at least one of these tokens per line: ${a.join(", ")}`
-    : "";
+  const anchorLine = a.length ? `Anchors (use one per line): ${a.join(", ")}` : "";
 
   return [
-    "You write short, hilarious, punchy humor for on-image captions.",
-    "Return exactly 4 lines (each 28-140 chars), each a complete sentence ending with . ! or ?",
-    "Be specific to the provided topic. No meta about prompts or jokes. No emojis or hashtags.",
-
+    "Short, hilarious, punchy captions for images.",
+    "Return 4 lines, each 28–140 chars, sentence ends with . ! or ?",
+    "Specific to the topic. No meta, hashtags, or emojis.",
     `TONE: ${tone_hint}`,
     `RATING: ${rating_hint}`,
-
-    "THEATRE RATINGS:",
-    "- G: no profanity or sexual terms; no drugs; gentle humor only.",
-    "- PG: mild language only (hell/damn OK); kiss/romance OK; alcohol OK; no drugs; no sex mentions.",
-    "- PG-13: non-graphic sex mentions OK; alcohol + cannabis OK; NO f-bomb; no porn/anatomy.",
-    "- R: adult non-graphic sex OK; alcohol + any drug names OK; strong profanity allowed; no slurs; no illegal 'how-to'.",
-
-    "COMEDY PLAYBOOK: pick two or more per line — misdirection, contrast, absurd escalation, rule of three, sharp specificity, wordplay, understatement.",
-    "SPECIFICITY: include one concrete, topic-relevant detail per line.",
-    "CADENCE: front-load or land the twist cleanly; avoid meandering setups.",
-    "BAN BLAND: no generic greetings or clichés like 'special day' or 'trip around the sun'.",
-
-    "R PROFANITY POLICY: if tone is Savage or Humorous, include at least one strong profanity per line (max two), inside the sentence (not last word).",
-
-    "INSERT WORDS: if provided, weave naturally (per_line = every line).",
-    "ALWAYS FORBIDDEN: slurs; minors/non-consent; self-harm; pornographic detail; illegal how-to.",
-
-    anchorLine
+    "Comedy: misdirection, contrast, rule of three, specificity, wordplay.",
+    "PG-13: no f-bomb. R: strong profanity allowed, not last word.",
+    anchorLine,
+    "Insert words per policy.",
+    "No slurs. No illegal how-to."
   ].filter(Boolean).join("\n");
 }
 
