@@ -13,7 +13,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
+const MODEL = "gpt-5-mini-2025-08-07";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
@@ -101,7 +101,7 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
       { role: "user", content: JSON.stringify(userJson) }
     ],
     response_format: { type: "json_schema", json_schema: schema },
-    max_tokens: maxTokens
+    max_completion_tokens: maxTokens
   };
 
   const controller = new AbortController();
