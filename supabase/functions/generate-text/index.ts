@@ -125,7 +125,13 @@ async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, 
       { role: "user", content: JSON.stringify(userObj) }
     ],
     max_output_tokens: maxTokens,
-    text: { format: { type: "json_schema", json_schema: schema } }
+    text: { 
+      format: { 
+        type: "json_schema", 
+        name: "ViibeTextCompactV1",
+        json_schema: schema 
+      } 
+    }
   };
 
   const controller = new AbortController();
