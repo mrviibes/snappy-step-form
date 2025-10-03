@@ -41,57 +41,61 @@ type GeneratePayload = {
 
 // ---------- Fast single-call generator ----------
 function extractJsonObject(resp: any): any | null {
-  // 1) Direct convenience fields
-  if (resp && typeof resp?.text === "string") {
-    const s = resp.text.trim().replace(/^```json\s*|\s*```$/g, "").trim();
-    try { return JSON.parse(s); } catch {}
-  }
-  if (resp && typeof resp?.output_text === "string") {
-    const s = resp.output_text.trim().replace(/^```json\s*|\s*```$/g, "").trim();
-    try { return JSON.parse(s); } catch {}
-  }
-
-  // 2) OpenAI chat completions format
-  const msg = resp?.choices?.[0]?.message;
-  const content = msg?.content;
-  if (typeof content === "string") {
-    const trimmed = content.trim().replace(/^```json\s*|\s*```$/g, "").trim();
-    try { return JSON.parse(trimmed); } catch {}
-  }
-  // NEW: some SDKs return parts with { json } already parsed
-  const candidates: string[] = [];
-  if (Array.isArray(content)) {
-    for (const part of content) {
-      if (part && typeof part.json === "object" && part.json !== null) {
-        return part.json;
-      }
-      if (typeof part?.text === "string") candidates.push(part.text);
+  // 1) direct convenience fields
+  const tryParse = (s: unknown) => {
+    if (typeof s !== "string") return null;
+    const trimmed = s.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(trimmed); } catch { /* swallow */ }
+    const start = trimmed.indexOf("{"), end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      try { return JSON.parse(trimmed.slice(start, end + 1)); } catch {}
     }
-  }
+    return null;
+  };
 
-  // 3) Canonical Responses API blocks
+  let obj = tryParse(resp?.text) || tryParse(resp?.output_text);
+  if (obj?.lines) return obj;
+
+  // 2) Responses blocks: output[].content[].json or .text
   const out = Array.isArray(resp?.output) ? resp.output : [];
   for (const o of out) {
     const parts = Array.isArray(o?.content) ? o.content : [];
     for (const p of parts) {
-      if (p && typeof p.json === "object" && p.json !== null) return p.json;
-      if (typeof p?.text === "string") candidates.push(p.text);
-      if (typeof p?.output_text === "string") candidates.push(p.output_text);
+      if (p && typeof p.json === "object" && p.json) {
+        if (p.json.lines) return p.json;
+      }
+      obj = tryParse(p?.text) || tryParse(p?.output_text);
+      if (obj?.lines) return obj;
     }
-    if (typeof o?.content === "string") candidates.push(o.content);
+    if (typeof o?.content === "string") {
+      obj = tryParse(o.content);
+      if (obj?.lines) return obj;
+    }
   }
 
-  // 4) Parse any string candidates (strip code fences, try inner slice)
-  for (const raw of candidates) {
-    const trimmed = String(raw).trim().replace(/^```json\s*|\s*```$/g, "").trim();
-    try { return JSON.parse(trimmed); } catch {}
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start !== -1 && end > start) {
-      const slice = trimmed.slice(start, end + 1);
-      try { return JSON.parse(slice); } catch {}
+  // 3) Chat Completions style: choices[0].message.content
+  const choice = Array.isArray(resp?.choices) ? resp.choices[0] : null;
+  const msg = choice?.message;
+  if (typeof msg?.content === "string") {
+    obj = tryParse(msg.content);
+    if (obj?.lines) return obj;
+  }
+  if (Array.isArray(msg?.content)) {
+    for (const part of msg.content) {
+      if (part && typeof part.json === "object" && part.json?.lines) return part.json;
+      obj = tryParse(part?.text) || tryParse(part?.output_text);
+      if (obj?.lines) return obj;
     }
   }
+
+  // 4) tool_calls[].function.arguments
+  const tcs = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
+  for (const tc of tcs) {
+    const args = tc?.function?.arguments;
+    obj = tryParse(args);
+    if (obj?.lines) return obj;
+  }
+
   return null;
 }
 
@@ -175,7 +179,19 @@ SELF-CHECK:
   try { data = JSON.parse(raw); } catch { throw new Error("Provider returned non-JSON"); }
 
   const obj = extractJsonObject(data);
-  if (!obj?.lines) throw new Error("No lines in response");
+  if (!obj?.lines) {
+    // provider refusal path if present
+    const refusal = data?.choices?.[0]?.message?.refusal
+                || data?.incomplete_details?.reason;
+    if (refusal) {
+      throw new Error(`Provider refusal: ${String(refusal).slice(0, 300)}`);
+    }
+
+    // concise payload hint for the debug panel
+    const keys = Object.keys(data || {}).slice(0, 12).join(", ");
+    const snippet = JSON.stringify(data).slice(0, 500);
+    throw new Error(`No lines found. Keys: ${keys}. Snippet: ${snippet}`);
+  }
 
   const lines: string[] = obj.lines;
   if (!Array.isArray(lines) || lines.length !== 4) throw new Error("Bad line count");
