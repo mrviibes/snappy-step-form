@@ -1,3 +1,4 @@
+// v2025-06-03: Responses API with json_schema, honest errors, dry-run bypass
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
