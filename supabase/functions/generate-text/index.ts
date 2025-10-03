@@ -117,10 +117,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 64
       format: {
         type: "json_schema",
         name: schema.name,
-        json_schema: {
-          strict: schema.strict,
-          schema: schema.schema
-        }
+        schema: schema.schema
       }
     },
   };
