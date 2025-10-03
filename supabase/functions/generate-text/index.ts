@@ -207,7 +207,7 @@ serve(async (req) => {
     };
 
     // single fast call (256 tokens). This avoids the "length" trims we saw at 160.
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 256);
+    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 640);
 
     return new Response(JSON.stringify({
       success: true,
