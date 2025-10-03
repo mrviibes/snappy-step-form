@@ -24,7 +24,7 @@ const cors = {
 };
 
 const RESP_URL = "https://api.openai.com/v1/responses";
-const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-2025-08-07";
+const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-mini";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const TONE_HINTS: Record<string, string> = {
@@ -117,7 +117,8 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 64
       format: {
         type: "json_schema",
         name: schema.name,
-        schema: schema.schema
+        schema: schema.schema,
+        strict: true
       }
     },
   };
@@ -143,17 +144,49 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 64
 
   const data = JSON.parse(raw);
 
+  // Try output_parsed first (structured output)
   if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
     return data.output_parsed.lines as string[];
   }
-  const blocks = data.output?.[0]?.content || [];
-  const text = blocks.find((b: any) => b.type === "output_text")?.text ?? "";
-  try {
-    const obj = JSON.parse(text);
-    if (obj?.lines && Array.isArray(obj.lines)) return obj.lines as string[];
-  } catch {}
 
-  throw new Error("No lines parsed from Responses API");
+  // Try content blocks with json_schema parsed
+  const blocks = data.output?.[0]?.content || [];
+  for (const block of blocks) {
+    if (block.type === "json_schema" && block.parsed?.lines && Array.isArray(block.parsed.lines)) {
+      return block.parsed.lines as string[];
+    }
+    if (block.type === "output_json" && block.json?.lines && Array.isArray(block.json.lines)) {
+      return block.json.lines as string[];
+    }
+  }
+
+  // Try parsing text block as JSON
+  const textBlock = blocks.find((b: any) => b.type === "output_text")?.text ?? "";
+  if (textBlock) {
+    try {
+      const obj = JSON.parse(textBlock);
+      if (obj?.lines && Array.isArray(obj.lines)) return obj.lines as string[];
+    } catch {}
+  }
+
+  // Last resort: deep scan for valid lines array
+  const deepScan = (obj: any): string[] | null => {
+    if (Array.isArray(obj) && obj.length === 4 && obj.every((s) => typeof s === "string" && s.length >= 28 && s.length <= 120 && /[.!?]$/.test(s))) {
+      return obj;
+    }
+    if (obj && typeof obj === "object") {
+      for (const val of Object.values(obj)) {
+        const found = deepScan(val);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  const found = deepScan(data);
+  if (found) return found;
+
+  console.error("Parse miss. Response snippet:", JSON.stringify(data).slice(0, 500));
+  throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
 // Canned safe lines to keep UI usable if provider fails
