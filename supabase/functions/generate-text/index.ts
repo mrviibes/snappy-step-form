@@ -13,8 +13,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const AI_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+// AI Provider configuration (with fallback)
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const LOVABLE_MODEL = "google/gemini-2.5-flash";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_MODEL = "gpt-4o-mini";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
@@ -95,12 +98,12 @@ function buildStricterSystemPrompt(
   return baseSystem + "\n\n" + extras.join("\n");
 }
 
-async function callAIOnce(system: string, userObj: unknown, apiKey: string, maxTokens = 512): Promise<string[]> {
+async function callAIOnce(system: string, userObj: unknown, apiKey: string, apiUrl: string, model: string, maxTokens = 512): Promise<string[]> {
   const reqId = crypto.randomUUID().slice(0, 8);
   const startTime = Date.now();
 
   const body = {
-    model: MODEL,
+    model,
     messages: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) }
@@ -138,7 +141,7 @@ async function callAIOnce(system: string, userObj: unknown, apiKey: string, maxT
 
   let resp: Response;
   try {
-    resp = await fetch(AI_API_URL, {
+    resp = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -226,9 +229,9 @@ async function callAIOnce(system: string, userObj: unknown, apiKey: string, maxT
 }
 
 // ---------- hedged request orchestrator ----------
-async function callFastWithHedge(system: string, userObj: unknown, apiKey: string): Promise<string[]> {
+async function callFastWithHedge(system: string, userObj: unknown, apiKey: string, apiUrl: string, model: string): Promise<string[]> {
   // Primary starts now
-  const p1 = callAIOnce(system, userObj, apiKey, 512).catch(e => {
+  const p1 = callAIOnce(system, userObj, apiKey, apiUrl, model, 512).catch(e => {
     console.error("Primary request failed:", e);
     throw e;
   });
@@ -237,7 +240,7 @@ async function callFastWithHedge(system: string, userObj: unknown, apiKey: strin
   const p2 = new Promise<string[]>((resolve, reject) => {
     const timer = setTimeout(async () => {
       try { 
-        resolve(await callAIOnce(system, userObj, apiKey, 768)); 
+        resolve(await callAIOnce(system, userObj, apiKey, apiUrl, model, 768)); 
       } catch (e) { 
         console.error("Hedge request failed:", e);
         reject(e); 
@@ -261,9 +264,29 @@ async function callFastWithHedge(system: string, userObj: unknown, apiKey: strin
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Detect available API provider (Lovable AI preferred, OpenAI fallback)
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  
+  let apiKey: string;
+  let apiUrl: string;
+  let model: string;
+  
+  if (LOVABLE_API_KEY) {
+    apiKey = LOVABLE_API_KEY;
+    apiUrl = LOVABLE_AI_URL;
+    model = LOVABLE_MODEL;
+    console.log("Using Lovable AI Gateway");
+  } else if (OPENAI_API_KEY) {
+    apiKey = OPENAI_API_KEY;
+    apiUrl = OPENAI_URL;
+    model = OPENAI_MODEL;
+    console.log("Using OpenAI fallback");
+  } else {
+    return errorResponse(500, "AI not configured: missing LOVABLE_API_KEY and OPENAI_API_KEY");
+  }
+
   try {
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const body: GeneratePayload = await req.json();
 
@@ -321,7 +344,7 @@ serve(async (req) => {
     // First attempt with standard prompt
     let lines: string[];
     try {
-      lines = await callFastWithHedge(SYSTEM, userPayload, LOVABLE_API_KEY);
+      lines = await callFastWithHedge(SYSTEM, userPayload, apiKey, apiUrl, model);
     } catch (err) {
       console.error("First attempt failed:", err);
       
@@ -357,7 +380,7 @@ serve(async (req) => {
       };
       
       try {
-        lines = await callAIOnce(stricterSystem, stricterUserPayload, LOVABLE_API_KEY, 896);
+        lines = await callAIOnce(stricterSystem, stricterUserPayload, apiKey, apiUrl, model, 896);
         
         // Validate again
         if (!validLines(lines, task)) {
@@ -380,7 +403,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       options: lines,
-      model: MODEL,
+      model,
       count: lines.length
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
