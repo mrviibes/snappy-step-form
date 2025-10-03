@@ -52,38 +52,39 @@ function extractJsonObject(resp: any): any | null {
   }
 
   // 2) OpenAI chat completions format
-  const content = resp?.choices?.[0]?.message?.content;
+  const msg = resp?.choices?.[0]?.message;
+  const content = msg?.content;
   if (typeof content === "string") {
     const trimmed = content.trim().replace(/^```json\s*|\s*```$/g, "").trim();
     try { return JSON.parse(trimmed); } catch {}
   }
-
-  // 3) Canonical Responses blocks
-  const out = Array.isArray(resp?.output) ? resp.output : [];
+  // NEW: some SDKs return parts with { json } already parsed
   const candidates: string[] = [];
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      if (part && typeof part.json === "object" && part.json !== null) {
+        return part.json;
+      }
+      if (typeof part?.text === "string") candidates.push(part.text);
+    }
+  }
+
+  // 3) Canonical Responses API blocks
+  const out = Array.isArray(resp?.output) ? resp.output : [];
   for (const o of out) {
-    // Some shapes put the JSON as a real object
     const parts = Array.isArray(o?.content) ? o.content : [];
     for (const p of parts) {
-      if (p && typeof p.json === "object" && p.json !== null) {
-        return p.json;                 // ← prefer the parsed JSON if present
-      }
-      if (typeof p?.text === "string") {
-        candidates.push(p.text);       // ← textual JSON, collect for parsing
-      }
-      if (typeof p?.output_text === "string") {
-        candidates.push(p.output_text);
-      }
+      if (p && typeof p.json === "object" && p.json !== null) return p.json;
+      if (typeof p?.text === "string") candidates.push(p.text);
+      if (typeof p?.output_text === "string") candidates.push(p.output_text);
     }
-    // Some SDKs return content as a whole string
     if (typeof o?.content === "string") candidates.push(o.content);
   }
 
-  // 4) Parse any string candidates (strip code fences)
+  // 4) Parse any string candidates (strip code fences, try inner slice)
   for (const raw of candidates) {
     const trimmed = String(raw).trim().replace(/^```json\s*|\s*```$/g, "").trim();
     try { return JSON.parse(trimmed); } catch {}
-    // last-ditch: parse first {...} block
     const start = trimmed.indexOf("{");
     const end = trimmed.lastIndexOf("}");
     if (start !== -1 && end > start) {
