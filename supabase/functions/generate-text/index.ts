@@ -199,26 +199,73 @@ async function callToolPath(userJson: any, apiKey: string) {
   return { ok: false as const, code: 500, error: "No tool output" };
 }
 
+function extractJsonObject(resp: any): any | null {
+  // 1) Direct convenience field (often present)
+  const candidates: string[] = [];
+  if (typeof resp?.output_text === "string") candidates.push(resp.output_text);
+
+  // 2) Walk the output array
+  const out = Array.isArray(resp?.output) ? resp.output : [];
+  for (const o of out) {
+    // Some SDKs shove text straight on content as a string
+    if (typeof o?.content === "string") candidates.push(o.content);
+
+    // Newer shapes: content is an array of parts
+    const parts = Array.isArray(o?.content) ? o.content : [];
+    for (const p of parts) {
+      // If OpenAI already parsed JSON for you (rare but nice)
+      if (p && typeof p.json === "object" && p.json !== null) return p.json;
+
+      // Typical case: text field holds the JSON string
+      if (typeof p?.text === "string") candidates.push(p.text);
+
+      // Legacy/helpers: sometimes the key is "output_text"
+      if (typeof p?.output_text === "string") candidates.push(p.output_text);
+    }
+  }
+
+  // Try to parse each candidate, being polite about code fences
+  for (const raw of candidates) {
+    const trimmed = raw.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(trimmed); } catch {}
+    // last-ditch: grab the first {...} block
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      const slice = trimmed.slice(start, end + 1);
+      try { return JSON.parse(slice); } catch {}
+    }
+  }
+  return null;
+}
+
 async function callJsonPath(userJson: any, apiKey: string) {
   const body = {
     model: MODEL,
     input: [
-      { role: "system", content: SYS_JSON },
+      { role: "system", content: "Return ONLY JSON that matches the schema. No prose, no markdown, no code fences." },
       { role: "user", content: JSON.stringify(userJson) }
     ],
     text: {
       format: {
         type: "json_schema",
-        name: "return_lines_payload",
-        schema: {
-          type: "object",
-          required: ["lines"],
-          additionalProperties: false,
-          properties: {
-            lines: { type: "array", minItems: 4, maxItems: 4, items: { type: "string", maxLength: 140 } }
+        json_schema: {
+          name: "return_lines_payload",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["lines"],
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "string", maxLength: 140 }
+              }
+            }
           }
-        },
-        strict: true
+        }
       }
     },
     max_output_tokens: 512
@@ -227,16 +274,17 @@ async function callJsonPath(userJson: any, apiKey: string) {
   const r = await openaiRequest(body, apiKey);
   if (!r.ok) return r;
 
-  try {
-    const txt = r.data?.output_text ?? "";
-    const obj = txt ? JSON.parse(txt) : null;
-    const lines = obj?.lines;
-    const ok = Array.isArray(lines) && lines.length === 4 &&
-      lines.every((l: any) => typeof l === "string" && l.length >= 40 && l.length <= 140 && /[.!?]$/.test(l));
-    if (ok) return { ok: true as const, lines, path: "json_schema" };
-  } catch { /* fall through */ }
+  const obj = extractJsonObject(r.data);
+  if (!obj) return { ok: false as const, code: 500, error: "JSON schema fallback parse failed (no JSON found)" };
 
-  return { ok: false as const, code: 500, error: "JSON schema fallback parse failed" };
+  const lines = obj?.lines;
+  const valid = Array.isArray(lines) &&
+    lines.length === 4 &&
+    lines.every((l: any) => typeof l === "string" && l.length >= 40 && l.length <= 140 && /[.!?]$/.test(l));
+
+  return valid
+    ? { ok: true as const, lines, path: "json_schema" }
+    : { ok: false as const, code: 422, error: "JSON present but failed line shape checks" };
 }
 
 async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
@@ -252,7 +300,7 @@ async function callModelSmart(payload: any, apiKey: string): Promise<string[]> {
     avoid_terms: payload.task?.avoid_terms ?? [],
     forbidden_terms: payload.task?.forbidden_terms ?? [],
     birthday_explicit: payload.task?.birthday_explicit ?? false,
-    task: (payload.task?.topic ?? "").slice(0, 400),
+    task: (payload.task?.topic ?? "").slice(0, 600),
     fix_hint: payload.fix_hint ?? null
   };
 
