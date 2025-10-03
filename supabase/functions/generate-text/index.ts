@@ -248,9 +248,9 @@ async function callJsonPath(userJson: any, apiKey: string) {
     ],
     text: {
       format: {
+        name: "return_lines_payload",
         type: "json_schema",
         json_schema: {
-          name: "return_lines_payload",
           strict: true,
           schema: {
             type: "object",
