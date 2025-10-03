@@ -285,16 +285,16 @@ async function callModelSmart(payload: any, SYSTEM: string, apiKey: string): Pro
   }
 
   // JSON schema nested → if format/name drama, try flat → if tokens short, bump once
-  let r = await callJsonPath(userJson, SYSTEM, apiKey, true, 900);
+  let r = await callJsonPath(userJson, SYSTEM, apiKey, true, 2000);
   if (!r.ok) {
     if (r.code === 206) { // incomplete due to max_output_tokens
-      r = await callJsonPath(userJson, SYSTEM, apiKey, true, 1400);
+      r = await callJsonPath(userJson, SYSTEM, apiKey, true, 2500);
     } else if (/format\.name|json_schema.+unsupported|unknown parameter.+json_schema/i.test(String(r.error))) {
       r = await callJsonPath(userJson, SYSTEM, apiKey, false, 900);
     }
   }
   if (!r.ok) {
-    if (r.code === 206) r = await callJsonPath(userJson, SYSTEM, apiKey, false, 1400);
+    if (r.code === 206) r = await callJsonPath(userJson, SYSTEM, apiKey, false, 2500);
     if (!r.ok) throw new Error(`JSON schema path failed: ${r.error}`);
   }
 
