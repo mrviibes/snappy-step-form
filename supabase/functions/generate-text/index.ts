@@ -266,7 +266,7 @@ async function callJsonPath(userJson: any, apiKey: string) {
         strict: true
       }
     },
-    max_output_tokens: 512
+    max_output_tokens: 1024
   };
   
   const r = await openaiRequest(body, apiKey);
