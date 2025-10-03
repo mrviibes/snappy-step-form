@@ -21,6 +21,8 @@ const MOVIE_ANCHORS: Record<string, string[]> = {
   "the matrix": ["Neo", "Morpheus", "red pill", "blue pill", "Agent Smith", "bullet time", "Matrix"],
   "star wars": ["lightsaber", "Jedi", "Force", "stormtrooper", "Millennium Falcon", "Darth Vader"]
 };
+
+const STYLE_BLURBS: Record<string, string[]> = {
   humorous: [
     "Tight setup, quick twist, one vivid noun, out clean",
     "Everyday truth flipped sideways, keep words short and punchy",
