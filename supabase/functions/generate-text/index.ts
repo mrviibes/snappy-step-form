@@ -105,7 +105,7 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort("timeout"), 25000); // return before UI's 30s guardrail
+  const timeoutId = setTimeout(() => controller.abort("timeout"), 45000); // 45s timeout for GPT-5
 
   let resp: Response;
   try {
@@ -206,8 +206,8 @@ serve(async (req) => {
       task
     };
 
-    // single fast call (256 tokens). This avoids the "length" trims we saw at 160.
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 2048);
+    // GPT-5 needs reasonable token limit for speed
+    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 1024);
 
     return new Response(JSON.stringify({
       success: true,
