@@ -87,7 +87,7 @@ function validate(lines: string[], task: TaskObject) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 640) {
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 1024, attempt = 0) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   const schema = {
     name: "ViibeTextCompactV1",
@@ -143,6 +143,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 64
   if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 800)}`);
 
   const data = JSON.parse(raw);
+
+  // Handle incomplete due to token cap: single retry with higher limit
+  if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 1) {
+    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with 1536`);
+    return await callResponsesAPI(system, userObj, Math.max(1536, (maxTokens || 0) + 512), attempt + 1);
+  }
 
   // Try output_parsed first (structured output)
   if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
@@ -234,25 +240,29 @@ serve(async (req) => {
 
     let lines: string[];
     try {
-      lines = await callResponsesAPI(SYSTEM, userPayload, 640);
+      lines = await callResponsesAPI(SYSTEM, userPayload, 1024);
     } catch (e) {
-      // Surface readable error, but fail soft with SAFE_LINES for the UI
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
-      return err(502, msg);
+      const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: msg };
+      return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     const v = validate(lines, task);
     if (v) {
-      // one strict retry
+      // one strict retry with higher token budget
       const strict = SYSTEM + "\nCRITICAL: Every line must include required tokens and end punctuation. Length 28–120.";
       try {
-        lines = await callResponsesAPI(strict, userPayload, 768);
+        lines = await callResponsesAPI(strict, userPayload, 1536);
       } catch (e2) {
-        return err(422, "Validation failed after retry", { problems: v, info: String(e2) });
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation retry failed", details: { problems: v, info: String(e2) } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
       const v2 = validate(lines, task);
-      if (v2) return err(422, "Validation failed after retry", { problems: v2, lines });
+      if (v2) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed after retry", details: { problems: v2, lines } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, options: lines, model: RESP_MODEL, count: lines.length }), {
@@ -260,7 +270,8 @@ serve(async (req) => {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const status = /timeout/i.test(msg) ? 408 : /OpenAI\s4\d\d/.test(msg) ? 502 : 500;
-    return err(status, msg || "Unexpected error");
+    console.error("generate-text fatal error:", msg);
+    const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: msg };
+    return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
   }
 });
