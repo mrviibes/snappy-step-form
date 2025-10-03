@@ -73,9 +73,15 @@ function extractJsonObject(resp: any): any | null {
     }
   }
 
-  // 3) Chat Completions style: choices[0].message.content
+  // 3) Chat Completions style: choices[0].message.*
   const choice = Array.isArray(resp?.choices) ? resp.choices[0] : null;
   const msg = choice?.message;
+
+  // NEW: structured outputs land here first
+  if (msg?.parsed && typeof msg.parsed === "object" && msg.parsed.lines) {
+    return msg.parsed;
+  }
+
   if (typeof msg?.content === "string") {
     obj = tryParse(msg.content);
     if (obj?.lines) return obj;
@@ -156,7 +162,7 @@ SELF-CHECK:
         strict: schema.strict
       }
     },
-    max_completion_tokens: 160
+    max_completion_tokens: 320
   };
 
   const resp = await fetch(OPENAI_API_URL, {
@@ -182,9 +188,10 @@ SELF-CHECK:
   if (!obj?.lines) {
     // provider refusal path if present
     const refusal = data?.choices?.[0]?.message?.refusal
-                || data?.incomplete_details?.reason;
+                || data?.incomplete_details?.reason
+                || data?.choices?.[0]?.finish_reason;
     if (refusal) {
-      throw new Error(`Provider refusal: ${String(refusal).slice(0, 300)}`);
+      throw new Error(`Provider reason: ${String(refusal).slice(0, 300)}`);
     }
 
     // concise payload hint for the debug panel
