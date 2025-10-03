@@ -13,8 +13,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const MODEL = "gpt-5-2025-08-07";
+const AI_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-2.5-flash";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
@@ -95,41 +95,42 @@ function buildStricterSystemPrompt(
   return baseSystem + "\n\n" + extras.join("\n");
 }
 
-async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, maxTokens = 512): Promise<string[]> {
-  const jsonSchema = {
-    type: "object",
-    additionalProperties: false,
-    required: ["lines"],
-    properties: {
-      lines: {
-        type: "array",
-        minItems: 4,
-        maxItems: 4,
-        items: { 
-          type: "string", 
-          minLength: 28, 
-          maxLength: 120,
-          pattern: "[.!?]$"
-        }
-      }
-    }
-  };
+async function callAIOnce(system: string, userObj: unknown, apiKey: string, maxTokens = 512): Promise<string[]> {
+  const reqId = crypto.randomUUID().slice(0, 8);
+  const startTime = Date.now();
 
   const body = {
     model: MODEL,
-    input: [
+    messages: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) }
     ],
-    max_output_tokens: maxTokens,
-    text: { 
-      format: { 
-        type: "json_schema",
-        name: "ViibeTextCompactV1",
-        strict: true,
-        schema: jsonSchema 
-      } 
-    }
+    max_tokens: maxTokens,
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "return_lines",
+          description: "Return exactly 4 text lines for the viibe, each 28-120 characters ending with . ! or ?",
+          parameters: {
+            type: "object",
+            required: ["lines"],
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: {
+                  type: "string",
+                  description: "A single line of text, 28-120 chars, ending with . ! or ?"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    tool_choice: { type: "function", function: { name: "return_lines" } }
   };
 
   const controller = new AbortController();
@@ -137,7 +138,7 @@ async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, 
 
   let resp: Response;
   try {
-    resp = await fetch(OPENAI_API_URL, {
+    resp = await fetch(AI_API_URL, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -151,44 +152,83 @@ async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, 
   }
 
   const raw = await resp.text();
-  if (resp.status === 402) throw new Error("Payment required or credits exhausted");
-  if (resp.status === 429) throw new Error("Rate limited");
-  if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 800)}`);
+  const elapsed = Date.now() - startTime;
+
+  if (resp.status === 402) {
+    console.error(`[${reqId}] 402 Payment Required (${elapsed}ms)`);
+    throw new Error("Payment required or credits exhausted");
+  }
+  if (resp.status === 429) {
+    console.error(`[${reqId}] 429 Rate Limited (${elapsed}ms)`);
+    throw new Error("Rate limited");
+  }
+  if (!resp.ok) {
+    console.error(`[${reqId}] AI API ${resp.status} (${elapsed}ms): ${raw.slice(0, 400)}`);
+    throw new Error(`AI provider error ${resp.status}`);
+  }
 
   const data = JSON.parse(raw);
 
-  // Preferred: structured output already parsed
-  if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
-    const lines = data.output_parsed.lines as string[];
-    return lines.map(line => {
-      const trimmed = line.trim();
-      if (!/[.!?]$/.test(trimmed)) return trimmed + '.';
-      return trimmed;
-    });
+  // Primary: extract from tool call
+  const toolCalls = data.choices?.[0]?.message?.tool_calls;
+  if (toolCalls?.length > 0) {
+    try {
+      const args = JSON.parse(toolCalls[0].function.arguments);
+      if (args?.lines && Array.isArray(args.lines)) {
+        console.log(`[${reqId}] Tool call success (${elapsed}ms)`);
+        return args.lines.map((line: string) => {
+          const trimmed = line.trim();
+          if (!/[.!?]$/.test(trimmed)) return trimmed + '.';
+          return trimmed;
+        });
+      }
+    } catch (e) {
+      console.warn(`[${reqId}] Tool call parse failed:`, e);
+    }
   }
 
-  // Fallback: first text block contains JSON
-  const blocks = data.output?.[0]?.content || [];
-  const textBlock = blocks.find((b: any) => b.type === "output_text")?.text ?? "";
-  try {
-    const obj = JSON.parse(textBlock);
-    if (obj?.lines && Array.isArray(obj.lines)) {
-      const lines = obj.lines as string[];
-      return lines.map(line => {
-        const trimmed = line.trim();
-        if (!/[.!?]$/.test(trimmed)) return trimmed + '.';
-        return trimmed;
-      });
-    }
-  } catch {}
+  // Fallback A: check for JSON block in content
+  const content = data.choices?.[0]?.message?.content || "";
+  const jsonMatch = content.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+  if (jsonMatch) {
+    try {
+      const obj = JSON.parse(jsonMatch[1]);
+      if (obj?.lines && Array.isArray(obj.lines)) {
+        console.log(`[${reqId}] JSON block fallback (${elapsed}ms)`);
+        return obj.lines.map((line: string) => {
+          const trimmed = line.trim();
+          if (!/[.!?]$/.test(trimmed)) return trimmed + '.';
+          return trimmed;
+        });
+      }
+    } catch {}
+  }
 
-  throw new Error("No lines parsed from Responses API");
+  // Fallback B: split raw text and validate
+  if (content) {
+    const candidates = content
+      .split(/\n+/)
+      .map(s => s.replace(/^\d+\.\s*/, '').trim())
+      .filter(s => s.length >= 28 && s.length <= 120 && /[.!?]$/.test(s));
+    
+    if (candidates.length >= 4) {
+      console.log(`[${reqId}] Text split fallback (${elapsed}ms)`);
+      return candidates.slice(0, 4);
+    }
+  }
+
+  console.error(`[${reqId}] No valid lines extracted (${elapsed}ms), response shape:`, {
+    hasToolCalls: !!toolCalls,
+    hasContent: !!content,
+    contentPreview: content.slice(0, 200)
+  });
+  throw new Error("Could not extract valid lines from AI response");
 }
 
 // ---------- hedged request orchestrator ----------
 async function callFastWithHedge(system: string, userObj: unknown, apiKey: string): Promise<string[]> {
   // Primary starts now
-  const p1 = callOpenAIOnce(system, userObj, apiKey, 512).catch(e => {
+  const p1 = callAIOnce(system, userObj, apiKey, 512).catch(e => {
     console.error("Primary request failed:", e);
     throw e;
   });
@@ -197,7 +237,7 @@ async function callFastWithHedge(system: string, userObj: unknown, apiKey: strin
   const p2 = new Promise<string[]>((resolve, reject) => {
     const timer = setTimeout(async () => {
       try { 
-        resolve(await callOpenAIOnce(system, userObj, apiKey, 768)); 
+        resolve(await callAIOnce(system, userObj, apiKey, 768)); 
       } catch (e) { 
         console.error("Hedge request failed:", e);
         reject(e); 
@@ -221,9 +261,9 @@ async function callFastWithHedge(system: string, userObj: unknown, apiKey: strin
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   try {
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const body: GeneratePayload = await req.json();
 
@@ -281,7 +321,7 @@ serve(async (req) => {
     // First attempt with standard prompt
     let lines: string[];
     try {
-      lines = await callFastWithHedge(SYSTEM, userPayload, OPENAI_API_KEY);
+      lines = await callFastWithHedge(SYSTEM, userPayload, LOVABLE_API_KEY);
     } catch (err) {
       console.error("First attempt failed:", err);
       
@@ -317,7 +357,7 @@ serve(async (req) => {
       };
       
       try {
-        lines = await callOpenAIOnce(stricterSystem, stricterUserPayload, OPENAI_API_KEY, 896);
+        lines = await callAIOnce(stricterSystem, stricterUserPayload, LOVABLE_API_KEY, 896);
         
         // Validate again
         if (!validLines(lines, task)) {
