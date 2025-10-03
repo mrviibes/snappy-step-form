@@ -96,20 +96,17 @@ export function pickStyleBlurb(tone: Tone): string {
 
 // ---------- House Rules builder: slim & fast ----------
 export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?: string[]) {
-  const a = Array.isArray(anchors) && anchors.length ? anchors.slice(0, 8) : [];
-  const anchorLine = a.length ? `Anchors (use one per line): ${a.join(", ")}` : "";
+  const a = Array.isArray(anchors) && anchors.length ? anchors.slice(0, 6) : [];
+  const anchorLine = a.length ? `Anchors: include ≥1 per line → ${a.join(", ")}` : "";
 
   return [
-    "Short, hilarious, punchy captions for images.",
-    "Return 4 lines, each 28-120 chars, sentence ends with . ! or ?",
-    "Specific to the topic. No meta, hashtags, or emojis.",
-    `TONE: ${tone_hint}`,
-    `RATING: ${rating_hint}`,
-    
-    "PG-13: no f-bomb. R: strong profanity allowed, not last word.",
-    anchorLine,
-    "Insert words per policy.",
-    "No slurs. No illegal how-to."
+    "Write 4 punchy on-image captions.",
+    "Each 28–120 chars, end with . ! or ?",
+    `Tone: ${tone_hint}`,
+    `Rating: ${rating_hint} (no slurs; no illegal how-to)`,
+    "Comedy: specificity, contrast, quick twist. One idea per line.",
+    "PG-13: no f-bomb. R: strong profanity OK, not last word.",
+    anchorLine
   ].filter(Boolean).join("\n");
 }
 
