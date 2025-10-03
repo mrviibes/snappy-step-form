@@ -96,17 +96,15 @@ export function pickStyleBlurb(tone: Tone): string {
 
 // ---------- House Rules builder: slim & fast ----------
 export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?: string[]) {
-  const a = Array.isArray(anchors) && anchors.length ? anchors.slice(0, 6) : [];
-  const anchorLine = a.length ? `Anchors: include ≥1 per line → ${a.join(", ")}` : "";
-
+  const a = Array.isArray(anchors) && anchors.length ? `Anchors: ${anchors.slice(0,6).join(", ")}` : "";
   return [
     "Write 4 punchy on-image captions.",
-    "Each 28–120 chars, end with . ! or ?",
+    "Each 28-120 chars; end with . ! or ?",
     `Tone: ${tone_hint}`,
     `Rating: ${rating_hint} (no slurs; no illegal how-to)`,
     "Comedy: specificity, contrast, quick twist. One idea per line.",
-    "PG-13: no f-bomb. R: strong profanity OK, not last word.",
-    anchorLine
+    "PG-13: no f-bomb. R: strong profanity allowed, not last word.",
+    a
   ].filter(Boolean).join("\n");
 }
 

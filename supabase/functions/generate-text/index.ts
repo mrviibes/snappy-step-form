@@ -13,7 +13,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-5-2025-08-07";
+const MODEL = "gpt-5-mini";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
@@ -39,43 +39,38 @@ type GeneratePayload = {
 };
 
 // ---------- helpers ----------
-function tryParseJson(s: unknown) {
-  if (typeof s !== "string") return null;
-  const trimmed = s.trim().replace(/^```json\s*|\s*```$/g, "").trim();
-  try { return JSON.parse(trimmed); } catch { /* try slice */ }
-  const start = trimmed.indexOf("{"), end = trimmed.lastIndexOf("}");
-  if (start !== -1 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)); } catch {}
-  }
+function parseJsonBlock(s: string | undefined | null) {
+  if (!s) return null;
+  const t = s.trim().replace(/^```json\s*|\s*```$/g, "").trim();
+  try { return JSON.parse(t); } catch {}
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a !== -1 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch {} }
   return null;
 }
 
-function extractLinesFromChat(data: any): string[] | null {
-  const choice = Array.isArray(data?.choices) ? data.choices[0] : null;
-  const msg = choice?.message;
+function pickLinesFromChat(data: any): string[] | null {
+  const ch = Array.isArray(data?.choices) ? data.choices[0] : null;
+  const msg = ch?.message;
 
-  // Structured outputs: the parsed object is here
-  if (msg?.parsed && typeof msg.parsed === "object" && Array.isArray(msg.parsed.lines)) {
-    return msg.parsed.lines;
-  }
+  // Structured outputs place object here
+  if (msg?.parsed && Array.isArray(msg.parsed.lines)) return msg.parsed.lines;
 
-  // Fallback: content string that contains JSON
+  // Textual JSON fallback
   if (typeof msg?.content === "string") {
-    const obj = tryParseJson(msg.content);
+    const obj = parseJsonBlock(msg.content);
     if (obj?.lines && Array.isArray(obj.lines)) return obj.lines;
   }
 
-  // Last resort: tool_calls (if the model ignored response_format, rare)
+  // Last-resort: tool_calls.arguments (rare with response_format)
   const tcs = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
   for (const tc of tcs) {
-    const obj = tryParseJson(tc?.function?.arguments);
+    const obj = parseJsonBlock(tc?.function?.arguments);
     if (obj?.lines && Array.isArray(obj.lines)) return obj.lines;
   }
-
   return null;
 }
 
-async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string, maxTokens = 256) {
+async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 256, abortMs = 22000) {
   const schema = {
     name: "ViibeTextCompactV1",
     strict: true,
@@ -88,7 +83,7 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 18, maxLength: 120, pattern: "[.!?]$" }
+          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" }
         }
       }
     }
@@ -97,52 +92,69 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
   const body = {
     model: MODEL,
     messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify(userJson) }
+      { role: "system", content: system },
+      { role: "user", content: JSON.stringify(userObj) }
     ],
     response_format: { type: "json_schema", json_schema: schema },
     max_completion_tokens: maxTokens
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort("timeout"), 45000); // 45s timeout for GPT-5
+  const t = setTimeout(() => controller.abort("timeout"), abortMs);
 
-  let resp: Response;
   try {
-    resp = await fetch(OPENAI_API_URL, {
+    const r = await fetch(OPENAI_API_URL, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "Connection": "keep-alive"
+      headers: { 
+        "Authorization": `Bearer ${apiKey}`, 
+        "Content-Type": "application/json" 
       },
       body: JSON.stringify(body),
       signal: controller.signal
     });
+    const raw = await r.text();
+    if (r.status === 402) throw new Error("Payment required or credits exhausted");
+    if (r.status === 429) throw new Error("Rate limited, please try again later");
+    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 600)}`);
+
+    const data = JSON.parse(raw);
+    const lines = pickLinesFromChat(data);
+    if (lines && lines.length === 4) return lines;
+
+    const reason = data?.choices?.[0]?.message?.refusal
+      || data?.incomplete_details?.reason
+      || data?.choices?.[0]?.finish_reason;
+    if (reason) throw new Error(`Provider reason: ${String(reason)}`);
+
+    throw new Error("No lines returned");
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(t);
   }
+}
 
-  const raw = await resp.text();
+// ---------- hedged request orchestrator ----------
+async function callFastWithHedge(system: string, userObj: unknown, apiKey: string) {
+  // Primary starts now
+  const p1 = callOnceChatJSON(system, userObj, apiKey, 256, 22000);
 
-  if (resp.status === 402) throw new Error("Payment required or credits exhausted");
-  if (resp.status === 429) throw new Error("Rate limited, please try again later");
-  if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 600)}`);
+  // Hedge fires after 3s with slightly larger budget to beat tail latency
+  const p2 = new Promise<string[]>((resolve, reject) => {
+    const timer = setTimeout(async () => {
+      try { resolve(await callOnceChatJSON(system, userObj, apiKey, 320, 22000)); }
+      catch (e) { reject(e); }
+    }, 3000);
+    // If p1 wins, cancel hedge timer
+    p1.finally(() => clearTimeout(timer));
+  });
 
-  let data: any = null;
-  try { data = JSON.parse(raw); } catch { throw new Error("Provider returned non-JSON"); }
-
-  const lines = extractLinesFromChat(data);
-  if (lines && Array.isArray(lines) && lines.length === 4) return { lines, data };
-
-  // Surface real cause if any
-  const reason =
-    data?.choices?.[0]?.message?.refusal ||
-    data?.incomplete_details?.reason ||
-    data?.choices?.[0]?.finish_reason;
-  if (reason) throw new Error(`Provider reason: ${String(reason)}`);
-
-  throw new Error(`No lines found. Keys: ${Object.keys(data || {}).slice(0, 12).join(", ")}`);
+  // Whichever returns first wins
+  try {
+    return await Promise.race([p1, p2]);
+  } catch (e1) {
+    // If primary failed instantly, await hedge result too
+    try { return await p2; }
+    catch (e2) { throw e1; }
+  }
 }
 
 // ---------- HTTP handler ----------
@@ -206,8 +218,7 @@ serve(async (req) => {
       task
     };
 
-    // Increase token budget to avoid 'length' truncation with GPT-5
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 2048);
+    const lines = await callFastWithHedge(SYSTEM, userPayload, OPENAI_API_KEY);
 
     return new Response(JSON.stringify({
       success: true,
