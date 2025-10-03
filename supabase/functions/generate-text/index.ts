@@ -70,7 +70,7 @@ function pickLinesFromChat(data: any): string[] | null {
   return null;
 }
 
-async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 256, abortMs = 22000) {
+async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string, maxTokens = 320, abortMs = 22000) {
   const schema = {
     name: "ViibeTextCompactV1",
     strict: true,
@@ -83,7 +83,7 @@ async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" }
+          items: { type: "string", minLength: 28, maxLength: 120 }
         }
       }
     }
@@ -119,7 +119,17 @@ async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string
 
     const data = JSON.parse(raw);
     const lines = pickLinesFromChat(data);
-    if (lines && lines.length === 4) return lines;
+    if (lines && lines.length === 4) {
+      // Backend validation: ensure each line ends with punctuation
+      const validated = lines.map(line => {
+        const trimmed = line.trim();
+        if (!/[.!?]$/.test(trimmed)) {
+          return trimmed + '.';
+        }
+        return trimmed;
+      });
+      return validated;
+    }
 
     const reason = data?.choices?.[0]?.message?.refusal
       || data?.incomplete_details?.reason
@@ -135,12 +145,12 @@ async function callOnceChatJSON(system: string, userObj: unknown, apiKey: string
 // ---------- hedged request orchestrator ----------
 async function callFastWithHedge(system: string, userObj: unknown, apiKey: string) {
   // Primary starts now
-  const p1 = callOnceChatJSON(system, userObj, apiKey, 256, 22000);
+  const p1 = callOnceChatJSON(system, userObj, apiKey, 320, 22000);
 
   // Hedge fires after 3s with slightly larger budget to beat tail latency
   const p2 = new Promise<string[]>((resolve, reject) => {
     const timer = setTimeout(async () => {
-      try { resolve(await callOnceChatJSON(system, userObj, apiKey, 320, 22000)); }
+      try { resolve(await callOnceChatJSON(system, userObj, apiKey, 448, 22000)); }
       catch (e) { reject(e); }
     }, 3000);
     // If p1 wins, cancel hedge timer
