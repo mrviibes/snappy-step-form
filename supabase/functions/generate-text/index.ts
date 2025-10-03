@@ -13,7 +13,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-5-mini-2025-08-07";
+const MODEL = "gpt-5-2025-08-07";
 
 // Minimal anchors map (expand as needed)
 const MOVIE_ANCHORS: Record<string, string[]> = {
