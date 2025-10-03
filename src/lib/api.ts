@@ -8,6 +8,8 @@ export interface GenerateTextParams {
   rating?: string;
   insertWords?: string[];
   gender?: string;
+  theme?: string;
+  movieAnchors?: string[];
 }
 
 export interface TextOptionsResponse {
@@ -47,7 +49,7 @@ export interface PollImageStatusResponse {
 // Helper function to call edge functions with timeout
 async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
-    "generate-text": 120000,          // text gen can take longer after higher token caps
+    "generate-text": 30000,           // fast single call with 160 tokens
     "generate-final-prompt": 120000,  // prompt assembly may use LLM too
     "generate-visuals": 120000,       // allow more time for LLM
     "generate-image": 45000,          // returns jobId fast; long work happens via polling
@@ -100,6 +102,8 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
   const payload = {
     category: params.category || "celebrations",
     subcategory: params.subcategory,
+    theme: params.theme,
+    movieAnchors: params.movieAnchors,
     tone: params.tone,
     rating: params.rating || "PG",
     insertWords,

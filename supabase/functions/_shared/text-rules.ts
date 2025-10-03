@@ -101,7 +101,7 @@ export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?
 
   return [
     "Short, hilarious, punchy captions for images.",
-    "Return 4 lines, each 28–140 chars, sentence ends with . ! or ?",
+    "Return 4 lines, each 28-140 chars, sentence ends with . ! or ?",
     "Specific to the topic. No meta, hashtags, or emojis.",
     `TONE: ${tone_hint}`,
     `RATING: ${rating_hint}`,

@@ -12,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENAI_API_URL = "https://api.openai.com/v1/responses";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-5-mini"; // canonical id
 
 // Movie anchors map (expand as needed)
@@ -41,6 +41,15 @@ type GeneratePayload = {
 
 // ---------- Fast single-call generator ----------
 function extractJsonObject(resp: any): any | null {
+  // OpenAI chat completions format
+  const content = resp?.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    try {
+      return JSON.parse(content.trim());
+    } catch {}
+  }
+
+  // Fallback to other formats
   const candidates: string[] = [];
   if (typeof resp?.text === "string") candidates.push(resp.text);
   if (typeof resp?.output_text === "string") candidates.push(resp.output_text);
@@ -99,7 +108,7 @@ async function callModelFast(payload: any, SYSTEM: string, apiKey: string): Prom
 
   const body = {
     model: "gpt-5-mini",
-    input: [
+    messages: [
       { role: "system", content:
 `${SYSTEM}
 SELF-CHECK:
@@ -109,15 +118,15 @@ SELF-CHECK:
 - One idea per line. Max two commas. Keep punchline forward.` },
       { role: "user", content: JSON.stringify(userJson) }
     ],
-    text: {
-      format: {
-        type: "json_schema",
+    response_format: {
+      type: "json_schema",
+      json_schema: {
         name: schema.name,
         schema: schema.schema,
-        strict: true
+        strict: schema.strict
       }
     },
-    max_output_tokens: 160
+    max_completion_tokens: 160
   };
 
   const resp = await fetch(OPENAI_API_URL, {
