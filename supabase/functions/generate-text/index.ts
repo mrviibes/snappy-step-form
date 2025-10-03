@@ -88,7 +88,7 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" }
+          items: { type: "string", minLength: 18, maxLength: 120, pattern: "[.!?]$" }
         }
       }
     }
@@ -207,7 +207,7 @@ serve(async (req) => {
     };
 
     // single fast call (256 tokens). This avoids the "length" trims we saw at 160.
-    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 1024);
+    const { lines } = await callOpenAIOnce(SYSTEM, userPayload, OPENAI_API_KEY, 2048);
 
     return new Response(JSON.stringify({
       success: true,
