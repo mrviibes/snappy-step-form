@@ -72,7 +72,11 @@ function validate(lines: string[], task: TaskObject) {
 
 // ---------- OpenAI Responses API call ----------
 async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 640) {
-  if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY not configured");
+  console.log("[callResponsesAPI] Starting call with maxTokens:", maxTokens);
+  if (!OPENAI_KEY) {
+    console.error("[callResponsesAPI] OPENAI_API_KEY is not configured!");
+    throw new Error("OPENAI_API_KEY not configured");
+  }
 
   const schema = {
     name: "ViibeTextCompactV1",
@@ -119,9 +123,20 @@ async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 6
   } finally { clearTimeout(tId); }
 
   const raw = await resp.text();
-  if (resp.status === 402) throw new Error("Payment required or credits exhausted");
-  if (resp.status === 429) throw new Error("Rate limited");
-  if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 800)}`);
+  console.log("[callResponsesAPI] Received response, status:", resp.status);
+  
+  if (resp.status === 402) {
+    console.error("[callResponsesAPI] Payment required (402)");
+    throw new Error("Payment required or credits exhausted");
+  }
+  if (resp.status === 429) {
+    console.error("[callResponsesAPI] Rate limited (429)");
+    throw new Error("Rate limited");
+  }
+  if (!resp.ok) {
+    console.error("[callResponsesAPI] OpenAI error response:", raw.slice(0, 800));
+    throw new Error(`OpenAI ${resp.status}: ${raw.slice(0, 800)}`);
+  }
 
   const data = JSON.parse(raw);
 
@@ -145,7 +160,11 @@ async function callResponsesAPI(SYSTEM: string, userJson: unknown, maxTokens = 6
 
 // ---------- Optional: Gateway (Chat Completions shape) ----------
 async function callGateway(SYSTEM: string, userJson: unknown, maxTokens = 512) {
-  if (!GATEWAY_URL || !GATEWAY_KEY) throw new Error("Gateway not configured");
+  console.log("[callGateway] Starting gateway call with maxTokens:", maxTokens);
+  if (!GATEWAY_URL || !GATEWAY_KEY) {
+    console.error("[callGateway] Gateway not configured (URL or KEY missing)");
+    throw new Error("Gateway not configured");
+  }
 
   const body = {
     model: GATEWAY_MODEL,
@@ -188,9 +207,20 @@ async function callGateway(SYSTEM: string, userJson: unknown, maxTokens = 512) {
   } finally { clearTimeout(tId); }
 
   const raw = await resp.text();
-  if (resp.status === 402) throw new Error("Payment required or credits exhausted");
-  if (resp.status === 429) throw new Error("Rate limited");
-  if (!resp.ok) throw new Error(`Gateway ${resp.status}: ${raw.slice(0, 400)}`);
+  console.log("[callGateway] Received response, status:", resp.status);
+  
+  if (resp.status === 402) {
+    console.error("[callGateway] Payment required (402)");
+    throw new Error("Payment required or credits exhausted");
+  }
+  if (resp.status === 429) {
+    console.error("[callGateway] Rate limited (429)");
+    throw new Error("Rate limited");
+  }
+  if (!resp.ok) {
+    console.error("[callGateway] Gateway error response:", raw.slice(0, 400));
+    throw new Error(`Gateway ${resp.status}: ${raw.slice(0, 400)}`);
+  }
 
   const data = JSON.parse(raw);
   const tool = data.choices?.[0]?.message?.tool_calls?.[0];
@@ -215,8 +245,25 @@ async function callGateway(SYSTEM: string, userJson: unknown, maxTokens = 512) {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  console.log("[generate-text] Function invoked");
+  
+  // Log API key configuration status (without revealing actual keys)
+  console.log("[generate-text] API Keys configured:", {
+    openai: !!OPENAI_KEY,
+    gateway_url: !!GATEWAY_URL,
+    gateway_key: !!GATEWAY_KEY
+  });
+
   try {
     const body: GeneratePayload = await req.json();
+    console.log("[generate-text] Request payload:", {
+      category: body.category,
+      subcategory: body.subcategory,
+      tone: body.tone,
+      rating: body.rating,
+      hasInsertWords: !!body.insertWords?.length,
+      hasMovieAnchors: !!body.movieAnchors?.length
+    });
 
     const category = (body.category || "").trim();
     const subcategory = (body.subcategory || "").trim();
@@ -263,14 +310,25 @@ serve(async (req) => {
     let lastErr: unknown = null;
 
     // Try Responses API first
+    console.log("[generate-text] Attempting OpenAI Responses API call...");
     try {
       lines = await callResponsesAPI(SYSTEM, userPayload, 640);
+      console.log("[generate-text] OpenAI Responses API success, received", lines?.length, "lines");
     } catch (e) {
+      console.error("[generate-text] OpenAI Responses API failed:", e instanceof Error ? e.message : String(e));
       lastErr = e;
       // Fallback to gateway if configured
       if (GATEWAY_URL && GATEWAY_KEY) {
-        lines = await callGateway(SYSTEM, userPayload, 768);
+        console.log("[generate-text] Attempting gateway fallback...");
+        try {
+          lines = await callGateway(SYSTEM, userPayload, 768);
+          console.log("[generate-text] Gateway fallback success, received", lines?.length, "lines");
+        } catch (gatewayErr) {
+          console.error("[generate-text] Gateway fallback also failed:", gatewayErr instanceof Error ? gatewayErr.message : String(gatewayErr));
+          throw gatewayErr;
+        }
       } else {
+        console.log("[generate-text] No gateway configured, re-throwing OpenAI error");
         throw e;
       }
     }
@@ -278,22 +336,32 @@ serve(async (req) => {
     // Validate and retry once with stricter rules if needed
     const v1 = validate(lines!, task);
     if (v1) {
+      console.log("[generate-text] Initial validation failed, problems:", v1);
       const strictSystem = SYSTEM + "\nCRITICAL: Every line must include end punctuation, length 28–120, "
         + (task.birthday_explicit ? "must include 'birthday' or 'b-day', " : "")
         + (task.insert_words?.length ? `at least one line must include one of: ${task.insert_words.join(", ")}, ` : "")
         + "no instructions, no slurs.";
+      console.log("[generate-text] Retrying with stricter system prompt...");
       try {
         const retryLines = OPENAI_KEY
           ? await callResponsesAPI(strictSystem, userPayload, 768)
           : await callGateway(strictSystem, userPayload, 896);
         const v2 = validate(retryLines, task);
-        if (v2) return err(422, "Generated text failed validation after retry", { problems: v2, retryLines });
+        if (v2) {
+          console.error("[generate-text] Retry validation also failed, problems:", v2);
+          return err(422, "Generated text failed validation after retry", { problems: v2, retryLines });
+        }
+        console.log("[generate-text] Retry validation passed");
         lines = retryLines;
       } catch (retryErr) {
+        console.error("[generate-text] Retry attempt failed:", retryErr instanceof Error ? retryErr.message : String(retryErr));
         return err(500, "Retry failed", { error: String(retryErr) });
       }
+    } else {
+      console.log("[generate-text] Initial validation passed");
     }
 
+    console.log("[generate-text] Returning successful response with", lines!.length, "lines");
     return new Response(JSON.stringify({
       success: true,
       options: lines,
@@ -308,6 +376,11 @@ serve(async (req) => {
                 : /Rate limited/i.test(msg) ? 429
                 : /OpenAI 4\d\d|Gateway 4\d\d/.test(msg) ? 502
                 : 500;
+    console.error("[generate-text] Final error handler caught:", {
+      message: msg,
+      status,
+      stack: e instanceof Error ? e.stack : undefined
+    });
     return err(status, msg || "Unexpected error");
   }
 });
