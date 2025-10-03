@@ -49,47 +49,56 @@ export interface PollImageStatusResponse {
 // Helper function to call edge functions with timeout
 async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
-    "generate-text": 45000,           // was 30000
-    "generate-final-prompt": 120000,  // prompt assembly may use LLM too
-    "generate-visuals": 120000,       // allow more time for LLM
-    "generate-image": 45000,          // returns jobId fast; long work happens via polling
-    "poll-image-status": 15000        // each poll should be quick
+    "generate-text": 45000,
+    "generate-final-prompt": 120000,
+    "generate-visuals": 120000,
+    "generate-image": 45000,
+    "poll-image-status": 15000,
   };
   const timeoutMs = TIMEOUTS[functionName] ?? 60000;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`Request timeout (${Math.round(timeoutMs / 1000)}s) - please try again`)), timeoutMs);
-  });
-
-  const invokePromise = supabase.functions.invoke(functionName, {
-    body: payload,
+    setTimeout(
+      () => reject(new Error(`Request timeout (${Math.round(timeoutMs / 1000)}s) - please try again`)),
+      timeoutMs
+    );
   });
 
   try {
-    const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+    const { data, error } = await Promise.race([
+      supabase.functions.invoke(functionName, { body: payload }),
+      timeoutPromise,
+    ]);
 
     if (error) {
-      console.error(`Error calling ${functionName}:`, error);
-      const detailed = (error as any)?.context?.body || error.message || `Failed to call ${functionName}`;
-      // Try to extract JSON error.message if body is JSON
-      try {
-        const parsed = typeof detailed === 'string' ? JSON.parse(detailed) : detailed;
-        const msg = parsed?.error || parsed?.message || detailed;
-        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      } catch {
-        throw new Error(typeof detailed === 'string' ? detailed : JSON.stringify(detailed));
+      const ctx: any = (error as any).context || {};
+      let msg: string | undefined;
+      if (typeof ctx.body === "string" && ctx.body.trim()) {
+        try {
+          const parsed = JSON.parse(ctx.body);
+          msg = parsed?.error || parsed?.message || ctx.body;
+        } catch {
+          msg = ctx.body;
+        }
       }
+      if (!msg) msg = (error as any).message || `Failed to call ${functionName}`;
+      throw new Error(msg);
     }
 
-    // Check for error in response body (status 200 but success: false)
-    if (data && typeof data === 'object' && 'success' in data && !data.success) {
-      const errorMsg = (data as any).error || 'Request failed';
-      throw new Error(errorMsg);
+    // Normalize potential string body
+    let body: any = data;
+    if (typeof body === "string") {
+      try { body = JSON.parse(body); } catch { /* leave as string */ }
     }
 
-    return data as T;
-  } catch (error: any) {
-    throw error;
+    if (body && typeof body === "object" && 'success' in body && body.success === false) {
+      throw new Error(body.error || `Request failed (${functionName})`);
+    }
+
+    return body as T;
+  } catch (e: any) {
+    const msg = e instanceof Error ? e.message : String(e ?? 'Unknown error');
+    throw new Error(msg && msg !== '[object Object]' ? msg : `Failed to call ${functionName}`);
   }
 }
 
