@@ -46,8 +46,17 @@ export interface PollImageStatusResponse {
 
 // Helper function to call edge functions with timeout
 async function ctlFetch<T>(functionName: string, payload: any): Promise<T> {
+  const TIMEOUTS: Record<string, number> = {
+    "generate-text": 120000,          // text gen can take longer after higher token caps
+    "generate-final-prompt": 120000,  // prompt assembly may use LLM too
+    "generate-visuals": 60000,        // quick suggestions
+    "generate-image": 45000,          // returns jobId fast; long work happens via polling
+    "poll-image-status": 15000        // each poll should be quick
+  };
+  const timeoutMs = TIMEOUTS[functionName] ?? 60000;
+
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout (60s) - please try again')), 60000);
+    setTimeout(() => reject(new Error(`Request timeout (${Math.round(timeoutMs / 1000)}s) - please try again`)), timeoutMs);
   });
 
   const invokePromise = supabase.functions.invoke(functionName, {
