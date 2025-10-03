@@ -129,8 +129,7 @@ async function callOpenAIOnce(system: string, userObj: unknown, apiKey: string, 
     text: { 
       format: { 
         type: "json_schema", 
-        name: "ViibeTextCompactV1",
-        json_schema: schema 
+        schema: schema 
       } 
     }
   };
