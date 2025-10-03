@@ -101,9 +101,6 @@ async function callOpenAIOnce(SYSTEM: string, userJson: unknown, apiKey: string,
       { role: "user", content: JSON.stringify(userJson) }
     ],
     response_format: { type: "json_schema", json_schema: schema },
-    // keep generation light and fast
-    temperature: 0.8,
-    top_p: 0.9,
     max_completion_tokens: maxTokens
   };
 
