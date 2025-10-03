@@ -105,7 +105,7 @@ function extractJsonObject(resp: any): any | null {
   return null;
 }
 
-async function callModelFast(payload: any, SYSTEM: string, apiKey: string): Promise<string[]> {
+async function callModelFast(payload: any, SYSTEM: string, apiKey: string, opts?: { maxTokens?: number }): Promise<string[]> {
   const schema = {
     name: "ViibeTextCompactV1",
     strict: true,
@@ -145,24 +145,22 @@ async function callModelFast(payload: any, SYSTEM: string, apiKey: string): Prom
   const body = {
     model: "gpt-5-mini",
     messages: [
-      { role: "system", content:
-`${SYSTEM}
-SELF-CHECK:
-- Replace any line that fails rating rules or anchor/insert checks before returning.
-- PG-13: zero f-bombs. R: at least one strong profanity per line if tone = Savage or Humorous, not the last word.
-- If anchors provided, include at least one per line.
-- One idea per line. Max two commas. Keep punchline forward.` },
+      { role: "system", content: SYSTEM },
       { role: "user", content: JSON.stringify(userJson) }
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: schema.name,
-        schema: schema.schema,
-        strict: schema.strict
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "return_lines",
+          description: "Return exactly 4 caption lines that follow all rules.",
+          parameters: schema.schema
+        }
       }
-    },
-    max_completion_tokens: 512
+    ],
+    tool_choice: { type: "function", function: { name: "return_lines" } },
+    parallel_tool_calls: false,
+    max_completion_tokens: (opts?.maxTokens ?? 640)
   };
 
   const resp = await fetch(OPENAI_API_URL, {
@@ -183,6 +181,7 @@ SELF-CHECK:
 
   let data: any = null;
   try { data = JSON.parse(raw); } catch { throw new Error("Provider returned non-JSON"); }
+  try { console.log("generate-text usage:", data?.usage || null); } catch {}
 
   const obj = extractJsonObject(data);
   if (!obj?.lines) {
@@ -273,8 +272,21 @@ serve(async (req) => {
       task
     };
 
-    // One call, no retry
-    const lines = await callModelFast(userPayload, SYSTEM, OPENAI_API_KEY);
+    // Try once, then retry on length error with higher token budget and trimmed anchors
+    let lines: string[];
+    try {
+      lines = await callModelFast(userPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 640 });
+    } catch (e) {
+      const msg = (e as Error)?.message?.toLowerCase() || "";
+      if (msg.includes("length")) {
+        const trimmedTask = { ...task, anchors: Array.isArray(task.anchors) ? task.anchors.slice(0, 4) : [] };
+        const retryPayload = { ...userPayload, task: trimmedTask };
+        console.warn("generate-text retry: increasing token budget and trimming anchors");
+        lines = await callModelFast(retryPayload, SYSTEM, OPENAI_API_KEY, { maxTokens: 896 });
+      } else {
+        throw e;
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,

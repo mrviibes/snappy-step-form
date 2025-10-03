@@ -105,7 +105,7 @@ export function buildHouseRules(tone_hint: string, rating_hint: string, anchors?
     "Specific to the topic. No meta, hashtags, or emojis.",
     `TONE: ${tone_hint}`,
     `RATING: ${rating_hint}`,
-    "Comedy: misdirection, contrast, rule of three, specificity, wordplay.",
+    
     "PG-13: no f-bomb. R: strong profanity allowed, not last word.",
     anchorLine,
     "Insert words per policy.",
