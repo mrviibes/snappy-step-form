@@ -63,7 +63,11 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     ? "Primary tone is warm/affectionate, but every line still needs a sprinkle of humor or a clever twist — a wink, one absurd detail, or playful language."
     : tone === "serious"
     ? "Minimal humor; focus on weight and clarity."
-    : "Every line MUST be hilarious. Strong punchlines, absurd turns, or witty exaggerations. No plain compliments or bland Hallmark filler.";
+    : "Every line must make the reader LAUGH OUT LOUD through surprise twists, absurd consequences, or ridiculous escalation. Use outrageous imagery (e.g., fire marshal for candles, frosting emergencies, cake legal contracts).";
+
+  const bannedPatterns = tone !== "serious" 
+    ? "\nBAN these template phrases: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom, Hallmark greetings. At least 2 lines must contain absurd/unexpected scenarios."
+    : "";
 
   return [
     "Write 4 on-image captions for birthday cards.",
@@ -71,6 +75,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     `Tone: ${tone_hint}`,
     `Rating: ${rating_hint}`,
     comedyRule,
+    bannedPatterns,
     "One distinct idea per line. No duplicates.",
     "PG-13: no f-bomb. R: profanity allowed, not last word.",
     cueHint,
@@ -143,33 +148,110 @@ function topicalityProblems(
   return problems.length ? problems : null;
 }
 
-function comedyProblems(lines: string[], tone: Tone) {
-  // Humor markers that indicate comedy/playfulness
-  const HUMOR_MARKERS = [
-    /\b(cake|candles|sprinkles?|frosting|icing|wish|party|balloon|confetti)\b/i,
-    /\b(old|age|wrinkle|chaos|disaster|duty|report|xp|level\s*up|unlock)\b/i,
-    /\b(biohazard|backup|plausible|deniability|coordinator|reckless)\b/i,
-    /\b(pretend|suppose|allegedly|technically|basically)\b/i,
-    /[±∞]/,  // math symbols used humorously
+function blandnessProblems(lines: string[], tone: Tone) {
+  if (tone === "serious") return null;
+  
+  const BANNED_OPENINGS = [
+    /^Level up/i,
+    /^Survived another/i,
+    /^Make a wish/i,
+    /^Another year/i,
+    /^Congrats on/i,
+    /^Happy birthday to/i,
+    /^Wishing you/i,
+    /^Here's to/i,
   ];
   
-  const hasHumor = (line: string) => HUMOR_MARKERS.some(marker => marker.test(line));
-  const humorCount = lines.filter(hasHumor).length;
+  const GAMER_PATCH_NOTES = /\b(age\s*[+]\s*\d|wisdom\s*[±]\s*\d|xp\s*[+])/i;
+  const FORTUNE_COOKIE = /^(Remember|Always|Never forget|Life is|The secret)/i;
+  
+  const problems: string[] = [];
+  
+  for (const line of lines) {
+    // Check banned opening patterns
+    if (BANNED_OPENINGS.some(pattern => pattern.test(line))) {
+      problems.push(`banned_template:${line.slice(0, 30)}...`);
+    }
+    // Check gamer patch notes style
+    if (GAMER_PATCH_NOTES.test(line)) {
+      problems.push(`gamer_patch_notes:${line.slice(0, 30)}...`);
+    }
+    // Check fortune cookie wisdom
+    if (FORTUNE_COOKIE.test(line)) {
+      problems.push(`fortune_cookie:${line.slice(0, 30)}...`);
+    }
+  }
+  
+  // Check for variety: no two lines should start with same 3 words
+  const openings = lines.map(l => l.split(/\s+/).slice(0, 3).join(" ").toLowerCase());
+  const uniqueOpenings = new Set(openings);
+  if (uniqueOpenings.size < lines.length) {
+    problems.push("repetitive_openings");
+  }
+  
+  return problems.length ? problems : null;
+}
+
+function comedyProblems(lines: string[], tone: Tone) {
+  if (tone === "serious") return null;
+  
+  // Check for actual comedy mechanisms, not just keywords
+  const ABSURDITY_INDICATORS = [
+    /\b(fire marshal|legally binding|emergency|hazard|report for duty|backup|biohazard)\b/i,
+    /\b(allegedly|technically|officially|scientifically|legally)\b/i,
+    /\b(disaster|chaos|catastrophe|crisis|mayhem)\b/i,
+  ];
+  
+  const EXAGGERATION_SIGNALS = [
+    /[+∞]|unlimited|infinite/i,
+    /\b(every|all|never|always|forever)\b.*\b(single|possible|imaginable)\b/i,
+    /\b(officially|scientifically|technically)\b/i,
+  ];
+  
+  const SURPRISE_TWIST_WORDS = [
+    /\b(but|except|still|somehow|turns out|plot twist|surprise)\b/i,
+    /\b(until|unless|despite|although|however)\b/i,
+  ];
+  
+  const CONCRETE_HUMOR = [
+    /\b(cake|candles|sprinkles|frosting|balloons|confetti)\b/i,
+    /\b(warranty|contract|policy|terms|conditions|fine print)\b/i,
+  ];
+  
+  const problems: string[] = [];
+  
+  // Count lines with different comedy mechanisms
+  let absurdCount = 0;
+  let exaggerationCount = 0;
+  let twistCount = 0;
+  let concreteCount = 0;
+  
+  for (const line of lines) {
+    if (ABSURDITY_INDICATORS.some(p => p.test(line))) absurdCount++;
+    if (EXAGGERATION_SIGNALS.some(p => p.test(line))) exaggerationCount++;
+    if (SURPRISE_TWIST_WORDS.some(p => p.test(line))) twistCount++;
+    if (CONCRETE_HUMOR.some(p => p.test(line))) concreteCount++;
+  }
+  
+  const totalComedySignals = absurdCount + exaggerationCount + twistCount + concreteCount;
   
   const warmTones = ["sentimental", "romantic", "inspirational"];
   const isWarm = warmTones.includes(tone);
   
-  const problems: string[] = [];
-  
   if (isWarm) {
-    // Warm tones: at least 50% (2 of 4) lines need humor markers
-    if (humorCount < 2) {
-      problems.push(`warm_needs_humor_sprinkle:${humorCount}/4_have_markers`);
+    // Warm tones: at least 2 lines with comedy signals
+    if (totalComedySignals < 2) {
+      problems.push(`warm_needs_humor_sprinkle:only_${totalComedySignals}_comedy_signals`);
     }
-  } else if (tone !== "serious") {
-    // Default tones (humorous/savage/playful): 100% need humor
-    if (humorCount < 4) {
-      problems.push(`not_funny_enough:${humorCount}/4_have_markers`);
+  } else {
+    // Default comedy tones: need strong comedy across all lines
+    // At least 3 lines with comedy signals, and at least 2 different types
+    if (totalComedySignals < 6) {
+      problems.push(`not_funny_enough:only_${totalComedySignals}_comedy_signals`);
+    }
+    const mechanismTypes = [absurdCount > 0, exaggerationCount > 0, twistCount > 0, concreteCount > 0].filter(Boolean).length;
+    if (mechanismTypes < 2) {
+      problems.push(`one_trick_pony:only_${mechanismTypes}_comedy_types`);
     }
   }
   
@@ -284,12 +366,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Canned safe lines to keep UI usable if provider fails (70+ chars, funny)
+// Canned safe lines to keep UI usable if provider fails (70+ chars, genuinely funny)
 const SAFE_LINES = [
   "Birthday chaos coordinator, report for cake duty before the frosting becomes a biohazard.",
-  "Level up unlocked: age +1, wisdom ±0, cake intake +∞. Party mode enabled.",
-  "Survived another lap around the sun, unlocks extra sprinkles and plausible deniability.",
-  "Make a wish, blow out the candles, then pretend it was all part of the plan.",
+  "The cake is here — the fire marshal is on standby for candle-lighting operations.",
+  "Your warranty expired at midnight, but the cake is still under warranty.",
+  "The sprinkles are now considered a controlled substance in 47 states.",
 ];
 
 // ============ HTTP HANDLER ============
@@ -354,15 +436,28 @@ serve(async (req) => {
       }
     }
 
-    // Comedy validation: check humor markers
+    // Blandness check: detect and reject template phrases
+    const blandIssues = blandnessProblems(lines, task.tone);
+    if (blandIssues) {
+      console.warn("Blandness check failed:", blandIssues);
+      const STRICT_ORIGINAL = SYSTEM + "\nCRITICAL: Write ORIGINAL lines. Ban: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom. Every line must be laugh-out-loud funny with absurd imagery (fire marshal for candles, frosting biohazards, cake legal contracts, age-related disasters).";
+      try {
+        lines = await callResponsesAPI(STRICT_ORIGINAL, userPayload, 1536);
+      } catch (e3) {
+        console.error("Blandness retry failed:", e3);
+        // Fall through with existing lines
+      }
+    }
+
+    // Comedy validation: check for actual comedy mechanisms
     const comedyIssues = comedyProblems(lines, task.tone);
     if (comedyIssues) {
       console.warn("Comedy check failed:", comedyIssues);
-      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line must include humor (absurd, sarcastic, witty exaggeration, or playful twist). Use concrete imagery (cake, chaos, unlocks, duty, biohazard, recklessly, pretend, etc.). No bland Hallmark filler.";
+      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line MUST deliver a laugh-out-loud moment through absurd imagery (fire marshal, biohazard, warranty expired), unexpected consequences, or ridiculous escalation. Use concrete humor (cake disasters, candle emergencies, frosting chaos, legal cake contracts). At least 2 different comedy types (absurdity + exaggeration, or twist + concrete). No clever wordplay that doesn't land as funny.";
       try {
         lines = await callResponsesAPI(STRICT_COMEDY, userPayload, 1536);
-      } catch (e3) {
-        console.error("Comedy retry failed:", e3);
+      } catch (e4) {
+        console.error("Comedy retry failed:", e4);
         // Fall through with existing lines
       }
       // Final comedy check (no additional retry)
