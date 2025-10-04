@@ -327,7 +327,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
+  const tid = setTimeout(() => ctl.abort("timeout"), 20000);
   let r: Response;
   try {
     r = await fetch(RESP_URL, {
@@ -374,21 +374,6 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Racing wrapper: fires second call after 250ms, returns whichever completes first
-async function callFast(system: string, userObj: unknown, maxTokens = 420) {
-  const p1 = callResponsesAPI(system, userObj, maxTokens);
-  const p2 = new Promise<string[]>((resolve, reject) => {
-    const t = setTimeout(async () => {
-      try {
-        resolve(await callResponsesAPI(system, userObj, maxTokens));
-      } catch (e) {
-        reject(e);
-      }
-    }, 250);
-    p1.finally(() => clearTimeout(t));
-  });
-  return Promise.race([p1, p2]);
-}
 
 // Consolidated quick validation (single local check)
 function quickValidate(lines: string[], task: TaskObject) {
@@ -472,7 +457,7 @@ serve(async (req) => {
 
     let lines: string[];
     try {
-      lines = await callFast(SYSTEM, userPayload, 420);
+      lines = await callResponsesAPI(SYSTEM, userPayload, 420);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
@@ -487,7 +472,7 @@ serve(async (req) => {
       if (DEBUG) console.log("Validation failed:", problem);
       const STRICT = SYSTEM + "\nCRITICAL: No em dashes. All 70–110 chars. Include at least 2 birthday cues. Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.";
       try {
-        lines = await callFast(STRICT, userPayload, 420);
+        lines = await callResponsesAPI(STRICT, userPayload, 420);
         problem = quickValidate(lines, task);
         if (problem) {
           console.warn("Validation failed after retry:", problem, lines);
