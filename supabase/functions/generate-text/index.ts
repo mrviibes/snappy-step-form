@@ -380,9 +380,9 @@ async function callResponsesAPI(system: string, userObj: unknown) {
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: 420,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
+    text: {
+      format: {
+        type: "json_schema",
         name: "ViibeTextCompactV1",
         strict: true,
         schema: {
