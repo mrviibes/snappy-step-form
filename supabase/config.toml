@@ -17,6 +17,9 @@ port = 54323
 [functions.generate-text]
 verify_jwt = false
 
+[functions.generate-visuals]
+verify_jwt = false
+
 [functions.healthz]
 verify_jwt = false
 

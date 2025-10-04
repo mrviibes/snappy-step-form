@@ -347,7 +347,7 @@ async function callResponsesAPI(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 22000);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -394,8 +394,6 @@ async function callResponsesAPIFast(
 
 // ---------- Core generation ----------
 async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateVisualsResponse> {
-  if (!openAIApiKey) throw new Error("OpenAI API key not found");
-
   const req_id = crypto.randomUUID().slice(0, 8);
   const model = getVisualsModel();
   const {
@@ -423,6 +421,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
   );
 
   try {
+    if (!openAIApiKey) throw new Error("OpenAI API key not found");
     if (DEBUG) console.log("Calling Responses API with caption:", completed_text);
 
     const userPayload = { caption: completed_text, style: image_style, composition: compPref, category, subcategory, tone, rating };
@@ -633,9 +632,19 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Error in generate-visuals function:", error);
     const req_id = crypto.randomUUID().slice(0, 8);
-    const status = error?.status || 500;
-    const msg = error?.message || (error instanceof Error ? error.message : String(error));
-    
-    return err(status, msg, { req_id });
+    const safeConcepts = SAFE_VISUAL_CONCEPTS.default;
+    return new Response(JSON.stringify({
+      success: true,
+      visuals: safeConcepts,
+      model: "fallback",
+      source: "fallback",
+      req_id,
+      debug: {
+        diversityCheck: false,
+        compositionCount: 4,
+        usedFallback: true,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
