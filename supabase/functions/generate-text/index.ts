@@ -31,7 +31,7 @@ function err(status: number, message: string, details?: unknown) {
   );
 }
 
-const CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const CHAT_MODEL = "gpt-5-mini-2025-08-07";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const DEBUG = Deno.env.get("DEBUG_TEXT") === "1";
@@ -370,33 +370,35 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callChatCompletionsAPI(system: string, userObj: unknown) {
+async function callResponsesAPI(system: string, userObj: unknown) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   
   const body = {
     model: CHAT_MODEL,
-    messages: [
+    input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_completion_tokens: 420,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "ViibeLinesV1",
-        strict: true,
-        schema: {
-          type: "object",
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string" }
-            }
-          },
-          required: ["lines"],
-          additionalProperties: false
+    max_output_tokens: 420,
+    text: {
+      format: {
+        type: "json_schema",
+        json_schema: {
+          name: "ViibeLinesV1",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "string" }
+              }
+            },
+            required: ["lines"],
+            additionalProperties: false
+          }
         }
       }
     }
@@ -406,7 +408,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
   const tid = setTimeout(() => ctl.abort("timeout"), 8000);
   
   try {
-    const r = await fetch(CHAT_URL, {
+    const r = await fetch(RESPONSES_URL, {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${OPENAI_API_KEY}`, 
@@ -432,29 +434,29 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     }
     
     const data = JSON.parse(raw);
-    const content = data.choices?.[0]?.message?.content;
     
-    if (!content) {
-      if (DEBUG) console.error("No content in response:", JSON.stringify(data).slice(0, 600));
-      throw new Error("parse_error:no_content");
+    // Try output_parsed first (structured response)
+    if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines) && data.output_parsed.lines.length === 4) {
+      if (DEBUG) console.log("✓ Using output_parsed");
+      return data.output_parsed.lines as string[];
     }
-
-    // Parse structured JSON output
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
-        return parsed.lines as string[];
+    
+    // Fallback: parse output_text as JSON
+    const outputText = data.output_text;
+    if (outputText) {
+      try {
+        const parsed = JSON.parse(outputText);
+        if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
+          if (DEBUG) console.log("✓ Using output_text fallback");
+          return parsed.lines as string[];
+        }
+      } catch (e) {
+        if (DEBUG) console.error("Failed to parse output_text:", outputText.slice(0, 600));
       }
-      
-      if (DEBUG) console.error("Parsed but wrong structure:", parsed);
-      throw new Error("parse_error:wrong_structure");
-    } catch (e) {
-      if (DEBUG) {
-        console.error("Failed to parse content as JSON:", content.slice(0, 600));
-        console.error("Parse error:", e);
-      }
-      throw new Error("parse_error:invalid_json");
     }
+    
+    if (DEBUG) console.error("No valid content in response:", JSON.stringify(data).slice(0, 600));
+    throw new Error("parse_error:no_content");
 
   } catch (e: any) {
     if (e?.name === "AbortError" || String(e).includes("timeout")) throw new Error("timeout");
@@ -466,7 +468,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
 
 // Simple call with timeout (no hedging to avoid worker crashes)
 async function callFast(system: string, payload: unknown) {
-  return callChatCompletionsAPI(system, payload);
+  return callResponsesAPI(system, payload);
 }
 
 
@@ -653,6 +655,23 @@ serve(async (req) => {
       }
       if (msg.includes("OpenAI 4")) {
         return err(422, "validation_failed", { details: msg });
+      }
+      
+      // Fallback on parse errors or other provider issues
+      if (msg.includes("parse_error") || msg.includes("provider_error")) {
+        console.log("⚠️ Parse/provider error → returning safe fallback lines");
+        const safeFallback = getSafeLinesForSubcategory(subcategory, insert_words);
+        return new Response(JSON.stringify({ 
+          success: true, 
+          options: safeFallback, 
+          model: CHAT_MODEL,
+          source: "fallback",
+          req_id,
+          count: safeFallback.length,
+          reason: msg
+        }), {
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
       }
       
       return err(502, "provider_error", { details: msg });
