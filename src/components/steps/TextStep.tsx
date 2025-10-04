@@ -282,12 +282,12 @@ export default function TextStep({
         return;
       }
       
-      // Validate: Total character limit (50 chars across both words)
+      // Validate: Total character limit (20 chars across both words)
       const totalChars = currentWords.join('').length + input.length;
-      if (totalChars > 50) {
+      if (totalChars > 20) {
         toast({ 
           title: "Character limit exceeded", 
-          description: "Total characters across all words cannot exceed 50",
+          description: "Total characters across all words cannot exceed 20",
           variant: "destructive" 
         });
         return;
@@ -704,7 +704,7 @@ export default function TextStep({
             
             <div className="text-right">
               <span className="text-sm text-muted-foreground">
-                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars
+                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/20 chars
               </span>
             </div>
             
