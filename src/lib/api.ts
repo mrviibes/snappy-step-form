@@ -24,10 +24,28 @@ export interface GenerateTextResponse {
 }
 
 export interface VisualRecommendation {
-  scene: string;
-  composition: string;
+  title: string;
+  subject: string;
+  setting: string;
+  action: string;
+  prop: string;
+  camera: "close-up" | "medium" | "wide" | "overhead";
+  lens: "24mm" | "35mm" | "50mm";
+  lighting: "soft daylight" | "hard flash" | "warm kitchen" | "studio key";
+  color: "muted pastels" | "punchy saturated" | "neutral clean";
+  composition: "base_realistic" | "very_close" | "zoomed" | "goofy_wide" | "surreal_scale" | "integrated";
+  readability: "negative-left" | "negative-right" | "bottom-caption" | "integrated-sign";
   description?: string;
-  interpretation?: string;
+}
+
+export interface GenerateVisualsResponse {
+  visuals: VisualRecommendation[];
+  model?: string;
+  req_id?: string;
+  debug?: {
+    diversityCheck: boolean;
+    compositionCount: number;
+  };
 }
 
 export interface PromptTemplate {
@@ -145,24 +163,34 @@ export async function generateVisualOptions(params: {
   tone?: string;
   style?: string;
   layout?: string;
-}): Promise<VisualRecommendation[]> {
+  completed_text: string;
+  composition_modes?: string[];
+  insertedVisuals?: string[];
+}): Promise<GenerateVisualsResponse> {
   const payload = {
     category: params.category || "celebrations",
     subcategory: params.subcategory,
     tone: params.tone || "humorous",
-    style: params.style || "Auto",
-    layout: params.layout || "Open Space",
+    rating: "PG",
+    image_style: params.style || "Auto",
+    text_layout: params.layout || "Open Space",
+    completed_text: params.completed_text,
+    composition_modes: params.composition_modes || [],
+    specific_visuals: params.insertedVisuals || [],
+    count: 4
   };
 
   const res = await ctlFetch<any>("generate-visuals", payload);
   if (!res || res.success !== true || !Array.isArray(res.visuals) || res.visuals.length === 0) {
     throw new Error(res?.error || "Visual generation failed");
   }
-  return res.visuals.slice(0, 3).map((visual: any) => ({
-    scene: visual.scene || visual.description || String(visual),
-    composition: visual.composition || visual.cue || "",
-    description: visual.description || visual.scene || "",
-  }));
+  
+  return {
+    visuals: res.visuals,
+    model: res.model,
+    req_id: res.req_id,
+    debug: res.debug
+  };
 }
 
 // Final prompt generation

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { generateVisualOptions, type VisualRecommendation } from "@/lib/api";
+import { generateVisualOptions, type VisualRecommendation, type GenerateVisualsResponse } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
@@ -138,25 +138,23 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
   };
 
   const handleGenerateVisuals = async () => {
-    if (!data.text?.generatedText && !data.text?.customText) {
+    if (!data.text?.selectedLine && !data.text?.generatedText && !data.text?.customText) {
       setError("Please complete Step 2 (Text) first before generating visuals.");
       return;
     }
     setError(null);
     setIsGeneratingVisuals(true);
     try {
-      const finalText = data.text.generatedText || data.text.customText;
+      const finalText = data.text?.selectedLine || data.text.generatedText || data.text.customText;
       const params = {
-        completed_text: finalText,
         category: data.category || "",
         subcategory: data.subcategory || "",
         tone: data.vibe?.tone || "Humorous",
-        rating: data.vibe?.rating || "PG",
-        insertWords: data.vibe?.insertWords || [],
-        image_style: data.visuals?.style || "general",
+        style: data.visuals?.style || "general",
+        layout: data.text?.textLayout || "Open Space",
+        completed_text: finalText,
         composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
-        specific_visuals: data.visuals?.insertedVisuals || [],
-        image_dimensions: data.visuals?.dimension || "square"
+        insertedVisuals: data.visuals?.insertedVisuals || []
       };
 
       setDebugInfo({
@@ -175,18 +173,18 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
 
       updateData({ visuals: { ...data.visuals, isGeneratingVisuals: true } });
 
-      const visuals = await generateVisualOptions(params);
-      console.log('📥 Received visuals from API:', visuals);
+      const response: GenerateVisualsResponse = await generateVisualOptions(params);
+      console.log('📥 Received visuals from API:', response);
 
       setDebugInfo(prev => ({
         ...prev!,
         step: 'API_CALL_SUCCESS',
-        apiResponse: visuals,
-        visualsCount: Array.isArray(visuals) ? visuals.length : undefined,
-        model: (visuals as any)?.model || 'gpt-4o-mini'
+        apiResponse: response,
+        visualsCount: response.visuals.length,
+        model: response.model || 'gpt-5-mini'
       }));
-      setGeneratedVisuals(visuals as VisualRecommendation[]);
-      console.log('💾 Set generatedVisuals to:', visuals);
+      setGeneratedVisuals(response.visuals);
+      console.log('💾 Set generatedVisuals to:', response.visuals);
     } catch (error) {
       console.error("Failed to generate visuals:", error);
       setDebugInfo(prev => ({
@@ -529,7 +527,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
           {debugInfo && (
             <DebugPanel
               title="Visual Generation Debug"
-              model={debugInfo.model || "gpt-4o-mini"}
+              model={debugInfo.model || "gpt-5-mini"}
               status={
                 debugInfo.step === 'API_CALL_START' ? 'sending...' :
                 debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
@@ -538,7 +536,12 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
               endpoint="generate-visuals"
               timestamp={debugInfo.timestamp}
               requestPayload={debugInfo.params}
-              responseData={debugInfo.apiResponse}
+              responseData={{
+                ...debugInfo.apiResponse,
+                req_id: debugInfo.apiResponse?.req_id,
+                diversity: debugInfo.apiResponse?.debug?.diversityCheck,
+                composition_count: debugInfo.apiResponse?.debug?.compositionCount
+              }}
               formData={debugInfo.formData}
               error={debugInfo.error}
               className="mb-6"
@@ -563,12 +566,31 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm text-foreground">Visual Concept {index + 1}</h3>
+                      <h3 className="font-semibold text-base text-foreground">{visual.title}</h3>
                       {selectedVisualOption === index && <div className="w-2 h-2 bg-primary rounded-full" />}
                     </div>
-                    <p className="text-xs text-muted-foreground text-left">
-                      {visual.description || visual.interpretation || `Visual recommendation ${index + 1}`}
+                    
+                    {/* Subject & Setting */}
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Subject:</span> {visual.subject}
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Setting:</span> {visual.setting}
+                    </p>
+                    
+                    {/* Action */}
+                    <p className="text-xs text-muted-foreground/80 italic">
+                      {visual.action}
+                    </p>
+                    
+                    {/* Technical details */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.camera}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.lens}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.lighting}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{visual.composition}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{visual.readability}</span>
+                    </div>
                   </div>
                 </Card>
               ))}
