@@ -160,9 +160,10 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   
   // Name placement rules - vary position across the set
   const nameRules = task.insert_words?.length
-    ? `Use the name "${task.insert_words.join('", "')}" naturally across the set:
+    ? `CRITICAL: Every line must include "${task.insert_words.join('" or "')}" naturally:
        - Never start a line with the name.
-       - Vary placement: one mid-sentence, one near the end, optionally one possessive ("Mike's"), and one absent.
+       - Vary placement across the 4 lines: mid-sentence, near the end, possessive form ("${task.insert_words[0]}'s"), or woven into the setup.
+       - The text must flow naturally around the name—don't force it, let it enhance the joke or message.
        - No "Name," or "Name's ..." openings.`
     : "Do not start with 'You' or 'Your'. Use a narrator voice.";
   
@@ -355,6 +356,28 @@ function rhythmProblems(lines: string[]) {
   const q = lines.some(l => /\?$/.test(l));
   const exc = lines.some(l => /!$/.test(l));
   return q || exc ? null : ["rhythm_needs_question_or_exclamation"];
+}
+
+function namePlacementProblems(lines: string[], insert_words?: string[]): string[] | null {
+  if (!insert_words?.length) return null;
+  
+  const problems: string[] = [];
+  
+  // Check each line contains at least one insert word
+  for (let i = 0; i < lines.length; i++) {
+    const hasInsertWord = insert_words.some(w => hasWord(lines[i], w));
+    if (!hasInsertWord) {
+      problems.push(`line_${i + 1}_missing_insert_word`);
+    }
+  }
+  
+  // Check that no line starts with the insert word
+  const nameStart = new RegExp(`^(${insert_words.map(esc).join("|")})[, ]`, "i");
+  if (lines.some(l => nameStart.test(l))) {
+    problems.push("name_at_start");
+  }
+  
+  return problems.length ? problems : null;
 }
 
 // In-memory cache for recent lines (resets on function restart)
@@ -826,7 +849,7 @@ serve(async (req) => {
         SYSTEM +
         "\nCRITICAL: 4 NEW lines, 70–110 chars, end with . ! ?, no em dashes." +
         (task.insert_words?.length
-          ? " Do not start with the name. Vary name placement (middle, end, possessive, absent)."
+          ? ` MANDATORY: Include "${task.insert_words.join('" or "')}" in EVERY line. Never start with the name. Vary placement: middle, end, possessive.`
           : " Do not start with 'You' or 'Your'.") +
         " Cover ≥3 different topics for this subcategory; vary openings and sentence types.";
       
