@@ -373,42 +373,15 @@ function comedyProblems(lines: string[], tone: Tone) {
 async function callChatCompletionsAPI(system: string, userObj: unknown) {
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
   
+  // Simple approach: ask Gemini to return JSON directly in content
+  const enhancedSystem = system + "\n\nIMPORTANT: Return ONLY a valid JSON object with this exact structure: {\"lines\": [\"line1\", \"line2\", \"line3\", \"line4\"]}. No other text.";
+  
   const body = {
     model: CHAT_MODEL,
     messages: [
-      { role: "system", content: system },
+      { role: "system", content: enhancedSystem },
       { role: "user", content: JSON.stringify(userObj) },
-    ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "return_lines",
-          description: "Return exactly 4 unique caption lines for an on-image card. Each line must be 70-110 characters and end with . ! or ?",
-          parameters: {
-            type: "object",
-            properties: {
-              lines: {
-                type: "array",
-                description: "Array of exactly 4 caption lines",
-                minItems: 4,
-                maxItems: 4,
-                items: { 
-                  type: "string",
-                  description: "A single caption line, 70-110 characters, ending with . ! or ?"
-                }
-              }
-            },
-            required: ["lines"],
-            additionalProperties: false
-          }
-        }
-      }
-    ],
-    tool_choice: { 
-      type: "function", 
-      function: { name: "return_lines" } 
-    }
+    ]
   };
 
   const ctl = new AbortController();
@@ -441,42 +414,40 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     }
     
     const data = JSON.parse(raw);
-
-    // Parse from tool_calls (function calling)
-    const toolCalls = data.choices?.[0]?.message?.tool_calls;
-    
-    if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-      try {
-        const args = JSON.parse(toolCalls[0].function.arguments);
-        if (Array.isArray(args?.lines)) {
-          return args.lines as string[];
-        }
-      } catch (e) {
-        if (DEBUG) console.error("Failed to parse tool_calls arguments:", e);
-      }
-    }
-
-    // Fallback: try parsing content as JSON
     const content = data.choices?.[0]?.message?.content;
-    if (content) {
-      try {
-        const contentParsed = JSON.parse(content);
-        if (Array.isArray(contentParsed?.lines)) {
-          return contentParsed.lines as string[];
-        }
-      } catch {
-        // Not valid JSON or no lines array
+    
+    if (!content) {
+      if (DEBUG) console.error("No content in response:", JSON.stringify(data).slice(0, 600));
+      throw new Error("parse_error:no_content");
+    }
+
+    // Try to extract JSON from content (handles markdown code blocks)
+    let jsonStr = content.trim();
+    
+    // Remove markdown code blocks if present
+    if (jsonStr.startsWith("```")) {
+      const lines = jsonStr.split("\n");
+      jsonStr = lines.slice(1, -1).join("\n").trim();
+      if (jsonStr.startsWith("json")) {
+        jsonStr = jsonStr.slice(4).trim();
       }
     }
 
-    // Failed to extract lines
-    if (DEBUG) {
-      try { 
-        console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); 
-        console.error("tool_calls present:", !!toolCalls, "length:", toolCalls?.length || 0);
-      } catch {}
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
+        return parsed.lines as string[];
+      }
+      
+      if (DEBUG) console.error("Parsed but wrong structure:", parsed);
+      throw new Error("parse_error:wrong_structure");
+    } catch (e) {
+      if (DEBUG) {
+        console.error("Failed to parse content as JSON:", jsonStr.slice(0, 600));
+        console.error("Parse error:", e);
+      }
+      throw new Error("parse_error:invalid_json");
     }
-    throw new Error("parse_error:no_structured_lines");
 
   } catch (e: any) {
     if (e?.name === "AbortError" || String(e).includes("timeout")) throw new Error("timeout");
