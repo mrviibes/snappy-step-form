@@ -103,7 +103,7 @@ COMPOSITION MODES:
 
 EXAMPLES:
 ✅ CORRECT FORMAT:
-EXACT TEXT: Happy birthday, Jesse! May your joy multiply this year!
+EXACT TEXT: Happy birthday! May your joy multiply this year!
 
 Typography: badge-callout format, modern sans-serif, ~25% coverage.
 

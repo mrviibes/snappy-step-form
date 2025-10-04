@@ -525,7 +525,7 @@ function quickValidate(lines: string[], task: TaskObject) {
 // Fallback lines per subcategory
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
-    "Jesse, the cake says 'serves 8' and your fork says 'challenge accepted.'",
+    "{NAME}, the cake says 'serves 8' and your fork says 'challenge accepted.'",
     "Candles counted, alibi prepared, sprinkles ready to testify on your behalf.",
     "If the frosting survives the group chat, you may eat it unsupervised.",
     "A year older, still negotiating with cake like it's a hostile takeover."
@@ -557,15 +557,25 @@ const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
 };
 
 function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[]): string[] {
-  let lines = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
+  const base = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
+  const name = insertWords?.[0]?.trim();
   
-  // Substitute placeholder names with actual insert words
-  if (insertWords?.length) {
-    const name = insertWords[0];
-    lines = lines.map(line => line.replace(/\bJesse\b/g, name));
-  }
-  
-  return lines;
+  return base.map(line => {
+    if (/{NAME}/.test(line)) {
+      if (name) {
+        // Replace with provided name
+        return line.replace(/{NAME}/g, name);
+      }
+      // No name: convert to 2nd person, clean up spacing/punctuation
+      return line
+        .replace(/{NAME}/g, "You")
+        .replace(/,\s*You,/, ", you")
+        .replace(/\s+/g, " ")
+        .replace(/\s([.,!?;:])/g, "$1")
+        .trim();
+    }
+    return line;
+  });
 }
 
 // ============ HTTP HANDLER ============
@@ -690,6 +700,18 @@ serve(async (req) => {
         lines = retry;
       } catch (e) {
         return err(502, "provider_error_retry");
+      }
+    }
+
+    // Block name leaks when no insertWords provided
+    if (!insert_words?.length) {
+      const nameLeakPattern = /^[A-Z][a-z]+,\s/;
+      if (lines.some(l => nameLeakPattern.test(l))) {
+        console.log("⚠️ Name leak detected, blocking lines");
+        return err(422, "name_leak_detected", { 
+          details: "Model generated named lines when no name was requested",
+          lines 
+        });
       }
     }
 
