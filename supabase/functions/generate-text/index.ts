@@ -23,6 +23,14 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+// Error helper for standardized error responses
+function err(status: number, message: string, details?: unknown) {
+  return new Response(
+    JSON.stringify({ success: false, status, error: message, details: details ?? null }),
+    { status, headers: { ...cors, "Content-Type": "application/json" } }
+  );
+}
+
 const RESP_URL = "https://api.openai.com/v1/responses";
 const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-mini";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -368,7 +376,7 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 420, attempt = 0, nonce = "") {
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 700, attempt = 0, nonce = "") {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   // Add entropy seed based on nonce (0-19 token variance)
   const entropyOffset = nonce ? (parseInt(nonce.slice(0, 2), 36) % 20) : 0;
@@ -427,9 +435,10 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   const data = JSON.parse(raw);
 
   // Handle incomplete due to token cap: single retry with higher limit
-  if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 1) {
-    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with 512`);
-    return await callResponsesAPI(system, userObj, 512, attempt + 1);
+  if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 2) {
+    const nextTokens = maxTokens === 700 ? 1000 : 1200;
+    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with ${nextTokens}`);
+    return await callResponsesAPI(system, userObj, nextTokens, attempt + 1, nonce);
   }
 
   // Try output_parsed first
@@ -451,11 +460,11 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
 
 // Hedged call: fire second request after 250ms if first is slow
 async function callFast(system: string, payload: unknown, nonce = "") {
-  const p1 = callResponsesAPI(system, payload, 420, 0, nonce);
+  const p1 = callResponsesAPI(system, payload, 700, 0, nonce);
   const p2 = new Promise<string[]>((resolve) => {
     const t = setTimeout(async () => {
       try {
-        const r = await callResponsesAPI(system, payload, 420, 0, nonce);
+        const r = await callResponsesAPI(system, payload, 700, 0, nonce);
         resolve(r);
       } catch {
         // Swallow loser errors to avoid unhandled rejection
@@ -578,6 +587,13 @@ serve(async (req) => {
     const req_id = crypto.randomUUID().slice(0, 8);
     const url = new URL(req.url);
     const body = await req.json();
+    
+    // Input validation
+    const required = ["category", "subcategory", "tone", "rating"];
+    const missing = required.filter((f) => !body[f]);
+    if (missing.length) {
+      return err(400, `Missing required fields: ${missing.join(", ")}`);
+    }
     
     // Accept nonce from URL query or body
     const nonce = url.searchParams.get("nonce") || body.nonce || "";

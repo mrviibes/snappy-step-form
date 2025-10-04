@@ -8,6 +8,14 @@ const corsHeaders = {
   "Vary": "Origin"
 };
 
+// Error helper for standardized error responses
+function err(status: number, message: string, details?: unknown) {
+  return new Response(
+    JSON.stringify({ success: false, status, error: message, details: details ?? null }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 interface GenerateImageRequest {
   prompt: string;
   negativePrompt?: string;
@@ -179,7 +187,7 @@ serve(async (req) => {
   try {
     requestBody = await req.json();
   } catch (e) {
-    return jsonResponse({ success: false, error: "Invalid JSON in request body", details: e instanceof Error ? e.message : "Unknown parsing error" }, 400);
+    return err(400, "Invalid JSON in request body", e instanceof Error ? e.message : "Unknown parsing error");
   }
 
   const provider: Provider = requestBody.provider || "ideogram";
@@ -200,23 +208,23 @@ serve(async (req) => {
     // Check keys
     if (provider === "ideogram") {
       if (!Deno.env.get("IDEOGRAM_API_KEY")) {
-        return jsonResponse({ success: false, error: "Server configuration error: IDEOGRAM_API_KEY not set" }, 500);
+        return err(500, "IDEOGRAM_API_KEY not configured");
       }
     } else {
       if (!Deno.env.get("GOOGLE_AI_API_KEY")) {
-        return jsonResponse({ success: false, error: "Server configuration error: GOOGLE_AI_API_KEY not set" }, 500);
+        return err(500, "GOOGLE_AI_API_KEY not configured");
       }
     }
 
     // Validate inputs
-    if (!prompt) return jsonResponse({ success: false, error: "Missing or invalid prompt", details: "Prompt must be a non-empty string" }, 400);
-    if (prompt.length < 10) return jsonResponse({ success: false, error: "Prompt too short", details: "Prompt must be at least 10 characters long" }, 400);
+    if (!prompt) return err(400, "prompt is required");
+    if (prompt.length < 10) return err(400, "prompt must be at least 10 characters");
 
     if (!["square", "portrait", "landscape"].includes(image_dimensions))
-      return jsonResponse({ success: false, error: "Invalid image dimensions", details: "Must be square | portrait | landscape" }, 400);
+      return err(400, "image_dimensions must be square | portrait | landscape");
 
     if (!["high", "medium", "low"].includes(quality))
-      return jsonResponse({ success: false, error: "Invalid quality", details: "Must be high | medium | low" }, 400);
+      return err(400, "quality must be high | medium | low");
 
     let response: Response;
 

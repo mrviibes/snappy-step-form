@@ -5,6 +5,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Error helper for standardized error responses
+function err(status: number, message: string, details?: unknown) {
+  return new Response(
+    JSON.stringify({ success: false, status, error: message, details: details ?? null }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 const getVisualsModel = () => Deno.env.get("OPENAI_VISUALS_MODEL") || "gpt-5-mini-2025-08-07";
 const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
 const DEBUG = Deno.env.get("DEBUG_VISUALS") === "true";
@@ -273,7 +281,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
         }
       }
       if (!Array.isArray(concepts) || concepts.length !== 4) {
-        return { success: false, visuals: [], model, req_id, error: "model_did_not_return_4_concepts" };
+        throw new Error("model_did_not_return_4_concepts");
       }
     }
 
@@ -296,7 +304,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
         }
       }
       if (!concepts2 || validateConcepts(concepts2)) {
-        return { success: false, visuals: [], model, req_id, error: vErr };
+        throw new Error(`validation_failed: ${vErr}`);
       }
       concepts = concepts2;
     }
@@ -331,13 +339,14 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
     };
   } catch (error) {
     console.error("Error generating visuals:", error);
-    return {
-      success: false,
-      visuals: [],
-      model,
-      req_id,
-      error: error instanceof Error ? error.message : String(error)
-    };
+    const msg = error instanceof Error ? error.message : String(error);
+    let status = 500;
+    if (msg.includes("timeout")) status = 408;
+    if (msg.includes("required") || msg.includes("Caption")) status = 400;
+    if (msg.includes("validation_failed")) status = 422;
+    if (msg.includes("OpenAI")) status = 502;
+    
+    throw { status, message: msg };
   }
 }
 
@@ -423,34 +432,20 @@ serve(async (req) => {
     
     // Validate required caption
     if (!params.completed_text || typeof params.completed_text !== "string" || params.completed_text.length < 8) {
-      return new Response(JSON.stringify({
-        success: false,
-        visuals: [],
-        model: getVisualsModel(),
-        req_id: crypto.randomUUID().slice(0, 8),
-        error: "Caption is required and must be at least 8 characters"
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return err(400, "completed_text is required and must be at least 8 characters");
     }
+    
     const result = await generateVisuals(params);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in generate-visuals function:", error);
     const req_id = crypto.randomUUID().slice(0, 8);
-    return new Response(JSON.stringify({
-      success: false,
-      visuals: [],
-      model: getVisualsModel(),
-      req_id,
-      error: error instanceof Error ? error.message : String(error)
-    }), {
-      status: error instanceof Error && error.message.includes("required") ? 400 : 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const status = error?.status || 500;
+    const msg = error?.message || (error instanceof Error ? error.message : String(error));
+    
+    return err(status, msg, { req_id });
   }
 });

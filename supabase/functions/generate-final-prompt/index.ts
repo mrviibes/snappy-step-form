@@ -24,6 +24,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Error helper for standardized error responses
+function err(status: number, message: string, details?: unknown) {
+  return new Response(
+    JSON.stringify({ success: false, status, error: message, details: details ?? null }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 // ============== INTERFACES ==============
 interface FinalPromptRequest {
   completed_text: string;
@@ -205,14 +213,28 @@ const SIX_LAYOUTS: Array<{ key: string; line: string }> = [
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Dry-run endpoint for testing wiring
+  const url = new URL(req.url);
+  if (url.searchParams.get("dry") === "1") {
+    return new Response(JSON.stringify({
+      success: true,
+      templates: [
+        {
+          name: "dry-run-test",
+          positive: "Test positive prompt",
+          negative: "Test negative prompt",
+          description: "Dry run test template"
+        }
+      ]
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const required = ["completed_text", "image_dimensions"];
     const missing = required.filter((f) => !body[f]);
     if (missing.length) {
-      return new Response(JSON.stringify({ success: false, error: `Missing: ${missing.join(", ")}` }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return err(400, `Missing required fields: ${missing.join(", ")}`);
     }
 
     const provider = (body.provider as FinalPromptRequest["provider"]) || "gemini";
@@ -223,11 +245,15 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, templates }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("Generate final prompt error:", e);
-    return new Response(JSON.stringify({ success: false, error: String((e as Error)?.message || "prompt_generation_failed") }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    const msg = (e as Error)?.message || "prompt_generation_failed";
+    let status = 500;
+    if (msg.includes("timeout")) status = 408;
+    if (msg.includes("Missing") || msg.includes("required")) status = 400;
+    if (msg.includes("OpenAI") || msg.includes("API")) status = 502;
+    
+    return err(status, String(msg));
   }
 });
 

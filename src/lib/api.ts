@@ -92,6 +92,7 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
     // Non-2xx: surface the actual error body if present
     if (error) {
       const ctx: any = (error as any).context || {};
+      let status = (error as any).status || ctx?.status || 0;
       let msg: string | undefined;
 
       // Supabase often puts the server error JSON into ctx.body (string)
@@ -99,13 +100,14 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
         try {
           const parsed = JSON.parse(ctx.body);
           msg = parsed?.error || parsed?.message || ctx.body;
+          status = parsed?.status || status;
         } catch {
           msg = ctx.body;
         }
       }
 
       if (!msg) msg = (error as any).message || `Failed to call ${functionName}`;
-      throw new Error(msg);
+      throw new Error(`HTTP ${status || '???'} — ${msg}`);
     }
 
     // Parse string payload if needed
@@ -116,7 +118,8 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 
     // Edge returned structured failure
     if (body && typeof body === "object" && body.success === false) {
-      throw new Error(body.error || `Request failed (${functionName})`);
+      const s = body.status || 500;
+      throw new Error(`HTTP ${s} — ${body.error || `Request failed (${functionName})`}`);
     }
 
     return body as T;
