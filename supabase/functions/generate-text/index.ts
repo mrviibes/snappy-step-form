@@ -383,18 +383,20 @@ async function callResponsesAPI(system: string, userObj: unknown) {
     text: {
       format: {
         type: "json_schema",
-        name: "ViibeTextCompactV1",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["lines"],
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+        json_schema: {
+          name: "ViibeTextCompactV1",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["lines"],
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+              },
             },
           },
         },
@@ -425,7 +427,13 @@ async function callResponsesAPI(system: string, userObj: unknown) {
     const parsed = data.output_parsed?.lines
       ?? (data.output?.[0]?.content || []).find((b: any) => b.type === "json_schema")?.parsed?.lines;
 
-    if (!Array.isArray(parsed)) throw new Error("parse_error:no_structured_lines");
+    if (!Array.isArray(parsed)) {
+      if (DEBUG) {
+        try { console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); } catch {}
+        try { console.error("response keys:", Object.keys(data || {})); } catch {}
+      }
+      throw new Error("parse_error:no_structured_lines");
+    }
 
     return parsed as string[];
   } catch (e: any) {
