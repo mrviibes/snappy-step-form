@@ -138,12 +138,6 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   ].filter(Boolean).join("\n");
 }
 
-function err(status: number, message: string, details?: unknown) {
-  return new Response(JSON.stringify({ success: false, error: message, details: details ?? null }), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json" },
-  });
-}
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hasWord = (s: string, w: string) => new RegExp(`\\b${esc(w)}(?:'s)?\\b`, "i").test(s);
