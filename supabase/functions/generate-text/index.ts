@@ -564,9 +564,6 @@ serve(async (req) => {
     const url = new URL(req.url);
     const body = await req.json();
     
-    // Check API key first
-    if (!OPENAI_API_KEY) return err(401, "OPENAI_API_KEY not configured");
-    
     // Input validation
     const required = ["category", "subcategory", "tone", "rating"];
     const missing = required.filter((f) => !body[f]);
@@ -587,6 +584,8 @@ serve(async (req) => {
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
+    
+    if (!OPENAI_API_KEY) return err(401, "OPENAI_API_KEY not configured");
     
     const category = String(body.category || "").trim();
     const subcategory = String(body.subcategory || "").trim();
