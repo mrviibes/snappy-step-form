@@ -77,37 +77,51 @@ function getCuesForSubcategory(subcategory: string): RegExp[] {
   return CUE_MAPS[subcategory.toLowerCase()] || [];
 }
 
+// Hard-banned clichés that keep recycling
+const BANNED_PHRASES = [
+  /\banother trip around the sun\b/i,
+  /\blegally binding proof\b/i,
+  /\btriggered the smoke detector\b/i,
+  /\bofficially classified as vintage\b/i,
+  /\bhandle with care\b/i,
+  /\bavoid direct sunlight\b/i,
+  /\bbiohazard frosting\b/i,
+  /\bfire marshal\b/i,
+  /\bwarranty expired\b/i,
+];
+
+function hasBannedPhrase(line: string): boolean {
+  return BANNED_PHRASES.some(rx => rx.test(line));
+}
+
 function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
-  const warmTones = ["sentimental", "romantic", "inspirational"];
-  const isWarm = warmTones.includes(tone);
-  
+  const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
-  
-  // Dynamic card type based on subcategory
-  const cardType = subcategory || task.topic || "greeting card";
-  const cardTypePrompt = `Write 4 unique ${cardType} captions. Length 70–110 chars; end with . ! or ?`;
-  
-  // Subcategory-specific cue guidance
-  const cueGuidance: Record<string, string> = {
-    birthday: "Use birthday cues across most lines (cake, candles, wish, age, party, balloons, gifts). Don't repeat 'birthday' every time.",
-    wedding: "Write for wedding cards: vows, rings, reception, open bar, in-laws, registry, tux/veil, bouquet. No birthday/age jokes.",
-    engagement: "Write for engagement cards: ring, proposal, future planning, wedding prep, relationship milestones.",
-    graduation: "Write for graduation cards: diploma, future plans, student loans, career, caps and gowns.",
-    anniversary: "Write for anniversary cards: years together, relationship milestones, commitment, shared memories."
-  };
-  
-  const specificGuidance = cueGuidance[subcategory] || "";
-  
+
+  const subcatHint = subcategory === "wedding"
+    ? "Write savage wedding captions: vows, rings, reception chaos, best-man disasters, in-laws, registry, open bar. No birthday/age jokes."
+    : subcategory === "birthday"
+    ? "Write birthday captions: cake, candles, wish, age roast, party, gifts. No wedding content."
+    : subcategory === "engagement"
+    ? "Write engagement captions: ring, proposal, future planning, relationship milestones."
+    : subcategory === "graduation"
+    ? "Write graduation captions: diploma, career, student loans, caps and gowns."
+    : subcategory === "anniversary"
+    ? "Write anniversary captions: years together, commitment, shared memories."
+    : `Write ${subcategory || task.topic} captions.`;
+
   return [
-    cardTypePrompt,
-    isWarm
-      ? "Warm tone with a small wink. One playful twist per line."
-      : "Every line must be funny. Use absurd images or sharp roasts. No bland greetings.",
-    "Ban: em dashes (—), fortune-cookie advice, gamer patch notes, 'Level up unlocked', 'Survived another lap', 'Make a wish', 'biohazard frosting', 'fire marshal candles', 'warranty expired'.",
-    specificGuidance,
-    tone !== "serious" ? `Cover 3+ different ${subcategory || 'card'} topics. Make it quotable and card-worthy.` : "",
-    `Rating: ${RATING_HINTS[rating] || "PG"}`
-  ].filter(Boolean).join("\n");
+    "Write 4 unique on-image card captions.",
+    "Each 70–110 chars; end with . ! or ?",
+    warm
+      ? "Warm tone with a wink: each line needs one playful twist."
+      : "Every line must be funny: absurd image or sharp roast. No generic greetings.",
+    `Tone: ${TONE_HINTS[tone]}`, 
+    `Rating: ${RATING_HINTS[rating]}`,
+    "Never use em dashes. Use commas or periods.",
+    "Ban: gamer patch notes, fortune-cookie advice, 'Level up', 'Survived another lap', 'Make a wish', 'trip around the sun', 'legally binding', 'smoke detector', 'vintage classified', 'warranty expired'.",
+    subcatHint
+  ].join("\n");
 }
 
 function err(status: number, message: string, details?: unknown) {
@@ -380,7 +394,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 20000);
+  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
   let r: Response;
   try {
     r = await fetch(RESP_URL, {
@@ -427,6 +441,22 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
+// Hedged call: fire second request after 250ms if first is slow
+async function callFast(system: string, payload: unknown) {
+  const p1 = callResponsesAPI(system, payload, 420);
+  const p2 = new Promise<string[]>((resolve, reject) => {
+    const t = setTimeout(async () => {
+      try { 
+        resolve(await callResponsesAPI(system, payload, 420)); 
+      } catch (e) { 
+        reject(e); 
+      }
+    }, 250);
+    p1.finally(() => clearTimeout(t));
+  });
+  return Promise.race([p1, p2]) as Promise<string[]>;
+}
+
 
 // Recent lines cache keyed by subcategory to prevent cross-contamination
 const RECENT_LINES_BY_SUBCAT: Map<string, string[]> = new Map();
@@ -467,16 +497,37 @@ function quickValidate(lines: string[], task: TaskObject) {
     if (cuedCount < 2) return `needs_more_${subcategory}_cues`;
   }
   
-  // Check against recent cache for this subcategory
+  // Check for banned clichés
+  if (lines.some(l => hasBannedPhrase(l))) {
+    return "banned_phrase";
+  }
+  
+  // Check against recent cache using 3-gram Jaccard similarity
   const recentCache = getCacheForSubcategory(subcategory);
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+
+  function canon(s: string) { 
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); 
+  }
+
+  function shingles(s: string, k = 3) { 
+    const words = canon(s).split(" "); 
+    const out = new Set<string>(); 
+    for (let i = 0; i <= words.length - k; i++) {
+      out.add(words.slice(i, i + k).join(" ")); 
+    }
+    return out; 
+  }
+
+  function jaccard(a: Set<string>, b: Set<string>) { 
+    const inter = [...a].filter(x => b.has(x)).length; 
+    return inter / (a.size + b.size - inter || 1); 
+  }
 
   for (const newLine of lines) {
-    const newWords = new Set(normalize(newLine).split(/\s+/));
+    const newShingles = shingles(newLine);
     for (const cachedLine of recentCache) {
-      const cachedWords = new Set(normalize(cachedLine).split(/\s+/));
-      const overlap = [...newWords].filter(w => cachedWords.has(w));
-      if (overlap.length / Math.max(newWords.size, cachedWords.size) > 0.8) {
+      const cachedShingles = shingles(cachedLine);
+      if (jaccard(newShingles, cachedShingles) >= 0.6) {
         return "repeat_detected";
       }
     }
@@ -523,9 +574,10 @@ serve(async (req) => {
 
   try {
     const req_id = crypto.randomUUID().slice(0, 8);
+    const url = new URL(req.url);
+    const nonce = url.searchParams.get("nonce") || "";
     
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
-    const url = new URL(req.url);
     if (url.searchParams.get("dry") === "1") {
       return new Response(JSON.stringify({ 
         success: true, 
@@ -566,7 +618,7 @@ serve(async (req) => {
 
     let lines: string[];
     try {
-      lines = await callResponsesAPI(SYSTEM, userPayload, 420);
+      lines = await callFast(SYSTEM, userPayload);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
@@ -592,7 +644,7 @@ serve(async (req) => {
         : "Include at least 2 topic-specific cues.";
       const STRICT = SYSTEM + `\nCRITICAL: No em dashes. All 70–110 chars. ${cueHint} Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.`;
       try {
-        lines = await callResponsesAPI(STRICT, userPayload, 420);
+        lines = await callFast(STRICT, userPayload);
         problem = quickValidate(lines, task);
         if (problem) {
           console.warn("Validation failed after retry:", problem, lines);
@@ -633,15 +685,7 @@ serve(async (req) => {
       }
     }
 
-    // Post-generation quality checks (log warnings, don't retry)
-    const diversityIssues = topicalDiversityProblems(lines);
-    if (diversityIssues && DEBUG) console.log("Diversity warning:", diversityIssues);
-    
-    const blandIssues = blandnessProblems(lines, task.tone);
-    if (blandIssues && DEBUG) console.log("Blandness warning:", blandIssues);
-    
-    const comedyIssues = comedyProblems(lines, task.tone);
-    if (comedyIssues && DEBUG) console.log("Comedy warning:", comedyIssues);
+    // Post-generation quality checks removed for speed (functions kept for debugging)
 
     // SUCCESS: Add lines to subcategory-specific cache
     addToCache(subcat, lines);

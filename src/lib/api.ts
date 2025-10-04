@@ -144,7 +144,10 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
     ? "generate-text-debug" 
     : "generate-text";
   
-  const res = await ctlFetch<any>(targetFn, payload);
+  // Add nonce to force fresh generation
+  const nonce = crypto.randomUUID().slice(0, 8);
+  const functionUrl = `${targetFn}?nonce=${nonce}`;
+  const res = await ctlFetch<any>(functionUrl, payload);
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }
