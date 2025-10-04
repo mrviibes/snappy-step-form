@@ -403,7 +403,7 @@ async function callResponsesAPI(system: string, userObj: unknown) {
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
+  const tid = setTimeout(() => ctl.abort("timeout"), 20000);
   
   try {
     const r = await fetch(RESPONSES_URL, {
@@ -656,7 +656,7 @@ serve(async (req) => {
       }
       
       // Fallback on parse errors or other provider issues
-      if (msg.includes("parse_error") || msg.includes("provider_error")) {
+      if (msg.includes("parse_error") || msg.includes("provider_error") || msg.includes("timeout")) {
         console.log("⚠️ Parse/provider error → returning safe fallback lines");
         const safeFallback = getSafeLinesForSubcategory(subcategory, insert_words);
         return new Response(JSON.stringify({ 
