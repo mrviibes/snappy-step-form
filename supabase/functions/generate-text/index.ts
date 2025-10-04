@@ -31,9 +31,9 @@ function err(status: number, message: string, details?: unknown) {
   );
 }
 
-const CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const CHAT_MODEL = "gpt-5-mini-2025-08-07";
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const CHAT_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const CHAT_MODEL = "google/gemini-2.5-flash";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const DEBUG = Deno.env.get("DEBUG_TEXT") === "1";
 
 const TONE_HINTS: Record<string, string> = {
@@ -371,7 +371,7 @@ function comedyProblems(lines: string[], tone: Tone) {
 }
 
 async function callChatCompletionsAPI(system: string, userObj: unknown) {
-  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
   
   const body = {
     model: CHAT_MODEL,
@@ -379,27 +379,36 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_completion_tokens: 420,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "ViibeTextCompactV1",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["lines"],
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "return_lines",
+          description: "Return exactly 4 unique caption lines for an on-image card. Each line must be 70-110 characters and end with . ! or ?",
+          parameters: {
+            type: "object",
+            properties: {
+              lines: {
+                type: "array",
+                description: "Array of exactly 4 caption lines",
+                minItems: 4,
+                maxItems: 4,
+                items: { 
+                  type: "string",
+                  description: "A single caption line, 70-110 characters, ending with . ! or ?"
+                }
+              }
             },
-          },
-        },
-      },
-    },
+            required: ["lines"],
+            additionalProperties: false
+          }
+        }
+      }
+    ],
+    tool_choice: { 
+      type: "function", 
+      function: { name: "return_lines" } 
+    }
   };
 
   const ctl = new AbortController();
@@ -409,7 +418,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     const r = await fetch(CHAT_URL, {
       method: "POST",
       headers: { 
-        Authorization: `Bearer ${OPENAI_API_KEY}`, 
+        Authorization: `Bearer ${LOVABLE_API_KEY}`, 
         "Content-Type": "application/json",
         "Connection": "keep-alive"
       },
@@ -419,7 +428,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     
     const raw = await r.text();
     
-    // Map upstream OpenAI errors properly
+    // Map upstream gateway errors properly
     if (!r.ok) {
       if (r.status === 429) {
         throw new Error(`rate_limit:${raw.slice(0, 200)}`);
@@ -428,16 +437,23 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
         throw new Error(`insufficient_quota:${raw.slice(0, 200)}`);
       }
       // Other 4xx errors
-      throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
+      throw new Error(`Gateway ${r.status}: ${raw.slice(0, 400)}`);
     }
     
     const data = JSON.parse(raw);
 
-    // Try parsing from structured output first
-    const parsed = data.choices?.[0]?.message?.parsed?.lines;
+    // Parse from tool_calls (function calling)
+    const toolCalls = data.choices?.[0]?.message?.tool_calls;
     
-    if (Array.isArray(parsed)) {
-      return parsed as string[];
+    if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+      try {
+        const args = JSON.parse(toolCalls[0].function.arguments);
+        if (Array.isArray(args?.lines)) {
+          return args.lines as string[];
+        }
+      } catch (e) {
+        if (DEBUG) console.error("Failed to parse tool_calls arguments:", e);
+      }
     }
 
     // Fallback: try parsing content as JSON
@@ -455,9 +471,10 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
 
     // Failed to extract lines
     if (DEBUG) {
-      try { console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); } catch {}
-      try { console.error("response keys:", Object.keys(data || {})); } catch {}
-      try { console.error("choices[0]:", JSON.stringify(data.choices?.[0] || {}).slice(0, 400)); } catch {}
+      try { 
+        console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); 
+        console.error("tool_calls present:", !!toolCalls, "length:", toolCalls?.length || 0);
+      } catch {}
     }
     throw new Error("parse_error:no_structured_lines");
 
@@ -469,24 +486,9 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
   }
 }
 
-// Hedged call: fire second request after 250ms if first is slow
+// Simple call with timeout (no hedging to avoid worker crashes)
 async function callFast(system: string, payload: unknown) {
-  const p1 = callChatCompletionsAPI(system, payload);
-  const p2 = new Promise<string[]>((resolve, reject) => {
-    const t = setTimeout(async () => {
-      try {
-        resolve(await callChatCompletionsAPI(system, payload));
-      } catch (e) {
-        reject(e);
-      }
-    }, 250);
-    p1.finally(() => clearTimeout(t));
-  });
-  const raced = Promise.race([p1, p2]) as Promise<string[]>;
-  // Swallow loser rejections to avoid unhandled promise rejections in Deno
-  p1.catch(() => {});
-  (p2 as Promise<string[]>).catch?.(() => {});
-  return raced;
+  return callChatCompletionsAPI(system, payload);
 }
 
 
@@ -618,7 +620,7 @@ serve(async (req) => {
       });
     }
     
-    if (!OPENAI_API_KEY) return err(401, "OPENAI_API_KEY not configured");
+    if (!LOVABLE_API_KEY) return err(401, "LOVABLE_API_KEY not configured");
     
     const category = String(body.category || "").trim();
     const subcategory = String(body.subcategory || "").trim();
