@@ -966,22 +966,6 @@ export default function TextStep({
               debugExpanded && debugInfo.status === 'error' ? "ring-2 ring-red-200 border-red-200" : ""
             )}
           />
-          
-          {/* Source & Request ID Display */}
-          {debugInfo.source && debugInfo.req_id && (
-            <div className="flex gap-4 text-xs text-muted-foreground px-4">
-              <span className="font-mono">
-                <span className="font-semibold">Source:</span> 
-                <span className={debugInfo.source === "model" ? "text-green-600 ml-1" : "text-orange-600 ml-1"}>
-                  {debugInfo.source}
-                </span>
-              </span>
-              <span className="font-mono">
-                <span className="font-semibold">ID:</span> 
-                <span className="ml-1">{debugInfo.req_id}</span>
-              </span>
-            </div>
-          )}
         </div>
       )}
       
