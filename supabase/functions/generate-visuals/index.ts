@@ -127,7 +127,7 @@ async function callResponsesAPI(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort("timeout"), 8000);
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { 
       "Authorization": `Bearer ${openAIApiKey}`, 
@@ -201,28 +201,44 @@ CONTEXT:
     if (DEBUG) console.log("Calling Responses API with caption:", completed_text);
     
     const data = await callResponsesAPIFast(systemPrompt, 380);
-    const content = data.choices?.[0]?.message?.content || "";
 
-    if (DEBUG) console.log("Raw API response content:", content.slice(0, 200));
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch (e) {
-      throw new Error("Invalid JSON from model");
+    // Try Responses API structured output first
+    let concepts: any[] | undefined;
+    if (Array.isArray(data?.output_parsed?.concepts)) {
+      concepts = data.output_parsed.concepts;
+    } else if (Array.isArray(data?.output)) {
+      const blocks = data.output?.[0]?.content || [];
+      for (const b of blocks) {
+        if (b?.type === "json_schema" && Array.isArray(b?.parsed?.concepts)) {
+          concepts = b.parsed.concepts;
+          break;
+        }
+        if (b?.type === "output_text" && typeof b?.text === "string") {
+          try {
+            const maybe = JSON.parse(b.text);
+            if (Array.isArray(maybe?.concepts)) { concepts = maybe.concepts; break; }
+          } catch {}
+        }
+      }
+    } else if (typeof data?.choices?.[0]?.message?.content === "string") {
+      try {
+        const maybe = JSON.parse(data.choices[0].message.content);
+        if (Array.isArray(maybe?.concepts)) concepts = maybe.concepts;
+      } catch {}
     }
 
-    if (!parsed?.concepts || !Array.isArray(parsed.concepts) || parsed.concepts.length !== 4) {
+    if (!Array.isArray(concepts) || concepts.length !== 4) {
       throw new Error("Model did not return 4 concepts");
     }
 
-    const diversityCheck = checkDiversity(parsed.concepts);
+
+    const diversityCheck = checkDiversity(concepts);
     if (!diversityCheck.diverse && DEBUG) {
       console.warn(`Diversity issue: ${diversityCheck.reason}`);
     }
 
     // Map to output format
-    const visuals = parsed.concepts.map((c: any) => ({
+    const visuals = concepts.map((c: any) => ({
       title: c.title,
       subject: c.subject,
       setting: c.setting,
@@ -246,7 +262,7 @@ CONTEXT:
       req_id,
       debug: {
         diversityCheck: diversityCheck.diverse,
-        compositionCount: new Set(parsed.concepts.map((c:any) => c.composition)).size
+        compositionCount: new Set(concepts.map((c:any) => c.composition)).size
       }
     };
   } catch (error) {
