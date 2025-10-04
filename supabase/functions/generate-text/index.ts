@@ -15,6 +15,7 @@ interface TaskObject {
   birthday_explicit?: boolean;
   anchors?: string[];
   require_anchors?: boolean;
+  forbidden_terms?: string[];
 }
 
 const cors = {
@@ -358,21 +359,32 @@ function rhythmProblems(lines: string[]) {
   return q || exc ? null : ["rhythm_needs_question_or_exclamation"];
 }
 
-function namePlacementProblems(lines: string[], insert_words?: string[]): string[] | null {
+function namePlacementProblems(lines: string[], insert_words?: string[], forbidden_terms?: string[]): string[] | null {
   if (!insert_words?.length) return null;
   
-  const problems: string[] = [];
+  // Check if insert words are forbidden for this rating (e.g., swear word in PG-13)
+  const forbiddenInsertWords = insert_words.filter(w => 
+    forbidden_terms?.some(ft => ft.toLowerCase() === w.toLowerCase())
+  );
   
-  // Check each line contains at least one insert word
+  // If ALL insert words are forbidden, skip validation
+  if (forbiddenInsertWords.length === insert_words.length) {
+    return null;
+  }
+  
+  const problems: string[] = [];
+  const allowedInsertWords = insert_words.filter(w => !forbiddenInsertWords.includes(w));
+  
+  // Check each line contains at least one ALLOWED insert word
   for (let i = 0; i < lines.length; i++) {
-    const hasInsertWord = insert_words.some(w => hasWord(lines[i], w));
+    const hasInsertWord = allowedInsertWords.some(w => hasWord(lines[i], w));
     if (!hasInsertWord) {
       problems.push(`line_${i + 1}_missing_insert_word`);
     }
   }
   
   // Check that no line starts with the insert word
-  const nameStart = new RegExp(`^(${insert_words.map(esc).join("|")})[, ]`, "i");
+  const nameStart = new RegExp(`^(${allowedInsertWords.map(esc).join("|")})[, ]`, "i");
   if (lines.some(l => nameStart.test(l))) {
     problems.push("name_at_start");
   }
@@ -655,38 +667,38 @@ function quickValidate(lines: string[], task: TaskObject) {
 // Fallback lines per subcategory
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
-    "The cake says 'serves 8' and the fork says 'challenge accepted.'",
-    "Birthday candles: a beautiful fire hazard with wishes included.",
-    "If the frosting survives the group chat, it may be eaten unsupervised.",
-    "Getting older, but the cake negotiations remain unchanged.",
-    "Age now officially classified as vintage. Handle with care.",
-    "The birthday cake arrived with its own insurance policy and fire extinguisher.",
-    "The sprinkles are ready to testify in cake court.",
-    "Cake to calorie ratio is officially a health concern."
+    "The cake says 'serves 8' and {NAME} says 'challenge accepted.'",
+    "Birthday candles: a beautiful fire hazard with {NAME}'s wishes included.",
+    "If {NAME}'s frosting survives the group chat, it may be eaten unsupervised.",
+    "{NAME} is getting older, but the cake negotiations remain unchanged.",
+    "{NAME}'s age now officially classified as vintage. Handle with care.",
+    "The birthday cake arrived with {NAME}'s insurance policy and fire extinguisher.",
+    "{NAME} and the sprinkles are ready to testify in cake court.",
+    "Cake to calorie ratio is officially a {NAME} health concern."
   ],
   wedding: [
-    "Congrats on finding someone who'll put up with you—permanently.",
-    "Love is patient, love is kind, love is signing a lifelong contract.",
-    "May your love be modern enough to survive the times, and old-fashioned enough to last forever.",
-    "Here's to love, laughter, and happily ever after—prenup optional."
+    "Congrats to {NAME} on finding someone who'll put up with them—permanently.",
+    "Love is patient, love is kind, {NAME}'s love is signing a lifelong contract.",
+    "May {NAME}'s love be modern enough to survive the times, and old-fashioned enough to last forever.",
+    "Here's to {NAME}, love, laughter, and happily ever after—prenup optional."
   ],
   engagement: [
-    "Congrats on finding someone willing to argue about furniture with you for the rest of your life.",
-    "Ring acquired, registry loading, wedding planner on speed dial. May the Wi-Fi be with you.",
-    "You said yes to forever, now say yes to fifty different venue options and a catering nightmare.",
-    "Engagement: when two people agree to merge their streaming subscriptions and pretend it's romantic."
+    "Congrats to {NAME} on finding someone willing to argue about furniture for the rest of their life.",
+    "Ring acquired, registry loading, {NAME}'s wedding planner on speed dial. May the Wi-Fi be with you.",
+    "{NAME} said yes to forever, now say yes to fifty different venue options and a catering nightmare.",
+    "Engagement: when {NAME} and their partner agree to merge streaming subscriptions and pretend it's romantic."
   ],
   graduation: [
-    "Diploma unlocked, student loans loading. Welcome to the real world where nobody grades on a curve.",
-    "Congratulations on trading all-nighters for alarm clocks and coffee addictions for legitimate reasons.",
-    "Four years, one degree, lifelong debt. May your Wi-Fi be strong and your job offers be many.",
-    "Cap and gown returned, real clothes required. The final boss is adulting, and it doesn't offer extra credit."
+    "Diploma unlocked for {NAME}, student loans loading. Welcome to the real world where nobody grades on a curve.",
+    "Congratulations to {NAME} on trading all-nighters for alarm clocks and coffee addictions for legitimate reasons.",
+    "Four years, one degree, lifelong debt for {NAME}. May your Wi-Fi be strong and your job offers be many.",
+    "Cap and gown returned for {NAME}, real clothes required. The final boss is adulting, and it doesn't offer extra credit."
   ],
   anniversary: [
-    "Another year of not killing each other. Cheers to that!",
-    "You're proof that love can survive anything—even each other.",
-    "Congratulations on another year of marriage. You're basically relationship veterans now.",
-    "May your love story continue to be better than any Netflix series."
+    "Another year of {NAME} not killing their partner. Cheers to that!",
+    "{NAME} is proof that love can survive anything—even each other.",
+    "Congratulations to {NAME} on another year of marriage. You're basically relationship veterans now.",
+    "May {NAME}'s love story continue to be better than any Netflix series."
   ]
 };
 
@@ -808,6 +820,15 @@ serve(async (req) => {
       
       // Fallback on parse errors or other provider issues
       if (msg.includes("parse_error") || msg.includes("provider_error") || msg.includes("timeout")) {
+        // If insert words are required, don't return generic fallbacks - fail properly
+        if (insert_words?.length) {
+          console.error("❌ API failed but insert words required - cannot use fallbacks");
+          return err(502, "provider_error_with_insert_words", { 
+            details: "AI service failed and fallback lines cannot include required name",
+            insert_words 
+          });
+        }
+        
         console.log("⚠️ Parse/provider error → returning safe fallback lines");
         const safeFallback = getSafeLinesForSubcategory(subcategory, insert_words);
         return new Response(JSON.stringify({ 
@@ -831,7 +852,7 @@ serve(async (req) => {
     const q = quickValidate(lines, task); 
     if (q) problems.push(q);
     
-    const np = namePlacementProblems(lines, task.insert_words); 
+    const np = namePlacementProblems(lines, task.insert_words, task.forbidden_terms); 
     if (np) problems.push(...np);
 
     const bland = blandnessProblems(lines, task.tone); 
@@ -859,7 +880,7 @@ serve(async (req) => {
         // Recheck all validators
         problems = [];
         const rq = quickValidate(retry, task); if (rq) problems.push(rq);
-        const rnp = namePlacementProblems(retry, task.insert_words); if (rnp) problems.push(...rnp);
+        const rnp = namePlacementProblems(retry, task.insert_words, task.forbidden_terms); if (rnp) problems.push(...rnp);
         const rbd = blandnessProblems(retry, task.tone); if (rbd) problems.push(...rbd);
         const rtd = topicalDiversityProblemsAny(retry, subcat); if (rtd) problems.push(...rtd);
         const rrh = rhythmProblems(retry); if (rrh) problems.push(...rrh);
