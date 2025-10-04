@@ -146,10 +146,10 @@ export default function MultiStepForm() {
     }
   };
   const CurrentStepComponent = steps[currentStep - 1].component;
-  return <div className="min-h-screen bg-background p-4">
+  return <div className="min-h-screen bg-background pt-2 px-4 pb-4">
       <div className="mx-auto max-w-md">
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-3 text-center">
           <h1 className="mb-2 text-2xl font-bold text-foreground">Viibe Generator</h1>
           
         </div>
@@ -159,8 +159,8 @@ export default function MultiStepForm() {
 
 
         {/* Main Content */}
-        <div className="mb-20">
-          <div className="p-6">
+        <div className="mb-16">
+          <div className="p-4">
             <CurrentStepComponent data={formData} updateData={updateFormData} onNext={nextStep} />
           </div>
         </div>
