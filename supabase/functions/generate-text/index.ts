@@ -375,7 +375,6 @@ async function callResponsesAPI(system: string, userObj: unknown) {
   
   const body = {
     model: CHAT_MODEL,
-    modalities: ["text"],
     input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
