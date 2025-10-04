@@ -723,7 +723,7 @@ export default function TextStep({
 
 
           {/* Generate Button */}
-          <div className="w-full">
+          <div className="w-full pt-5">
             <Button 
               onClick={handleGenerate} 
               disabled={isGenerating} 
@@ -886,7 +886,7 @@ export default function TextStep({
               
 
               {/* Generate Button - Full width on mobile */}
-              <div className="w-full space-y-3">
+              <div className="w-full space-y-3 pt-5">
                 <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
                   {isGenerating ? <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
