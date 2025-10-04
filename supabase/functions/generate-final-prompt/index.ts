@@ -103,7 +103,7 @@ COMPOSITION MODES:
 
 EXAMPLES:
 ✅ CORRECT FORMAT:
-EXACT TEXT: Happy birthday! May your joy multiply this year!
+EXACT TEXT: "Happy birthday! May your joy multiply this year!"
 
 Typography: badge-callout format, modern sans-serif, ~25% coverage.
 
@@ -125,7 +125,7 @@ const promptCraftingTool = {
       properties: {
         block1_text: {
           type: "string",
-          description: 'EXACT TEXT: [mandatory_text]'
+          description: 'EXACT TEXT: "[mandatory_text]" (always quote the text)'
         },
         block2_typography: {
           type: "string",
@@ -350,6 +350,25 @@ function collapseLines(lines: string[], maxWords: number) {
   return wc(one) > maxWords ? limitWords(one, maxWords) : one;
 }
 
+// Clean text for image rendering - removes problematic characters and enforces length limit
+function sanitizeTextForImage(text: string): string {
+  return text
+    .replace(/[""]/g, '"')  // Smart quotes → straight quotes
+    .replace(/['']/g, "'")  // Smart apostrophes
+    .replace(/—/g, "-")     // Em dash → hyphen
+    .replace(/…/g, "...")   // Ellipsis
+    .slice(0, 110)          // Max 110 chars for stable rendering
+    .trim();
+}
+
+// Get optimal text coverage based on length - shorter text needs to be bigger
+function getOptimalCoverage(text: string, baseMin: number): number {
+  const len = text.length;
+  if (len < 50) return Math.max(baseMin, 28);  // Short text: 28-32%
+  if (len < 80) return baseMin;                // Medium text: use base
+  return Math.max(baseMin - 2, 15);            // Long text: slightly reduce
+}
+
 // ============== AI-POWERED PROMPT GENERATION ==============
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
@@ -384,12 +403,15 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   for (const L of layoutsToGenerate) {
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
+    const cleanText = sanitizeTextForImage(completed_text);
+    const optimalCoverage = getOptimalCoverage(cleanText, minPct);
 
     // Build detailed context for AI
     const userPrompt = `Format this prompt following the EXACT 3-block structure:
 
-MANDATORY TEXT: "${completed_text}"
+MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
+TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
 COMPOSITION MODE: ${compName}
@@ -456,8 +478,8 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
         sections: {
           aspect,
           layout: layoutKey,
-          mandatoryText: completed_text,
-          typography: `modern sans-serif; ≥${minPct}% coverage; no panels`,
+          mandatoryText: cleanText,
+          typography: `modern sans-serif; ${optimalCoverage}% coverage; no panels`,
           scene: visPhrase,
           mood: tone,
           tags,
@@ -467,9 +489,17 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
 
     } catch (error) {
       console.error(`Error generating prompt for layout ${layoutKey}:`, error);
-      // Fallback to basic template if AI fails
-      const fallbackPositive = `MANDATORY TEXT: "${completed_text}" in ${layoutKey} layout. Lighting: bright, vibrant, well-lit. Typography: modern sans-serif, ${minPct}% coverage. Aspect: ${aspect} in ${styleStr}. ${rating} scene with ${visPhrase} in ${compName} composition. Mood: ${tone}.`;
-      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped";
+      // Fallback to basic template if AI fails - use 3-block structure
+      const cleanText = sanitizeTextForImage(completed_text);
+      const optimalCoverage = getOptimalCoverage(cleanText, minPct);
+      
+      const fallbackPositive = `EXACT TEXT: "${cleanText}"
+
+Typography: ${layoutKey} format, modern sans-serif, ${optimalCoverage}% coverage, high contrast.
+
+Aspect: ${aspect}, ${styleStr} style. ${rating} scene with ${visPhrase} in a ${compName} composition. Bright lighting, vibrant colors, sharp focus.`;
+      
+      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped, broken-text, incorrect-spelling, text-artifacts";
       
       prompts.push({
         name: `Fallback — ${layoutKey}`,
@@ -479,8 +509,8 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
         sections: {
           aspect,
           layout: layoutKey,
-          mandatoryText: completed_text,
-          typography: `modern sans-serif; ≥${minPct}% coverage`,
+          mandatoryText: cleanText,
+          typography: `modern sans-serif; ${optimalCoverage}% coverage`,
           scene: visPhrase,
           mood: tone,
           tags,
@@ -527,11 +557,14 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   for (const L of layoutsToGenerate) {
     const layoutKey = enforceLayout(L.key, completed_text);
     const minPct = minCoverageForLayout(layoutKey);
+    const cleanText = sanitizeTextForImage(completed_text);
+    const optimalCoverage = getOptimalCoverage(cleanText, minPct);
 
     const userPrompt = `Format this IDEOGRAM prompt following the EXACT 3-block structure:
 
-MANDATORY TEXT: "${completed_text}"
+MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
+TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
 COMPOSITION MODE: ${compName}
@@ -594,8 +627,8 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
         sections: {
           aspect,
           layout: layoutKey,
-          mandatoryText: completed_text,
-          typography: `bold modern sans-serif; ≥${minPct}% coverage; high contrast`,
+          mandatoryText: cleanText,
+          typography: `bold modern sans-serif; ${optimalCoverage}% coverage; high contrast`,
           scene: visPhrase,
           mood: tone,
           tags,
@@ -605,8 +638,17 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
 
     } catch (error) {
       console.error(`Error generating Ideogram prompt for layout ${layoutKey}:`, error);
-      const fallbackPositive = `MANDATORY TEXT: "${completed_text}" in ${layoutKey} layout with BOLD typography. Lighting: bright, vibrant, high contrast. Text: ${minPct}% coverage, modern sans-serif. Aspect: ${aspect} in ${styleStr}. ${rating} scene with ${visPhrase} in ${compName} composition. Mood: ${tone}.`;
-      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped";
+      // Fallback to 3-block structure for Ideogram
+      const cleanText = sanitizeTextForImage(completed_text);
+      const optimalCoverage = getOptimalCoverage(cleanText, minPct);
+      
+      const fallbackPositive = `EXACT TEXT: "${cleanText}"
+
+Typography: ${layoutKey} format, bold modern sans-serif, ${optimalCoverage}% coverage, high contrast, white text.
+
+Aspect: ${aspect}, ${styleStr} style. ${rating} scene with ${visPhrase} in a ${compName} composition. Bright even lighting, vibrant colors, sharp focus, uncluttered.`;
+      
+      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped, broken-text, incorrect-spelling, text-artifacts";
       
       prompts.push({
         name: `Ideogram Fallback — ${layoutKey}`,
@@ -616,8 +658,8 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
         sections: {
           aspect,
           layout: layoutKey,
-          mandatoryText: completed_text,
-          typography: `bold sans-serif; ≥${minPct}% coverage`,
+          mandatoryText: cleanText,
+          typography: `bold sans-serif; ${optimalCoverage}% coverage`,
           scene: visPhrase,
           mood: tone,
           tags,
