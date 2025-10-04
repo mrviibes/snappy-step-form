@@ -68,15 +68,14 @@ interface PromptTemplate {
 }
 
 // ============== AI SYSTEM PROMPT ==============
-const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 3-block structure:
+const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 2-line flowing structure:
 
-POSITIVE PROMPT FORMAT (3 clean blocks):
-Block 1: EXACT TEXT: [mandatory_text]
-Block 2: Typography: [layout] format, [typography_style], ~[coverage]% coverage.
-Block 3: Aspect: [aspect], [style] style. [rating] scene with [visual_description] in a [composition] composition.
+POSITIVE PROMPT FORMAT (2 flowing lines):
+Line 1: EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.
+Line 2: A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio.
 
-NEGATIVE PROMPT FORMAT (lean, ~12 critical terms):
-dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped
+NEGATIVE PROMPT FORMAT (text-only, lean):
+misspelled text, broken letters, split characters, extra words
 
 ⚠️ CRITICAL RULES:
 1. DO NOT extract visual keywords from the mandatory text - text is ONLY for display, NOT scene content
@@ -111,14 +110,12 @@ COMPOSITION MODES:
 
 EXAMPLES:
 ✅ CORRECT FORMAT:
-EXACT TEXT: "Happy birthday! May your joy multiply this year!"
-
-Typography: badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, ~25% coverage.
-
-Aspect: 16:9, vibrant realistic style. PG-13 scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a normal composition.
+Line 1: EXACT TEXT: "Happy birthday! May your joy multiply this year!" in a badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, with 25% coverage.
+Line 2: A vibrant realistic style in a PG-13 normal composition with a scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a 16:9 aspect ratio.
 
 ❌ WRONG - Don't do this:
-"The image shows a birthday party with maximum vibrancy and highly saturated colors..."
+"The image shows a birthday party..." (too verbose)
+"EXACT TEXT: [text] Typography: ..." (don't split into blocks)
 
 Remember: The text is what gets DISPLAYED as typography. The visual_recommendation describes what's IN the scene.`;
 
@@ -127,28 +124,24 @@ const promptCraftingTool = {
   type: "function",
   function: {
     name: "format_prompt",
-    description: "Format the image prompt following the exact 3-block structure",
+    description: "Format the image prompt following the exact 2-line flowing structure",
     parameters: {
       type: "object",
       properties: {
-        block1_text: {
+        line1_text_and_typography: {
           type: "string",
-          description: 'EXACT TEXT: "[mandatory_text]" (always quote the text)'
+          description: 'Line 1: EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.'
         },
-        block2_typography: {
+        line2_scene_description: {
           type: "string",
-          description: "Typography: [layout] format, [typography_style_for_layout], ~[coverage]% coverage."
-        },
-        block3_scene: {
-          type: "string",
-          description: "Aspect: [aspect], [style] style. [rating] scene with [visual_description] in a [composition] composition."
+          description: "Line 2: A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio."
         },
         negative_prompt: {
           type: "string",
-          description: "Lean negative terms (~12): dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped"
+          description: "Text-only negative terms: misspelled text, broken letters, split characters, extra words"
         }
       },
-      required: ["block1_text", "block2_typography", "block3_scene", "negative_prompt"],
+      required: ["line1_text_and_typography", "line2_scene_description", "negative_prompt"],
       additionalProperties: false
     }
   }
@@ -426,7 +419,7 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
     // Build detailed context for AI
-    const userPrompt = `Format this prompt following the EXACT 3-block structure:
+    const userPrompt = `Format this prompt following the EXACT 2-line flowing structure:
 
 MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
@@ -445,7 +438,7 @@ Example:
 - Text says "hieroglyphics" → Display it as text, do NOT add hieroglyphics to the scene
 - Visual recommendation says "friends laughing around birthday cake" → This goes in the scene
 
-Output the 3 blocks for the positive prompt and the lean comma-separated negative prompt.`;
+Output Line 1 (text + typography) and Line 2 (scene description) as a flowing format, plus the simplified negative prompt.`;
 
     try {
       const aiResponse = await fetch(OPENAI_URL, {
@@ -481,13 +474,12 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      // Combine the three blocks
-      const positive_prompt = `${result.block1_text}\n\n${result.block2_typography}\n\n${result.block3_scene}`;
+      // Combine the two flowing lines
+      const positive_prompt = `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`;
       
       console.log(`Layout ${layoutKey} - Structured prompt:`);
-      console.log(`Block 1:`, result.block1_text);
-      console.log(`Block 2:`, result.block2_typography);
-      console.log(`Block 3:`, result.block3_scene);
+      console.log(`Line 1:`, result.line1_text_and_typography);
+      console.log(`Line 2:`, result.line2_scene_description);
       console.log(`Negative:`, result.negative_prompt);
 
       prompts.push({
@@ -503,23 +495,21 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
           scene: visPhrase,
           mood: tone,
           tags,
-          pretty: `${result.block1_text}\n\n${result.block2_typography}\n\n${result.block3_scene}`
+          pretty: `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`
         }
       });
 
     } catch (error) {
       console.error(`Error generating prompt for layout ${layoutKey}:`, error);
-      // Fallback to basic template if AI fails - use 3-block structure
+      // Fallback to basic template if AI fails - use 2-line flowing structure
       const cleanText = sanitizeTextForImage(completed_text);
       const optimalCoverage = getOptimalCoverage(cleanText, minPct);
       
-      const fallbackPositive = `EXACT TEXT: "${cleanText}"
+      const fallbackPositive = `EXACT TEXT: "${cleanText}" in a ${layoutKey} format, ${typographyStyle}, with ${optimalCoverage}% coverage.
 
-Typography: ${layoutKey} format, modern sans-serif, ${optimalCoverage}% coverage, high contrast.
-
-Aspect: ${aspect}, ${styleStr} style. ${rating} scene with ${visPhrase} in a ${compName} composition. Bright lighting, vibrant colors, sharp focus.`;
+A vibrant ${styleStr} style in a ${rating} ${compName} composition with a scene with ${visPhrase} in a ${aspect} aspect ratio.`;
       
-      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped, broken-text, incorrect-spelling, text-artifacts";
+      const fallbackNegative = "misspelled text, broken letters, split characters, extra words";
       
       prompts.push({
         name: `Fallback — ${layoutKey}`,
@@ -581,7 +571,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const optimalCoverage = getOptimalCoverage(cleanText, minPct);
     const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
-    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 3-block structure:
+    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 2-line flowing structure:
 
 MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
@@ -598,7 +588,7 @@ SPECIFIC VISUALS: ${tags.join(", ") || "none"}
 
 IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast. Ideogram excels at text rendering.
 
-Output the 3 blocks for the positive prompt and the lean comma-separated negative prompt.`;
+Output Line 1 (text + typography) and Line 2 (scene description) as a flowing format, plus the simplified negative prompt.`;
 
     try {
       const aiResponse = await fetch(OPENAI_URL, {
@@ -633,13 +623,12 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      // Combine the three blocks
-      const positive_prompt = `${result.block1_text}\n\n${result.block2_typography}\n\n${result.block3_scene}`;
+      // Combine the two flowing lines
+      const positive_prompt = `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`;
       
       console.log(`Ideogram ${layoutKey} - Structured prompt:`);
-      console.log(`Block 1:`, result.block1_text);
-      console.log(`Block 2:`, result.block2_typography);
-      console.log(`Block 3:`, result.block3_scene);
+      console.log(`Line 1:`, result.line1_text_and_typography);
+      console.log(`Line 2:`, result.line2_scene_description);
 
       prompts.push({
         name: `ideogram-${layoutKey}`,
@@ -654,23 +643,21 @@ Output the 3 blocks for the positive prompt and the lean comma-separated negativ
           scene: visPhrase,
           mood: tone,
           tags,
-          pretty: `${result.block1_text}\n\n${result.block2_typography}\n\n${result.block3_scene}`
+          pretty: `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`
         }
       });
 
     } catch (error) {
       console.error(`Error generating Ideogram prompt for layout ${layoutKey}:`, error);
-      // Fallback to 3-block structure for Ideogram
+      // Fallback to 2-line flowing structure for Ideogram
       const cleanText = sanitizeTextForImage(completed_text);
       const optimalCoverage = getOptimalCoverage(cleanText, minPct);
       
-      const fallbackPositive = `EXACT TEXT: "${cleanText}"
+      const fallbackPositive = `EXACT TEXT: "${cleanText}" in a ${layoutKey} format, bold modern sans-serif, high contrast, with ${optimalCoverage}% coverage.
 
-Typography: ${layoutKey} format, bold modern sans-serif, ${optimalCoverage}% coverage, high contrast, white text.
-
-Aspect: ${aspect}, ${styleStr} style. ${rating} scene with ${visPhrase} in a ${compName} composition. Bright even lighting, vibrant colors, sharp focus, uncluttered.`;
+A vibrant ${styleStr} style in a ${rating} ${compName} composition with a scene with ${visPhrase} in a ${aspect} aspect ratio.`;
       
-      const fallbackNegative = "dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, distorted, low-quality, misspelled, illegible, warped, broken-text, incorrect-spelling, text-artifacts";
+      const fallbackNegative = "misspelled text, broken letters, split characters, extra words";
       
       prompts.push({
         name: `Ideogram Fallback — ${layoutKey}`,
