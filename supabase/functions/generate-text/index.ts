@@ -138,9 +138,17 @@ function blandnessProblems(lines: string[], tone: Tone) {
     /^Make a wish/i,
     /^Another year/i,
     /^Congrats on/i,
+    /^Congratulations on/i,
     /^Happy birthday to/i,
     /^Wishing you/i,
-    /^Here's to/i,
+    /^Here'?s to/i,
+  ];
+  
+  const BANNED_PHRASES = [
+    /\banother trip around the sun\b/i,
+    /\blive laugh love\b/i,
+    /\byou got this\b/i,
+    /\bmake it count\b/i,
   ];
   
   const GAMER_PATCH_NOTES = /\b(age\s*[+]\s*\d|wisdom\s*[±]\s*\d|xp\s*[+])/i;
@@ -152,6 +160,10 @@ function blandnessProblems(lines: string[], tone: Tone) {
     // Check banned opening patterns
     if (BANNED_OPENINGS.some(pattern => pattern.test(line))) {
       problems.push(`banned_template:${line.slice(0, 30)}...`);
+    }
+    // Check banned phrases anywhere in line
+    if (BANNED_PHRASES.some(pattern => pattern.test(line))) {
+      problems.push(`banned_phrase:${line.slice(0, 30)}...`);
     }
     // Check gamer patch notes style
     if (GAMER_PATCH_NOTES.test(line)) {
@@ -423,10 +435,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {
+    const req_id = crypto.randomUUID().slice(0, 8);
+    
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     const url = new URL(req.url);
     if (url.searchParams.get("dry") === "1") {
-      return new Response(JSON.stringify({ success: true, options: SAFE_LINES, model: "dry-run" }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        options: SAFE_LINES, 
+        model: "dry-run",
+        source: "fallback",
+        req_id
+      }), {
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
@@ -461,7 +481,15 @@ serve(async (req) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
-      const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: msg };
+      const payload = { 
+        success: true, 
+        options: SAFE_LINES, 
+        model: RESP_MODEL, 
+        source: "fallback",
+        req_id,
+        fallback: "safe_lines", 
+        error: msg 
+      };
       return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
@@ -476,11 +504,29 @@ serve(async (req) => {
         problem = quickValidate(lines, task);
         if (problem) {
           console.warn("Validation failed after retry:", problem, lines);
-          const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed", details: { problem, lines } };
+          const payload = { 
+            success: true, 
+            options: SAFE_LINES, 
+            model: RESP_MODEL, 
+            source: "fallback",
+            req_id,
+            fallback: "safe_lines", 
+            error: "Validation failed", 
+            details: { problem, lines } 
+          };
           return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
         }
       } catch (e2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Retry failed", details: { problem, info: String(e2) } };
+        const payload = { 
+          success: true, 
+          options: SAFE_LINES, 
+          model: RESP_MODEL, 
+          source: "fallback",
+          req_id,
+          fallback: "safe_lines", 
+          error: "Retry failed", 
+          details: { problem, info: String(e2) } 
+        };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
     }
@@ -501,13 +547,30 @@ serve(async (req) => {
       RECENT_LINES_CACHE.splice(0, 20);
     }
 
-    return new Response(JSON.stringify({ success: true, options: lines, model: RESP_MODEL, count: lines.length }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      options: lines, 
+      model: RESP_MODEL,
+      source: "model",
+      req_id,
+      count: lines.length 
+    }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("generate-text fatal error:", msg);
-    const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: msg };
+    // req_id not available in catch scope, generate new one
+    const req_id = crypto.randomUUID().slice(0, 8);
+    const payload = { 
+      success: true, 
+      options: SAFE_LINES, 
+      model: RESP_MODEL, 
+      source: "fallback",
+      req_id,
+      fallback: "safe_lines", 
+      error: msg 
+    };
     return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
   }
 });

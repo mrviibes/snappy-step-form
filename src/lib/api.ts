@@ -16,6 +16,13 @@ export interface TextOptionsResponse {
   line: string;
 }
 
+export interface GenerateTextResponse {
+  options: TextOptionsResponse[];
+  model?: string;
+  source?: "model" | "fallback";
+  req_id?: string;
+}
+
 export interface VisualRecommendation {
   scene: string;
   composition: string;
@@ -101,7 +108,7 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 }
 
 // Text generation
-export async function generateTextOptions(params: GenerateTextParams): Promise<{ options: TextOptionsResponse[], model?: string }> {
+export async function generateTextOptions(params: GenerateTextParams): Promise<GenerateTextResponse> {
   const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
   const payload = {
     category: params.category || "celebrations",
@@ -125,7 +132,9 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<{
   }
   return {
     options: res.options.slice(0, 4).map((line: string) => ({ line })),
-    model: res.model
+    model: res.model,
+    source: res.source,
+    req_id: res.req_id
   };
 }
 
