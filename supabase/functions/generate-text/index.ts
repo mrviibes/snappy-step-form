@@ -112,7 +112,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
   
-  // Add insert words instruction - natural incorporation
+  // Add insert words instruction - natural incorporation with POV discouragement
   const insertWordsHint = task.insert_words?.length 
     ? task.insert_word_mode === "per_line"
       ? `CRITICAL: Mention "${task.insert_words.join('", "')}" naturally in EVERY line like you're texting a friend about them. 
@@ -121,7 +121,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
          ❌ BAD: "Alex's birthday means..."
          Never start with "Name," or "Name's". Weave the name into the middle or end naturally.`
       : `IMPORTANT: Mention "${task.insert_words.join('", "')}" naturally in your captions like texting a friend.`
-    : "";
+    : "Do not address the reader directly. Avoid starting with 'You,' or 'Your'. Use neutral or narrator voice.";
 
   const subcatHint = subcategory === "wedding"
     ? "Write savage wedding captions: vows, rings, reception chaos, best-man disasters, in-laws, registry, open bar. No birthday/age jokes."
@@ -318,6 +318,13 @@ function topicalDiversityProblems(lines: string[]) {
     return [`topical_diversity:only_${categoryCounts.size}_categories`];
   }
 
+  return null;
+}
+
+function rhythmProblems(lines: string[]) {
+  const hasQuestion = lines.some(l => /\?$/.test(l));
+  const hasStatement = lines.some(l => /\.$/.test(l));
+  if (!hasQuestion && !hasStatement) return ["rhythm:needs_mixed_endings"];
   return null;
 }
 
@@ -565,20 +572,28 @@ function quickValidate(lines: string[], task: TaskObject) {
     return "banned_phrase";
   }
   
+  // Disallow second-person starters when no name was requested
+  if (!task.insert_words?.length) {
+    const badStarts = [/^you[, ]/i, /^your\b/i];
+    if (lines.some(l => badStarts.some(rx => rx.test(l)))) {
+      return "avoid_second_person_starter";
+    }
+  }
+  
   return null;
 }
 
 // Fallback lines per subcategory
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
-    "{NAME}, the cake says 'serves 8' and your fork says 'challenge accepted.'",
-    "{NAME}'s birthday candles: a beautiful fire hazard with wishes included.",
-    "{NAME}, if the frosting survives the group chat, you may eat it unsupervised.",
-    "{NAME}'s getting older, but the cake negotiations remain unchanged.",
-    "{NAME}'s age is now officially classified as vintage. Handle with care.",
-    "{NAME}, another year wiser but still testing the smoke detector with birthday candles.",
-    "{NAME}'s birthday cake arrived with its own insurance policy and fire extinguisher.",
-    "{NAME}, the sprinkles are ready to testify on your behalf in cake court."
+    "The cake says 'serves 8' and the fork says 'challenge accepted.'",
+    "Birthday candles: a beautiful fire hazard with wishes included.",
+    "If the frosting survives the group chat, it may be eaten unsupervised.",
+    "Getting older, but the cake negotiations remain unchanged.",
+    "Age now officially classified as vintage. Handle with care.",
+    "The birthday cake arrived with its own insurance policy and fire extinguisher.",
+    "The sprinkles are ready to testify in cake court.",
+    "Cake to calorie ratio is officially a health concern."
   ],
   wedding: [
     "Congrats on finding someone who'll put up with you—permanently.",
@@ -610,34 +625,27 @@ function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[])
   const base = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
   const name = insertWords?.[0]?.trim();
   
-  // Shuffle and take 4 to reduce repetition
+  // Shuffle and take 4 to increase variety
   const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, 4);
   
   return shuffled.map(line => {
     if (/{NAME}/.test(line)) {
-      if (name) {
-        // Replace with provided name
-        return line.replace(/{NAME}/g, name);
-      }
-      // No name: convert to 2nd person, clean up spacing/punctuation
+      if (name) return line.replace(/{NAME}/g, name);
+
+      // No name: neutralize leading "{NAME}," or "{NAME}'s"
       return line
-        .replace(/{NAME}/g, "You")
-        .replace(/,\s*You,/, ", you")
+        .replace(/^{NAME},\s*/g, "")          // drop name prefix entirely
+        .replace(/{NAME}'s\b/g, "The")        // "{NAME}'s cake" -> "The cake"
+        .replace(/{NAME}/g, "the guest")      // any remaining reference
         .replace(/\s+/g, " ")
         .replace(/\s([.,!?;:])/g, "$1")
         .trim();
     }
-    
-    // If line doesn't have {NAME} placeholder but name was provided, prefix it naturally
-    if (name) {
-      // Check if line starts with a name pattern already
-      if (/^[A-Z][a-z]+,/.test(line)) {
-        return line; // Already has a name structure
-      }
-      // Prefix the name naturally
-      return `${name}, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+
+    // If line has no placeholder and name exists, weave name mid-sentence
+    if (name && !line.toLowerCase().includes(name.toLowerCase())) {
+      return line.replace(/^([A-Z])/, (_, c) => `${name} ${c.toLowerCase()}`);
     }
-    
     return line;
   });
 }
@@ -749,17 +757,42 @@ serve(async (req) => {
       return err(502, "provider_error", { details: msg });
     }
 
-    // Quick validation (single local check)
-    let problem = quickValidate(lines, task);
-    
-    if (problem) {
-      if (DEBUG) console.log("⚠️ Validation failed:", problem, "→ strict retry");
-      const STRICT = SYSTEM + "\nCRITICAL: 4 new lines, 70–110 chars, end with . ! ?, no em dashes, ≥2 " + (subcat || "category") + " cues.";
+    // Quick validation + blandness + topic diversity + rhythm
+    let problems: string[] = [];
+    const q = quickValidate(lines, task); 
+    if (q) problems.push(q);
+
+    const bland = blandnessProblems(lines, task.tone); 
+    if (bland) problems.push(...bland);
+
+    const topo = topicalDiversityProblems(lines); 
+    if (topo) problems.push(...topo);
+
+    const rhythm = rhythmProblems(lines);
+    if (rhythm) problems.push(...rhythm);
+
+    if (problems.length) {
+      if (DEBUG) console.log("⚠️ Validation failed:", problems.join(", "), "→ strict retry");
+      const STRICT =
+        SYSTEM +
+        "\nCRITICAL: 4 NEW lines, 70–110 chars, end with . ! ?, no em dashes." +
+        (!task.insert_words?.length
+          ? " Do not start with 'You,' or 'Your'."
+          : " If using the name, put it mid-sentence, never at the start.") +
+        " Vary openings and topic: cover at least three different angles (cake, candles, age roast, party, gifts).";
+      
       try {
         const retry = await callFast(STRICT, userPayload);
-        problem = quickValidate(retry, task);
-        if (problem) {
-          return err(422, `validation_failed:${problem}`, { lines: retry });
+        
+        // Recheck all validators
+        problems = [];
+        const rq = quickValidate(retry, task); if (rq) problems.push(rq);
+        const rB = blandnessProblems(retry, task.tone); if (rB) problems.push(...rB);
+        const rT = topicalDiversityProblems(retry); if (rT) problems.push(...rT);
+        const rR = rhythmProblems(retry); if (rR) problems.push(...rR);
+        
+        if (problems.length) {
+          return err(422, `validation_failed:${problems.join("|")}`, { lines: retry });
         }
         lines = retry;
       } catch (e) {
@@ -838,10 +871,10 @@ serve(async (req) => {
     // Add to cache for future novelty checks
     addToCache(category, subcategory, tone, rating, lines);
 
-    // Success - add to cache and return
-    addToCache(category, subcategory, tone, rating, lines);
+    // Shuffle lines for variety on each click
+    lines = [...lines].sort(() => Math.random() - 0.5);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true, 
       options: lines, 
       model: CHAT_MODEL,
