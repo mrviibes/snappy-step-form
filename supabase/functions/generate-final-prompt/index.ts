@@ -338,9 +338,9 @@ function cleanVisRec(s?: string) {
   return t;
 }
 
-// If badge-callout and long text, auto-switch to negative-space
+// Keep the selected layout without auto-switching
 function enforceLayout(key: string, completedText: string, thresh = 12) {
-  if (key === "badge-callout" && wc(completedText) > thresh) return "negative-space";
+  // Removed auto-switching logic - respect user's layout choice
   return key;
 }
 
@@ -375,11 +375,16 @@ function sanitizeTextForImage(text: string): string {
 }
 
 // Get optimal text coverage based on length - shorter text needs to be bigger
+// Maximum coverage capped at 40% for all layouts
 function getOptimalCoverage(text: string, baseMin: number): number {
   const len = text.length;
-  if (len < 50) return Math.max(baseMin, 28);  // Short text: 28-32%
-  if (len < 80) return baseMin;                // Medium text: use base
-  return Math.max(baseMin - 2, 15);            // Long text: slightly reduce
+  let coverage: number;
+  
+  if (len < 50) coverage = Math.max(baseMin, 35);  // Short text: larger
+  else if (len < 80) coverage = baseMin;            // Medium text: use base
+  else coverage = Math.max(baseMin - 2, 15);       // Long text: slightly reduce
+  
+  return Math.min(coverage, 40);  // Cap at 40% max
 }
 
 // ============== AI-POWERED PROMPT GENERATION ==============
