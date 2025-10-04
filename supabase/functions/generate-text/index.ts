@@ -85,6 +85,50 @@ function getCuesForSubcategory(subcategory: string): RegExp[] {
   return CUE_MAPS[subcategory.toLowerCase()] || [];
 }
 
+// Topic diversity map for any subcategory - enforces ≥3 different angles
+const TOPIC_MAP: Record<string, RegExp[]> = {
+  birthday: [
+    /\bcake|frosting|sprinkles\b/i,
+    /\bcandles?|flame|wish\b/i,
+    /\bparty|balloons?|confetti\b/i,
+    /\bage|older|vintage\b/i,
+    /\bgifts?|receipt|returns?\b/i
+  ],
+  wedding: [
+    /\bvows|ceremony|altar\b/i,
+    /\brings?|band|jewelry\b/i,
+    /\breception|venue|bar\b/i,
+    /\bin-laws?|family|merge\b/i,
+    /\bregistry|gifts?|honeymoon\b/i
+  ],
+  engagement: [
+    /\bring|proposal|propose\b/i,
+    /\bforever|future|plans?\b/i,
+    /\bwedding|venue|planner\b/i,
+    /\bcommitment|relationship\b/i
+  ],
+  graduation: [
+    /\bdiploma|degree|certificate\b/i,
+    /\bstudent loans?|debt\b/i,
+    /\bcaps?|gowns?|ceremony\b/i,
+    /\bcareer|job|future\b/i
+  ],
+  anniversary: [
+    /\byears? together|milestone\b/i,
+    /\bcommitment|vows\b/i,
+    /\bmemories|shared\b/i,
+    /\blive|relationship\b/i
+  ]
+};
+
+// General fallback topics that work for any subcategory
+const GENERAL_TOPICS = [
+  /\bchaos|mayhem|disaster\b/i,
+  /\bgroup chat|notifications?\b/i,
+  /\bpolicy|contract|fine print\b/i,
+  /\bwarranty|insurance|coverage\b/i
+];
+
 // Hard-banned clichés that keep recycling
 const BANNED_PHRASES = [
   /\banother trip around the sun\b/i,
@@ -108,20 +152,22 @@ function hasBannedPhrase(line: string): boolean {
   return BANNED_PHRASES.some(rx => rx.test(line));
 }
 
+function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
 function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
   
-  // Add insert words instruction - natural incorporation with POV discouragement
-  const insertWordsHint = task.insert_words?.length 
-    ? task.insert_word_mode === "per_line"
-      ? `CRITICAL: Mention "${task.insert_words.join('", "')}" naturally in EVERY line like you're texting a friend about them. 
-         ✅ GOOD: "Alex is out here setting candles like it's the final boss"
-         ❌ BAD: "Alex, another year older and..."
-         ❌ BAD: "Alex's birthday means..."
-         Never start with "Name," or "Name's". Weave the name into the middle or end naturally.`
-      : `IMPORTANT: Mention "${task.insert_words.join('", "')}" naturally in your captions like texting a friend.`
-    : "Do not address the reader directly. Avoid starting with 'You,' or 'Your'. Use neutral or narrator voice.";
+  // Name placement rules - vary position across the set
+  const nameRules = task.insert_words?.length
+    ? `Use the name "${task.insert_words.join('", "')}" naturally across the set:
+       - Never start a line with the name.
+       - Vary placement: one mid-sentence, one near the end, optionally one possessive ("Mike's"), and one absent.
+       - No "Name," or "Name's ..." openings.`
+    : "Do not start with 'You' or 'Your'. Use a narrator voice.";
+  
+  // Variety enforcement
+  const varietyRules = "Across the 4 lines: vary structure (statements, a question or exclamation), avoid repeated openings, and cover at least three different topical angles for this subcategory.";
 
   const subcatHint = subcategory === "wedding"
     ? "Write savage wedding captions: vows, rings, reception chaos, best-man disasters, in-laws, registry, open bar. No birthday/age jokes."
@@ -135,19 +181,22 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     ? "Write anniversary captions: years together, commitment, shared memories."
     : `Write ${subcategory || task.topic} captions.`;
 
-  // Few-shot examples for natural phrasing
+  // Few-shot examples covering different topics (not just cake)
   const fewShotHint = subcategory === "birthday" ? `
-Examples of natural vs awkward:
-✅ "The candles outnumber the fire extinguishers this year"
-✅ "Cake to calorie ratio is officially a health concern"
-❌ "You, another year wiser but still testing limits"
-❌ "Happy birthday to someone who deserves the world"
-
-Write like you're roasting a friend over text, not writing a hallmark card.` : "";
+Examples covering different topics:
+- "The candles outnumber the safety briefing; HR is concerned."
+- "The party budget is 80% sprinkles, 20% damage control."
+- "This gift comes with a receipt and no follow-up questions."
+` : subcategory === "wedding" ? `
+Examples:
+- "Vows exchanged, open bar negotiated, in-laws on standby."
+- "The registry says 'blender,' the fine print says 'no returns.'"
+` : "";
 
   return [
     "Write 4 unique on-image card captions.",
-    insertWordsHint,
+    nameRules,
+    varietyRules,
     "Each 70–110 chars; end with . ! or ?",
     "Vary sentence structure: don't start every line the same way. Mix statements, questions, observations.",
     warm
@@ -294,38 +343,19 @@ function blandnessProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-function topicalDiversityProblems(lines: string[]) {
-  // Map each line to comedy categories
-  const CATEGORIES = {
-    cake: /\b(cake|frosting|icing|sprinkles|batter|bake|slice)\b/i,
-    candles: /\b(candles?|fire|flame|smoke|marshal|extinguisher|burn|ignite)\b/i,
-    age: /\b(age|old|older|young|wrinkle|warranty|expired|gray|ancient|decades?)\b/i,
-    party: /\b(party|balloons?|confetti|banner|celebrate|chaos|disaster|mess)\b/i,
-    wishes: /\b(wish|gift|present|surprise|expect|receipt|return)\b/i,
-  };
-
-  const categoryCounts = new Set<string>();
-  
-  for (const line of lines) {
-    for (const [category, pattern] of Object.entries(CATEGORIES)) {
-      if (pattern.test(line)) {
-        categoryCounts.add(category);
-      }
-    }
-  }
-
-  if (categoryCounts.size < 3) {
-    return [`topical_diversity:only_${categoryCounts.size}_categories`];
-  }
-
-  return null;
+function topicalDiversityProblemsAny(lines: string[], subcat: string) {
+  const pats = [...(TOPIC_MAP[subcat] || []), ...GENERAL_TOPICS];
+  const hit = new Set<number>();
+  pats.forEach((rx, i) => { 
+    if (lines.some(l => rx.test(l))) hit.add(i); 
+  });
+  return hit.size < 3 ? [`topic_diversity_min3:${hit.size}`] : null;
 }
 
 function rhythmProblems(lines: string[]) {
-  const hasQuestion = lines.some(l => /\?$/.test(l));
-  const hasStatement = lines.some(l => /\.$/.test(l));
-  if (!hasQuestion && !hasStatement) return ["rhythm:needs_mixed_endings"];
-  return null;
+  const q = lines.some(l => /\?$/.test(l));
+  const exc = lines.some(l => /!$/.test(l));
+  return q || exc ? null : ["rhythm_needs_question_or_exclamation"];
 }
 
 // In-memory cache for recent lines (resets on function restart)
@@ -433,6 +463,8 @@ async function callResponsesAPI(system: string, userObj: unknown) {
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: 420,
+    temperature: 0.95,
+    top_p: 0.95,
     text: {
       format: {
         type: "json_schema",
@@ -580,6 +612,14 @@ function quickValidate(lines: string[], task: TaskObject) {
     }
   }
   
+  // Disallow name at the start if a name is provided
+  if (task.insert_words?.length) {
+    const nameStart = new RegExp(`^(${task.insert_words.map(esc).join("|")})[, ]`, "i");
+    if (lines.some(l => nameStart.test(l))) {
+      return "name_at_start";
+    }
+  }
+  
   return null;
 }
 
@@ -630,21 +670,21 @@ function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[])
   
   return shuffled.map(line => {
     if (/{NAME}/.test(line)) {
-      if (name) return line.replace(/{NAME}/g, name);
-
-      // No name: neutralize leading "{NAME}," or "{NAME}'s"
+      if (name) {
+        // weave name mid-sentence; never at the start
+        return line
+          .replace(/^{NAME},\s*/g, "")
+          .replace(/{NAME}'s\b/g, `${name}'s`)
+          .replace(/{NAME}/g, `${name}`); // mid-sentence templates only
+      }
+      // neutralize
       return line
-        .replace(/^{NAME},\s*/g, "")          // drop name prefix entirely
-        .replace(/{NAME}'s\b/g, "The")        // "{NAME}'s cake" -> "The cake"
-        .replace(/{NAME}/g, "the guest")      // any remaining reference
+        .replace(/^{NAME},\s*/g, "")
+        .replace(/{NAME}'s\b/g, "The")
+        .replace(/{NAME}/g, "the guest")
         .replace(/\s+/g, " ")
         .replace(/\s([.,!?;:])/g, "$1")
         .trim();
-    }
-
-    // If line has no placeholder and name exists, weave name mid-sentence
-    if (name && !line.toLowerCase().includes(name.toLowerCase())) {
-      return line.replace(/^([A-Z])/, (_, c) => `${name} ${c.toLowerCase()}`);
     }
     return line;
   });
@@ -757,29 +797,32 @@ serve(async (req) => {
       return err(502, "provider_error", { details: msg });
     }
 
-    // Quick validation + blandness + topic diversity + rhythm
+    // Wire in all validators: quick, name placement, blandness, topic diversity, rhythm
     let problems: string[] = [];
     const q = quickValidate(lines, task); 
     if (q) problems.push(q);
+    
+    const np = namePlacementProblems(lines, task.insert_words); 
+    if (np) problems.push(...np);
 
     const bland = blandnessProblems(lines, task.tone); 
     if (bland) problems.push(...bland);
 
-    const topo = topicalDiversityProblems(lines); 
-    if (topo) problems.push(...topo);
+    const td = topicalDiversityProblemsAny(lines, subcat); 
+    if (td) problems.push(...td);
 
-    const rhythm = rhythmProblems(lines);
-    if (rhythm) problems.push(...rhythm);
+    const rh = rhythmProblems(lines);
+    if (rh) problems.push(...rh);
 
     if (problems.length) {
       if (DEBUG) console.log("⚠️ Validation failed:", problems.join(", "), "→ strict retry");
       const STRICT =
         SYSTEM +
         "\nCRITICAL: 4 NEW lines, 70–110 chars, end with . ! ?, no em dashes." +
-        (!task.insert_words?.length
-          ? " Do not start with 'You,' or 'Your'."
-          : " If using the name, put it mid-sentence, never at the start.") +
-        " Vary openings and topic: cover at least three different angles (cake, candles, age roast, party, gifts).";
+        (task.insert_words?.length
+          ? " Do not start with the name. Vary name placement (middle, end, possessive, absent)."
+          : " Do not start with 'You' or 'Your'.") +
+        " Cover ≥3 different topics for this subcategory; vary openings and sentence types.";
       
       try {
         const retry = await callFast(STRICT, userPayload);
@@ -787,9 +830,10 @@ serve(async (req) => {
         // Recheck all validators
         problems = [];
         const rq = quickValidate(retry, task); if (rq) problems.push(rq);
-        const rB = blandnessProblems(retry, task.tone); if (rB) problems.push(...rB);
-        const rT = topicalDiversityProblems(retry); if (rT) problems.push(...rT);
-        const rR = rhythmProblems(retry); if (rR) problems.push(...rR);
+        const rnp = namePlacementProblems(retry, task.insert_words); if (rnp) problems.push(...rnp);
+        const rbd = blandnessProblems(retry, task.tone); if (rbd) problems.push(...rbd);
+        const rtd = topicalDiversityProblemsAny(retry, subcat); if (rtd) problems.push(...rtd);
+        const rrh = rhythmProblems(retry); if (rrh) problems.push(...rrh);
         
         if (problems.length) {
           return err(422, `validation_failed:${problems.join("|")}`, { lines: retry });
