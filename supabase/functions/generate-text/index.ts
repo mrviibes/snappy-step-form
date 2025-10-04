@@ -455,15 +455,17 @@ function comedyProblems(lines: string[], tone: Tone) {
 async function callResponsesAPI(system: string, userObj: unknown) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   
-  const body = {
+  // Detect newer models that don't support temperature/top_p
+  const IS_NEW_MODEL = /^(gpt-5|gpt-4\.1|o3|o4)/i.test(CHAT_MODEL);
+  
+  console.log(`[generate-text] Model: ${CHAT_MODEL}, IS_NEW_MODEL: ${IS_NEW_MODEL}`);
+  
+  const baseBody = {
     model: CHAT_MODEL,
     input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_output_tokens: 420,
-    temperature: 0.95,
-    top_p: 0.95,
     text: {
       format: {
         type: "json_schema",
@@ -485,6 +487,11 @@ async function callResponsesAPI(system: string, userObj: unknown) {
       }
     }
   };
+
+  // Add model-specific parameters
+  const body = IS_NEW_MODEL
+    ? { ...baseBody, max_output_tokens: 420 }
+    : { ...baseBody, max_tokens: 420, temperature: 0.95, top_p: 0.95 };
 
   const ctl = new AbortController();
   const tid = setTimeout(() => ctl.abort("timeout"), 20000);
