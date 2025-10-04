@@ -160,7 +160,7 @@ async function callResponsesAPI(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -191,14 +191,18 @@ async function callResponsesAPIFast(
   maxTokens: number = 360
 ): Promise<any> {
   const p1 = callResponsesAPI(systemPrompt, userObj, maxTokens);
-  const p2 = new Promise<any>((resolve, reject) => {
+  const p2 = new Promise<any>((resolve) => {
     const t = setTimeout(async () => {
       try { resolve(await callResponsesAPI(systemPrompt, userObj, maxTokens)); }
-      catch (e) { reject(e); }
+      catch { resolve(null); }
     }, 250);
     p1.finally(() => clearTimeout(t));
   });
-  return Promise.race([p1, p2]);
+  const raced = Promise.race([p1, p2]);
+  // Swallow loser rejections to avoid unhandled promise rejection
+  p1.catch(() => {});
+  (p2 as Promise<any>).catch?.(() => {});
+  return raced;
 }
 
 // ---------- Core generation ----------

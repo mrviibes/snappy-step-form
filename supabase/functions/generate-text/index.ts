@@ -452,17 +452,23 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
 // Hedged call: fire second request after 250ms if first is slow
 async function callFast(system: string, payload: unknown, nonce = "") {
   const p1 = callResponsesAPI(system, payload, 420, 0, nonce);
-  const p2 = new Promise<string[]>((resolve, reject) => {
+  const p2 = new Promise<string[]>((resolve) => {
     const t = setTimeout(async () => {
-      try { 
-        resolve(await callResponsesAPI(system, payload, 420, 0, nonce)); 
-      } catch (e) { 
-        reject(e); 
+      try {
+        const r = await callResponsesAPI(system, payload, 420, 0, nonce);
+        resolve(r);
+      } catch {
+        // Swallow loser errors to avoid unhandled rejection
+        resolve([] as unknown as string[]);
       }
     }, 250);
     p1.finally(() => clearTimeout(t));
   });
-  return Promise.race([p1, p2]) as Promise<string[]>;
+  const raced = Promise.race([p1, p2]) as Promise<string[]>;
+  // Prevent unhandled rejections from the loser
+  p1.catch(() => {});
+  (p2 as Promise<string[]>).catch?.(() => {});
+  return raced;
 }
 
 
@@ -754,7 +760,7 @@ serve(async (req) => {
     const req_id = crypto.randomUUID().slice(0, 8);
     const payload = { 
       success: true, 
-      options: getSafeLinesForSubcategory("birthday"), 
+      options: getSafeLinesForSubcategory("birthday", []), 
       model: RESP_MODEL, 
       source: "fallback",
       req_id,
