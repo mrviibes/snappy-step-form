@@ -89,13 +89,19 @@ function getCuesForSubcategory(subcategory: string): RegExp[] {
 const BANNED_PHRASES = [
   /\banother trip around the sun\b/i,
   /\blegally binding proof\b/i,
-  /\btriggered the smoke detector\b/i,
+  /\btriggered? the smoke detector\b/i,
+  /\bsmoke detector\b/i,
   /\bofficially classified as vintage\b/i,
   /\bhandle with care\b/i,
   /\bavoid direct sunlight\b/i,
   /\bbiohazard frosting\b/i,
   /\bfire marshal\b/i,
   /\bwarranty expired\b/i,
+  /\blevel up\b/i,
+  /\bsurvived another lap\b/i,
+  /\bmake a wish\b/i,
+  /\bfortune cookie\b/i,
+  /\bgamer patch\b/i,
 ];
 
 function hasBannedPhrase(line: string): boolean {
@@ -106,11 +112,15 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
   
-  // Add insert words instruction - enforce usage in EVERY line for per_line mode
+  // Add insert words instruction - natural incorporation
   const insertWordsHint = task.insert_words?.length 
     ? task.insert_word_mode === "per_line"
-      ? `CRITICAL: Use "${task.insert_words.join('", "')}" in EVERY line. Each of the 4 captions MUST include this name/subject.`
-      : `IMPORTANT: Use "${task.insert_words.join('", "')}" as names/subjects in your captions.`
+      ? `CRITICAL: Mention "${task.insert_words.join('", "')}" naturally in EVERY line like you're texting a friend about them. 
+         ✅ GOOD: "Alex is out here setting candles like it's the final boss"
+         ❌ BAD: "Alex, another year older and..."
+         ❌ BAD: "Alex's birthday means..."
+         Never start with "Name," or "Name's". Weave the name into the middle or end naturally.`
+      : `IMPORTANT: Mention "${task.insert_words.join('", "')}" naturally in your captions like texting a friend.`
     : "";
 
   const subcatHint = subcategory === "wedding"
@@ -125,18 +135,30 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     ? "Write anniversary captions: years together, commitment, shared memories."
     : `Write ${subcategory || task.topic} captions.`;
 
+  // Few-shot examples for natural phrasing
+  const fewShotHint = subcategory === "birthday" ? `
+Examples of natural vs awkward:
+✅ "The candles outnumber the fire extinguishers this year"
+✅ "Cake to calorie ratio is officially a health concern"
+❌ "You, another year wiser but still testing limits"
+❌ "Happy birthday to someone who deserves the world"
+
+Write like you're roasting a friend over text, not writing a hallmark card.` : "";
+
   return [
     "Write 4 unique on-image card captions.",
     insertWordsHint,
     "Each 70–110 chars; end with . ! or ?",
+    "Vary sentence structure: don't start every line the same way. Mix statements, questions, observations.",
     warm
       ? "Warm tone with a wink: each line needs one playful twist."
-      : "Every line must be funny: absurd image or sharp roast. No generic greetings.",
+      : "Write like a witty friend texting, not a robot. Every line must be funny: absurd observation or sharp roast. No generic greetings.",
     `Tone: ${TONE_HINTS[tone]}`, 
     `Rating: ${RATING_HINTS[rating]}`,
     "Never use em dashes. Use commas or periods.",
-    "Ban: gamer patch notes, fortune-cookie advice, 'Level up', 'Survived another lap', 'Make a wish', 'trip around the sun', 'legally binding', 'smoke detector', 'vintage classified', 'warranty expired'.",
-    subcatHint
+    "BANNED: gamer patch notes, fortune-cookie advice, 'Level up', 'Survived another lap', 'Make a wish', 'trip around the sun', 'legally binding', 'smoke detector', 'vintage classified', 'warranty expired', starting lines with 'Name,' or 'Name's'.",
+    subcatHint,
+    fewShotHint
   ].filter(Boolean).join("\n");
 }
 
@@ -218,6 +240,9 @@ function blandnessProblems(lines: string[], tone: Tone) {
     /^Happy birthday to/i,
     /^Wishing you/i,
     /^Here'?s to/i,
+    /^You,/i,  // Catch "You, another year..."
+    /^[A-Z][a-z]+,/,  // Catch "Name, another year..."
+    /^[A-Z][a-z]+'s\b/i,  // Catch "Name's birthday..."
   ];
   
   const BANNED_PHRASES = [
@@ -225,10 +250,14 @@ function blandnessProblems(lines: string[], tone: Tone) {
     /\blive laugh love\b/i,
     /\byou got this\b/i,
     /\bmake it count\b/i,
+    /\bsmoke detector\b/i,
+    /\btriggered the/i,
+    /\bfire marshal\b/i,
   ];
   
   const GAMER_PATCH_NOTES = /\b(age\s*[+]\s*\d|wisdom\s*[±]\s*\d|xp\s*[+])/i;
   const FORTUNE_COOKIE = /^(Remember|Always|Never forget|Life is|The secret)/i;
+  const AWKWARD_POSSESSIVE = /^[A-Z][a-z]+'s (birthday|celebration|special day)/i;
   
   const problems: string[] = [];
   
@@ -240,6 +269,10 @@ function blandnessProblems(lines: string[], tone: Tone) {
     // Check banned phrases anywhere in line
     if (BANNED_PHRASES.some(pattern => pattern.test(line))) {
       problems.push(`banned_phrase:${line.slice(0, 30)}...`);
+    }
+    // Check awkward possessive starts
+    if (AWKWARD_POSSESSIVE.test(line)) {
+      problems.push(`awkward_possessive:${line.slice(0, 30)}...`);
     }
     // Check gamer patch notes style
     if (GAMER_PATCH_NOTES.test(line)) {
