@@ -453,7 +453,11 @@ async function callFast(system: string, payload: unknown) {
     }, 250);
     p1.finally(() => clearTimeout(t));
   });
-  return Promise.race([p1, p2]) as Promise<string[]>;
+  const raced = Promise.race([p1, p2]) as Promise<string[]>;
+  // Swallow loser rejections to avoid unhandled promise rejections in Deno
+  p1.catch(() => {});
+  (p2 as Promise<string[]>).catch?.(() => {});
+  return raced;
 }
 
 
