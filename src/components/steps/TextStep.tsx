@@ -689,11 +689,8 @@ export default function TextStep({
       {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
           {/* Insert Words Section */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div>
               <h3 className="text-lg font-semibold text-foreground">Optional - Any specific words you want</h3>
-              <span className="text-sm text-muted-foreground">
-                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars
-              </span>
             </div>
             
             <Input 
@@ -704,6 +701,12 @@ export default function TextStep({
               className="w-full"
               disabled={(data.text?.insertWords?.length || 0) >= 2}
             />
+            
+            <div className="text-right">
+              <span className="text-sm text-muted-foreground">
+                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/50 chars
+              </span>
+            </div>
             
             {/* Display tags right under input box */}
             {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
