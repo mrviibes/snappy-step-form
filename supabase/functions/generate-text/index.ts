@@ -31,8 +31,8 @@ function err(status: number, message: string, details?: unknown) {
   );
 }
 
-const RESP_URL = "https://api.openai.com/v1/responses";
-const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-mini";
+const CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const CHAT_MODEL = "gpt-5-mini-2025-08-07";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const DEBUG = Deno.env.get("DEBUG_TEXT") === "1";
 
@@ -370,33 +370,31 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown) {
+async function callChatCompletionsAPI(system: string, userObj: unknown) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   
   const body = {
-    model: RESP_MODEL || "gpt-5-mini",
-    input: [
+    model: CHAT_MODEL,
+    messages: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_output_tokens: 420,
-    text: {
-      format: {
-        type: "json_schema",
-        json_schema: {
-          name: "ViibeTextCompactV1",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["lines"],
-            properties: {
-              lines: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
-              },
+    max_completion_tokens: 420,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "ViibeTextCompactV1",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["lines"],
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
             },
           },
         },
@@ -408,7 +406,7 @@ async function callResponsesAPI(system: string, userObj: unknown) {
   const tid = setTimeout(() => ctl.abort("timeout"), 8000);
   
   try {
-    const r = await fetch(RESP_URL, {
+    const r = await fetch(CHAT_URL, {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${OPENAI_API_KEY}`, 
@@ -420,22 +418,49 @@ async function callResponsesAPI(system: string, userObj: unknown) {
     });
     
     const raw = await r.text();
-    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
+    
+    // Map upstream OpenAI errors properly
+    if (!r.ok) {
+      if (r.status === 429) {
+        throw new Error(`rate_limit:${raw.slice(0, 200)}`);
+      }
+      if (r.status === 402 || raw.includes("insufficient_quota")) {
+        throw new Error(`insufficient_quota:${raw.slice(0, 200)}`);
+      }
+      // Other 4xx errors
+      throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
+    }
     
     const data = JSON.parse(raw);
 
-    const parsed = data.output_parsed?.lines
-      ?? (data.output?.[0]?.content || []).find((b: any) => b.type === "json_schema")?.parsed?.lines;
-
-    if (!Array.isArray(parsed)) {
-      if (DEBUG) {
-        try { console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); } catch {}
-        try { console.error("response keys:", Object.keys(data || {})); } catch {}
-      }
-      throw new Error("parse_error:no_structured_lines");
+    // Try parsing from structured output first
+    const parsed = data.choices?.[0]?.message?.parsed?.lines;
+    
+    if (Array.isArray(parsed)) {
+      return parsed as string[];
     }
 
-    return parsed as string[];
+    // Fallback: try parsing content as JSON
+    const content = data.choices?.[0]?.message?.content;
+    if (content) {
+      try {
+        const contentParsed = JSON.parse(content);
+        if (Array.isArray(contentParsed?.lines)) {
+          return contentParsed.lines as string[];
+        }
+      } catch {
+        // Not valid JSON or no lines array
+      }
+    }
+
+    // Failed to extract lines
+    if (DEBUG) {
+      try { console.error("parse_error:no_structured_lines raw snippet:", String(raw).slice(0, 600)); } catch {}
+      try { console.error("response keys:", Object.keys(data || {})); } catch {}
+      try { console.error("choices[0]:", JSON.stringify(data.choices?.[0] || {}).slice(0, 400)); } catch {}
+    }
+    throw new Error("parse_error:no_structured_lines");
+
   } catch (e: any) {
     if (e?.name === "AbortError" || String(e).includes("timeout")) throw new Error("timeout");
     throw new Error(String(e?.message || e));
@@ -446,11 +471,11 @@ async function callResponsesAPI(system: string, userObj: unknown) {
 
 // Hedged call: fire second request after 250ms if first is slow
 async function callFast(system: string, payload: unknown) {
-  const p1 = callResponsesAPI(system, payload);
+  const p1 = callChatCompletionsAPI(system, payload);
   const p2 = new Promise<string[]>((resolve, reject) => {
     const t = setTimeout(async () => {
       try {
-        resolve(await callResponsesAPI(system, payload));
+        resolve(await callChatCompletionsAPI(system, payload));
       } catch (e) {
         reject(e);
       }
@@ -638,6 +663,18 @@ serve(async (req) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
+      
+      // Map specific upstream errors
+      if (msg.includes("rate_limit")) {
+        return err(429, "rate_limit_exceeded", { details: msg });
+      }
+      if (msg.includes("insufficient_quota")) {
+        return err(402, "insufficient_quota", { details: msg });
+      }
+      if (msg.includes("OpenAI 4")) {
+        return err(422, "validation_failed", { details: msg });
+      }
+      
       return err(502, "provider_error", { details: msg });
     }
 
@@ -724,7 +761,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       options: lines, 
-      model: RESP_MODEL,
+      model: CHAT_MODEL,
       source: "model",
       req_id,
       count: lines.length 
