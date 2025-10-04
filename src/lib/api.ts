@@ -128,6 +128,10 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 // Text generation
 export async function generateTextOptions(params: GenerateTextParams): Promise<GenerateTextResponse> {
   const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
+  
+  // Generate nonce for fresh generation
+  const nonce = crypto.randomUUID().slice(0, 8);
+  
   const payload = {
     category: params.category || "celebrations",
     subcategory: params.subcategory || "birthday",
@@ -136,7 +140,8 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
     tone: params.tone || "humorous",
     rating: params.rating || "PG",
     insertWords,
-    gender: params.gender || "neutral"
+    gender: params.gender || "neutral",
+    nonce  // Include in body as backup
   };
   
   // TEMP: switch target function for debugging
@@ -144,8 +149,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
     ? "generate-text-debug" 
     : "generate-text";
   
-  // Add nonce to force fresh generation
-  const nonce = crypto.randomUUID().slice(0, 8);
+  // Add nonce to URL as primary method
   const functionUrl = `${targetFn}?nonce=${nonce}`;
   const res = await ctlFetch<any>(functionUrl, payload);
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {

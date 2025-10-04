@@ -127,12 +127,16 @@ export default function TextStep({
       // Handle response format and extract model information
       const options = response.options || [];
       const usedModel = response.model || 'unknown';
+      const source = response.source || 'unknown';
+      const req_id = response.req_id || 'unknown';
       
       if (options && options.length > 0) {
         // Update debug info with success and actual model
         setDebugInfo(prev => ({
           ...prev,
           model: usedModel,
+          source: source,
+          req_id: req_id,
           status: 'success',
           responseLength: options.length,
           rawResponse: response
@@ -946,7 +950,7 @@ export default function TextStep({
                    
       {/* Enhanced Debug Panel - Auto-expands on errors */}
       {debugInfo && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-2">
           <DebugPanel
             title="Text Generation Debug"
             model={debugInfo.model}
@@ -961,6 +965,22 @@ export default function TextStep({
               debugExpanded && debugInfo.status === 'error' ? "ring-2 ring-red-200 border-red-200" : ""
             )}
           />
+          
+          {/* Source & Request ID Display */}
+          {debugInfo.source && debugInfo.req_id && (
+            <div className="flex gap-4 text-xs text-muted-foreground px-4">
+              <span className="font-mono">
+                <span className="font-semibold">Source:</span> 
+                <span className={debugInfo.source === "model" ? "text-green-600 ml-1" : "text-orange-600 ml-1"}>
+                  {debugInfo.source}
+                </span>
+              </span>
+              <span className="font-mono">
+                <span className="font-semibold">ID:</span> 
+                <span className="ml-1">{debugInfo.req_id}</span>
+              </span>
+            </div>
+          )}
         </div>
       )}
       

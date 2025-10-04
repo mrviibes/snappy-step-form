@@ -458,23 +458,23 @@ async function callFast(system: string, payload: unknown) {
 }
 
 
-// Recent lines cache keyed by subcategory to prevent cross-contamination
-const RECENT_LINES_BY_SUBCAT: Map<string, string[]> = new Map();
+// In-memory cache: category:subcategory:tone:rating → recent lines
+const RECENT_LINES_BY_KEY = new Map<string, string[]>();
 
-function getCacheForSubcategory(subcategory: string): string[] {
-  const key = subcategory.toLowerCase();
-  if (!RECENT_LINES_BY_SUBCAT.has(key)) {
-    RECENT_LINES_BY_SUBCAT.set(key, []);
+function getCacheForKey(category: string, subcategory: string, tone: string, rating: string): string[] {
+  const key = `${category}:${subcategory}:${tone}:${rating}`.toLowerCase();
+  if (!RECENT_LINES_BY_KEY.has(key)) {
+    RECENT_LINES_BY_KEY.set(key, []);
   }
-  return RECENT_LINES_BY_SUBCAT.get(key)!;
+  return RECENT_LINES_BY_KEY.get(key) || [];
 }
 
-function addToCache(subcategory: string, lines: string[]) {
-  const cache = getCacheForSubcategory(subcategory);
-  cache.push(...lines);
-  if (cache.length > 50) {
-    cache.splice(0, 20); // Keep most recent 50
-  }
+function addToCache(category: string, subcategory: string, tone: string, rating: string, newLines: string[]) {
+  if (newLines.length === 0) return;
+  const key = `${category}:${subcategory}:${tone}:${rating}`.toLowerCase();
+  const current = getCacheForKey(category, subcategory, tone, rating);
+  const updated = [...current, ...newLines].slice(-80); // Keep last 80 lines
+  RECENT_LINES_BY_KEY.set(key, updated);
 }
 
 // Consolidated quick validation (single local check)
@@ -486,6 +486,11 @@ function quickValidate(lines: string[], task: TaskObject) {
     if (line.length < 70 || line.length > 110) return "bad_length";
     if (!/[.!?]$/.test(line)) return "no_end_punctuation";
     if (/—/.test(line)) return "em_dash";
+  }
+  
+  // Check for banned clichés
+  if (lines.some(l => hasBannedPhrase(l))) {
+    return "banned_phrase";
   }
   
   // Subcategory cues (need at least 2)
@@ -502,65 +507,40 @@ function quickValidate(lines: string[], task: TaskObject) {
     return "banned_phrase";
   }
   
-  // Check against recent cache using 3-gram Jaccard similarity
-  const recentCache = getCacheForSubcategory(subcategory);
-
-  function canon(s: string) { 
-    return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); 
-  }
-
-  function shingles(s: string, k = 3) { 
-    const words = canon(s).split(" "); 
-    const out = new Set<string>(); 
-    for (let i = 0; i <= words.length - k; i++) {
-      out.add(words.slice(i, i + k).join(" ")); 
-    }
-    return out; 
-  }
-
-  function jaccard(a: Set<string>, b: Set<string>) { 
-    const inter = [...a].filter(x => b.has(x)).length; 
-    return inter / (a.size + b.size - inter || 1); 
-  }
-
-  for (const newLine of lines) {
-    const newShingles = shingles(newLine);
-    for (const cachedLine of recentCache) {
-      const cachedShingles = shingles(cachedLine);
-      if (jaccard(newShingles, cachedShingles) >= 0.6) {
-        return "repeat_detected";
-      }
-    }
-  }
-  
   return null;
 }
 
 // Fallback lines per subcategory
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
-    "Your age is now officially classified as vintage, handle with care and avoid direct sunlight.",
-    "The candles on your cake just triggered the smoke detector three floors up.",
-    "Congratulations on surviving another trip around the sun without a user manual.",
-    "This party is legally binding proof that you're getting wiser, or at least older.",
+    "Cheers to the cake negotiator, candle counter, and official party starter.",
+    "The frosting is watching; make your wish count before it unionizes.",
+    "Balloons fear you, sprinkles respect you, and the piñata is filing a restraining order.",
+    "Another year of questionable decisions, excellent cake choices, and zero regrets."
   ],
   wedding: [
-    "Welcome to marriage, where 'What do you want to eat?' is a lifelong riddle with no answer.",
-    "Open bar located left of the registry, right of your ex's opinions.",
-    "Vows exchanged, secrets encrypted, locations shared. May the Wi-Fi survive the reception.",
-    "May your in-laws be on mute, your arguments be short, and your takeout history be endless.",
+    "Congrats on finding someone who'll put up with you—permanently.",
+    "Love is patient, love is kind, love is signing a lifelong contract.",
+    "May your love be modern enough to survive the times, and old-fashioned enough to last forever.",
+    "Here's to love, laughter, and happily ever after—prenup optional."
   ],
   engagement: [
     "Congrats on finding someone willing to argue about furniture with you for the rest of your life.",
     "Ring acquired, registry loading, wedding planner on speed dial. May the Wi-Fi be with you.",
     "You said yes to forever, now say yes to fifty different venue options and a catering nightmare.",
-    "Engagement: when two people agree to merge their streaming subscriptions and pretend it's romantic.",
+    "Engagement: when two people agree to merge their streaming subscriptions and pretend it's romantic."
   ],
   graduation: [
     "Diploma unlocked, student loans loading. Welcome to the real world where nobody grades on a curve.",
     "Congratulations on trading all-nighters for alarm clocks and coffee addictions for legitimate reasons.",
     "Four years, one degree, lifelong debt. May your Wi-Fi be strong and your job offers be many.",
-    "Cap and gown returned, real clothes required. The final boss is adulting, and it doesn't offer extra credit.",
+    "Cap and gown returned, real clothes required. The final boss is adulting, and it doesn't offer extra credit."
+  ],
+  anniversary: [
+    "Another year of not killing each other. Cheers to that!",
+    "You're proof that love can survive anything—even each other.",
+    "Congratulations on another year of marriage. You're basically relationship veterans now.",
+    "May your love story continue to be better than any Netflix series."
   ]
 };
 
@@ -575,7 +555,10 @@ serve(async (req) => {
   try {
     const req_id = crypto.randomUUID().slice(0, 8);
     const url = new URL(req.url);
-    const nonce = url.searchParams.get("nonce") || "";
+    const body = await req.json();
+    
+    // Accept nonce from URL query or body
+    const nonce = url.searchParams.get("nonce") || body.nonce || "";
     
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     if (url.searchParams.get("dry") === "1") {
@@ -589,8 +572,7 @@ serve(async (req) => {
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
-
-    const body = await req.json();
+    
     const category = String(body.category || "").trim();
     const subcategory = String(body.subcategory || "").trim();
     const tone: Tone = (body.tone || "humorous") as Tone;
@@ -638,29 +620,12 @@ serve(async (req) => {
     let problem = quickValidate(lines, task);
     
     if (problem) {
-      if (DEBUG) console.log("Validation failed:", problem);
-      const cueHint = subcat 
-        ? `Include at least 2 ${subcat}-specific cues.` 
-        : "Include at least 2 topic-specific cues.";
-      const STRICT = SYSTEM + `\nCRITICAL: No em dashes. All 70–110 chars. ${cueHint} Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.`;
-      try {
-        lines = await callFast(STRICT, userPayload);
-        problem = quickValidate(lines, task);
-        if (problem) {
-          console.warn("Validation failed after retry:", problem, lines);
-          const payload = { 
-            success: true, 
-            options: getSafeLinesForSubcategory(subcat), 
-            model: RESP_MODEL, 
-            source: "fallback",
-            req_id,
-            fallback: "safe_lines", 
-            error: "Validation failed", 
-            details: { problem, lines } 
-          };
-          return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-        }
-      } catch (e2) {
+      if (DEBUG) console.log("⚠️ Validation failed:", problem, "→ strict retry");
+      const STRICT = SYSTEM + "\nCRITICAL: All 4 lines must be NEW, 70–110 chars, no em dashes, and include at least 2 clear " + (subcat || "category") + " cues.";
+      lines = await callFast(STRICT, userPayload);
+      problem = quickValidate(lines, task);
+      if (problem) {
+        console.error("❌ Validation failed after retry:", problem);
         const payload = { 
           success: true, 
           options: getSafeLinesForSubcategory(subcat), 
@@ -668,27 +633,79 @@ serve(async (req) => {
           source: "fallback",
           req_id,
           fallback: "safe_lines", 
-          error: "Retry failed", 
-          details: { problem, info: String(e2) } 
+          error: "validation_failed", 
+          details: { problem, lines } 
         };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
     }
 
-    // Enforce savage roasts for savage + R rating
-    if (tone === "savage" && rating === "R" && subcat === "wedding") {
-      const ROAST_MARKERS = /\b(in-laws?|prenup|divorce|therapy|argument|fights?|ex|registry return|open bar|hangover|best man disaster|maid of honor drama|family drama)\b/i;
-      const roastCount = lines.filter(l => ROAST_MARKERS.test(l)).length;
-      
-      if (roastCount < 2 && DEBUG) {
-        console.warn("Savage + R wedding should have 2+ roast markers, got:", roastCount);
-      }
+    // 5️⃣ Cross-run novelty filter with 3-gram Jaccard
+    const recentCache = getCacheForKey(category, subcategory, tone, rating);
+    
+    function canon(s: string) { 
+      return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); 
     }
 
-    // Post-generation quality checks removed for speed (functions kept for debugging)
+    function shingles(s: string, k = 3) { 
+      const words = canon(s).split(" "); 
+      const out = new Set<string>(); 
+      for (let i = 0; i <= words.length - k; i++) {
+        out.add(words.slice(i, i + k).join(" ")); 
+      }
+      return out; 
+    }
 
-    // SUCCESS: Add lines to subcategory-specific cache
-    addToCache(subcat, lines);
+    function jaccard(a: Set<string>, b: Set<string>) { 
+      const inter = [...a].filter(x => b.has(x)).length; 
+      return inter / (a.size + b.size - inter || 1); 
+    }
+
+    function tooSimilar(a: string, b: string) {
+      return jaccard(shingles(a), shingles(b)) >= 0.6;
+    }
+
+    // Filter out lines that are too similar to recent cache
+    const freshLines = lines.filter(newLine => 
+      !recentCache.some(cachedLine => tooSimilar(newLine, cachedLine))
+    );
+
+    if (freshLines.length < 4) {
+      if (DEBUG) console.log("⚠️ Only", freshLines.length, "novel lines → strict retry");
+      const STRICT = SYSTEM + "\nCRITICAL: Produce four NEW lines not paraphrasing earlier outputs. Be creative with different angles.";
+      const retryLines = await callFast(STRICT, userPayload);
+      const retryFresh = retryLines.filter(newLine => 
+        !recentCache.some(cachedLine => tooSimilar(newLine, cachedLine))
+      );
+      
+      if (retryFresh.length >= 4) {
+        lines = retryFresh.slice(0, 4);
+      } else {
+        // Mix fresh from both attempts
+        const combined = [...new Set([...freshLines, ...retryFresh])];
+        if (combined.length >= 4) {
+          lines = combined.slice(0, 4);
+        } else {
+          console.error("❌ Not enough novel lines after retry:", combined.length);
+          const payload = { 
+            success: true, 
+            options: getSafeLinesForSubcategory(subcat), 
+            model: RESP_MODEL, 
+            source: "fallback",
+            req_id,
+            fallback: "not_enough_novel", 
+            error: "not_enough_novel_lines",
+            details: { served: combined } 
+          };
+          return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+        }
+      }
+    } else {
+      lines = freshLines.slice(0, 4);
+    }
+
+    // Add to cache for future novelty checks
+    addToCache(category, subcategory, tone, rating, lines);
 
     return new Response(JSON.stringify({ 
       success: true, 
