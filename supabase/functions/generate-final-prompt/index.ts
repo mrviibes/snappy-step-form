@@ -72,7 +72,7 @@ const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST fo
 
 POSITIVE PROMPT FORMAT (3 clean blocks):
 Block 1: EXACT TEXT: [mandatory_text]
-Block 2: Typography: [layout] format, modern sans-serif, ~[coverage]% coverage.
+Block 2: Typography: [layout] format, [typography_style], ~[coverage]% coverage.
 Block 3: Aspect: [aspect], [style] style. [rating] scene with [visual_description] in a [composition] composition.
 
 NEGATIVE PROMPT FORMAT (lean, ~12 critical terms):
@@ -84,6 +84,14 @@ dark, dim, blurry, grainy, dull-colors, washed-out, desaturated, cluttered, dist
 3. Keep format SHORT and CLEAN - no extra words or descriptions
 4. Keep colors vibrant and well-lit, but balanced and natural (not oversaturated)
 5. Never use words from the text as scene descriptors (e.g., if text mentions "hieroglyphics", do NOT add hieroglyphics to the scene)
+
+TYPOGRAPHY STYLES BY LAYOUT:
+- meme-text: bold impact-style font, high contrast, thick strokes
+- badge-callout: rounded geometric sans-serif, friendly weight, clean kerning
+- negative-space: modern clean sans-serif, balanced weight, professional
+- caption: editorial sans-serif or clean serif, refined weight, subtle
+- integrated-in-scene: contextual typography matching environment (stencil/painted/handwritten/sign)
+- dynamic-overlay: bold geometric sans-serif, strong angles, editorial weight
 
 LAYOUT TYPES:
 - meme-text: Text format for meme-style images
@@ -105,7 +113,7 @@ EXAMPLES:
 ✅ CORRECT FORMAT:
 EXACT TEXT: "Happy birthday! May your joy multiply this year!"
 
-Typography: badge-callout format, modern sans-serif, ~25% coverage.
+Typography: badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, ~25% coverage.
 
 Aspect: 16:9, vibrant realistic style. PG-13 scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a normal composition.
 
@@ -129,7 +137,7 @@ const promptCraftingTool = {
         },
         block2_typography: {
           type: "string",
-          description: "Typography: [layout] format, modern sans-serif, ~[coverage]% coverage."
+          description: "Typography: [layout] format, [typography_style_for_layout], ~[coverage]% coverage."
         },
         block3_scene: {
           type: "string",
@@ -197,6 +205,16 @@ const legacyMap: Record<string, string> = {
   goofy_wide: "goofy_wide",
   surreal_scale: "surreal_scale",
   object_head: "exaggerated_props"
+};
+
+// ============== TYPOGRAPHY STYLES BY LAYOUT ==============
+const TYPOGRAPHY_STYLES: Record<string, string> = {
+  "meme-text": "bold impact-style font, high contrast, thick strokes",
+  "badge-callout": "rounded geometric sans-serif, friendly weight, clean kerning",
+  "negative-space": "modern clean sans-serif, balanced weight, professional",
+  "caption": "editorial sans-serif or clean serif, refined weight, subtle",
+  "integrated-in-scene": "contextual typography matching environment (stencil/painted/handwritten/sign)",
+  "dynamic-overlay": "bold geometric sans-serif, strong angles, editorial weight"
 };
 
 // ============== LAYOUT ORDER (six) ==============
@@ -405,12 +423,14 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     const minPct = minCoverageForLayout(layoutKey);
     const cleanText = sanitizeTextForImage(completed_text);
     const optimalCoverage = getOptimalCoverage(cleanText, minPct);
+    const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
     // Build detailed context for AI
     const userPrompt = `Format this prompt following the EXACT 3-block structure:
 
 MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
+TYPOGRAPHY STYLE: ${typographyStyle}
 TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
@@ -559,11 +579,13 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const minPct = minCoverageForLayout(layoutKey);
     const cleanText = sanitizeTextForImage(completed_text);
     const optimalCoverage = getOptimalCoverage(cleanText, minPct);
+    const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
     const userPrompt = `Format this IDEOGRAM prompt following the EXACT 3-block structure:
 
 MANDATORY TEXT: "${cleanText}"
 LAYOUT: ${layoutKey}
+TYPOGRAPHY STYLE: ${typographyStyle}
 TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
