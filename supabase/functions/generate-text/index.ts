@@ -106,9 +106,11 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
   
-  // Add insert words instruction
+  // Add insert words instruction - enforce usage in EVERY line for per_line mode
   const insertWordsHint = task.insert_words?.length 
-    ? `IMPORTANT: Use "${task.insert_words.join('", "')}" as names/subjects in your captions.`
+    ? task.insert_word_mode === "per_line"
+      ? `CRITICAL: Use "${task.insert_words.join('", "')}" in EVERY line. Each of the 4 captions MUST include this name/subject.`
+      : `IMPORTANT: Use "${task.insert_words.join('", "')}" as names/subjects in your captions.`
     : "";
 
   const subcatHint = subcategory === "wedding"
@@ -171,10 +173,21 @@ function topicalityProblems(
     }
   }
   
-  // Insert words (name): must appear in at least 1 line
-  if (task.insert_words?.length && task.insert_word_mode === "at_least_one") {
-    const seen = task.insert_words.some(w => lines.some(l => hasWord(l, w)));
-    if (!seen) problems.push("missing_insert_word");
+  // Insert words validation based on mode
+  if (task.insert_words?.length) {
+    if (task.insert_word_mode === "per_line") {
+      // Every line must contain at least one insert_word
+      for (let i = 0; i < lines.length; i++) {
+        const hasInsertWord = task.insert_words.some(w => hasWord(lines[i], w));
+        if (!hasInsertWord) {
+          problems.push(`line_${i + 1}_missing_insert_word`);
+        }
+      }
+    } else if (task.insert_word_mode === "at_least_one") {
+      // At least one line must contain an insert_word
+      const seen = task.insert_words.some(w => lines.some(l => hasWord(l, w)));
+      if (!seen) problems.push("missing_insert_word");
+    }
   }
   
   // Deduplication check
@@ -526,9 +539,13 @@ function quickValidate(lines: string[], task: TaskObject) {
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
     "{NAME}, the cake says 'serves 8' and your fork says 'challenge accepted.'",
-    "Candles counted, alibi prepared, sprinkles ready to testify on your behalf.",
-    "If the frosting survives the group chat, you may eat it unsupervised.",
-    "A year older, still negotiating with cake like it's a hostile takeover."
+    "{NAME}'s birthday candles: a beautiful fire hazard with wishes included.",
+    "{NAME}, if the frosting survives the group chat, you may eat it unsupervised.",
+    "{NAME}'s getting older, but the cake negotiations remain unchanged.",
+    "{NAME}'s age is now officially classified as vintage. Handle with care.",
+    "{NAME}, another year wiser but still testing the smoke detector with birthday candles.",
+    "{NAME}'s birthday cake arrived with its own insurance policy and fire extinguisher.",
+    "{NAME}, the sprinkles are ready to testify on your behalf in cake court."
   ],
   wedding: [
     "Congrats on finding someone who'll put up with you—permanently.",
@@ -560,7 +577,10 @@ function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[])
   const base = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
   const name = insertWords?.[0]?.trim();
   
-  return base.map(line => {
+  // Shuffle and take 4 to reduce repetition
+  const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, 4);
+  
+  return shuffled.map(line => {
     if (/{NAME}/.test(line)) {
       if (name) {
         // Replace with provided name
@@ -574,6 +594,17 @@ function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[])
         .replace(/\s([.,!?;:])/g, "$1")
         .trim();
     }
+    
+    // If line doesn't have {NAME} placeholder but name was provided, prefix it naturally
+    if (name) {
+      // Check if line starts with a name pattern already
+      if (/^[A-Z][a-z]+,/.test(line)) {
+        return line; // Already has a name structure
+      }
+      // Prefix the name naturally
+      return `${name}, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+    }
+    
     return line;
   });
 }
