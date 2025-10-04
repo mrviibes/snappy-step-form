@@ -97,6 +97,11 @@ function hasBannedPhrase(line: string): boolean {
 function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warm = ["sentimental", "romantic", "inspirational"].includes(tone);
   const subcategory = task.category_path[1]?.toLowerCase() || "";
+  
+  // Add insert words instruction
+  const insertWordsHint = task.insert_words?.length 
+    ? `IMPORTANT: Use "${task.insert_words.join('", "')}" as names/subjects in your captions.`
+    : "";
 
   const subcatHint = subcategory === "wedding"
     ? "Write savage wedding captions: vows, rings, reception chaos, best-man disasters, in-laws, registry, open bar. No birthday/age jokes."
@@ -112,6 +117,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
 
   return [
     "Write 4 unique on-image card captions.",
+    insertWordsHint,
     "Each 70–110 chars; end with . ! or ?",
     warm
       ? "Warm tone with a wink: each line needs one playful twist."
@@ -121,7 +127,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     "Never use em dashes. Use commas or periods.",
     "Ban: gamer patch notes, fortune-cookie advice, 'Level up', 'Survived another lap', 'Make a wish', 'trip around the sun', 'legally binding', 'smoke detector', 'vintage classified', 'warranty expired'.",
     subcatHint
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function err(status: number, message: string, details?: unknown) {
@@ -546,8 +552,16 @@ const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   ]
 };
 
-function getSafeLinesForSubcategory(subcategory: string): string[] {
-  return SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
+function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[]): string[] {
+  let lines = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
+  
+  // Substitute placeholder names with actual insert words
+  if (insertWords?.length) {
+    const name = insertWords[0];
+    lines = lines.map(line => line.replace(/\bJesse\b/g, name));
+  }
+  
+  return lines;
 }
 
 // ============ HTTP HANDLER ============
@@ -565,9 +579,10 @@ serve(async (req) => {
     
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     if (url.searchParams.get("dry") === "1") {
+      const insert_words: string[] = Array.isArray(body.insertWords) ? body.insertWords.slice(0, 2) : [];
       return new Response(JSON.stringify({ 
         success: true, 
-        options: SAFE_LINES_BY_CATEGORY.birthday, 
+        options: getSafeLinesForSubcategory("birthday", insert_words), 
         model: "dry-run",
         source: "fallback",
         req_id
@@ -621,7 +636,7 @@ serve(async (req) => {
       console.error("AI error:", msg);
       const payload = { 
         success: true, 
-        options: getSafeLinesForSubcategory(subcat), 
+        options: getSafeLinesForSubcategory(subcat, insert_words), 
         model: RESP_MODEL, 
         source: "fallback",
         req_id,
@@ -643,7 +658,7 @@ serve(async (req) => {
         console.error("❌ Validation failed after retry:", problem);
         const payload = { 
           success: true, 
-          options: getSafeLinesForSubcategory(subcat), 
+          options: getSafeLinesForSubcategory(subcat, insert_words), 
           model: RESP_MODEL, 
           source: "fallback",
           req_id,
@@ -703,7 +718,7 @@ serve(async (req) => {
           console.error("❌ Not enough novel lines after retry:", combined.length);
           const payload = { 
             success: true, 
-            options: getSafeLinesForSubcategory(subcat), 
+            options: getSafeLinesForSubcategory(subcat, insert_words), 
             model: RESP_MODEL, 
             source: "fallback",
             req_id,
@@ -739,7 +754,7 @@ serve(async (req) => {
     const req_id = crypto.randomUUID().slice(0, 8);
     const payload = { 
       success: true, 
-      options: SAFE_LINES_BY_CATEGORY.birthday, 
+      options: getSafeLinesForSubcategory("birthday"), 
       model: RESP_MODEL, 
       source: "fallback",
       req_id,
