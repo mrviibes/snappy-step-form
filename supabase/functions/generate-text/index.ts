@@ -380,12 +380,11 @@ async function callResponsesAPI(system: string, userObj: unknown) {
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: 420,
-    text: {
-      format: {
-        type: "json_schema",
+    response_format: {
+      type: "json_schema",
+      json_schema: {
         name: "ViibeTextCompactV1",
-        // Provide BOTH shapes to satisfy differing gateways
-        strict: true, // top-level strict (for older parsers)
+        strict: true,
         schema: {
           type: "object",
           additionalProperties: false,
@@ -396,22 +395,6 @@ async function callResponsesAPI(system: string, userObj: unknown) {
               minItems: 4,
               maxItems: 4,
               items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
-            },
-          },
-        },
-        json_schema: {
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["lines"],
-            properties: {
-              lines: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
-              },
             },
           },
         },
