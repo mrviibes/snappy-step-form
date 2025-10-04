@@ -310,19 +310,17 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
       format: {
         type: "json_schema",
         name: "ViibeTextCompactV1",
-        json_schema: {
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["lines"],
-            properties: {
-              lines: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
-              },
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["lines"],
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
             },
           },
         },
