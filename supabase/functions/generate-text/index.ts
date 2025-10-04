@@ -31,9 +31,9 @@ function err(status: number, message: string, details?: unknown) {
   );
 }
 
-const CHAT_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const CHAT_MODEL = "google/gemini-2.5-flash";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const CHAT_MODEL = "gpt-5-mini-2025-08-07";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const DEBUG = Deno.env.get("DEBUG_TEXT") === "1";
 
 const TONE_HINTS: Record<string, string> = {
@@ -371,17 +371,35 @@ function comedyProblems(lines: string[], tone: Tone) {
 }
 
 async function callChatCompletionsAPI(system: string, userObj: unknown) {
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-  
-  // Simple approach: ask Gemini to return JSON directly in content
-  const enhancedSystem = system + "\n\nIMPORTANT: Return ONLY a valid JSON object with this exact structure: {\"lines\": [\"line1\", \"line2\", \"line3\", \"line4\"]}. No other text.";
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   
   const body = {
     model: CHAT_MODEL,
     messages: [
-      { role: "system", content: enhancedSystem },
+      { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
-    ]
+    ],
+    max_completion_tokens: 420,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "ViibeLinesV1",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string" }
+            }
+          },
+          required: ["lines"],
+          additionalProperties: false
+        }
+      }
+    }
   };
 
   const ctl = new AbortController();
@@ -391,7 +409,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     const r = await fetch(CHAT_URL, {
       method: "POST",
       headers: { 
-        Authorization: `Bearer ${LOVABLE_API_KEY}`, 
+        Authorization: `Bearer ${OPENAI_API_KEY}`, 
         "Content-Type": "application/json",
         "Connection": "keep-alive"
       },
@@ -401,7 +419,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
     
     const raw = await r.text();
     
-    // Map upstream gateway errors properly
+    // Map upstream errors properly
     if (!r.ok) {
       if (r.status === 429) {
         throw new Error(`rate_limit:${raw.slice(0, 200)}`);
@@ -410,7 +428,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
         throw new Error(`insufficient_quota:${raw.slice(0, 200)}`);
       }
       // Other 4xx errors
-      throw new Error(`Gateway ${r.status}: ${raw.slice(0, 400)}`);
+      throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
     }
     
     const data = JSON.parse(raw);
@@ -421,20 +439,9 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
       throw new Error("parse_error:no_content");
     }
 
-    // Try to extract JSON from content (handles markdown code blocks)
-    let jsonStr = content.trim();
-    
-    // Remove markdown code blocks if present
-    if (jsonStr.startsWith("```")) {
-      const lines = jsonStr.split("\n");
-      jsonStr = lines.slice(1, -1).join("\n").trim();
-      if (jsonStr.startsWith("json")) {
-        jsonStr = jsonStr.slice(4).trim();
-      }
-    }
-
+    // Parse structured JSON output
     try {
-      const parsed = JSON.parse(jsonStr);
+      const parsed = JSON.parse(content);
       if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
         return parsed.lines as string[];
       }
@@ -443,7 +450,7 @@ async function callChatCompletionsAPI(system: string, userObj: unknown) {
       throw new Error("parse_error:wrong_structure");
     } catch (e) {
       if (DEBUG) {
-        console.error("Failed to parse content as JSON:", jsonStr.slice(0, 600));
+        console.error("Failed to parse content as JSON:", content.slice(0, 600));
         console.error("Parse error:", e);
       }
       throw new Error("parse_error:invalid_json");
