@@ -116,6 +116,11 @@ async function callResponsesAPI(
       format: {
         type: "json_schema",
         name: VIS_SCHEMA.name,
+        // Support both expected shapes by OpenAI Responses API
+        // Newer format expects schema/strict directly under format
+        strict: VIS_SCHEMA.strict,
+        schema: VIS_SCHEMA.schema,
+        // Some deployments still require a nested json_schema wrapper
         json_schema: {
           strict: VIS_SCHEMA.strict,
           schema: VIS_SCHEMA.schema
