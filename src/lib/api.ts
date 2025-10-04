@@ -101,7 +101,7 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 }
 
 // Text generation
-export async function generateTextOptions(params: GenerateTextParams): Promise<TextOptionsResponse[]> {
+export async function generateTextOptions(params: GenerateTextParams): Promise<{ options: TextOptionsResponse[], model?: string }> {
   const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
   const payload = {
     category: params.category || "celebrations",
@@ -123,7 +123,10 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<T
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }
-  return res.options.slice(0, 4).map((line: string) => ({ line }));
+  return {
+    options: res.options.slice(0, 4).map((line: string) => ({ line })),
+    model: res.model
+  };
 }
 
 // Visual generation

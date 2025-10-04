@@ -125,19 +125,8 @@ export default function TextStep({
       const response = await generateTextOptions(requestPayload);
       
       // Handle response format and extract model information
-      let options;
-      let usedModel = 'unknown';
-      
-      if (response && typeof response === 'object' && 'lines' in response) {
-        // New format with model information
-        options = response.lines;
-        usedModel = (response as any).model || 'unknown';
-      } else if (response && Array.isArray(response)) {
-        // Legacy format - just an array
-        options = response;
-      } else {
-        options = [];
-      }
+      const options = response.options || [];
+      const usedModel = response.model || 'unknown';
       
       if (options && options.length > 0) {
         // Update debug info with success and actual model
