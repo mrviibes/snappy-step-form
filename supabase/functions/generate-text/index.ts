@@ -66,7 +66,11 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     : "Every line must make the reader LAUGH OUT LOUD through surprise twists, absurd consequences, or ridiculous escalation. Use outrageous imagery (e.g., fire marshal for candles, frosting emergencies, cake legal contracts).";
 
   const bannedPatterns = tone !== "serious" 
-    ? "\nBAN these template phrases: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom, Hallmark greetings. At least 2 lines must contain absurd/unexpected scenarios."
+    ? "\nBAN these template phrases: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom, Hallmark greetings. At least 2 lines must contain absurd/unexpected scenarios.\nDO NOT REUSE: 'biohazard frosting', 'fire marshal candles', 'warranty expired' — these have been overused.\nNever use em-dashes (—), only commas or periods."
+    : "";
+
+  const varietyRule = tone !== "serious"
+    ? "\nCover at least 3 different topics: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Don't default to cake every time. Every line should be quotable and card-worthy — something the recipient will remember and laugh about."
     : "";
 
   return [
@@ -76,6 +80,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     `Rating: ${rating_hint}`,
     comedyRule,
     bannedPatterns,
+    varietyRule,
     "One distinct idea per line. No duplicates.",
     "PG-13: no f-bomb. R: profanity allowed, not last word.",
     cueHint,
@@ -105,6 +110,7 @@ function topicalityProblems(
   for (const s of lines || []) {
     if (s.length < 70 || s.length > 120) problems.push("bad_length");
     if (!/[.!?]$/.test(s)) problems.push("no_end_punctuation");
+    if (/—/.test(s)) problems.push("forbidden_em_dash");
   }
   
   // Birthday topicality: 2 of 4 lines need cues
@@ -189,6 +195,62 @@ function blandnessProblems(lines: string[], tone: Tone) {
     problems.push("repetitive_openings");
   }
   
+  return problems.length ? problems : null;
+}
+
+function topicalDiversityProblems(lines: string[]) {
+  // Map each line to comedy categories
+  const CATEGORIES = {
+    cake: /\b(cake|frosting|icing|sprinkles|batter|bake|slice)\b/i,
+    candles: /\b(candles?|fire|flame|smoke|marshal|extinguisher|burn|ignite)\b/i,
+    age: /\b(age|old|older|young|wrinkle|warranty|expired|gray|ancient|decades?)\b/i,
+    party: /\b(party|balloons?|confetti|banner|celebrate|chaos|disaster|mess)\b/i,
+    wishes: /\b(wish|gift|present|surprise|expect|receipt|return)\b/i,
+  };
+
+  const categoryCounts = new Set<string>();
+  
+  for (const line of lines) {
+    for (const [category, pattern] of Object.entries(CATEGORIES)) {
+      if (pattern.test(line)) {
+        categoryCounts.add(category);
+      }
+    }
+  }
+
+  if (categoryCounts.size < 3) {
+    return [`topical_diversity:only_${categoryCounts.size}_categories`];
+  }
+
+  return null;
+}
+
+// In-memory cache for recent lines (resets on function restart)
+const RECENT_LINES_CACHE: string[] = [];
+
+function similarityCheck(lines: string[], cache: string[]) {
+  const problems: string[] = [];
+  
+  const normalize = (s: string) => 
+    s.toLowerCase()
+      .replace(/[^a-z0-9 ]/g, "")
+      .trim();
+
+  for (const newLine of lines) {
+    const newWords = new Set(normalize(newLine).split(/\s+/));
+    
+    for (const cachedLine of cache) {
+      const cachedWords = new Set(normalize(cachedLine).split(/\s+/));
+      const overlap = [...newWords].filter(w => cachedWords.has(w));
+      const similarity = overlap.length / Math.max(newWords.size, cachedWords.size);
+      
+      if (similarity > 0.8) {
+        problems.push(`repeat_detected:${newLine.slice(0, 40)}...`);
+        break;
+      }
+    }
+  }
+
   return problems.length ? problems : null;
 }
 
@@ -366,12 +428,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Canned safe lines to keep UI usable if provider fails (70+ chars, genuinely funny)
+// Canned safe lines to keep UI usable if provider fails (70+ chars, diverse topics, genuinely funny, no em-dashes)
 const SAFE_LINES = [
-  "Birthday chaos coordinator, report for cake duty before the frosting becomes a biohazard.",
-  "The cake is here — the fire marshal is on standby for candle-lighting operations.",
-  "Your warranty expired at midnight, but the cake is still under warranty.",
-  "The sprinkles are now considered a controlled substance in 47 states.",
+  "Your age is now officially classified as vintage, handle with care and avoid direct sunlight.",
+  "The candles on your cake just triggered the smoke detector three floors up.",
+  "Congratulations on surviving another trip around the sun without a user manual.",
+  "This party is legally binding proof that you're getting wiser, or at least older.",
 ];
 
 // ============ HTTP HANDLER ============
@@ -419,52 +481,99 @@ serve(async (req) => {
       return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
+    // Check 1: Topicality (includes em-dash check)
     const v = topicalityProblems(lines, task, { minCuedLines: 2 });
     if (v) {
-      // one strict retry with higher token budget
-      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 70–120.";
+      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 70–120. NO EM-DASHES (—), only commas or periods.";
       try {
         lines = await callResponsesAPI(strict, userPayload, 1536);
       } catch (e2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation retry failed", details: { problems: v, info: String(e2) } };
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Topicality retry failed", details: { problems: v, info: String(e2) } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
       const v2 = topicalityProblems(lines, task, { minCuedLines: 2 });
       if (v2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed after retry", details: { problems: v2, lines } };
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Topicality failed after retry", details: { problems: v2, lines } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
     }
 
-    // Blandness check: detect and reject template phrases
-    const blandIssues = blandnessProblems(lines, task.tone);
-    if (blandIssues) {
-      console.warn("Blandness check failed:", blandIssues);
-      const STRICT_ORIGINAL = SYSTEM + "\nCRITICAL: Write ORIGINAL lines. Ban: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom. Every line must be laugh-out-loud funny with absurd imagery (fire marshal for candles, frosting biohazards, cake legal contracts, age-related disasters).";
+    // Check 2: Topical diversity
+    const diversityIssues = topicalDiversityProblems(lines);
+    if (diversityIssues) {
+      console.warn("Diversity check failed:", diversityIssues);
+      const STRICT_DIVERSITY = SYSTEM + "\nCRITICAL: Cover at least 3 different topics across the 4 lines: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Don't default to cake every time!";
       try {
-        lines = await callResponsesAPI(STRICT_ORIGINAL, userPayload, 1536);
+        lines = await callResponsesAPI(STRICT_DIVERSITY, userPayload, 1536);
       } catch (e3) {
-        console.error("Blandness retry failed:", e3);
-        // Fall through with existing lines
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Diversity retry failed", details: { problems: diversityIssues, info: String(e3) } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      const diversityIssues2 = topicalDiversityProblems(lines);
+      if (diversityIssues2) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Diversity check failed after retry", details: { problems: diversityIssues2, lines } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
     }
 
-    // Comedy validation: check for actual comedy mechanisms
+    // Check 3: Repeat similarity
+    const repeatIssues = similarityCheck(lines, RECENT_LINES_CACHE);
+    if (repeatIssues) {
+      console.warn("Repeat check failed:", repeatIssues);
+      const STRICT_ORIGINAL = SYSTEM + "\nCRITICAL: Write COMPLETELY ORIGINAL lines. Do NOT reuse previous jokes like 'biohazard frosting' or 'fire marshal candles'. Every line must be fresh, creative, and never-before-seen.";
+      try {
+        lines = await callResponsesAPI(STRICT_ORIGINAL, userPayload, 1536);
+      } catch (e4) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Repeat retry failed", details: { problems: repeatIssues, info: String(e4) } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      const repeatIssues2 = similarityCheck(lines, RECENT_LINES_CACHE);
+      if (repeatIssues2) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Repeat check failed after retry", details: { problems: repeatIssues2, lines } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Check 4: Blandness
+    const blandIssues = blandnessProblems(lines, task.tone);
+    if (blandIssues) {
+      console.warn("Blandness check failed:", blandIssues);
+      const STRICT_BLAND = SYSTEM + "\nCRITICAL: Write ORIGINAL lines. Ban: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom. Every line must be laugh-out-loud funny with absurd imagery.";
+      try {
+        lines = await callResponsesAPI(STRICT_BLAND, userPayload, 1536);
+      } catch (e5) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Blandness retry failed", details: { problems: blandIssues, info: String(e5) } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      const blandIssues2 = blandnessProblems(lines, task.tone);
+      if (blandIssues2) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Blandness check failed after retry", details: { problems: blandIssues2, lines } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Check 5: Comedy
     const comedyIssues = comedyProblems(lines, task.tone);
     if (comedyIssues) {
       console.warn("Comedy check failed:", comedyIssues);
-      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line MUST deliver a laugh-out-loud moment through absurd imagery (fire marshal, biohazard, warranty expired), unexpected consequences, or ridiculous escalation. Use concrete humor (cake disasters, candle emergencies, frosting chaos, legal cake contracts). At least 2 different comedy types (absurdity + exaggeration, or twist + concrete). No clever wordplay that doesn't land as funny.";
+      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line must be LAUGH OUT LOUD funny. Use absurd imagery, exaggeration (unlimited, infinite), surprise twists (but, except, still), and concrete humor. Must include multiple types of comedy. No generic greetings. This is a BIRTHDAY CARD, make it memorable and quotable!";
       try {
         lines = await callResponsesAPI(STRICT_COMEDY, userPayload, 1536);
-      } catch (e4) {
-        console.error("Comedy retry failed:", e4);
-        // Fall through with existing lines
+      } catch (e6) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Comedy retry failed", details: { problems: comedyIssues, info: String(e6) } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
-      // Final comedy check (no additional retry)
-      const c2 = comedyProblems(lines, task.tone);
-      if (c2) {
-        console.warn("Comedy still weak after retry:", c2, "lines:", lines);
+      const comedyIssues2 = comedyProblems(lines, task.tone);
+      if (comedyIssues2) {
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Comedy check failed after retry", details: { problems: comedyIssues2, lines } };
+        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
+    }
+
+    // SUCCESS: Add lines to cache and return
+    RECENT_LINES_CACHE.push(...lines);
+    if (RECENT_LINES_CACHE.length > 50) {
+      RECENT_LINES_CACHE.splice(0, 20); // Keep last 50 lines
     }
 
     return new Response(JSON.stringify({ success: true, options: lines, model: RESP_MODEL, count: lines.length }), {
