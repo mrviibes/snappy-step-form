@@ -404,7 +404,16 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 70
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort(), 15000);
+  const tid = setTimeout(() => {
+    if (!ctl.signal.aborted) {
+      try {
+        ctl.abort();
+      } catch (e) {
+        console.warn("abort-suppressed", e);
+      }
+    }
+  }, 15000);
+  
   let r: Response;
   try {
     r = await fetch(RESP_URL, {
@@ -417,6 +426,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 70
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
+  } catch (e: any) {
+    clearTimeout(tid);
+    if (e?.name === "AbortError") {
+      throw new Error("timeout");
+    }
+    throw e;
   } finally {
     clearTimeout(tid);
   }
