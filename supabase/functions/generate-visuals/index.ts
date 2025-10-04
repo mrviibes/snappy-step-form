@@ -116,14 +116,16 @@ async function callResponsesAPI(
       format: {
         type: "json_schema",
         name: VIS_SCHEMA.name,
-        strict: true,
-        schema: VIS_SCHEMA.schema
+        json_schema: {
+          strict: VIS_SCHEMA.strict,
+          schema: VIS_SCHEMA.schema
+        }
       }
     }
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort("timeout"), 20000);
+  const timeoutId = setTimeout(() => controller.abort("timeout"), 8000);
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -198,7 +200,7 @@ CONTEXT:
   try {
     if (DEBUG) console.log("Calling Responses API with caption:", completed_text);
     
-    const data = await callResponsesAPIFast(systemPrompt, 450);
+    const data = await callResponsesAPIFast(systemPrompt, 380);
     const content = data.choices?.[0]?.message?.content || "";
 
     if (DEBUG) console.log("Raw API response content:", content.slice(0, 200));
@@ -265,8 +267,93 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Dry-run mode for testing
+  const url = new URL(req.url);
+  if (url.searchParams.get("dry") === "1") {
+    return new Response(JSON.stringify({
+      success: true,
+      visuals: [
+        {
+          title: "Museum Tag",
+          subject: "vintage jacket on mannequin",
+          setting: "small museum wall",
+          action: "curator adds 'avoid direct sunlight' tag",
+          prop: "archival gloves",
+          camera: "medium",
+          lens: "35mm",
+          lighting: "soft daylight",
+          color: "neutral clean",
+          composition: "base_realistic",
+          readability: "negative-right",
+          description: "Museum Tag • vintage jacket on mannequin • small museum wall"
+        },
+        {
+          title: "Sunburn Test",
+          subject: "guest with retro sunglasses",
+          setting: "backyard patio",
+          action: "friend measures skin with light meter like artwork",
+          prop: "light meter",
+          camera: "wide",
+          lens: "24mm",
+          lighting: "hard flash",
+          color: "punchy saturated",
+          composition: "goofy_wide",
+          readability: "bottom-caption",
+          description: "Sunburn Test • guest with retro sunglasses • backyard patio"
+        },
+        {
+          title: "Fragile Sticker",
+          subject: "birthday guest wearing FRAGILE sticker",
+          setting: "living room party",
+          action: "friend rotates them like collectible figure",
+          prop: "FRAGILE tape",
+          camera: "close-up",
+          lens: "50mm",
+          lighting: "warm kitchen",
+          color: "muted pastels",
+          composition: "very_close",
+          readability: "negative-left",
+          description: "Fragile Sticker • birthday guest wearing FRAGILE sticker • living room party"
+        },
+        {
+          title: "Display Case",
+          subject: "cake slice under glass cloche",
+          setting: "kitchen counter museum-style",
+          action: "label card jokes about vintage specimen",
+          prop: "mini placard",
+          camera: "medium",
+          lens: "35mm",
+          lighting: "studio key",
+          color: "neutral clean",
+          composition: "integrated",
+          readability: "integrated-sign",
+          description: "Display Case • cake slice under glass cloche • kitchen counter museum-style"
+        }
+      ],
+      model: "dry-run",
+      req_id: "test-dry",
+      source: "fallback"
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+
   try {
     const params = await req.json();
+    
+    // Validate required caption
+    if (!params.completed_text || typeof params.completed_text !== "string" || params.completed_text.length < 8) {
+      return new Response(JSON.stringify({
+        success: false,
+        visuals: [],
+        model: getVisualsModel(),
+        req_id: crypto.randomUUID().slice(0, 8),
+        error: "Caption is required and must be at least 8 characters"
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const result = await generateVisuals(params);
 
     return new Response(JSON.stringify(result), {
@@ -282,7 +369,7 @@ serve(async (req) => {
       req_id,
       error: error instanceof Error ? error.message : String(error)
     }), {
-      status: 500,
+      status: error instanceof Error && error.message.includes("required") ? 400 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
