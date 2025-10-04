@@ -26,6 +26,7 @@ const cors = {
 const RESP_URL = "https://api.openai.com/v1/responses";
 const RESP_MODEL = Deno.env.get("LOVABLE_MODEL") || "gpt-5-mini";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const DEBUG = Deno.env.get("DEBUG_TEXT") === "1";
 
 const TONE_HINTS: Record<string, string> = {
   humorous: "funny, witty, punchy",
@@ -46,45 +47,19 @@ const RATING_HINTS: Record<string, string> = {
 };
 
 function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
-  const tone_hint = TONE_HINTS[tone] || "funny, witty, punchy";
-  const rating_hint = RATING_HINTS[rating] || "PG";
-  const a = task.anchors?.length ? `Anchors: ${task.anchors.slice(0, 6).join(", ")}` : "";
-  
-  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" 
-    && /birthday/i.test(task.category_path[1] || "");
-  
-  const cueHint = isBirthday 
-    ? "Write for a birthday card vibe. Use concrete cues across MOST lines (cake, candles, make-a-wish, turning [age], party, balloons, gifts) without repeating 'birthday' every time."
-    : "";
-
-  // Comedy Contract: Humor requirements based on tone
   const warmTones = ["sentimental", "romantic", "inspirational"];
-  const comedyRule = warmTones.includes(tone)
-    ? "Primary tone is warm/affectionate, but every line still needs a sprinkle of humor or a clever twist — a wink, one absurd detail, or playful language."
-    : tone === "serious"
-    ? "Minimal humor; focus on weight and clarity."
-    : "Every line must make the reader LAUGH OUT LOUD through surprise twists, absurd consequences, or ridiculous escalation. Use outrageous imagery (e.g., fire marshal for candles, frosting emergencies, cake legal contracts).";
-
-  const bannedPatterns = tone !== "serious" 
-    ? "\nBAN these template phrases: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom, Hallmark greetings. At least 2 lines must contain absurd/unexpected scenarios.\nDO NOT REUSE: 'biohazard frosting', 'fire marshal candles', 'warranty expired' — these have been overused.\nNever use em-dashes (—), only commas or periods."
-    : "";
-
-  const varietyRule = tone !== "serious"
-    ? "\nCover at least 3 different topics: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Don't default to cake every time. Every line should be quotable and card-worthy — something the recipient will remember and laugh about."
-    : "";
-
+  const isWarm = warmTones.includes(tone);
+  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" && /birthday/i.test(task.category_path[1] || "");
+  
   return [
-    "Write 4 on-image captions for birthday cards.",
-    "Each 70–120 chars (target 85–110); end with . ! or ?",
-    `Tone: ${tone_hint}`,
-    `Rating: ${rating_hint}`,
-    comedyRule,
-    bannedPatterns,
-    varietyRule,
-    "One distinct idea per line. No duplicates.",
-    "PG-13: no f-bomb. R: profanity allowed, not last word.",
-    cueHint,
-    a,
+    "Write 4 unique birthday-card captions. Length 70–110 chars; end with . ! or ?",
+    isWarm
+      ? "Warm tone with a small wink. One playful twist per line."
+      : "Every line must be funny. Use absurd images or sharp roasts. No bland greetings.",
+    "Ban: em dashes (—), fortune-cookie advice, gamer patch notes, 'Level up unlocked', 'Survived another lap', 'Make a wish', 'biohazard frosting', 'fire marshal candles', 'warranty expired'.",
+    isBirthday ? "Use birthday cues across most lines (cake, candles, wish, age, party, balloons, gifts). Don't repeat 'birthday' every time." : "",
+    tone !== "serious" ? "Cover 3+ different topics: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Make it quotable and card-worthy." : "",
+    `Rating: ${RATING_HINTS[rating] || "PG"}`
   ].filter(Boolean).join("\n");
 }
 
@@ -320,25 +295,8 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 1024, attempt = 0) {
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 420, attempt = 0) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-  const schema = {
-    name: "ViibeTextCompactV1",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["lines"],
-      properties: {
-        lines: {
-          type: "array",
-          minItems: 4,
-          maxItems: 4,
-          items: { type: "string", minLength: 70, maxLength: 120, pattern: "[.!?]$" },
-        },
-      },
-    },
-  };
   const body = {
     model: RESP_MODEL,
     input: [
@@ -346,23 +304,43 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: maxTokens,
+    temperature: 0.9,
+    top_p: 0.9,
     text: {
       format: {
         type: "json_schema",
-        name: schema.name,
-        schema: schema.schema,
-        strict: true
-      }
+        name: "ViibeTextCompactV1",
+        json_schema: {
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["lines"],
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+              },
+            },
+          },
+        },
+      },
     },
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 45_000);
+  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
   let r: Response;
   try {
     r = await fetch(RESP_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      headers: { 
+        Authorization: `Bearer ${OPENAI_API_KEY}`, 
+        "Content-Type": "application/json",
+        "Connection": "keep-alive"
+      },
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
@@ -373,59 +351,82 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
   const raw = await r.text();
   if (r.status === 402) throw new Error("Payment required or credits exhausted");
   if (r.status === 429) throw new Error("Rate limited");
-  if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 800)}`);
+  if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
 
   const data = JSON.parse(raw);
 
   // Handle incomplete due to token cap: single retry with higher limit
   if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 1) {
-    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with 1536`);
-    return await callResponsesAPI(system, userObj, Math.max(1536, (maxTokens || 0) + 512), attempt + 1);
+    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with 512`);
+    return await callResponsesAPI(system, userObj, 512, attempt + 1);
   }
 
-  // Try output_parsed first (structured output)
+  // Try output_parsed first
   if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
     return data.output_parsed.lines as string[];
   }
 
-  // Try content blocks with json_schema parsed
+  // Try content blocks
   const blocks = data.output?.[0]?.content || [];
   for (const block of blocks) {
     if (block.type === "json_schema" && block.parsed?.lines && Array.isArray(block.parsed.lines)) {
       return block.parsed.lines as string[];
     }
-    if (block.type === "output_json" && block.json?.lines && Array.isArray(block.json.lines)) {
-      return block.json.lines as string[];
-    }
   }
-
-  // Try parsing text block as JSON
-  const textBlock = blocks.find((b: any) => b.type === "output_text")?.text ?? "";
-  if (textBlock) {
-    try {
-      const obj = JSON.parse(textBlock);
-      if (obj?.lines && Array.isArray(obj.lines)) return obj.lines as string[];
-    } catch {}
-  }
-
-  // Last resort: deep scan for valid lines array (updated to 70 char minimum)
-  const deepScan = (obj: any): string[] | null => {
-    if (Array.isArray(obj) && obj.length === 4 && obj.every((s) => typeof s === "string" && s.length >= 70 && s.length <= 120 && /[.!?]$/.test(s))) {
-      return obj;
-    }
-    if (obj && typeof obj === "object") {
-      for (const val of Object.values(obj)) {
-        const found = deepScan(val);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-  const found = deepScan(data);
-  if (found) return found;
 
   console.error("Parse miss. Response snippet:", JSON.stringify(data).slice(0, 500));
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
+}
+
+// Racing wrapper: fires second call after 250ms, returns whichever completes first
+async function callFast(system: string, userObj: unknown, maxTokens = 420) {
+  const p1 = callResponsesAPI(system, userObj, maxTokens);
+  const p2 = new Promise<string[]>((resolve, reject) => {
+    const t = setTimeout(async () => {
+      try {
+        resolve(await callResponsesAPI(system, userObj, maxTokens));
+      } catch (e) {
+        reject(e);
+      }
+    }, 250);
+    p1.finally(() => clearTimeout(t));
+  });
+  return Promise.race([p1, p2]);
+}
+
+// Consolidated quick validation (single local check)
+function quickValidate(lines: string[], task: TaskObject) {
+  if (!Array.isArray(lines) || lines.length !== 4) return "needs_4_lines";
+  
+  // Length, punctuation, em-dash
+  for (const line of lines) {
+    if (line.length < 70 || line.length > 110) return "bad_length";
+    if (!/[.!?]$/.test(line)) return "no_end_punctuation";
+    if (/—/.test(line)) return "em_dash";
+  }
+  
+  // Birthday cues (need at least 2)
+  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" && /birthday/i.test(task.category_path[1] || "");
+  if (isBirthday) {
+    const CUES = /(birthday|b-day|cake|candles|wish|party|balloons?|confetti|gift|presents?|frosting|sprinkles|blow out|turning|another year|age|years young)/i;
+    const cuedCount = lines.filter(l => CUES.test(l)).length;
+    if (cuedCount < 2) return "needs_more_cues";
+  }
+  
+  // Check against recent cache for duplicates
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+  for (const newLine of lines) {
+    const newWords = new Set(normalize(newLine).split(/\s+/));
+    for (const cachedLine of RECENT_LINES_CACHE) {
+      const cachedWords = new Set(normalize(cachedLine).split(/\s+/));
+      const overlap = [...newWords].filter(w => cachedWords.has(w));
+      if (overlap.length / Math.max(newWords.size, cachedWords.size) > 0.8) {
+        return "repeat_detected";
+      }
+    }
+  }
+  
+  return null;
 }
 
 // Canned safe lines to keep UI usable if provider fails (70+ chars, diverse topics, genuinely funny, no em-dashes)
@@ -471,9 +472,11 @@ serve(async (req) => {
     const SYSTEM = houseRules(task.tone, task.rating, task);
     const userPayload = { version: "viibe-text", tone_hint: TONE_HINTS[tone], rating_hint: RATING_HINTS[rating], task };
 
+    if (DEBUG) console.log("System prompt:", SYSTEM);
+
     let lines: string[];
     try {
-      lines = await callResponsesAPI(SYSTEM, userPayload, 1024);
+      lines = await callFast(SYSTEM, userPayload, 420);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
@@ -481,99 +484,40 @@ serve(async (req) => {
       return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
-    // Check 1: Topicality (includes em-dash check)
-    const v = topicalityProblems(lines, task, { minCuedLines: 2 });
-    if (v) {
-      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 70–120. NO EM-DASHES (—), only commas or periods.";
+    // Quick validation (single local check)
+    let problem = quickValidate(lines, task);
+    
+    if (problem) {
+      if (DEBUG) console.log("Validation failed:", problem);
+      const STRICT = SYSTEM + "\nCRITICAL: No em dashes. All 70–110 chars. Include at least 2 birthday cues. Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.";
       try {
-        lines = await callResponsesAPI(strict, userPayload, 1536);
+        lines = await callFast(STRICT, userPayload, 420);
+        problem = quickValidate(lines, task);
+        if (problem) {
+          console.warn("Validation failed after retry:", problem, lines);
+          const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed", details: { problem, lines } };
+          return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+        }
       } catch (e2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Topicality retry failed", details: { problems: v, info: String(e2) } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      const v2 = topicalityProblems(lines, task, { minCuedLines: 2 });
-      if (v2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Topicality failed after retry", details: { problems: v2, lines } };
+        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Retry failed", details: { problem, info: String(e2) } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
     }
 
-    // Check 2: Topical diversity
+    // Post-generation quality checks (log warnings, don't retry)
     const diversityIssues = topicalDiversityProblems(lines);
-    if (diversityIssues) {
-      console.warn("Diversity check failed:", diversityIssues);
-      const STRICT_DIVERSITY = SYSTEM + "\nCRITICAL: Cover at least 3 different topics across the 4 lines: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Don't default to cake every time!";
-      try {
-        lines = await callResponsesAPI(STRICT_DIVERSITY, userPayload, 1536);
-      } catch (e3) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Diversity retry failed", details: { problems: diversityIssues, info: String(e3) } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      const diversityIssues2 = topicalDiversityProblems(lines);
-      if (diversityIssues2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Diversity check failed after retry", details: { problems: diversityIssues2, lines } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-    }
-
-    // Check 3: Repeat similarity
-    const repeatIssues = similarityCheck(lines, RECENT_LINES_CACHE);
-    if (repeatIssues) {
-      console.warn("Repeat check failed:", repeatIssues);
-      const STRICT_ORIGINAL = SYSTEM + "\nCRITICAL: Write COMPLETELY ORIGINAL lines. Do NOT reuse previous jokes like 'biohazard frosting' or 'fire marshal candles'. Every line must be fresh, creative, and never-before-seen.";
-      try {
-        lines = await callResponsesAPI(STRICT_ORIGINAL, userPayload, 1536);
-      } catch (e4) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Repeat retry failed", details: { problems: repeatIssues, info: String(e4) } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      const repeatIssues2 = similarityCheck(lines, RECENT_LINES_CACHE);
-      if (repeatIssues2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Repeat check failed after retry", details: { problems: repeatIssues2, lines } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-    }
-
-    // Check 4: Blandness
+    if (diversityIssues && DEBUG) console.log("Diversity warning:", diversityIssues);
+    
     const blandIssues = blandnessProblems(lines, task.tone);
-    if (blandIssues) {
-      console.warn("Blandness check failed:", blandIssues);
-      const STRICT_BLAND = SYSTEM + "\nCRITICAL: Write ORIGINAL lines. Ban: 'Level up unlocked', 'Survived another lap', 'Make a wish', 'Another year older', 'Congrats on', gamer patch notes (age +1, wisdom ±0), fortune cookie wisdom. Every line must be laugh-out-loud funny with absurd imagery.";
-      try {
-        lines = await callResponsesAPI(STRICT_BLAND, userPayload, 1536);
-      } catch (e5) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Blandness retry failed", details: { problems: blandIssues, info: String(e5) } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      const blandIssues2 = blandnessProblems(lines, task.tone);
-      if (blandIssues2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Blandness check failed after retry", details: { problems: blandIssues2, lines } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-    }
-
-    // Check 5: Comedy
+    if (blandIssues && DEBUG) console.log("Blandness warning:", blandIssues);
+    
     const comedyIssues = comedyProblems(lines, task.tone);
-    if (comedyIssues) {
-      console.warn("Comedy check failed:", comedyIssues);
-      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line must be LAUGH OUT LOUD funny. Use absurd imagery, exaggeration (unlimited, infinite), surprise twists (but, except, still), and concrete humor. Must include multiple types of comedy. No generic greetings. This is a BIRTHDAY CARD, make it memorable and quotable!";
-      try {
-        lines = await callResponsesAPI(STRICT_COMEDY, userPayload, 1536);
-      } catch (e6) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Comedy retry failed", details: { problems: comedyIssues, info: String(e6) } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      const comedyIssues2 = comedyProblems(lines, task.tone);
-      if (comedyIssues2) {
-        const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Comedy check failed after retry", details: { problems: comedyIssues2, lines } };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-    }
+    if (comedyIssues && DEBUG) console.log("Comedy warning:", comedyIssues);
 
     // SUCCESS: Add lines to cache and return
     RECENT_LINES_CACHE.push(...lines);
     if (RECENT_LINES_CACHE.length > 50) {
-      RECENT_LINES_CACHE.splice(0, 20); // Keep last 50 lines
+      RECENT_LINES_CACHE.splice(0, 20);
     }
 
     return new Response(JSON.stringify({ success: true, options: lines, model: RESP_MODEL, count: lines.length }), {
