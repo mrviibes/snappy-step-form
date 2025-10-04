@@ -598,7 +598,7 @@ serve(async (req) => {
       });
     }
     
-    if (!LOVABLE_API_KEY) return err(401, "LOVABLE_API_KEY not configured");
+    if (!OPENAI_API_KEY) return err(401, "OPENAI_API_KEY not configured");
     
     const category = String(body.category || "").trim();
     const subcategory = String(body.subcategory || "").trim();
