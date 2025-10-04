@@ -71,8 +71,9 @@ interface PromptTemplate {
 const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 2-line flowing structure:
 
 POSITIVE PROMPT FORMAT (2 flowing lines):
-Line 1: EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.
-Line 2: A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio.
+EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.
+
+A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio.
 
 NEGATIVE PROMPT FORMAT (text-only, lean):
 misspelled text, broken letters, split characters, extra words
@@ -110,8 +111,9 @@ COMPOSITION MODES:
 
 EXAMPLES:
 ✅ CORRECT FORMAT:
-Line 1: EXACT TEXT: "Happy birthday! May your joy multiply this year!" in a badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, with 25% coverage.
-Line 2: A vibrant realistic style in a PG-13 normal composition with a scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a 16:9 aspect ratio.
+EXACT TEXT: "Happy birthday! May your joy multiply this year!" in a badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, with 25% coverage.
+
+A vibrant realistic style in a PG-13 normal composition with a scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a 16:9 aspect ratio.
 
 ❌ WRONG - Don't do this:
 "The image shows a birthday party..." (too verbose)
