@@ -57,12 +57,21 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
     ? "Write for a birthday card vibe. Use concrete cues across MOST lines (cake, candles, make-a-wish, turning [age], party, balloons, gifts) without repeating 'birthday' every time."
     : "";
 
+  // Comedy Contract: Humor requirements based on tone
+  const warmTones = ["sentimental", "romantic", "inspirational"];
+  const comedyRule = warmTones.includes(tone)
+    ? "Primary tone is warm/affectionate, but every line still needs a sprinkle of humor or a clever twist — a wink, one absurd detail, or playful language."
+    : tone === "serious"
+    ? "Minimal humor; focus on weight and clarity."
+    : "Every line MUST be hilarious. Strong punchlines, absurd turns, or witty exaggerations. No plain compliments or bland Hallmark filler.";
+
   return [
-    "Write 4 on-image captions.",
-    "Each 28–120 chars; end with . ! or ?",
+    "Write 4 on-image captions for birthday cards.",
+    "Each 70–120 chars (target 85–110); end with . ! or ?",
     `Tone: ${tone_hint}`,
     `Rating: ${rating_hint}`,
-    "Comedy: specificity, contrast, quick twist. One idea per line.",
+    comedyRule,
+    "One distinct idea per line. No duplicates.",
     "PG-13: no f-bomb. R: profanity allowed, not last word.",
     cueHint,
     a,
@@ -86,10 +95,10 @@ function topicalityProblems(
 ) {
   const problems: string[] = [];
   
-  // Basic checks
+  // Basic checks (updated to 70 char minimum)
   if (!Array.isArray(lines) || lines.length !== 4) problems.push("needs_4_lines");
   for (const s of lines || []) {
-    if (s.length < 28 || s.length > 120) problems.push("bad_length");
+    if (s.length < 70 || s.length > 120) problems.push("bad_length");
     if (!/[.!?]$/.test(s)) problems.push("no_end_punctuation");
   }
   
@@ -134,6 +143,39 @@ function topicalityProblems(
   return problems.length ? problems : null;
 }
 
+function comedyProblems(lines: string[], tone: Tone) {
+  // Humor markers that indicate comedy/playfulness
+  const HUMOR_MARKERS = [
+    /\b(cake|candles|sprinkles?|frosting|icing|wish|party|balloon|confetti)\b/i,
+    /\b(old|age|wrinkle|chaos|disaster|duty|report|xp|level\s*up|unlock)\b/i,
+    /\b(biohazard|backup|plausible|deniability|coordinator|reckless)\b/i,
+    /\b(pretend|suppose|allegedly|technically|basically)\b/i,
+    /[±∞]/,  // math symbols used humorously
+  ];
+  
+  const hasHumor = (line: string) => HUMOR_MARKERS.some(marker => marker.test(line));
+  const humorCount = lines.filter(hasHumor).length;
+  
+  const warmTones = ["sentimental", "romantic", "inspirational"];
+  const isWarm = warmTones.includes(tone);
+  
+  const problems: string[] = [];
+  
+  if (isWarm) {
+    // Warm tones: at least 50% (2 of 4) lines need humor markers
+    if (humorCount < 2) {
+      problems.push(`warm_needs_humor_sprinkle:${humorCount}/4_have_markers`);
+    }
+  } else if (tone !== "serious") {
+    // Default tones (humorous/savage/playful): 100% need humor
+    if (humorCount < 4) {
+      problems.push(`not_funny_enough:${humorCount}/4_have_markers`);
+    }
+  }
+  
+  return problems.length ? problems : null;
+}
+
 async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 1024, attempt = 0) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   const schema = {
@@ -148,7 +190,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" },
+          items: { type: "string", minLength: 70, maxLength: 120, pattern: "[.!?]$" },
         },
       },
     },
@@ -222,9 +264,9 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
     } catch {}
   }
 
-  // Last resort: deep scan for valid lines array
+  // Last resort: deep scan for valid lines array (updated to 70 char minimum)
   const deepScan = (obj: any): string[] | null => {
-    if (Array.isArray(obj) && obj.length === 4 && obj.every((s) => typeof s === "string" && s.length >= 28 && s.length <= 120 && /[.!?]$/.test(s))) {
+    if (Array.isArray(obj) && obj.length === 4 && obj.every((s) => typeof s === "string" && s.length >= 70 && s.length <= 120 && /[.!?]$/.test(s))) {
       return obj;
     }
     if (obj && typeof obj === "object") {
@@ -242,12 +284,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Canned safe lines to keep UI usable if provider fails
+// Canned safe lines to keep UI usable if provider fails (70+ chars, funny)
 const SAFE_LINES = [
-  "Birthday chaos coordinator, report for cake duty.",
-  "Survived another lap, unlocks extra sprinkles.",
-  "Age is just experience points, spend recklessly.",
-  "Make a wish, then pretend it was the plan.",
+  "Birthday chaos coordinator, report for cake duty before the frosting becomes a biohazard.",
+  "Level up unlocked: age +1, wisdom ±0, cake intake +∞. Party mode enabled.",
+  "Survived another lap around the sun, unlocks extra sprinkles and plausible deniability.",
+  "Make a wish, blow out the candles, then pretend it was all part of the plan.",
 ];
 
 // ============ HTTP HANDLER ============
@@ -298,7 +340,7 @@ serve(async (req) => {
     const v = topicalityProblems(lines, task, { minCuedLines: 2 });
     if (v) {
       // one strict retry with higher token budget
-      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 28–120.";
+      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 70–120.";
       try {
         lines = await callResponsesAPI(strict, userPayload, 1536);
       } catch (e2) {
@@ -309,6 +351,24 @@ serve(async (req) => {
       if (v2) {
         const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed after retry", details: { problems: v2, lines } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Comedy validation: check humor markers
+    const comedyIssues = comedyProblems(lines, task.tone);
+    if (comedyIssues) {
+      console.warn("Comedy check failed:", comedyIssues);
+      const STRICT_COMEDY = SYSTEM + "\nCRITICAL: Every line must include humor (absurd, sarcastic, witty exaggeration, or playful twist). Use concrete imagery (cake, chaos, unlocks, duty, biohazard, recklessly, pretend, etc.). No bland Hallmark filler.";
+      try {
+        lines = await callResponsesAPI(STRICT_COMEDY, userPayload, 1536);
+      } catch (e3) {
+        console.error("Comedy retry failed:", e3);
+        // Fall through with existing lines
+      }
+      // Final comedy check (no additional retry)
+      const c2 = comedyProblems(lines, task.tone);
+      if (c2) {
+        console.warn("Comedy still weak after retry:", c2, "lines:", lines);
       }
     }
 
