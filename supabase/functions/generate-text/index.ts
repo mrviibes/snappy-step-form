@@ -362,15 +362,17 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 420, attempt = 0) {
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 420, attempt = 0, nonce = "") {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+  // Add entropy seed based on nonce (0-19 token variance)
+  const entropyOffset = nonce ? (parseInt(nonce.slice(0, 2), 36) % 20) : 0;
   const body = {
     model: RESP_MODEL,
     input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_output_tokens: maxTokens,
+    max_output_tokens: maxTokens + entropyOffset,
     text: {
       format: {
         type: "json_schema",
@@ -442,12 +444,12 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
 }
 
 // Hedged call: fire second request after 250ms if first is slow
-async function callFast(system: string, payload: unknown) {
-  const p1 = callResponsesAPI(system, payload, 420);
+async function callFast(system: string, payload: unknown, nonce = "") {
+  const p1 = callResponsesAPI(system, payload, 420, 0, nonce);
   const p2 = new Promise<string[]>((resolve, reject) => {
     const t = setTimeout(async () => {
       try { 
-        resolve(await callResponsesAPI(system, payload, 420)); 
+        resolve(await callResponsesAPI(system, payload, 420, 0, nonce)); 
       } catch (e) { 
         reject(e); 
       }
@@ -513,10 +515,10 @@ function quickValidate(lines: string[], task: TaskObject) {
 // Fallback lines per subcategory
 const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
   birthday: [
-    "Cheers to the cake negotiator, candle counter, and official party starter.",
-    "The frosting is watching; make your wish count before it unionizes.",
-    "Balloons fear you, sprinkles respect you, and the piñata is filing a restraining order.",
-    "Another year of questionable decisions, excellent cake choices, and zero regrets."
+    "Jesse, the cake says 'serves 8' and your fork says 'challenge accepted.'",
+    "Candles counted, alibi prepared, sprinkles ready to testify on your behalf.",
+    "If the frosting survives the group chat, you may eat it unsupervised.",
+    "A year older, still negotiating with cake like it's a hostile takeover."
   ],
   wedding: [
     "Congrats on finding someone who'll put up with you—permanently.",
@@ -559,6 +561,7 @@ serve(async (req) => {
     
     // Accept nonce from URL query or body
     const nonce = url.searchParams.get("nonce") || body.nonce || "";
+    if (DEBUG) console.log(`[${req_id}] nonce:${nonce || 'none'}`);
     
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     if (url.searchParams.get("dry") === "1") {
@@ -593,14 +596,26 @@ serve(async (req) => {
 
     const subcat = task.category_path[1]?.toLowerCase() || "";
 
-    const SYSTEM = houseRules(task.tone, task.rating, task);
+    // Pull recent themes from cache to avoid repetition
+    const recentCache = getCacheForKey(category, subcategory, tone, rating);
+    const recentThemes = recentCache
+      .slice(-8)
+      .map(line => {
+        // Extract key theme words (3-5 words)
+        const words = line.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+        return words.slice(0, 3).join(" ");
+      })
+      .join(" | ");
+
+    const SYSTEM = houseRules(task.tone, task.rating, task) + 
+      (recentThemes ? `\n\nAVOID these recent themes: ${recentThemes}` : "");
     const userPayload = { version: "viibe-text", tone_hint: TONE_HINTS[tone], rating_hint: RATING_HINTS[rating], task };
 
     if (DEBUG) console.log("System prompt:", SYSTEM);
 
     let lines: string[];
     try {
-      lines = await callFast(SYSTEM, userPayload);
+      lines = await callFast(SYSTEM, userPayload, nonce);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
@@ -622,7 +637,7 @@ serve(async (req) => {
     if (problem) {
       if (DEBUG) console.log("⚠️ Validation failed:", problem, "→ strict retry");
       const STRICT = SYSTEM + "\nCRITICAL: All 4 lines must be NEW, 70–110 chars, no em dashes, and include at least 2 clear " + (subcat || "category") + " cues.";
-      lines = await callFast(STRICT, userPayload);
+      lines = await callFast(STRICT, userPayload, nonce);
       problem = quickValidate(lines, task);
       if (problem) {
         console.error("❌ Validation failed after retry:", problem);
@@ -640,8 +655,7 @@ serve(async (req) => {
       }
     }
 
-    // 5️⃣ Cross-run novelty filter with 3-gram Jaccard
-    const recentCache = getCacheForKey(category, subcategory, tone, rating);
+    // 5️⃣ Cross-run novelty filter with 3-gram Jaccard (already fetched above for themes)
     
     function canon(s: string) { 
       return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); 
@@ -662,7 +676,7 @@ serve(async (req) => {
     }
 
     function tooSimilar(a: string, b: string) {
-      return jaccard(shingles(a), shingles(b)) >= 0.6;
+      return jaccard(shingles(a), shingles(b)) >= 0.5; // Stricter threshold
     }
 
     // Filter out lines that are too similar to recent cache
@@ -673,7 +687,7 @@ serve(async (req) => {
     if (freshLines.length < 4) {
       if (DEBUG) console.log("⚠️ Only", freshLines.length, "novel lines → strict retry");
       const STRICT = SYSTEM + "\nCRITICAL: Produce four NEW lines not paraphrasing earlier outputs. Be creative with different angles.";
-      const retryLines = await callFast(STRICT, userPayload);
+      const retryLines = await callFast(STRICT, userPayload, nonce);
       const retryFresh = retryLines.filter(newLine => 
         !recentCache.some(cachedLine => tooSimilar(newLine, cachedLine))
       );
@@ -713,6 +727,7 @@ serve(async (req) => {
       model: RESP_MODEL,
       source: "model",
       req_id,
+      nonce: nonce || "none",
       count: lines.length 
     }), {
       headers: { ...cors, "Content-Type": "application/json" },

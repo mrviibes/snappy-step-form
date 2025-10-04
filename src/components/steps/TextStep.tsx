@@ -101,6 +101,8 @@ export default function TextStep({
     setIsGenerating(true);
     setGenerationError(null);
     setDebugExpanded(false);
+    setTextOptions([]); // Clear old options
+    setSelectedTextOption(null); // Reset selection
     
     try {
       // Create debug info
