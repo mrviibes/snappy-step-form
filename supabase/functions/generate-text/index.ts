@@ -370,32 +370,35 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 1000, attempt = 0, nonce = "") {
+async function callResponsesAPI(system: string, userObj: unknown) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-  // Add entropy seed based on nonce (0-19 token variance)
-  const entropyOffset = nonce ? (parseInt(nonce.slice(0, 2), 36) % 20) : 0;
+  
   const body = {
-    model: RESP_MODEL,
+    model: RESP_MODEL || "gpt-5-mini",
     input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
     ],
-    max_output_tokens: maxTokens + entropyOffset,
+    max_output_tokens: 420,
+    temperature: 0.95,
+    top_p: 0.95,
     text: {
       format: {
         type: "json_schema",
         name: "ViibeTextCompactV1",
-        strict: true,
-        schema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["lines"],
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+        json_schema: {
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["lines"],
+            properties: {
+              lines: {
+                type: "array",
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "string", minLength: 70, maxLength: 110, pattern: "[.!?]$" },
+              },
             },
           },
         },
@@ -404,19 +407,10 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => {
-    if (!ctl.signal.aborted) {
-      try {
-        ctl.abort();
-      } catch (e) {
-        console.warn("abort-suppressed", e);
-      }
-    }
-  }, 25000);
+  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
   
-  let r: Response;
   try {
-    r = await fetch(RESP_URL, {
+    const r = await fetch(RESP_URL, {
       method: "POST",
       headers: { 
         Authorization: `Bearer ${OPENAI_API_KEY}`, 
@@ -426,67 +420,40 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 10
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
+    
+    const raw = await r.text();
+    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
+    
+    const data = JSON.parse(raw);
+
+    const parsed = data.output_parsed?.lines
+      ?? (data.output?.[0]?.content || []).find((b: any) => b.type === "json_schema")?.parsed?.lines;
+
+    if (!Array.isArray(parsed)) throw new Error("parse_error:no_structured_lines");
+
+    return parsed as string[];
   } catch (e: any) {
-    clearTimeout(tid);
-    if (e?.name === "AbortError") {
-      throw new Error("timeout");
-    }
-    throw e;
+    if (e?.name === "AbortError" || String(e).includes("timeout")) throw new Error("timeout");
+    throw new Error(String(e?.message || e));
   } finally {
     clearTimeout(tid);
   }
-
-  const raw = await r.text();
-  if (r.status === 402) throw new Error("Payment required or credits exhausted");
-  if (r.status === 429) throw new Error("Rate limited");
-  if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 400)}`);
-
-  const data = JSON.parse(raw);
-
-  // Handle incomplete due to token cap: single retry with higher limit
-  if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 2) {
-    const nextTokens = maxTokens === 1000 ? 1400 : 1600;
-    console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with ${nextTokens}`);
-    return await callResponsesAPI(system, userObj, nextTokens, attempt + 1, nonce);
-  }
-
-  // Try output_parsed first
-  if (data.output_parsed?.lines && Array.isArray(data.output_parsed.lines)) {
-    return data.output_parsed.lines as string[];
-  }
-
-  // Try content blocks
-  const blocks = data.output?.[0]?.content || [];
-  for (const block of blocks) {
-    if (block.type === "json_schema" && block.parsed?.lines && Array.isArray(block.parsed.lines)) {
-      return block.parsed.lines as string[];
-    }
-  }
-
-  console.error("Parse miss. Response snippet:", JSON.stringify(data).slice(0, 500));
-  throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Hedged call: fire second request after 400ms if first is slow
-async function callFast(system: string, payload: unknown, nonce = "") {
-  const p1 = callResponsesAPI(system, payload, 1000, 0, nonce);
-  const p2 = new Promise<string[]>((resolve) => {
+// Hedged call: fire second request after 250ms if first is slow
+async function callFast(system: string, payload: unknown) {
+  const p1 = callResponsesAPI(system, payload);
+  const p2 = new Promise<string[]>((resolve, reject) => {
     const t = setTimeout(async () => {
       try {
-        const r = await callResponsesAPI(system, payload, 1000, 0, nonce);
-        resolve(r);
-      } catch {
-        // Swallow loser errors to avoid unhandled rejection
-        resolve([] as unknown as string[]);
+        resolve(await callResponsesAPI(system, payload));
+      } catch (e) {
+        reject(e);
       }
-    }, 400);
+    }, 250);
     p1.finally(() => clearTimeout(t));
   });
-  const raced = Promise.race([p1, p2]) as Promise<string[]>;
-  // Prevent unhandled rejections from the loser
-  p1.catch(() => {});
-  (p2 as Promise<string[]>).catch?.(() => {});
-  return raced;
+  return Promise.race([p1, p2]) as Promise<string[]>;
 }
 
 
@@ -597,16 +564,15 @@ serve(async (req) => {
     const url = new URL(req.url);
     const body = await req.json();
     
+    // Check API key first
+    if (!OPENAI_API_KEY) return err(401, "OPENAI_API_KEY not configured");
+    
     // Input validation
     const required = ["category", "subcategory", "tone", "rating"];
     const missing = required.filter((f) => !body[f]);
     if (missing.length) {
-      return err(400, `Missing required fields: ${missing.join(", ")}`);
+      return err(400, `missing_fields:${missing.join(",")}`);
     }
-    
-    // Accept nonce from URL query or body
-    const nonce = url.searchParams.get("nonce") || body.nonce || "";
-    if (DEBUG) console.log(`[${req_id}] nonce:${nonce || 'none'}`);
     
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     if (url.searchParams.get("dry") === "1") {
@@ -615,7 +581,7 @@ serve(async (req) => {
         success: true, 
         options: getSafeLinesForSubcategory("birthday", insert_words), 
         model: "dry-run",
-        source: "fallback",
+        source: "dry-run",
         req_id
       }), {
         headers: { ...cors, "Content-Type": "application/json" },
@@ -661,20 +627,11 @@ serve(async (req) => {
 
     let lines: string[];
     try {
-      lines = await callFast(SYSTEM, userPayload, nonce);
+      lines = await callFast(SYSTEM, userPayload);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("AI error:", msg);
-      const payload = { 
-        success: true, 
-        options: getSafeLinesForSubcategory(subcat, insert_words), 
-        model: RESP_MODEL, 
-        source: "fallback",
-        req_id,
-        fallback: "safe_lines", 
-        error: msg 
-      };
-      return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      return err(502, "provider_error", { details: msg });
     }
 
     // Quick validation (single local check)
@@ -682,22 +639,16 @@ serve(async (req) => {
     
     if (problem) {
       if (DEBUG) console.log("⚠️ Validation failed:", problem, "→ strict retry");
-      const STRICT = SYSTEM + "\nCRITICAL: All 4 lines must be NEW, 70–110 chars, no em dashes, and include at least 2 clear " + (subcat || "category") + " cues.";
-      lines = await callFast(STRICT, userPayload, nonce);
-      problem = quickValidate(lines, task);
-      if (problem) {
-        console.error("❌ Validation failed after retry:", problem);
-        const payload = { 
-          success: true, 
-          options: getSafeLinesForSubcategory(subcat, insert_words), 
-          model: RESP_MODEL, 
-          source: "fallback",
-          req_id,
-          fallback: "safe_lines", 
-          error: "validation_failed", 
-          details: { problem, lines } 
-        };
-        return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      const STRICT = SYSTEM + "\nCRITICAL: 4 new lines, 70–110 chars, end with . ! ?, no em dashes, ≥2 " + (subcat || "category") + " cues.";
+      try {
+        const retry = await callFast(STRICT, userPayload);
+        problem = quickValidate(retry, task);
+        if (problem) {
+          return err(422, `validation_failed:${problem}`, { lines: retry });
+        }
+        lines = retry;
+      } catch (e) {
+        return err(502, "provider_error_retry");
       }
     }
 
@@ -733,32 +684,25 @@ serve(async (req) => {
     if (freshLines.length < 4) {
       if (DEBUG) console.log("⚠️ Only", freshLines.length, "novel lines → strict retry");
       const STRICT = SYSTEM + "\nCRITICAL: Produce four NEW lines not paraphrasing earlier outputs. Be creative with different angles.";
-      const retryLines = await callFast(STRICT, userPayload, nonce);
-      const retryFresh = retryLines.filter(newLine => 
-        !recentCache.some(cachedLine => tooSimilar(newLine, cachedLine))
-      );
-      
-      if (retryFresh.length >= 4) {
-        lines = retryFresh.slice(0, 4);
-      } else {
-        // Mix fresh from both attempts
-        const combined = [...new Set([...freshLines, ...retryFresh])];
-        if (combined.length >= 4) {
-          lines = combined.slice(0, 4);
+      try {
+        const retryLines = await callFast(STRICT, userPayload);
+        const retryFresh = retryLines.filter(newLine => 
+          !recentCache.some(cachedLine => tooSimilar(newLine, cachedLine))
+        );
+        
+        if (retryFresh.length >= 4) {
+          lines = retryFresh.slice(0, 4);
         } else {
-          console.error("❌ Not enough novel lines after retry:", combined.length);
-          const payload = { 
-            success: true, 
-            options: getSafeLinesForSubcategory(subcat, insert_words), 
-            model: RESP_MODEL, 
-            source: "fallback",
-            req_id,
-            fallback: "not_enough_novel", 
-            error: "not_enough_novel_lines",
-            details: { served: combined } 
-          };
-          return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+          // Mix fresh from both attempts
+          const combined = [...new Set([...freshLines, ...retryFresh])];
+          if (combined.length >= 4) {
+            lines = combined.slice(0, 4);
+          } else {
+            return err(422, "not_enough_novel_lines", { served: combined });
+          }
         }
+      } catch (e) {
+        return err(502, "provider_error_novelty_retry");
       }
     } else {
       lines = freshLines.slice(0, 4);
@@ -767,13 +711,15 @@ serve(async (req) => {
     // Add to cache for future novelty checks
     addToCache(category, subcategory, tone, rating, lines);
 
+    // Success - add to cache and return
+    addToCache(category, subcategory, tone, rating, lines);
+
     return new Response(JSON.stringify({ 
       success: true, 
       options: lines, 
       model: RESP_MODEL,
       source: "model",
       req_id,
-      nonce: nonce || "none",
       count: lines.length 
     }), {
       headers: { ...cors, "Content-Type": "application/json" },
@@ -781,17 +727,6 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("generate-text fatal error:", msg);
-    // req_id not available in catch scope, generate new one
-    const req_id = crypto.randomUUID().slice(0, 8);
-    const payload = { 
-      success: true, 
-      options: getSafeLinesForSubcategory("birthday", []), 
-      model: RESP_MODEL, 
-      source: "fallback",
-      req_id,
-      fallback: "safe_lines", 
-      error: msg 
-    };
-    return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+    return err(500, "internal_error", { details: msg });
   }
 });
