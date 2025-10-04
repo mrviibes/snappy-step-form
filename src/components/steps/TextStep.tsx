@@ -705,10 +705,6 @@ export default function TextStep({
               disabled={(data.text?.insertWords?.length || 0) >= 2}
             />
             
-            <p className="text-xs text-muted-foreground">
-              Tip: Use hyphens for compound words like 'left-handed' or 'Star-Wars'
-            </p>
-            
             {/* Display tags right under input box */}
             {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
                 {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
