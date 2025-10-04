@@ -30,7 +30,7 @@ const VIS_SCHEMA = {
             title: { type: "string", minLength: 3, maxLength: 40 },
             subject: { type: "string", minLength: 3, maxLength: 60 },
             setting: { type: "string", minLength: 3, maxLength: 60 },
-            action: { type: "string", minLength: 6, maxLength: 120 },
+            action: { type: "string", minLength: 8, maxLength: 140 },
             prop: { type: "string", minLength: 3, maxLength: 40 },
             camera: { type: "string", enum: ["close-up", "medium", "wide", "overhead"] },
             lens: { type: "string", enum: ["24mm","35mm","50mm"] },
@@ -98,10 +98,42 @@ function checkDiversity(concepts: any[]): { diverse: boolean; reason?: string } 
   return { diverse: true };
 }
 
+// Helper to build concise system prompt
+function buildVisualSystem(caption: string, style?: string, compositionPref?: string, category?: string, subcategory?: string, tone?: string, rating?: string, brightnessNote?: string) {
+  return [
+    `Create 4 distinct visual concepts for this caption: "${caption}"`,
+    "Each concept must be SPECIFIC and shootable: one clear subject, one setting, one action, one comedic prop.",
+    "Return JSON only with: title, subject, setting, action, prop, camera, lens, lighting, color, composition, readability.",
+    "Use realistic photo style; no cartoon/3D. Leave clean negative space per 'readability'.",
+    "Cover at least 3 different compositions across the set.",
+    compositionPref ? `Include one concept using ${compositionPref} composition.` : "",
+    brightnessNote || "",
+    category ? `Category: ${category}, Subcategory: ${subcategory || ''}`.trim() : "",
+    tone ? `Tone: ${tone}, Rating: ${rating || ''}`.trim() : "",
+    style ? `Style: ${style}` : "",
+    "Ban filler like 'humorous scene', 'natural proportions', 'clean perspective', 'high quality', 'beautiful'.",
+    "Return exactly 4 concepts."
+  ].filter(Boolean).join("\n");
+}
+
+function validateConcepts(cs: any[]) {
+  const titles = new Set(cs.map(c => (c.title || "").toLowerCase().trim()));
+  const comps  = new Set(cs.map(c => c.composition));
+  const fieldsOk = cs.every(c =>
+    c.title && c.subject && c.setting && c.action && c.prop &&
+    c.camera && c.lens && c.lighting && c.color && c.composition && c.readability
+  );
+  if (!fieldsOk) return "missing_fields";
+  if (titles.size !== 4) return "duplicate_titles";
+  if (comps.size < 3) return "low_composition_variety";
+  return null;
+}
+
 // ---------- Responses API Call ----------
 async function callResponsesAPI(
   systemPrompt: string,
-  maxTokens: number
+  userObj: unknown,
+  maxTokens: number = 360
 ): Promise<any> {
   const model = getVisualsModel();
   
@@ -109,15 +141,13 @@ async function callResponsesAPI(
     model,
     input: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Return 4 distinct concepts now." }
+      { role: "user", content: JSON.stringify(userObj) }
     ],
     max_output_tokens: maxTokens,
     text: {
       format: {
         type: "json_schema",
         name: VIS_SCHEMA.name,
-        // Support both expected shapes by OpenAI Responses API
-        // Newer format expects schema/strict directly under format
         strict: VIS_SCHEMA.strict,
         schema: VIS_SCHEMA.schema,
         // Some deployments still require a nested json_schema wrapper
@@ -130,7 +160,7 @@ async function callResponsesAPI(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort("timeout"), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -157,11 +187,15 @@ async function callResponsesAPI(
 // ---------- Hedged API Call ----------
 async function callResponsesAPIFast(
   systemPrompt: string,
-  maxTokens: number
+  userObj: unknown,
+  maxTokens: number = 360
 ): Promise<any> {
-  const p1 = callResponsesAPI(systemPrompt, maxTokens);
-  const p2 = new Promise<any>((resolve) => {
-    const t = setTimeout(() => resolve(callResponsesAPI(systemPrompt, maxTokens)), 250);
+  const p1 = callResponsesAPI(systemPrompt, userObj, maxTokens);
+  const p2 = new Promise<any>((resolve, reject) => {
+    const t = setTimeout(async () => {
+      try { resolve(await callResponsesAPI(systemPrompt, userObj, maxTokens)); }
+      catch (e) { reject(e); }
+    }, 250);
     p1.finally(() => clearTimeout(t));
   });
   return Promise.race([p1, p2]);
@@ -185,27 +219,23 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
     : "";
 
   // Build caption-focused system prompt
-  const systemPrompt = `Create 4 distinct visual concepts for this caption:
-"${completed_text}"
-
-RULES:
-- Each concept MUST be SPECIFIC and shootable: one clear subject, one setting, one action, one comedic prop
-- Tie the concept to the caption's idea (not generic "humorous scene")
-- Return JSON only with fields: title, subject, setting, action, prop, camera, lens, lighting, color, composition, readability
-- One concept per composition style; cover at least 3 different compositions
-- Respect readability: leave clean negative space in the stated area
-- Realistic photo style; no 3D, no cartoon
-- BAN these words: "humorous scene", "natural proportions", "clean perspective", "high quality", "beautiful"
-
-CONTEXT:
-- Category: ${category}, Subcategory: ${subcategory}
-- Tone: ${tone}, Rating: ${rating}
-- Style: ${image_style}${brightnessNote}`;
+  const compPref = composition_modes?.[0];
+  const systemPrompt = buildVisualSystem(
+    completed_text,
+    image_style,
+    compPref,
+    category,
+    subcategory,
+    tone,
+    rating,
+    brightnessNote
+  );
 
   try {
     if (DEBUG) console.log("Calling Responses API with caption:", completed_text);
-    
-    const data = await callResponsesAPIFast(systemPrompt, 380);
+
+    const userPayload = { caption: completed_text, style: image_style, composition: compPref, category, subcategory, tone, rating };
+    let data = await callResponsesAPIFast(systemPrompt, userPayload, 360);
 
     // Try Responses API structured output first
     let concepts: any[] | undefined;
@@ -214,32 +244,57 @@ CONTEXT:
     } else if (Array.isArray(data?.output)) {
       const blocks = data.output?.[0]?.content || [];
       for (const b of blocks) {
-        if (b?.type === "json_schema" && Array.isArray(b?.parsed?.concepts)) {
-          concepts = b.parsed.concepts;
-          break;
-        }
+        if (b?.type === "json_schema" && Array.isArray(b?.parsed?.concepts)) { concepts = b.parsed.concepts; break; }
         if (b?.type === "output_text" && typeof b?.text === "string") {
-          try {
-            const maybe = JSON.parse(b.text);
-            if (Array.isArray(maybe?.concepts)) { concepts = maybe.concepts; break; }
-          } catch {}
+          try { const maybe = JSON.parse(b.text); if (Array.isArray(maybe?.concepts)) { concepts = maybe.concepts; break; } } catch {}
         }
       }
     } else if (typeof data?.choices?.[0]?.message?.content === "string") {
-      try {
-        const maybe = JSON.parse(data.choices[0].message.content);
-        if (Array.isArray(maybe?.concepts)) concepts = maybe.concepts;
-      } catch {}
+      try { const maybe = JSON.parse(data.choices[0].message.content); if (Array.isArray(maybe?.concepts)) concepts = maybe.concepts; } catch {}
     }
 
+    // Strict retry if not 4
     if (!Array.isArray(concepts) || concepts.length !== 4) {
-      throw new Error("Model did not return 4 concepts");
+      const STRICT = systemPrompt + "\nCRITICAL: You must return an array 'concepts' with exactly 4 items that match the schema.";
+      data = await callResponsesAPI(STRICT, userPayload, 420);
+      if (Array.isArray(data?.output_parsed?.concepts)) {
+        concepts = data.output_parsed.concepts;
+      } else if (Array.isArray(data?.output)) {
+        const blocks = data.output?.[0]?.content || [];
+        for (const b of blocks) {
+          if (b?.type === "json_schema" && Array.isArray(b?.parsed?.concepts)) { concepts = b.parsed.concepts; break; }
+          if (b?.type === "output_text" && typeof b?.text === "string") {
+            try { const maybe = JSON.parse(b.text); if (Array.isArray(maybe?.concepts)) { concepts = maybe.concepts; break; } } catch {}
+          }
+        }
+      }
+      if (!Array.isArray(concepts) || concepts.length !== 4) {
+        return { success: false, visuals: [], model, req_id, error: "model_did_not_return_4_concepts" };
+      }
     }
 
-
-    const diversityCheck = checkDiversity(concepts);
-    if (!diversityCheck.diverse && DEBUG) {
-      console.warn(`Diversity issue: ${diversityCheck.reason}`);
+    // Diversity/readability validation
+    const vErr = validateConcepts(concepts);
+    if (vErr) {
+      const STRICT2 = systemPrompt + "\nCRITICAL: All titles must be unique and include at least 3 different compositions across the set.";
+      const data2 = await callResponsesAPI(STRICT2, userPayload, 420).catch(() => null);
+      let concepts2: any[] | undefined;
+      if (data2) {
+        if (Array.isArray(data2?.output_parsed?.concepts)) concepts2 = data2.output_parsed.concepts;
+        else if (Array.isArray(data2?.output)) {
+          const blocks2 = data2.output?.[0]?.content || [];
+          for (const b of blocks2) {
+            if (b?.type === "json_schema" && Array.isArray(b?.parsed?.concepts)) { concepts2 = b.parsed.concepts; break; }
+            if (b?.type === "output_text" && typeof b?.text === "string") {
+              try { const maybe = JSON.parse(b.text); if (Array.isArray(maybe?.concepts)) { concepts2 = maybe.concepts; break; } } catch {}
+            }
+          }
+        }
+      }
+      if (!concepts2 || validateConcepts(concepts2)) {
+        return { success: false, visuals: [], model, req_id, error: vErr };
+      }
+      concepts = concepts2;
     }
 
     // Map to output format
@@ -266,7 +321,7 @@ CONTEXT:
       model: data.model || model,
       req_id,
       debug: {
-        diversityCheck: diversityCheck.diverse,
+        diversityCheck: true,
         compositionCount: new Set(concepts.map((c:any) => c.composition)).size
       }
     };
