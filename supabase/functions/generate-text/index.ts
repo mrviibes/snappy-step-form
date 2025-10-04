@@ -370,7 +370,7 @@ function comedyProblems(lines: string[], tone: Tone) {
   return problems.length ? problems : null;
 }
 
-async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 700, attempt = 0, nonce = "") {
+async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 1000, attempt = 0, nonce = "") {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
   // Add entropy seed based on nonce (0-19 token variance)
   const entropyOffset = nonce ? (parseInt(nonce.slice(0, 2), 36) % 20) : 0;
@@ -412,7 +412,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 70
         console.warn("abort-suppressed", e);
       }
     }
-  }, 15000);
+  }, 25000);
   
   let r: Response;
   try {
@@ -445,7 +445,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 70
 
   // Handle incomplete due to token cap: single retry with higher limit
   if (data?.status === "incomplete" && data?.incomplete_details?.reason === "max_output_tokens" && attempt < 2) {
-    const nextTokens = maxTokens === 700 ? 1000 : 1200;
+    const nextTokens = maxTokens === 1000 ? 1400 : 1600;
     console.warn(`Responses API incomplete (max_output_tokens) at ${maxTokens}, retrying with ${nextTokens}`);
     return await callResponsesAPI(system, userObj, nextTokens, attempt + 1, nonce);
   }
@@ -467,19 +467,19 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 70
   throw new Error("Parse miss: no output_parsed or json_schema parsed block.");
 }
 
-// Hedged call: fire second request after 250ms if first is slow
+// Hedged call: fire second request after 400ms if first is slow
 async function callFast(system: string, payload: unknown, nonce = "") {
-  const p1 = callResponsesAPI(system, payload, 700, 0, nonce);
+  const p1 = callResponsesAPI(system, payload, 1000, 0, nonce);
   const p2 = new Promise<string[]>((resolve) => {
     const t = setTimeout(async () => {
       try {
-        const r = await callResponsesAPI(system, payload, 700, 0, nonce);
+        const r = await callResponsesAPI(system, payload, 1000, 0, nonce);
         resolve(r);
       } catch {
         // Swallow loser errors to avoid unhandled rejection
         resolve([] as unknown as string[]);
       }
-    }, 250);
+    }, 400);
     p1.finally(() => clearTimeout(t));
   });
   const raced = Promise.race([p1, p2]) as Promise<string[]>;
