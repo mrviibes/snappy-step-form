@@ -46,19 +46,66 @@ const RATING_HINTS: Record<string, string> = {
   R: "adult non-graphic sex OK; strong profanity OK; no slurs; no illegal how-to",
 };
 
+// Topicality cue patterns per subcategory
+const CUE_MAPS: Record<string, RegExp[]> = {
+  birthday: [
+    /\bbirthday|b-day\b/i, /\bcake|frosting|sprinkles|icing\b/i, /\bcandles?\b/i,
+    /\bmake a wish|wish\b/i, /\bparty\b/i, /\bballoons?\b/i, /\bgifts?|presents?\b/i,
+    /\bage|older|years? old|turning\b/i
+  ],
+  wedding: [
+    /\bwedding|nuptials|marriage\b/i, /\bbride|groom|newlyweds?\b/i, /\bvows?\b/i,
+    /\brings?\b/i, /\breception|venue|banquet|ceremony\b/i, /\bopen bar|bar tab\b/i,
+    /\bbest man|maid of honor|bridesmaids?\b/i, /\btux(?:edo)?|veil|bouquet|dress\b/i,
+    /\bregistry|gifts?\b/i, /\bin-laws?\b/i, /\bprenup\b/i
+  ],
+  engagement: [
+    /\bengagement|engaged\b/i, /\brings?|proposal\b/i, /\bproposed|popped the question\b/i,
+    /\bwedding plans?|planning\b/i, /\bforever|future\b/i
+  ],
+  graduation: [
+    /\bgraduation|graduate|grad\b/i, /\bdiploma|degree\b/i, /\bcaps? and gowns?\b/i,
+    /\bstudent loans?|debt\b/i, /\bfuture|career|job\b/i, /\balma mater\b/i
+  ],
+  anniversary: [
+    /\banniversary\b/i, /\byears? together\b/i, /\bmarriage|relationship\b/i,
+    /\bcommitment|love\b/i, /\bmemories|milestone\b/i
+  ]
+};
+
+function getCuesForSubcategory(subcategory: string): RegExp[] {
+  return CUE_MAPS[subcategory.toLowerCase()] || [];
+}
+
 function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   const warmTones = ["sentimental", "romantic", "inspirational"];
   const isWarm = warmTones.includes(tone);
-  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" && /birthday/i.test(task.category_path[1] || "");
+  
+  const subcategory = task.category_path[1]?.toLowerCase() || "";
+  
+  // Dynamic card type based on subcategory
+  const cardType = subcategory || task.topic || "greeting card";
+  const cardTypePrompt = `Write 4 unique ${cardType} captions. Length 70–110 chars; end with . ! or ?`;
+  
+  // Subcategory-specific cue guidance
+  const cueGuidance: Record<string, string> = {
+    birthday: "Use birthday cues across most lines (cake, candles, wish, age, party, balloons, gifts). Don't repeat 'birthday' every time.",
+    wedding: "Write for wedding cards: vows, rings, reception, open bar, in-laws, registry, tux/veil, bouquet. No birthday/age jokes.",
+    engagement: "Write for engagement cards: ring, proposal, future planning, wedding prep, relationship milestones.",
+    graduation: "Write for graduation cards: diploma, future plans, student loans, career, caps and gowns.",
+    anniversary: "Write for anniversary cards: years together, relationship milestones, commitment, shared memories."
+  };
+  
+  const specificGuidance = cueGuidance[subcategory] || "";
   
   return [
-    "Write 4 unique birthday-card captions. Length 70–110 chars; end with . ! or ?",
+    cardTypePrompt,
     isWarm
       ? "Warm tone with a small wink. One playful twist per line."
       : "Every line must be funny. Use absurd images or sharp roasts. No bland greetings.",
     "Ban: em dashes (—), fortune-cookie advice, gamer patch notes, 'Level up unlocked', 'Survived another lap', 'Make a wish', 'biohazard frosting', 'fire marshal candles', 'warranty expired'.",
-    isBirthday ? "Use birthday cues across most lines (cake, candles, wish, age, party, balloons, gifts). Don't repeat 'birthday' every time." : "",
-    tone !== "serious" ? "Cover 3+ different topics: cake/frosting, candles/fire, age roast, party chaos, or wishes/gifts. Make it quotable and card-worthy." : "",
+    specificGuidance,
+    tone !== "serious" ? `Cover 3+ different ${subcategory || 'card'} topics. Make it quotable and card-worthy.` : "",
     `Rating: ${RATING_HINTS[rating] || "PG"}`
   ].filter(Boolean).join("\n");
 }
@@ -88,24 +135,18 @@ function topicalityProblems(
     if (/—/.test(s)) problems.push("forbidden_em_dash");
   }
   
-  // Birthday topicality: 2 of 4 lines need cues
-  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" 
-    && /birthday/i.test(task.category_path[1] || "");
-  
-  if (isBirthday) {
-    const CUES = [
-      "birthday", "b-day", "cake", "candles", "make a wish", "wish", "party",
-      "balloon", "balloons", "confetti", "gift", "gifts", "present", "presents",
-      "frosting", "icing", "sprinkles", "blow out", "turning", "another year",
-      "age", "years young", "card", "banner", "celebrate", "celebration"
-    ];
-    const cueHit = (s: string) => CUES.some(
-      c => new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(s)
-    );
+  // Subcategory topicality: 2 of 4 lines need specific cues
+  const subcategory = task.category_path[1]?.toLowerCase() || "";
+  const cues = getCuesForSubcategory(subcategory);
+
+  if (cues.length > 0) {
+    const cuedCount = lines.filter(line => 
+      cues.some(pattern => pattern.test(line))
+    ).length;
     
-    const cuedCount = lines.reduce((n, l) => n + (cueHit(l) ? 1 : 0), 0);
-    const need = Math.max(0, (opts.minCuedLines ?? 2) - cuedCount);
-    if (need > 0) problems.push(`needs_more_birthday_cues:${need}`);
+    if (cuedCount < (opts.minCuedLines ?? 2)) {
+      problems.push(`needs_more_${subcategory}_cues:${cuedCount}/4`);
+    }
   }
   
   // Insert words (name): must appear in at least 1 line
@@ -387,6 +428,25 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
 }
 
 
+// Recent lines cache keyed by subcategory to prevent cross-contamination
+const RECENT_LINES_BY_SUBCAT: Map<string, string[]> = new Map();
+
+function getCacheForSubcategory(subcategory: string): string[] {
+  const key = subcategory.toLowerCase();
+  if (!RECENT_LINES_BY_SUBCAT.has(key)) {
+    RECENT_LINES_BY_SUBCAT.set(key, []);
+  }
+  return RECENT_LINES_BY_SUBCAT.get(key)!;
+}
+
+function addToCache(subcategory: string, lines: string[]) {
+  const cache = getCacheForSubcategory(subcategory);
+  cache.push(...lines);
+  if (cache.length > 50) {
+    cache.splice(0, 20); // Keep most recent 50
+  }
+}
+
 // Consolidated quick validation (single local check)
 function quickValidate(lines: string[], task: TaskObject) {
   if (!Array.isArray(lines) || lines.length !== 4) return "needs_4_lines";
@@ -398,19 +458,22 @@ function quickValidate(lines: string[], task: TaskObject) {
     if (/—/.test(line)) return "em_dash";
   }
   
-  // Birthday cues (need at least 2)
-  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" && /birthday/i.test(task.category_path[1] || "");
-  if (isBirthday) {
-    const CUES = /(birthday|b-day|cake|candles|wish|party|balloons?|confetti|gift|presents?|frosting|sprinkles|blow out|turning|another year|age|years young)/i;
-    const cuedCount = lines.filter(l => CUES.test(l)).length;
-    if (cuedCount < 2) return "needs_more_cues";
+  // Subcategory cues (need at least 2)
+  const subcategory = task.category_path[1]?.toLowerCase() || "";
+  const cues = getCuesForSubcategory(subcategory);
+
+  if (cues.length > 0) {
+    const cuedCount = lines.filter(l => cues.some(pattern => pattern.test(l))).length;
+    if (cuedCount < 2) return `needs_more_${subcategory}_cues`;
   }
   
-  // Check against recent cache for duplicates
+  // Check against recent cache for this subcategory
+  const recentCache = getCacheForSubcategory(subcategory);
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+
   for (const newLine of lines) {
     const newWords = new Set(normalize(newLine).split(/\s+/));
-    for (const cachedLine of RECENT_LINES_CACHE) {
+    for (const cachedLine of recentCache) {
       const cachedWords = new Set(normalize(cachedLine).split(/\s+/));
       const overlap = [...newWords].filter(w => cachedWords.has(w));
       if (overlap.length / Math.max(newWords.size, cachedWords.size) > 0.8) {
@@ -422,13 +485,37 @@ function quickValidate(lines: string[], task: TaskObject) {
   return null;
 }
 
-// Canned safe lines to keep UI usable if provider fails (70+ chars, diverse topics, genuinely funny, no em-dashes)
-const SAFE_LINES = [
-  "Your age is now officially classified as vintage, handle with care and avoid direct sunlight.",
-  "The candles on your cake just triggered the smoke detector three floors up.",
-  "Congratulations on surviving another trip around the sun without a user manual.",
-  "This party is legally binding proof that you're getting wiser, or at least older.",
-];
+// Fallback lines per subcategory
+const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
+  birthday: [
+    "Your age is now officially classified as vintage, handle with care and avoid direct sunlight.",
+    "The candles on your cake just triggered the smoke detector three floors up.",
+    "Congratulations on surviving another trip around the sun without a user manual.",
+    "This party is legally binding proof that you're getting wiser, or at least older.",
+  ],
+  wedding: [
+    "Welcome to marriage, where 'What do you want to eat?' is a lifelong riddle with no answer.",
+    "Open bar located left of the registry, right of your ex's opinions.",
+    "Vows exchanged, secrets encrypted, locations shared. May the Wi-Fi survive the reception.",
+    "May your in-laws be on mute, your arguments be short, and your takeout history be endless.",
+  ],
+  engagement: [
+    "Congrats on finding someone willing to argue about furniture with you for the rest of your life.",
+    "Ring acquired, registry loading, wedding planner on speed dial. May the Wi-Fi be with you.",
+    "You said yes to forever, now say yes to fifty different venue options and a catering nightmare.",
+    "Engagement: when two people agree to merge their streaming subscriptions and pretend it's romantic.",
+  ],
+  graduation: [
+    "Diploma unlocked, student loans loading. Welcome to the real world where nobody grades on a curve.",
+    "Congratulations on trading all-nighters for alarm clocks and coffee addictions for legitimate reasons.",
+    "Four years, one degree, lifelong debt. May your Wi-Fi be strong and your job offers be many.",
+    "Cap and gown returned, real clothes required. The final boss is adulting, and it doesn't offer extra credit.",
+  ]
+};
+
+function getSafeLinesForSubcategory(subcategory: string): string[] {
+  return SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
+}
 
 // ============ HTTP HANDLER ============
 serve(async (req) => {
@@ -442,7 +529,7 @@ serve(async (req) => {
     if (url.searchParams.get("dry") === "1") {
       return new Response(JSON.stringify({ 
         success: true, 
-        options: SAFE_LINES, 
+        options: SAFE_LINES_BY_CATEGORY.birthday, 
         model: "dry-run",
         source: "fallback",
         req_id
@@ -470,6 +557,8 @@ serve(async (req) => {
       require_anchors: false,
     };
 
+    const subcat = task.category_path[1]?.toLowerCase() || "";
+
     const SYSTEM = houseRules(task.tone, task.rating, task);
     const userPayload = { version: "viibe-text", tone_hint: TONE_HINTS[tone], rating_hint: RATING_HINTS[rating], task };
 
@@ -483,7 +572,7 @@ serve(async (req) => {
       console.error("AI error:", msg);
       const payload = { 
         success: true, 
-        options: SAFE_LINES, 
+        options: getSafeLinesForSubcategory(subcat), 
         model: RESP_MODEL, 
         source: "fallback",
         req_id,
@@ -498,7 +587,10 @@ serve(async (req) => {
     
     if (problem) {
       if (DEBUG) console.log("Validation failed:", problem);
-      const STRICT = SYSTEM + "\nCRITICAL: No em dashes. All 70–110 chars. Include at least 2 birthday cues. Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.";
+      const cueHint = subcat 
+        ? `Include at least 2 ${subcat}-specific cues.` 
+        : "Include at least 2 topic-specific cues.";
+      const STRICT = SYSTEM + `\nCRITICAL: No em dashes. All 70–110 chars. ${cueHint} Write ORIGINAL lines, no repeats of 'biohazard frosting', 'fire marshal candles', 'warranty expired'. Cover 3+ topics.`;
       try {
         lines = await callResponsesAPI(STRICT, userPayload, 420);
         problem = quickValidate(lines, task);
@@ -506,7 +598,7 @@ serve(async (req) => {
           console.warn("Validation failed after retry:", problem, lines);
           const payload = { 
             success: true, 
-            options: SAFE_LINES, 
+            options: getSafeLinesForSubcategory(subcat), 
             model: RESP_MODEL, 
             source: "fallback",
             req_id,
@@ -519,7 +611,7 @@ serve(async (req) => {
       } catch (e2) {
         const payload = { 
           success: true, 
-          options: SAFE_LINES, 
+          options: getSafeLinesForSubcategory(subcat), 
           model: RESP_MODEL, 
           source: "fallback",
           req_id,
@@ -528,6 +620,16 @@ serve(async (req) => {
           details: { problem, info: String(e2) } 
         };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
+
+    // Enforce savage roasts for savage + R rating
+    if (tone === "savage" && rating === "R" && subcat === "wedding") {
+      const ROAST_MARKERS = /\b(in-laws?|prenup|divorce|therapy|argument|fights?|ex|registry return|open bar|hangover|best man disaster|maid of honor drama|family drama)\b/i;
+      const roastCount = lines.filter(l => ROAST_MARKERS.test(l)).length;
+      
+      if (roastCount < 2 && DEBUG) {
+        console.warn("Savage + R wedding should have 2+ roast markers, got:", roastCount);
       }
     }
 
@@ -541,11 +643,8 @@ serve(async (req) => {
     const comedyIssues = comedyProblems(lines, task.tone);
     if (comedyIssues && DEBUG) console.log("Comedy warning:", comedyIssues);
 
-    // SUCCESS: Add lines to cache and return
-    RECENT_LINES_CACHE.push(...lines);
-    if (RECENT_LINES_CACHE.length > 50) {
-      RECENT_LINES_CACHE.splice(0, 20);
-    }
+    // SUCCESS: Add lines to subcategory-specific cache
+    addToCache(subcat, lines);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -564,7 +663,7 @@ serve(async (req) => {
     const req_id = crypto.randomUUID().slice(0, 8);
     const payload = { 
       success: true, 
-      options: SAFE_LINES, 
+      options: SAFE_LINES_BY_CATEGORY.birthday, 
       model: RESP_MODEL, 
       source: "fallback",
       req_id,
