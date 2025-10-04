@@ -380,8 +380,6 @@ async function callResponsesAPI(system: string, userObj: unknown) {
       { role: "user", content: JSON.stringify(userObj) },
     ],
     max_output_tokens: 420,
-    temperature: 0.95,
-    top_p: 0.95,
     text: {
       format: {
         type: "json_schema",
