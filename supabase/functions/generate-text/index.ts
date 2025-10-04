@@ -375,6 +375,7 @@ async function callResponsesAPI(system: string, userObj: unknown) {
   
   const body = {
     model: CHAT_MODEL,
+    modalities: ["text"],
     input: [
       { role: "system", content: system },
       { role: "user", content: JSON.stringify(userObj) },
@@ -383,22 +384,20 @@ async function callResponsesAPI(system: string, userObj: unknown) {
     text: {
       format: {
         type: "json_schema",
-        json_schema: {
-          name: "ViibeLinesV1",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              lines: {
-                type: "array",
-                minItems: 4,
-                maxItems: 4,
-                items: { type: "string" }
-              }
-            },
-            required: ["lines"],
-            additionalProperties: false
-          }
+        name: "ViibeLinesV1",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string" }
+            }
+          },
+          required: ["lines"],
+          additionalProperties: false
         }
       }
     }
