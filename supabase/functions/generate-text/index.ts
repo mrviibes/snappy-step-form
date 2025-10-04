@@ -396,7 +396,7 @@ async function callResponsesAPI(system: string, userObj: unknown, maxTokens = 42
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
+  const tid = setTimeout(() => ctl.abort(), 15000);
   let r: Response;
   try {
     r = await fetch(RESP_URL, {
