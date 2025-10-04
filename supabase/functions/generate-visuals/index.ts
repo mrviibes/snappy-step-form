@@ -86,10 +86,189 @@ interface GenerateVisualsResponse {
   success: boolean;
   visuals: VisualConcept[];
   model: string;
+  source?: string;
   req_id: string;
-  debug?: { diversityCheck: boolean; compositionCount: number };
+  debug?: { diversityCheck: boolean; compositionCount: number; usedFallback?: boolean };
   error?: string;
 }
+
+// ---------- Safe Fallback Visuals ----------
+const SAFE_VISUAL_CONCEPTS: Record<string, VisualConcept[]> = {
+  birthday: [
+    {
+      title: "Cake Celebration",
+      subject: "Birthday cake with candles",
+      setting: "Festive party room with decorations",
+      action: "Candles glowing softly as friends gather around",
+      prop: "Colorful balloons",
+      camera: "medium",
+      lens: "35mm",
+      lighting: "warm kitchen",
+      color: "punchy saturated",
+      composition: "base_realistic",
+      readability: "negative-left",
+      description: "Cake Celebration • Birthday cake with candles • Festive party room"
+    },
+    {
+      title: "Gift Tower",
+      subject: "Stack of wrapped presents",
+      setting: "Living room corner",
+      action: "Someone carefully balancing one more box on top",
+      prop: "Ribbon and bows",
+      camera: "wide",
+      lens: "24mm",
+      lighting: "soft daylight",
+      color: "muted pastels",
+      composition: "goofy_wide",
+      readability: "bottom-caption",
+      description: "Gift Tower • Stack of wrapped presents • Living room corner"
+    },
+    {
+      title: "Party Hat Portrait",
+      subject: "Person wearing colorful party hat",
+      setting: "Bright dining room",
+      action: "Blowing out candles with eyes closed",
+      prop: "Party horn",
+      camera: "close-up",
+      lens: "50mm",
+      lighting: "warm kitchen",
+      color: "punchy saturated",
+      composition: "very_close",
+      readability: "negative-right",
+      description: "Party Hat Portrait • Person wearing colorful party hat • Bright dining room"
+    },
+    {
+      title: "Confetti Moment",
+      subject: "Confetti falling through air",
+      setting: "Indoor party space",
+      action: "Friend tossing confetti upward in celebration",
+      prop: "Confetti popper",
+      camera: "medium",
+      lens: "35mm",
+      lighting: "studio key",
+      color: "punchy saturated",
+      composition: "integrated",
+      readability: "integrated-sign",
+      description: "Confetti Moment • Confetti falling through air • Indoor party space"
+    }
+  ],
+  "wake-up": [
+    {
+      title: "Morning Coffee",
+      subject: "Steaming coffee mug",
+      setting: "Bright kitchen counter",
+      action: "Steam rising gently into morning light",
+      prop: "Fresh breakfast pastry",
+      camera: "close-up",
+      lens: "50mm",
+      lighting: "soft daylight",
+      color: "muted pastels",
+      composition: "base_realistic",
+      readability: "negative-left",
+      description: "Morning Coffee • Steaming coffee mug • Bright kitchen counter"
+    },
+    {
+      title: "Alarm Clock Battle",
+      subject: "Hand reaching for alarm clock",
+      setting: "Bedside table",
+      action: "Frantically trying to hit snooze button",
+      prop: "Messy bedsheets",
+      camera: "wide",
+      lens: "24mm",
+      lighting: "soft daylight",
+      color: "neutral clean",
+      composition: "goofy_wide",
+      readability: "bottom-caption",
+      description: "Alarm Clock Battle • Hand reaching for alarm clock • Bedside table"
+    },
+    {
+      title: "Sunrise Stretch",
+      subject: "Person stretching by window",
+      setting: "Bedroom with morning light",
+      action: "Arms raised in big wake-up stretch",
+      prop: "Window curtains",
+      camera: "medium",
+      lens: "35mm",
+      lighting: "soft daylight",
+      color: "muted pastels",
+      composition: "very_close",
+      readability: "negative-right",
+      description: "Sunrise Stretch • Person stretching by window • Bedroom with morning light"
+    },
+    {
+      title: "Breakfast Spread",
+      subject: "Table set with breakfast items",
+      setting: "Sunny dining nook",
+      action: "Toast popping up from toaster",
+      prop: "Orange juice glass",
+      camera: "overhead",
+      lens: "35mm",
+      lighting: "soft daylight",
+      color: "punchy saturated",
+      composition: "integrated",
+      readability: "integrated-sign",
+      description: "Breakfast Spread • Table set with breakfast items • Sunny dining nook"
+    }
+  ],
+  default: [
+    {
+      title: "Everyday Moment",
+      subject: "Person in casual setting",
+      setting: "Comfortable indoor space",
+      action: "Natural everyday activity",
+      prop: "Common household item",
+      camera: "medium",
+      lens: "35mm",
+      lighting: "soft daylight",
+      color: "neutral clean",
+      composition: "base_realistic",
+      readability: "negative-left",
+      description: "Everyday Moment • Person in casual setting • Comfortable indoor space"
+    },
+    {
+      title: "Close Detail",
+      subject: "Object or hands in focus",
+      setting: "Simple background",
+      action: "Interaction with object",
+      prop: "Relevant item",
+      camera: "close-up",
+      lens: "50mm",
+      lighting: "soft daylight",
+      color: "muted pastels",
+      composition: "very_close",
+      readability: "negative-right",
+      description: "Close Detail • Object or hands in focus • Simple background"
+    },
+    {
+      title: "Wide Scene",
+      subject: "Full environment view",
+      setting: "Spacious interior",
+      action: "Activity in context",
+      prop: "Environmental element",
+      camera: "wide",
+      lens: "24mm",
+      lighting: "soft daylight",
+      color: "neutral clean",
+      composition: "goofy_wide",
+      readability: "bottom-caption",
+      description: "Wide Scene • Full environment view • Spacious interior"
+    },
+    {
+      title: "Integrated Design",
+      subject: "Scene with natural text placement",
+      setting: "Well-lit space",
+      action: "Contextual activity",
+      prop: "Sign or label",
+      camera: "medium",
+      lens: "35mm",
+      lighting: "studio key",
+      color: "punchy saturated",
+      composition: "integrated",
+      readability: "integrated-sign",
+      description: "Integrated Design • Scene with natural text placement • Well-lit space"
+    }
+  ]
+};
 
 // ---------- Diversity Validator ----------
 function checkDiversity(concepts: any[]): { diverse: boolean; reason?: string } {
@@ -247,7 +426,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
     if (DEBUG) console.log("Calling Responses API with caption:", completed_text);
 
     const userPayload = { caption: completed_text, style: image_style, composition: compPref, category, subcategory, tone, rating };
-    let data = await callResponsesAPIFast(systemPrompt, userPayload, 360);
+    let data = await callResponsesAPIFast(systemPrompt, userPayload, 480);
 
     // Try Responses API structured output first
     let concepts: any[] | undefined;
@@ -268,7 +447,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
     // Strict retry if not 4
     if (!Array.isArray(concepts) || concepts.length !== 4) {
       const STRICT = systemPrompt + "\nCRITICAL: You must return an array 'concepts' with exactly 4 items that match the schema.";
-      data = await callResponsesAPI(STRICT, userPayload, 420);
+      data = await callResponsesAPI(STRICT, userPayload, 540);
       if (Array.isArray(data?.output_parsed?.concepts)) {
         concepts = data.output_parsed.concepts;
       } else if (Array.isArray(data?.output)) {
@@ -331,6 +510,7 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
       success: true,
       visuals,
       model: data.model || model,
+      source: "model",
       req_id,
       debug: {
         diversityCheck: true,
@@ -338,15 +518,25 @@ async function generateVisuals(params: GenerateVisualsParams): Promise<GenerateV
       }
     };
   } catch (error) {
-    console.error("Error generating visuals:", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    let status = 500;
-    if (msg.includes("timeout")) status = 408;
-    if (msg.includes("required") || msg.includes("Caption")) status = 400;
-    if (msg.includes("validation_failed")) status = 422;
-    if (msg.includes("OpenAI")) status = 502;
+    console.error("⚠️ Visuals API failed, using safe fallbacks:", error);
     
-    throw { status, message: msg };
+    // Get safe fallback visuals for the subcategory
+    const fallbackKey = params.subcategory || params.category || "default";
+    const safeConcepts = SAFE_VISUAL_CONCEPTS[fallbackKey] || SAFE_VISUAL_CONCEPTS.default;
+    
+    return {
+      success: true,
+      visuals: safeConcepts,
+      model: "fallback",
+      source: "fallback",
+      req_id,
+      debug: { 
+        diversityCheck: false,
+        compositionCount: 4,
+        usedFallback: true,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    };
   }
 }
 
