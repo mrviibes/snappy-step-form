@@ -45,15 +45,26 @@ const RATING_HINTS: Record<string, string> = {
   R: "adult non-graphic sex OK; strong profanity OK; no slurs; no illegal how-to",
 };
 
-function houseRules(tone: Tone, rating: Rating, anchors?: string[]) {
-  const a = anchors?.length ? `Anchors: ${anchors.slice(0, 6).join(", ")}` : "";
+function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
+  const tone_hint = TONE_HINTS[tone] || "funny, witty, punchy";
+  const rating_hint = RATING_HINTS[rating] || "PG";
+  const a = task.anchors?.length ? `Anchors: ${task.anchors.slice(0, 6).join(", ")}` : "";
+  
+  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" 
+    && /birthday/i.test(task.category_path[1] || "");
+  
+  const cueHint = isBirthday 
+    ? "Write for a birthday card vibe. Use concrete cues across MOST lines (cake, candles, make-a-wish, turning [age], party, balloons, gifts) without repeating 'birthday' every time."
+    : "";
+
   return [
     "Write 4 on-image captions.",
     "Each 28–120 chars; end with . ! or ?",
-    `Tone: ${TONE_HINTS[tone] || "funny, witty, punchy"}`,
-    `Rating: ${RATING_HINTS[rating] || "PG"}`,
+    `Tone: ${tone_hint}`,
+    `Rating: ${rating_hint}`,
     "Comedy: specificity, contrast, quick twist. One idea per line.",
     "PG-13: no f-bomb. R: profanity allowed, not last word.",
+    cueHint,
     a,
   ].filter(Boolean).join("\n");
 }
@@ -68,22 +79,58 @@ function err(status: number, message: string, details?: unknown) {
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hasWord = (s: string, w: string) => new RegExp(`\\b${esc(w)}(?:'s)?\\b`, "i").test(s);
 
-function validate(lines: string[], task: TaskObject) {
+function topicalityProblems(
+  lines: string[],
+  task: TaskObject,
+  opts: { minCuedLines?: number } = { minCuedLines: 2 }
+) {
   const problems: string[] = [];
+  
+  // Basic checks
   if (!Array.isArray(lines) || lines.length !== 4) problems.push("needs_4_lines");
   for (const s of lines || []) {
     if (s.length < 28 || s.length > 120) problems.push("bad_length");
     if (!/[.!?]$/.test(s)) problems.push("no_end_punctuation");
-    if (task.birthday_explicit && !/\bbirthday|b-day\b/i.test(s)) problems.push("missing_birthday");
-    if (task.require_anchors && task.anchors?.length) {
-      const ok = task.anchors.some(a => new RegExp(`\\b${esc(a)}\\b`, "i").test(s));
-      if (!ok) problems.push("missing_anchor");
-    }
   }
+  
+  // Birthday topicality: 2 of 4 lines need cues
+  const isBirthday = task.category_path[0]?.toLowerCase() === "celebrations" 
+    && /birthday/i.test(task.category_path[1] || "");
+  
+  if (isBirthday) {
+    const CUES = [
+      "birthday", "b-day", "cake", "candles", "make a wish", "wish", "party",
+      "balloon", "balloons", "confetti", "gift", "gifts", "present", "presents",
+      "frosting", "icing", "sprinkles", "blow out", "turning", "another year",
+      "age", "years young", "card", "banner", "celebrate", "celebration"
+    ];
+    const cueHit = (s: string) => CUES.some(
+      c => new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(s)
+    );
+    
+    const cuedCount = lines.reduce((n, l) => n + (cueHit(l) ? 1 : 0), 0);
+    const need = Math.max(0, (opts.minCuedLines ?? 2) - cuedCount);
+    if (need > 0) problems.push(`needs_more_birthday_cues:${need}`);
+  }
+  
+  // Insert words (name): must appear in at least 1 line
   if (task.insert_words?.length && task.insert_word_mode === "at_least_one") {
     const seen = task.insert_words.some(w => lines.some(l => hasWord(l, w)));
     if (!seen) problems.push("missing_insert_word");
   }
+  
+  // Deduplication check
+  const norm = (s: string) => s.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(the|a|an|and|or|but|with|for|to|of|on|in|your)\b/g, " ")
+    .replace(/\s+/g, " ").trim();
+  const seen = new Set<string>();
+  for (const l of lines) {
+    const k = norm(l);
+    if (seen.has(k)) { problems.push("near_duplicate"); break; }
+    seen.add(k);
+  }
+  
   return problems.length ? problems : null;
 }
 
@@ -235,7 +282,7 @@ serve(async (req) => {
       require_anchors: false,
     };
 
-    const SYSTEM = houseRules(task.tone, task.rating, task.anchors);
+    const SYSTEM = houseRules(task.tone, task.rating, task);
     const userPayload = { version: "viibe-text", tone_hint: TONE_HINTS[tone], rating_hint: RATING_HINTS[rating], task };
 
     let lines: string[];
@@ -248,17 +295,17 @@ serve(async (req) => {
       return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
-    const v = validate(lines, task);
+    const v = topicalityProblems(lines, task, { minCuedLines: 2 });
     if (v) {
       // one strict retry with higher token budget
-      const strict = SYSTEM + "\nCRITICAL: Every line must include required tokens and end punctuation. Length 28–120.";
+      const strict = SYSTEM + "\nCRITICAL: At least 2 of the 4 lines must include clear birthday-card cues (cake, candles, wish, age, party, balloons, gifts). Every line must be distinct. Length 28–120.";
       try {
         lines = await callResponsesAPI(strict, userPayload, 1536);
       } catch (e2) {
         const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation retry failed", details: { problems: v, info: String(e2) } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
       }
-      const v2 = validate(lines, task);
+      const v2 = topicalityProblems(lines, task, { minCuedLines: 2 });
       if (v2) {
         const payload = { success: true, options: SAFE_LINES, model: RESP_MODEL, fallback: "safe_lines", error: "Validation failed after retry", details: { problems: v2, lines } };
         return new Response(JSON.stringify(payload), { headers: { ...cors, "Content-Type": "application/json" } });
