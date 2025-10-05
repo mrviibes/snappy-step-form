@@ -40,14 +40,14 @@ const RATING_HINT: Record<Rating,string> = {
   R:"Hangover raw, strong profanity allowed (fuck, shit, asshole). Non-graphic adult themes, no slurs."
 };
 
-// ---------- Category hint ----------
+// ---------- Category Hints ----------
 const CATEGORY_HINT: Record<string,string> = {
-  celebrations:"Focus on people and the moment; party energy, cake, friends.",
-  "daily-life":"Relatable micro-moments; coffee, work, phone logic; small wins.",
-  sports:"Competition, rivalry, fan energy; action verbs, scoreboard truth.",
-  "pop-culture":"Anchor to a title or trend; paraphrase quotes; stay concise.",
-  jokes:"One-line jokes; setup then twist; no meta commentary.",
-  miscellaneous:"Universal observation with one vivid detail and a clean turn."
+  celebrations:"Party chaos, cake, people being dramatic. Focus on personality and timing.",
+  "daily-life":"Relatable small struggles; caffeine, alarms, habits, moods.",
+  sports:"Competition, energy, mistakes that build character.",
+  "pop-culture":"One anchor from a show, movie, or trend; make it snappy.",
+  jokes:"Setup, twist, done. Avoid meta talk about jokes.",
+  miscellaneous:"Observational with one vivid detail that lands a thought."
 };
 
 // ---------- Comedy style rotation ----------
@@ -84,7 +84,13 @@ function buildSystem(
       : "";
   const pov = povHint(inserts);
   const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
-  const voice = CATEGORY_HINT[category] || "";
+  const catVoice = CATEGORY_HINT[category] || "";
+
+  // --- new: savage-specific rule ---
+  const savageRule =
+    tone === "savage"
+      ? "Roast the subject or reader with sharp, playful sarcasm. Use attitude, mild profanity if needed (shit, hell, ass). Be honest, not cruel."
+      : "";
 
   return `
 Write 4 one-liners for ${category}/${subcategory}. Topic: ${topic}.
@@ -92,9 +98,11 @@ Tone: ${toneWord}. Rating: ${ratingGate}.
 ${insertRule}
 ${pov}
 Comedy style: ${style}
-${voice}
-Use setup, pivot, and tag like a live comedian. Make each line sound spoken, not written.
-Each line: 60–120 characters, ends with punctuation, one idea, human rhythm.
+${catVoice}
+${savageRule}
+Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
+Each line: 60–120 characters, ends with punctuation, one idea, natural spoken rhythm.
+Avoid ad-style phrasing; sound like a human telling a joke or observation.
 No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.
 `.trim();
 }
