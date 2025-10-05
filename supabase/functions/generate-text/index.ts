@@ -698,46 +698,30 @@ function quickValidate(lines: string[], task: TaskObject) {
 async function modelFallback(category: string, subcategory: string, tone: Tone, rating: Rating) {
   const occasion = subcatHint(subcategory.toLowerCase(), subcategory);
   const system = [
-    "Return 4 card captions.",
-    "Each 70–110 chars; one idea per line; punctuation at end.",
+    "Return 4 card captions as a JSON object with a 'lines' array.",
+    "Each line: 70–110 chars; one idea per line; end with . ! or ?",
     `Tone: ${TONE_HINTS[tone]}`,
     `Rating: ${RATING_HINTS[rating]}`,
     `Occasion: ${occasion}`,
-    "Avoid second-person starters unless a name was requested."
+    "Avoid second-person starters. No 'You,' or 'Your' starts."
   ].join("\n");
 
   const body = {
     model: "gpt-5-mini-2025-08-07",
     messages: [
-      { role: "system", content: system }
+      { role: "system", content: system },
+      { role: "user", content: `Generate 4 ${occasion} captions. Return as JSON: {"lines": ["caption1", "caption2", "caption3", "caption4"]}` }
     ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "ViibeTextFallbackV1",
-        strict: true,
-        schema: {
-          type: "object",
-          required: ["lines"],
-          additionalProperties: false,
-          properties: {
-            lines: {
-              type: "array",
-              minItems: 4,
-              maxItems: 4,
-              items: { type: "string", minLength: 70, maxLength: 110 }
-            }
-          }
-        }
-      }
-    },
-    max_completion_tokens: 420
+    response_format: { type: "json_object" },
+    max_completion_tokens: 500,
+    temperature: 0.9
   };
 
   const ctl = new AbortController();
-  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
+  const tid = setTimeout(() => ctl.abort(), 10000);
   
   try {
+    console.log(`[modelFallback] Calling OpenAI for ${subcategory}...`);
     const r = await fetch(CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: { 
@@ -749,28 +733,29 @@ async function modelFallback(category: string, subcategory: string, tone: Tone, 
     });
     
     const raw = await r.text();
+    console.log(`[modelFallback] Response status: ${r.status}`);
+    
     if (!r.ok) {
-      console.error(`modelFallback API error: ${r.status} - ${raw.slice(0, 300)}`);
+      console.error(`[modelFallback] API error: ${r.status} - ${raw.slice(0, 300)}`);
       return [];
     }
     
     const data = JSON.parse(raw);
+    console.log(`[modelFallback] Got response, parsing...`);
     
-    // Try to parse from message.content
+    // Parse from message.content
     if (data.choices?.[0]?.message?.content) {
-      try {
-        const parsed = JSON.parse(data.choices[0].message.content);
-        if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
-          return parsed.lines as string[];
-        }
-      } catch (e) {
-        console.error("modelFallback parse error:", e);
+      const parsed = JSON.parse(data.choices[0].message.content);
+      if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
+        console.log(`[modelFallback] ✓ Successfully generated 4 fallback lines`);
+        return parsed.lines as string[];
       }
     }
     
+    console.error("[modelFallback] Failed to extract 4 lines from response");
     return [];
   } catch (e) {
-    console.error("modelFallback error:", e);
+    console.error("[modelFallback] Exception:", e instanceof Error ? e.message : String(e));
     return [];
   } finally {
     clearTimeout(tid);
