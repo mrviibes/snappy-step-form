@@ -138,35 +138,31 @@ async function chatOnce(
   maxTokens = 320,
   abortMs = 22000
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
-  const schema = {
-    name: "ViibeTextV1",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["lines"],
-      properties: {
-        lines: {
-          type: "array",
-          minItems: 4,
-          maxItems: 4,
-          // Loosened: removed pattern so model doesn't stretch output hitting "length"
-          items: { type: "string", minLength: 28, maxLength: 120 },
-        },
-      },
-    },
-  };
+  function parseLinesFromText(text: string): string[] {
+    if (!text) return [];
+    // Split by newlines, strip bullets/numbers, trim
+    const raw = text
+      .split(/\r?\n+/)
+      .map((l) => l.replace(/^\s*[-*•\d\.)]+\s*/, "").trim())
+      .filter(Boolean);
+    // Ensure punctuation at end; keep between 28-160 chars roughly
+    const cleaned = raw.map((l) => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").trim())
+      .map((l) => (/[.!?]$/.test(l) ? l : l + "."))
+      .filter((l) => l.length >= 28 && l.length <= 160);
+    return cleaned.slice(0, 4);
+  }
 
   async function call(cap: number) {
     const body = {
       model: MODEL,
+      // IMPORTANT: GPT-5 family does not support temperature/top_p in Chat Completions
       messages: [
         { role: "system", content: system },
         { role: "user", content: JSON.stringify(userObj) },
       ],
-      response_format: { type: "json_schema", json_schema: schema },
       max_completion_tokens: cap,
-    };
+    } as const;
+
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
     try {
@@ -179,30 +175,37 @@ async function chatOnce(
       const raw = await r.text();
       if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 600)}`);
       const data = JSON.parse(raw);
-      console.log("[generate-text] finish_reason:", data?.choices?.[0]?.finish_reason || data?.incomplete_details?.reason || "n/a");
-      const lines = pickLinesFromChat(data);
-      if (lines && lines.length === 4) return { ok: true, lines };
+      const finish = data?.choices?.[0]?.finish_reason || data?.incomplete_details?.reason || "n/a";
+      console.log("[generate-text] finish_reason:", finish);
 
-      const reason =
-        data?.choices?.[0]?.message?.refusal ||
-        data?.incomplete_details?.reason ||
-        data?.choices?.[0]?.finish_reason || "no_lines";
+      const msg = data?.choices?.[0]?.message;
+      const content = typeof msg?.content === "string" ? msg.content : "";
+      let lines = parseLinesFromText(content);
+
+      // Fallback to any structured JSON the model might have returned
+      if (lines.length < 4) {
+        const fromParsed = (msg?.parsed && Array.isArray(msg.parsed.lines)) ? msg.parsed.lines as string[] : undefined;
+        if (fromParsed && fromParsed.length === 4) lines = fromParsed;
+      }
+
+      if (lines.length === 4) return { ok: true, lines };
+      const reason = finish || "no_lines";
       return { ok: false, reason: String(reason) };
     } finally {
       clearTimeout(timer);
     }
   }
 
-  // Primary try
+  // Primary attempt
   let res = await call(maxTokens);
   if (res.ok) return res;
 
-  // If the model stopped for "length", retry ONCE with a bigger cap immediately
+  // If the model stopped early (commonly "length"), retry once with higher cap
   if (res.reason === "length") {
-    console.log("🔄 Retrying due to length with +160 tokens");
+    console.log("🔄 Retrying due to length with +160 tokens (no schema)");
     const second = await call(maxTokens + 160); // e.g., 320→480
     if (second.ok) return second;
-    return second; // still not ok
+    return second;
   }
 
   return res; // not length → bubble reason
