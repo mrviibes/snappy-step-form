@@ -7,9 +7,7 @@ export interface GenerateTextParams {
   tone?: string;
   rating?: string;
   insertWords?: string[];
-  gender?: string;
   theme?: string;
-  movieAnchors?: string[];
 }
 
 export interface TextOptionsResponse {
@@ -139,11 +137,9 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
     category: params.category || "celebrations",
     subcategory: params.subcategory || "birthday",
     theme: params.theme,
-    movieAnchors: params.movieAnchors,
     tone: params.tone || "humorous",
     rating: params.rating || "PG",
     insertWords,
-    gender: params.gender || "neutral",
     nonce  // Include in body as backup
   };
   

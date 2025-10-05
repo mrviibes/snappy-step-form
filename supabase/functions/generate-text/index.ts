@@ -1,6 +1,6 @@
 // supabase/functions/generate-text/index.ts
-// Lean Step-2 generator: one small call + tiny hedge, movie-style ratings, category hints,
-// insert-word policy, humor priority, no em-dashes. Always returns 200 JSON.
+// Stable + Optimized Viibe Text Generator
+// Adds POV detection, comedy style rotation, comedian rhythm, and punctuation cleanup.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -11,15 +11,17 @@ const MODEL = "gpt-5-mini";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 // ---------- Types ----------
-type Tone   = "humorous"|"savage"|"sentimental"|"nostalgic"|"romantic"|"inspirational"|"playful"|"serious";
-type Rating = "G"|"PG"|"PG-13"|"R";
-type Category = "celebrations"|"daily-life"|"sports"|"pop-culture"|"jokes"|"miscellaneous";
+type Tone =
+  | "humorous" | "savage" | "sentimental" | "nostalgic"
+  | "romantic" | "inspirational" | "playful" | "serious";
+type Rating = "G" | "PG" | "PG-13" | "R";
 
-// ---------- Tone/Rating (movie-style) ----------
+// ---------- Tone / Rating ----------
 const TONE_HINT: Record<Tone,string> = {
   humorous:"funny, witty, punchy",
   savage:"blunt, cutting, roast-style",
@@ -30,319 +32,190 @@ const TONE_HINT: Record<Tone,string> = {
   playful:"silly, cheeky, fun",
   serious:"direct, weighty, minimal humor"
 };
+
 const RATING_HINT: Record<Rating,string> = {
-  G:"Pixar-clean; no profanity; no sexual terms; no drugs",
-  PG:"Shrek-clean; mild language only (hell/damn); no sex mentions; no drugs",
-  "PG-13":"Marvel/Friends; edgy ok; alcohol+cannabis ok; NO f-bomb",
-  R:"Hangover/Superbad; strong profanity allowed; non-graphic adult themes; no slurs; no illegal how-to"
+  G:"Pixar clean, no profanity or adult topics.",
+  PG:"Shrek clever, mild words like hell or damn only.",
+  "PG-13":"Marvel witty, moderate swearing ok (shit, ass, hell). No F-bombs.",
+  R:"Hangover raw, strong profanity allowed (fuck, shit, asshole). Non-graphic adult themes, no slurs."
 };
 
-// ---------- Comedy Style Rotation ----------
+// ---------- Category hint ----------
+const CATEGORY_HINT: Record<string,string> = {
+  celebrations:"Focus on people and the moment; party energy, cake, friends.",
+  "daily-life":"Relatable micro-moments; coffee, work, phone logic; small wins.",
+  sports:"Competition, rivalry, fan energy; action verbs, scoreboard truth.",
+  "pop-culture":"Anchor to a title or trend; paraphrase quotes; stay concise.",
+  jokes:"One-line jokes; setup then twist; no meta commentary.",
+  miscellaneous:"Universal observation with one vivid detail and a clean turn."
+};
+
+// ---------- Comedy style rotation ----------
 const COMEDY_STYLES = [
-  "Observational humor using everyday logic and irony.",
-  "Roast-style humor, confident and sharp but still playful.",
-  "Surreal humor with weird twists that stay relatable.",
-  "Warm funny tone with kindness hidden in the punchline."
+  "Observational humor using everyday irony.",
+  "Roast-style humor, sharp but playful.",
+  "Surreal humor with strange logic that still makes sense.",
+  "Warm, kind humor that still lands a laugh."
 ];
 
 // ---------- POV Detection ----------
-function povHint(inserts: string[]) {
-  if (!inserts || inserts.length === 0)
-    return "Speak directly to the reader using 'you'.";
+function povHint(inserts: string[]): string {
+  if (!inserts?.length) return "Speak directly to the reader using 'you'.";
   if (inserts.includes("I") || inserts.includes("me"))
     return "Write from first person using 'I'.";
   if (inserts.some(w => /^[A-Z]/.test(w)))
     return `Write about ${inserts.join(" and ")} in third person.`;
-  return `Write about ${inserts.join(" and ")} as casual descriptors.`;
-}
-
-// ---------- Category hint ----------
-const CATEGORY_HINT: Record<Category,string> = {
-  "celebrations":"Focus on the person and the moment; party energy, cake, friends; clear occasion.",
-  "daily-life":"Relatable micro-moments: routines, coffee/work/phone logic; small wins & annoyances.",
-  "sports":"Competition, effort, rivalry, fan energy; strong action verbs; scoreboard truth.",
-  "pop-culture":"One anchor from the selected title/trend; paraphrase short quotes; no long quotes.",
-  "jokes":"Actual one-line jokes; setup then twist in the same sentence; no meta about jokes.",
-  "miscellaneous":"Universal observation with one vivid detail and a clean turn."
-};
-function jokesFormatHint(subcat: string): string {
-  const s = (subcat || "").toLowerCase();
-  if (s.includes("puns"))   return "Direct wordplay on the topic; do not say 'this is a pun'.";
-  if (s.includes("knock"))  return "One-line knock-knock essence without call-and-response.";
-  if (s.includes("riddle")) return "Pose the question then answer in the same sentence, short & clever.";
-  if (s.includes("dad"))    return "Corny but clean; groan-worthy with a tidy turn.";
-  return "One-line joke. Setup then twist. No meta about setups or punchlines.";
-}
-
-// ---------- Humor priority ----------
-function humorPriority(tone: Tone, rating: Rating) {
-  const safeTones = new Set(["sentimental","serious","romantic"]);
-  const gentle = new Set(["G","PG"]);
-  const mostlyFunny = !(safeTones.has(tone) && gentle.has(rating));
-  return mostlyFunny
-    ? "Humor priority: ~90% lines must be hilarious, witty, or sharply funny. Use contrast, misdirection, or absurd logic. Keep it natural, not forced."
-    : "Gentle/wholesome tone. A light smile or clever turn is fine, but no overt jokes.";
+  return `Write about ${inserts.join(" and ")} as descriptive subjects.`;
 }
 
 // ---------- Build system prompt ----------
 function buildSystem(
-  tone: Tone,
-  rating: Rating,
-  category: string,
-  subcategory: string,
-  topic: string,
-  inserts: string[]
+  tone: Tone, rating: Rating,
+  category: string, subcategory: string,
+  topic: string, inserts: string[]
 ) {
   const toneWord = TONE_HINT[tone] || "witty";
   const ratingGate = RATING_HINT[rating] || "";
-
   const insertRule =
     inserts.length === 1
-      ? `Include "${inserts[0]}" once in EVERY line, varied position, natural form ok.`
+      ? `Include "${inserts[0]}" once in every line, natural placement ok.`
       : inserts.length > 1
-        ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
-        : "";
-
+      ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
+      : "";
   const pov = povHint(inserts);
   const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
+  const voice = CATEGORY_HINT[category] || "";
 
-  const catVoice: Record<string, string> = {
-    "celebrations": "Speak like the funniest friend at the party.",
-    "daily-life": "Speak like a sarcastic friend narrating their day.",
-    "sports": "Speak like a coach who roasts everyone with love.",
-    "pop-culture": "Speak like a late-night host making pop jokes.",
-    "jokes": "Each line should feel like a stand-up punchline.",
-    "miscellaneous": "Keep it observational and witty."
-  };
-  const voiceHint = catVoice[category.toLowerCase()] || "";
-
-  return `Write 4 punchy one-liners for ${category}/${subcategory}. Topic: ${topic}.
+  return `
+Write 4 one-liners for ${category}/${subcategory}. Topic: ${topic}.
 Tone: ${toneWord}. Rating: ${ratingGate}.
 ${insertRule}
 ${pov}
 Comedy style: ${style}
-${(/jokes/i.test(category) && /pun/i.test((subcategory||topic||""))) ? "PUN MODE: heavy wordplay about the topic; do not say 'pun' or talk about jokes." : ""}
+${voice}
 Use setup, pivot, and tag like a live comedian. Make each line sound spoken, not written.
-Each line: 60–120 characters, ends with punctuation, one idea, human cadence.
-No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.`.trim();
+Each line: 60–120 characters, ends with punctuation, one idea, human rhythm.
+No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.
+`.trim();
 }
 
-// ---------- JSON helpers ----------
-function parseJsonBlock(s?: string|null) {
-  if (!s) return null;
-  const t = s.trim().replace(/^```json\s*|\s*```$/g,"").trim();
-  try { return JSON.parse(t); } catch {}
-  const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  if (a !== -1 && b > a) { try { return JSON.parse(t.slice(a,b+1)); } catch {} }
-  return null;
-}
-function pickLinesFromChat(data: any): string[] | null {
-  const ch = Array.isArray(data?.choices) ? data.choices[0] : null;
-  const msg = ch?.message;
-  if (msg?.parsed && Array.isArray(msg.parsed.lines)) return msg.parsed.lines;  // structured outputs
-  if (typeof msg?.content === "string") {
-    const obj = parseJsonBlock(msg.content);
-    if (obj?.lines && Array.isArray(obj.lines)) return obj.lines;
-  }
-  const tcs = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
-  for (const tc of tcs) {
-    const obj = parseJsonBlock(tc?.function?.arguments);
-    if (obj?.lines && Array.isArray(obj.lines)) return obj.lines;
-  }
-  return null;
-}
-
-// ---------- One small call (abort @22s) ----------
+// ---------- OpenAI call ----------
 async function chatOnce(
-  system: string,
-  userObj: unknown,
-  maxTokens = 550,
-  abortMs = 22000
+  system: string, userObj: any,
+  maxTokens = 550, abortMs = 22000
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
-  function parseLinesFromText(text: string): string[] {
-    if (!text) return [];
-    // Split by newlines, strip bullets/numbers, trim
-    const raw = text
+
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
+
+  try {
+    const r = await fetch(API, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: JSON.stringify(userObj) },
+        ],
+        max_completion_tokens: maxTokens,
+      }),
+      signal: ctl.signal,
+    });
+    const raw = await r.text();
+    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0,400)}`);
+    const data = JSON.parse(raw);
+    const finish = data?.choices?.[0]?.finish_reason || "n/a";
+    console.log("[generate-text] finish_reason:", finish);
+
+    const content = data?.choices?.[0]?.message?.content || "";
+    const lines = content
       .split(/\r?\n+/)
-      .map((l) => l.replace(/^\s*[-*•\d\.)]+\s*/, "").trim())
-      .filter(Boolean);
-    // Ensure punctuation at end; keep between 60-120 chars
-    const cleaned = raw.map((l) => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").trim())
-      .map((l) => (/[.!?]$/.test(l) ? l : l + "."))
-      .filter((l) => l.length >= 60 && l.length <= 120);
-    return cleaned.slice(0, 4);
+      .map((l:string)=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim())
+      .filter(l=>l.length>=60 && l.length<=120)
+      .slice(0,4);
+    return lines.length===4 ? {ok:true,lines}:{ok:false,reason:finish};
+  } finally {
+    clearTimeout(timer);
   }
-
-  async function call(cap: number) {
-    const body = {
-      model: MODEL,
-      // IMPORTANT: GPT-5 family does not support temperature/top_p in Chat Completions
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(userObj) },
-      ],
-      max_completion_tokens: cap,
-    } as const;
-
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
-    try {
-      const r = await fetch(API, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: ctl.signal,
-      });
-      const raw = await r.text();
-      if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 600)}`);
-      const data = JSON.parse(raw);
-      const finish = data?.choices?.[0]?.finish_reason || data?.incomplete_details?.reason || "n/a";
-      console.log("[generate-text] finish_reason:", finish);
-
-      const msg = data?.choices?.[0]?.message;
-      const content = typeof msg?.content === "string" ? msg.content : "";
-      let lines = parseLinesFromText(content);
-
-      // Fallback to any structured JSON the model might have returned
-      if (lines.length < 4) {
-        const fromParsed = (msg?.parsed && Array.isArray(msg.parsed.lines)) ? msg.parsed.lines as string[] : undefined;
-        if (fromParsed && fromParsed.length === 4) lines = fromParsed;
-      }
-
-      if (lines.length === 4) return { ok: true, lines };
-      const reason = finish || "no_lines";
-      return { ok: false, reason: String(reason) };
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  // Primary attempt
-  let res = await call(maxTokens);
-  if (res.ok) return res;
-
-  // If the model stopped early (commonly "length"), retry once with higher cap
-  if (res.reason === "length") {
-    console.log("🔄 Retrying due to length with +160 tokens (no schema)");
-    const second = await call(maxTokens + 160); // e.g., 320→480
-    if (second.ok) return second;
-    return second;
-  }
-
-  return res; // not length → bubble reason
 }
 
-// ---------- Last-resort fallback (can't fail) ----------
-function synth(topic: string, tone: Tone, inserts: string[] = []): string[] {
-  const t = topic || "the moment";
-  const name = inserts[0] ? ` ${inserts[0]}` : "";
-  const funny = [
-    `Breakfast${name} arrives with confidence and crumbs; the day can catch up later.`,
-    `${inserts[0] ? inserts[0] + " " : ""}defends the last bite like a championship; the cereal box files an appeal.`,
-    `Coffee narrates, toast heckles, eggs improvise; ${t} is organized chaos that tastes good.`,
-    `${t}${name} turns “five more minutes” into a lifestyle and the plate into a witness statement.`
+// ---------- Fallback ----------
+function synth(topic:string,tone:Tone,inserts:string[]=[]){
+  const t=topic||"the moment";
+  const name=inserts[0]?` ${inserts[0]}`:"";
+  const lines=[
+    `${t}${name} shows up loud and on brand, reason can clock in later.`,
+    `Schedule says no, ${t}${name} says watch me.`,
+    `Logic brings lists, ${t}${name} brings glitter and a receipt.`,
+    `${t}${name} proves chaos can still look productive.`
   ];
-  const warm = [
-    `${t}${name} is ordinary and that’s why it saves the morning.`,
-    `Small rituals like ${t}${name} hold the day together quietly.`,
-    `${inserts[0] ? inserts[0] + " " : ""}chooses calm; ${t} chooses comfort; the sun negotiates the rest.`,
-    `You don’t owe the world speed; start with ${t}${name} and breathe.`
-  ];
-  const set = (tone === "sentimental" || tone === "serious" || tone === "romantic") ? warm : funny;
-  return set.map((s) => s.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").replace(/([^.?!])$/, "$1"));
+  return lines.map(l=>l.replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1."));
 }
 
 // ---------- HTTP handler ----------
-serve(async (req) => {
-  if (req.method==="OPTIONS") return new Response(null,{headers:cors});
-  try {
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+serve(async req=>{
+  if(req.method==="OPTIONS") return new Response(null,{headers:cors});
+  try{
+    if(!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
-    const b = await req.json();
-    console.log("📥 Request received:", JSON.stringify(b, null, 2));
-    const category = String(b.category||"").trim();
-    const subcat   = String(b.subcategory||"").trim();
-    const theme    = String(b.theme||"").trim();
-    const tone     = (b.tone||"humorous") as Tone;
-    const rating   = (b.rating||"PG") as Rating;
-    const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
-    const rawTopic = theme || subcat || category || "topic";
-    const displayTopic = String(rawTopic).replace(/[-_]/g, " ").trim();
-    console.log("🎯 Parsed params:", { category, subcat, theme, tone, rating, inserts, displayTopic });
+    const b=await req.json();
+    const category=String(b.category||"").trim();
+    const subcat=String(b.subcategory||"").trim();
+    const theme=String(b.theme||"").trim();
+    const tone=(b.tone||"humorous") as Tone;
+    const rating=(b.rating||"PG") as Rating;
+    const inserts=Array.isArray(b.insertWords)?b.insertWords.filter(Boolean).slice(0,2):[];
+    const topic=(theme||subcat||category||"topic").replace(/[-_]/g," ").trim();
 
-    const SYSTEM = buildSystem(tone, rating, category, subcat, displayTopic, inserts);
-    const userPayload = { tone, rating, category, subcategory: subcat, topic: displayTopic, insertWords: inserts };
+    const SYSTEM=buildSystem(tone,rating,category,subcat,topic,inserts);
+    const payload={tone,rating,category,subcategory:subcat,topic,insertWords:inserts};
 
-    // Helper: quick validation
-    function invalidSet(ls: string[]) {
-      return !Array.isArray(ls) || ls.length < 4 || ls.some((l) => l.length < 60 || l.length > 120 || !/[.!?]$/.test(l));
+    function invalidSet(ls:string[]){
+      return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<60||l.length>120||!/[.!?]$/.test(l));
     }
 
-    // Primary: 700 tokens
-    const main = chatOnce(SYSTEM, userPayload, 700, 22000);
-
-    // Hedge after 2s: 900 tokens (higher cap to beat tail latency)
-    const hedge = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
-      setTimeout(async () => {
-        try {
-          resolve(await chatOnce(SYSTEM, userPayload, 900, 22000));
-        } catch {
-          resolve({ ok: false, reason: "hedge_failed" });
-        }
-      }, 2000);
+    const main=chatOnce(SYSTEM,payload,700,22000);
+    const hedge=new Promise<{ok:boolean;lines?:string[];reason?:string}>(resolve=>{
+      setTimeout(async()=>{
+        try{resolve(await chatOnce(SYSTEM,payload,900,22000));}
+        catch{resolve({ok:false,reason:"hedge_failed"});}
+      },2000);
     });
 
-    let winner = await Promise.race([main, hedge]);
-
-    if (!winner.ok) {
-      // If the first to complete failed, await the other result once
-      const other = (winner === (await main)) ? await hedge : await main;
-      winner = other.ok ? other : winner;
+    let winner:any=await Promise.race([main,hedge]);
+    if(!winner.ok){
+      const other=(winner===(await main))?await hedge:await main;
+      winner=other.ok?other:winner;
     }
 
-    let lines: string[] | undefined;
-    let source = "model";
-
-    if (winner.ok && winner.lines) {
-      console.log("✅ Using AI-generated lines");
-      lines = winner.lines;
-    } else {
-      console.log("🔁 Strict retry invoked");
-      const STRICT = SYSTEM + "\nSTRICT: Each line must be 60–120 characters with clear wordplay and a twist.";
-      const retry = await chatOnce(STRICT, userPayload, 900, 22000);
-      if (retry.ok && retry.lines) {
-        lines = retry.lines;
-      } else {
-        console.log("⚠️ Using synth fallback. Reason:", winner.reason);
-        lines = synth(displayTopic, tone, inserts);
-        source = "synth";
-      }
+    let lines:string[],source="model";
+    if(winner.ok&&winner.lines) lines=winner.lines;
+    else{
+      const STRICT=SYSTEM+"\nSTRICT: Each line must be 60–120 chars with clear wordplay and a twist.";
+      const retry=await chatOnce(STRICT,payload,900,22000);
+      if(retry.ok&&retry.lines) lines=retry.lines;
+      else{lines=synth(topic,tone,inserts);source="synth";}
     }
 
-    // If model lines invalid, strict retry once more
-    if (source === "model" && lines && invalidSet(lines)) {
-      console.log("🔁 Strict retry invoked (validation)");
-      const STRICT = SYSTEM + "\nSTRICT: Each line must be 60–120 characters with clear wordplay and a twist.";
-      const retry2 = await chatOnce(STRICT, userPayload, 900, 22000);
-      if (retry2.ok && retry2.lines && !invalidSet(retry2.lines)) {
-        lines = retry2.lines;
-      } else {
-        lines = synth(displayTopic, tone, inserts);
-        source = "synth";
-      }
+    if(source==="model"&&invalidSet(lines)){
+      const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 60–120 character lines.";
+      const retry2=await chatOnce(STRICT,payload,900,22000);
+      if(retry2.ok&&retry2.lines&&!invalidSet(retry2.lines)) lines=retry2.lines;
+      else{lines=synth(topic,tone,inserts);source="synth";}
     }
 
-    // Cleanup em/en dashes + whitespace + ensure punctuation
-    lines = lines.map((l) =>
-      l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").replace(/([^.?!])$/, "$1.").trim()
-    );
+    lines=lines.map(l=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1."));
 
-    return new Response(JSON.stringify({ success: true, options: lines.slice(0, 4), model: MODEL, source }), {
-      headers: { ...cors, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({success:true,options:lines.slice(0,4),model:MODEL,source}),{
+      headers:{...cors,"Content-Type":"application/json"}
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ success:false, error:String(err) }), {
-      status:200, headers:{...cors,"Content-Type":"application/json"}
+  }catch(err){
+    return new Response(JSON.stringify({success:false,error:String(err)}),{
+      status:200,headers:{...cors,"Content-Type":"application/json"}
     });
   }
 });
