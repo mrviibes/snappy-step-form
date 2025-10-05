@@ -101,7 +101,8 @@ Comedy style: ${style}
 ${catVoice}
 ${savageRule}
 Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
-Each line: 60–120 characters, ends with punctuation, one idea, natural spoken rhythm.
+Each line: 75–125 characters, ends with punctuation. Write naturally, not clipped.
+If lines are too short, expand them with imagery or emotion.
 Avoid ad-style phrasing; sound like a human telling a joke or observation.
 No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.
 `.trim();
@@ -154,14 +155,21 @@ async function chatOnce(
 // ---------- Fallback ----------
 function synth(topic:string,tone:Tone,inserts:string[]=[]){
   const t=topic||"the moment";
-  const name=inserts[0]?` ${inserts[0]}`:"";
-  const lines=[
-    `${t}${name} shows up loud and on brand, reason can clock in later.`,
-    `Schedule says no, ${t}${name} says watch me.`,
-    `Logic brings lists, ${t}${name} brings glitter and a receipt.`,
-    `${t}${name} proves chaos can still look productive.`
-  ];
-  return lines.map(l=>l.replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1."));
+  const friendly = tone === "sentimental" || tone === "romantic";
+  const s=(x:string)=>x.replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1");
+  return friendly
+    ? [
+        `${t} feels like a pause between storms, small and brave.`,
+        `Even chaos slows down when ${t} chooses kindness.`,
+        `The air around ${t} forgets to hurry and remembers why it matters.`,
+        `${t} keeps ordinary things glowing a little longer.`
+      ].map(s)
+    : [
+        `${t} brings noise, glitter, and receipts, and somehow still demands applause.`,
+        `${t} doesn’t need logic, it brought champagne and confidence instead.`,
+        `You planned calm, ${t} RSVP’d loud and refused the dress code.`,
+        `${t} turns mess into art and calls it tradition.`
+      ].map(s);
 }
 
 // ---------- HTTP handler ----------
@@ -183,7 +191,7 @@ serve(async req=>{
     const payload={tone,rating,category,subcategory:subcat,topic,insertWords:inserts};
 
     function invalidSet(ls:string[]){
-      return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<60||l.length>120||!/[.!?]$/.test(l));
+      return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<50||l.length>130||!/[.!?]$/.test(l));
     }
 
     const main=chatOnce(SYSTEM,payload,700,22000);
@@ -217,6 +225,8 @@ serve(async req=>{
     }
 
     lines=lines.map(l=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1."));
+
+    console.log("✅ Source:", source, "| Lines:", lines.length);
 
     return new Response(JSON.stringify({success:true,options:lines.slice(0,4),model:MODEL,source}),{
       headers:{...cors,"Content-Type":"application/json"}
