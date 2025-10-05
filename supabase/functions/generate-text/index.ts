@@ -132,52 +132,65 @@ function pickLinesFromChat(data: any): string[] | null {
 }
 
 // ---------- One small call (abort @22s) ----------
-async function chatOnce(system: string, userObj: unknown, maxTokens = 256, abortMs = 22000) {
+async function chatOnce(
+  system: string,
+  userObj: unknown,
+  maxTokens = 320,
+  abortMs = 22000
+): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
   const schema = {
     name: "ViibeTextV1",
     strict: true,
     schema: {
-      type:"object",
-      additionalProperties:false,
-      required:["lines"],
-      properties:{ lines:{
-        type:"array", minItems:4, maxItems:4,
-        items:{ type:"string", minLength:28, maxLength:120, pattern:"[.!?]$" }
-      }}
-    }
+      type: "object",
+      additionalProperties: false,
+      required: ["lines"],
+      properties: {
+        lines: {
+          type: "array",
+          minItems: 4,
+          maxItems: 4,
+          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" },
+        },
+      },
+    },
   };
   const body = {
     model: MODEL,
     messages: [
-      { role:"system", content: system },
-      { role:"user",   content: JSON.stringify(userObj) }
+      { role: "system", content: system },
+      { role: "user", content: JSON.stringify(userObj) },
     ],
-    response_format: { type:"json_schema", json_schema: schema },
-    max_completion_tokens: maxTokens // do not send temperature/top_p for 5-family
+    response_format: { type: "json_schema", json_schema: schema },
+    max_completion_tokens: maxTokens, // do not send temperature/top_p for 5-family
   };
 
   const ctl = new AbortController();
-  const timer = setTimeout(()=>ctl.abort("timeout"), abortMs);
+  const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
   try {
     const r = await fetch(API, {
-      method:"POST",
-      headers:{ "Authorization":`Bearer ${OPENAI_API_KEY}`, "Content-Type":"application/json" },
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: ctl.signal
+      signal: ctl.signal,
     });
     const raw = await r.text();
-    if (r.status === 402) throw new Error("Payment required or credits exhausted");
-    if (r.status === 429) throw new Error("Rate limited, try again");
-    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0,600)}`);
+    if (r.status === 402) return { ok: false, reason: "payment_required" };
+    if (r.status === 429) return { ok: false, reason: "rate_limited" };
+    if (!r.ok) return { ok: false, reason: `OpenAI ${r.status}: ${raw.slice(0, 120)}` };
     const data = JSON.parse(raw);
     const lines = pickLinesFromChat(data);
-    if (lines && lines.length===4) return lines;
-    const reason = data?.choices?.[0]?.message?.refusal
-      || data?.incomplete_details?.reason
-      || data?.choices?.[0]?.finish_reason;
-    if (reason) throw new Error(String(reason)); // e.g., "length"
-    throw new Error("no_lines");
-  } finally { clearTimeout(timer); }
+    if (lines && lines.length === 4) return { ok: true, lines };
+    const reason =
+      data?.choices?.[0]?.message?.refusal ||
+      data?.incomplete_details?.reason ||
+      data?.choices?.[0]?.finish_reason; // often "length"
+    return { ok: false, reason: String(reason || "no_lines") };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "unknown_error" };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ---------- Last-resort fallback (can't fail) ----------
@@ -212,20 +225,42 @@ serve(async (req) => {
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
 
-    // Hedge: main call now; after 2s start a second with a slightly bigger cap to beat tail latency.
-    const main = chatOnce(SYSTEM, userPayload, 256, 22000);
-    const hedge = new Promise<string[]>(resolve=>{
-      setTimeout(async()=>{ try { resolve(await chatOnce(SYSTEM, userPayload, 320, 22000)); } catch {} }, 2000);
+    // Primary: 320 tokens
+    const p1 = chatOnce(SYSTEM, userPayload, 320, 22000);
+
+    // Hedge after 2s: 448 tokens
+    const p2 = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
+      setTimeout(async () => {
+        try {
+          resolve(await chatOnce(SYSTEM, userPayload, 448, 22000));
+        } catch {
+          resolve({ ok: false, reason: "hedge_failed" });
+        }
+      }, 2000);
     });
 
-    let lines = await Promise.race([main, hedge]) as string[] | undefined;
-    if (!lines) lines = synth(topic, tone);
+    // Pick the first successful one, otherwise fall back
+    let result = await Promise.race([p1, p2]);
+    if (!result.ok) {
+      // If the first race failed (e.g., "length"), try the other in parallel, or synth
+      const first = await p1;
+      const second = await p2;
+      result = first.ok ? first : (second.ok ? second : { ok: false, reason: first.reason || second.reason });
+    }
 
-    // Em-dash cleanup + trim, always
-    lines = lines.map(l => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g," ").trim());
+    let lines: string[];
+    if (result.ok && result.lines) {
+      lines = result.lines;
+    } else {
+      // LAST RESORT: synth 4 lines; never 500
+      lines = synth(topic, tone);
+    }
 
-    return new Response(JSON.stringify({ success:true, options: lines.slice(0,4), model: MODEL }), {
-      headers:{...cors,"Content-Type":"application/json"}
+    // Cleanup em/en dashes & whitespace
+    lines = lines.map((l) => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").trim());
+
+    return new Response(JSON.stringify({ success: true, options: lines.slice(0, 4), model: MODEL }), {
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {
     return new Response(JSON.stringify({ success:false, error:String(err) }), {
