@@ -68,82 +68,65 @@ interface PromptTemplate {
 }
 
 // ============== AI SYSTEM PROMPT ==============
-const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 2-line flowing structure:
+const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 3-line structure:
 
-POSITIVE PROMPT FORMAT (2 flowing lines):
-EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.
-
-A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio.
-
-NEGATIVE PROMPT FORMAT (text-only, lean):
-misspelled text, broken letters, split characters, extra words
+TEXT: exactly reads "[mandatory_text]"
+STYLE: [typography_description], [font_style], evenly spaced letters
+SCENE: [visual_style] [scene_description], [lighting], [aspect_ratio]
 
 ⚠️ CRITICAL RULES:
-1. DO NOT extract visual keywords from the mandatory text - text is ONLY for display, NOT scene content
-2. Use ONLY the visual_recommendation and specific_visuals for actual scene elements  
-3. Keep format SHORT and CLEAN - no extra words or descriptions
-4. Keep colors vibrant and well-lit, but balanced and natural (not oversaturated)
-5. Never use words from the text as scene descriptors (e.g., if text mentions "hieroglyphics", do NOT add hieroglyphics to the scene)
+1. TEXT line must say "exactly reads" followed by the exact text in quotes
+2. STYLE describes typography only: font weight, style, letter spacing
+3. SCENE combines visual style, scene elements, lighting, and aspect ratio
+4. Keep it clean and flowing - no extra formatting or line breaks
+5. Never extract visual keywords from the text for the scene
 
 TYPOGRAPHY STYLES BY LAYOUT:
-- meme-text: bold impact-style font, high contrast, thick strokes
-- badge-callout: rounded geometric sans-serif, friendly weight, clean kerning
-- negative-space: modern clean sans-serif, balanced weight, professional
-- caption: editorial sans-serif or clean serif, refined weight, subtle
-- integrated-in-scene: contextual typography matching environment (stencil/painted/handwritten/sign)
-- dynamic-overlay: bold geometric sans-serif, strong angles, editorial weight
-
-LAYOUT TYPES:
-- meme-text: Text format for meme-style images
-- badge-callout: Floating badge/callout format
-- negative-space: Text in open space format
-- caption: Bottom caption format
-- integrated-in-scene: Text integrated into environment
-- dynamic-overlay: Diagonal overlay format
-
-COMPOSITION MODES:
-- normal/base_realistic: Natural proportions, photoreal lighting
-- big-head/exaggerated_props: Caricature style
-- close-up/very_close: Tight framing
-- goofy/goofy_wide: Wide playful framing
-- zoomed: Wide environmental shot
-- surreal/surreal_scale: Dramatic scale contrast
+- meme-text: bold impact-style font, high contrast
+- badge-callout: rounded geometric sans-serif, friendly weight
+- negative-space: modern clean sans-serif, balanced weight
+- caption: editorial sans-serif, refined weight
+- integrated-in-scene: contextual typography matching environment
+- dynamic-overlay: bold geometric sans-serif, strong angles
 
 EXAMPLES:
-✅ CORRECT FORMAT:
-EXACT TEXT: "Happy birthday! May your joy multiply this year!" in a badge-callout format, rounded geometric sans-serif, friendly weight, clean kerning, with 25% coverage.
+✅ CORRECT:
+TEXT: exactly reads "BIRTHDAY MIKE IS ORDINARY AND THAT IS WHY IT SAVES THE MORNING"
+STYLE: overlayed text, bold clean print font, evenly spaced letters
+SCENE: realistic family birthday with cake and candles, colorful decor, cinematic lighting, 16:9
 
-A vibrant realistic style in a PG-13 normal composition with a scene with birthday cake center stage surrounded by colorful balloons and playful confetti in a 16:9 aspect ratio.
-
-❌ WRONG - Don't do this:
-"The image shows a birthday party..." (too verbose)
-"EXACT TEXT: [text] Typography: ..." (don't split into blocks)
-
-Remember: The text is what gets DISPLAYED as typography. The visual_recommendation describes what's IN the scene.`;
+❌ WRONG:
+TEXT: "[text]" in a badge-callout format with 25% coverage (too complex)
+STYLE: bold font with birthday cake (don't include scene elements)
+SCENE: realistic style, overlayed text (don't repeat typography)`;
 
 // ============== AI TOOL DEFINITION ==============
 const promptCraftingTool = {
   type: "function",
   function: {
     name: "format_prompt",
-    description: "Format the image prompt following the exact 2-line flowing structure",
+    description: "Format the image prompt following the exact 3-line structure",
     parameters: {
       type: "object",
       properties: {
-        line1_text_and_typography: {
+        text_line: {
           type: "string",
-          description: 'Line 1: EXACT TEXT: "[mandatory_text]" in a [layout] format, [typography_style], with [X]% coverage.'
+          description: 'Line 1: TEXT: exactly reads "[mandatory_text]"'
         },
-        line2_scene_description: {
+        style_line: {
           type: "string",
-          description: "Line 2: A vibrant [style] style in a [rating] [composition] composition with a scene with [visual_description] in a [aspect] aspect ratio."
+          description: "Line 2: STYLE: [typography], [font_style], evenly spaced letters"
+        },
+        scene_line: {
+          type: "string",
+          description: "Line 3: SCENE: [visual_style] [scene_description], [lighting], [aspect_ratio]"
         },
         negative_prompt: {
           type: "string",
-          description: "Text-only negative terms: misspelled text, broken letters, split characters, extra words"
+          description: "Negative terms: misspelled text, broken letters, split characters"
         }
       },
-      required: ["line1_text_and_typography", "line2_scene_description", "negative_prompt"],
+      required: ["text_line", "style_line", "scene_line", "negative_prompt"],
       additionalProperties: false
     }
   }
@@ -426,26 +409,16 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
     const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
     // Build detailed context for AI
-    const userPrompt = `Format this prompt following the EXACT 2-line flowing structure:
+    const userPrompt = `Format this prompt following the EXACT 3-line structure:
 
 MANDATORY TEXT: "${cleanText}"
-LAYOUT: ${layoutKey}
 TYPOGRAPHY STYLE: ${typographyStyle}
-TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
-COMPOSITION MODE: ${compName}
-RATING: ${rating}
-VISUAL RECOMMENDATION: ${visPhrase}
-SPECIFIC VISUALS: ${tags.join(", ") || "none"}
+SCENE ELEMENTS: ${visPhrase}
+${tags.length > 0 ? `ADDITIONAL VISUALS: ${tags.join(", ")}` : ""}
 
-⚠️ CRITICAL: The mandatory text is what gets DISPLAYED as typography. Do NOT use words from the text as scene elements. Use ONLY the visual recommendation and specific visuals for actual scene content.
-
-Example:
-- Text says "hieroglyphics" → Display it as text, do NOT add hieroglyphics to the scene
-- Visual recommendation says "friends laughing around birthday cake" → This goes in the scene
-
-Output Line 1 (text + typography) and Line 2 (scene description) as a flowing format, plus the simplified negative prompt.`;
+Remember: The text is what gets DISPLAYED. Use scene elements and visuals for what's IN the scene.`;
 
     try {
       const aiResponse = await fetch(OPENAI_URL, {
@@ -481,12 +454,13 @@ Output Line 1 (text + typography) and Line 2 (scene description) as a flowing fo
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      // Combine the two flowing lines
-      const positive_prompt = `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`;
+      // Combine the three lines
+      const positive_prompt = `${result.text_line}\n${result.style_line}\n${result.scene_line}`;
       
       console.log(`Layout ${layoutKey} - Structured prompt:`);
-      console.log(`Line 1:`, result.line1_text_and_typography);
-      console.log(`Line 2:`, result.line2_scene_description);
+      console.log(`Line 1:`, result.text_line);
+      console.log(`Line 2:`, result.style_line);
+      console.log(`Line 3:`, result.scene_line);
       console.log(`Negative:`, result.negative_prompt);
 
       prompts.push({
@@ -502,7 +476,7 @@ Output Line 1 (text + typography) and Line 2 (scene description) as a flowing fo
           scene: visPhrase,
           mood: tone,
           tags,
-          pretty: `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`
+          pretty: positive_prompt
         }
       });
 
@@ -512,9 +486,9 @@ Output Line 1 (text + typography) and Line 2 (scene description) as a flowing fo
       const cleanText = sanitizeTextForImage(completed_text);
       const optimalCoverage = getOptimalCoverage(cleanText, minPct);
       
-      const fallbackPositive = `EXACT TEXT: "${cleanText}" in a ${layoutKey} format, ${typographyStyle}, with ${optimalCoverage}% coverage.
-
-A vibrant ${styleStr} style in a ${rating} ${compName} composition with a scene with ${visPhrase} in a ${aspect} aspect ratio.`;
+      const fallbackPositive = `TEXT: exactly reads "${cleanText}"
+STYLE: ${typographyStyle}, evenly spaced letters
+SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
       
       const fallbackNegative = "misspelled text, broken letters, split characters, extra words";
       
@@ -578,24 +552,16 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const optimalCoverage = getOptimalCoverage(cleanText, minPct);
     const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
-    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 2-line flowing structure:
+    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 3-line structure:
 
 MANDATORY TEXT: "${cleanText}"
-LAYOUT: ${layoutKey}
 TYPOGRAPHY STYLE: ${typographyStyle}
-TEXT COVERAGE: ${optimalCoverage}%
 VISUAL STYLE: ${styleStr}
 ASPECT RATIO: ${aspect}
-COMPOSITION MODE: ${compName}
-RATING: ${rating}
-VISUAL RECOMMENDATION: ${visPhrase}
-SPECIFIC VISUALS: ${tags.join(", ") || "none"}
+SCENE ELEMENTS: ${visPhrase}
+${tags.length > 0 ? `ADDITIONAL VISUALS: ${tags.join(", ")}` : ""}
 
-⚠️ CRITICAL: The mandatory text is what gets DISPLAYED as typography. Do NOT use words from the text as scene elements.
-
-IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast. Ideogram excels at text rendering.
-
-Output Line 1 (text + typography) and Line 2 (scene description) as a flowing format, plus the simplified negative prompt.`;
+IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast.`;
 
     try {
       const aiResponse = await fetch(OPENAI_URL, {
@@ -630,12 +596,13 @@ Output Line 1 (text + typography) and Line 2 (scene description) as a flowing fo
 
       const result = JSON.parse(toolCall.function.arguments);
       
-      // Combine the two flowing lines
-      const positive_prompt = `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`;
+      // Combine the three lines
+      const positive_prompt = `${result.text_line}\n${result.style_line}\n${result.scene_line}`;
       
       console.log(`Ideogram ${layoutKey} - Structured prompt:`);
-      console.log(`Line 1:`, result.line1_text_and_typography);
-      console.log(`Line 2:`, result.line2_scene_description);
+      console.log(`Line 1:`, result.text_line);
+      console.log(`Line 2:`, result.style_line);
+      console.log(`Line 3:`, result.scene_line);
 
       prompts.push({
         name: `ideogram-${layoutKey}`,
