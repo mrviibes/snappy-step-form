@@ -103,6 +103,7 @@ ${savageRule}
 Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
 Each line: 75–125 characters, ends with punctuation. Write naturally, not clipped.
 If lines are too short, expand them with imagery or emotion.
+Do not repeat the topic word in every line. Write like clever card text or a one-liner caption people would actually print.
 Avoid ad-style phrasing; sound like a human telling a joke or observation.
 No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.
 `.trim();
@@ -144,7 +145,7 @@ async function chatOnce(
     const lines = content
       .split(/\r?\n+/)
       .map((l:string)=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim())
-      .filter(l=>l.length>=60 && l.length<=120)
+      .filter((l:string)=>l.length>=50 && l.length<=130)
       .slice(0,4);
     return lines.length===4 ? {ok:true,lines}:{ok:false,reason:finish};
   } finally {
@@ -154,22 +155,13 @@ async function chatOnce(
 
 // ---------- Fallback ----------
 function synth(topic:string,tone:Tone,inserts:string[]=[]){
-  const t=topic||"the moment";
-  const friendly = tone === "sentimental" || tone === "romantic";
-  const s=(x:string)=>x.replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1");
-  return friendly
-    ? [
-        `${t} feels like a pause between storms, small and brave.`,
-        `Even chaos slows down when ${t} chooses kindness.`,
-        `The air around ${t} forgets to hurry and remembers why it matters.`,
-        `${t} keeps ordinary things glowing a little longer.`
-      ].map(s)
-    : [
-        `${t} brings noise, glitter, and receipts, and somehow still demands applause.`,
-        `${t} doesn’t need logic, it brought champagne and confidence instead.`,
-        `You planned calm, ${t} RSVP’d loud and refused the dress code.`,
-        `${t} turns mess into art and calls it tradition.`
-      ].map(s);
+  const set = [
+    "Love wins again and the catering survived.",
+    "Two rings, one group chat forever changed.",
+    "The champagne’s judging no one tonight.",
+    "Here’s to promises that age better than haircuts."
+  ];
+  return set.map(l => l.trim().replace(/([^.?!])$/, "$1"));
 }
 
 // ---------- HTTP handler ----------
@@ -208,25 +200,29 @@ serve(async req=>{
       winner=other.ok?other:winner;
     }
 
-    let lines:string[],source="model";
+    let lines:string[],source="model",fallbackReason="";
     if(winner.ok&&winner.lines) lines=winner.lines;
     else{
-      const STRICT=SYSTEM+"\nSTRICT: Each line must be 60–120 chars with clear wordplay and a twist.";
+      const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
       const retry=await chatOnce(STRICT,payload,900,22000);
       if(retry.ok&&retry.lines) lines=retry.lines;
-      else{lines=synth(topic,tone,inserts);source="synth";}
+      else{lines=synth(topic,tone,inserts);source="synth";fallbackReason=`model_failed:${(winner && winner.reason) || (retry && retry.reason) || 'unknown'}`;}
     }
 
     if(source==="model"&&invalidSet(lines)){
-      const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 60–120 character lines.";
+      const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 75–125 character lines.";
       const retry2=await chatOnce(STRICT,payload,900,22000);
       if(retry2.ok&&retry2.lines&&!invalidSet(retry2.lines)) lines=retry2.lines;
-      else{lines=synth(topic,tone,inserts);source="synth";}
+      else{lines=synth(topic,tone,inserts);source="synth";fallbackReason="invalid_set";}
     }
 
     lines=lines.map(l=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim().replace(/([^.?!])$/,"$1."));
 
-    console.log("✅ Source:", source, "| Lines:", lines.length);
+    if(source === "model"){
+      console.log("✅ Using AI-generated lines");
+    } else {
+      console.warn("⚠️ Using synth fallback. Reason:", fallbackReason);
+    }
 
     return new Response(JSON.stringify({success:true,options:lines.slice(0,4),model:MODEL,source}),{
       headers:{...cors,"Content-Type":"application/json"}
