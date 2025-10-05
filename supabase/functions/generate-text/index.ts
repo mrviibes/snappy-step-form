@@ -1,6 +1,6 @@
 // supabase/functions/generate-text/index.ts
-// Lean Step-2 generator: one small call + a tiny hedge, movie-style ratings, category hints,
-// insert-word policy, no em-dashes, humor priority.
+// Lean Step-2 generator: one small call + tiny hedge, movie-style ratings, category hints,
+// insert-word policy, humor priority, no em-dashes. Always returns 200 JSON.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -15,10 +15,11 @@ const cors = {
 };
 
 // ---------- Types ----------
-type Tone = "humorous"|"savage"|"sentimental"|"nostalgic"|"romantic"|"inspirational"|"playful"|"serious";
+type Tone   = "humorous"|"savage"|"sentimental"|"nostalgic"|"romantic"|"inspirational"|"playful"|"serious";
 type Rating = "G"|"PG"|"PG-13"|"R";
+type Category = "celebrations"|"daily-life"|"sports"|"pop-culture"|"jokes"|"miscellaneous";
 
-// ---------- Tone/Rating hints ----------
+// ---------- Tone/Rating (movie-style) ----------
 const TONE_HINT: Record<Tone,string> = {
   humorous:"funny, witty, punchy",
   savage:"blunt, cutting, roast-style",
@@ -36,8 +37,7 @@ const RATING_HINT: Record<Rating,string> = {
   R:"Hangover/Superbad; strong profanity allowed; non-graphic adult themes; no slurs; no illegal how-to"
 };
 
-// ---------- Category adapter ----------
-type Category = "celebrations"|"daily-life"|"sports"|"pop-culture"|"jokes"|"miscellaneous";
+// ---------- Category hint ----------
 const CATEGORY_HINT: Record<Category,string> = {
   "celebrations":"Focus on the person and the moment; party energy, cake, friends; clear occasion.",
   "daily-life":"Relatable micro-moments: routines, coffee/work/phone logic; small wins & annoyances.",
@@ -46,7 +46,6 @@ const CATEGORY_HINT: Record<Category,string> = {
   "jokes":"Actual one-line jokes; setup then twist in the same sentence; no meta about jokes.",
   "miscellaneous":"Universal observation with one vivid detail and a clean turn."
 };
-
 function jokesFormatHint(subcat: string): string {
   const s = (subcat || "").toLowerCase();
   if (s.includes("puns"))   return "Direct wordplay on the topic; do not say 'this is a pun'.";
@@ -78,16 +77,14 @@ function buildSystem(
   const catKey = (category || "miscellaneous").toLowerCase() as Category;
   const catHint = CATEGORY_HINT[catKey] || CATEGORY_HINT["miscellaneous"];
   const jokesHint = catKey === "jokes" ? jokesFormatHint(subcategory) : "";
-
   const birthdayNudge =
     /celebrations/i.test(category) && /birthday/i.test(subcategory || topic)
       ? "Include the word 'birthday' once somewhere in the set."
       : "";
-
   const insertsHint = inserts.length
     ? `INSERT WORDS POLICY
-- Provided words: ${inserts.join(", ")}
-- If a single word, include it once in EVERY line.
+- Provided: ${inserts.join(", ")}
+- If one word, include it once in EVERY line.
 - If multiple, include each at least once across the 4 lines.
 - Vary position (start/middle/end). Do not start all lines with it.
 - Natural forms allowed (possessive/plural).`
@@ -109,7 +106,7 @@ function buildSystem(
   ].filter(Boolean).join("\n\n");
 }
 
-// ---------- JSON parsing helpers ----------
+// ---------- JSON helpers ----------
 function parseJsonBlock(s?: string|null) {
   if (!s) return null;
   const t = s.trim().replace(/^```json\s*|\s*```$/g,"").trim();
@@ -156,7 +153,7 @@ async function chatOnce(system: string, userObj: unknown, maxTokens = 256, abort
       { role:"user",   content: JSON.stringify(userObj) }
     ],
     response_format: { type:"json_schema", json_schema: schema },
-    max_completion_tokens: maxTokens
+    max_completion_tokens: maxTokens // do not send temperature/top_p for 5-family
   };
 
   const ctl = new AbortController();
@@ -178,7 +175,7 @@ async function chatOnce(system: string, userObj: unknown, maxTokens = 256, abort
     const reason = data?.choices?.[0]?.message?.refusal
       || data?.incomplete_details?.reason
       || data?.choices?.[0]?.finish_reason;
-    if (reason) throw new Error(String(reason));
+    if (reason) throw new Error(String(reason)); // e.g., "length"
     throw new Error("no_lines");
   } finally { clearTimeout(timer); }
 }
@@ -212,33 +209,25 @@ serve(async (req) => {
     const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
     const topic    = theme || subcat || category || "topic";
 
-    
-
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
 
-    // Hedge: main call now; after 2s start a second with a slightly bigger cap.
+    // Hedge: main call now; after 2s start a second with a slightly bigger cap to beat tail latency.
     const main = chatOnce(SYSTEM, userPayload, 256, 22000);
     const hedge = new Promise<string[]>(resolve=>{
-      setTimeout(async()=>{
-        try { resolve(await chatOnce(SYSTEM, userPayload, 320, 22000)); }
-        catch { /* ignore; main may succeed */ }
-      }, 2000);
+      setTimeout(async()=>{ try { resolve(await chatOnce(SYSTEM, userPayload, 320, 22000)); } catch {} }, 2000);
     });
 
     let lines = await Promise.race([main, hedge]) as string[] | undefined;
     if (!lines) lines = synth(topic, tone);
 
     // Em-dash cleanup + trim, always
-    lines = lines.map(l =>
-      l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g," ").trim()
-    );
+    lines = lines.map(l => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g," ").trim());
 
     return new Response(JSON.stringify({ success:true, options: lines.slice(0,4), model: MODEL }), {
       headers:{...cors,"Content-Type":"application/json"}
     });
   } catch (err) {
-    // Never 502 — always return JSON the UI can show
     return new Response(JSON.stringify({ success:false, error:String(err) }), {
       status:200, headers:{...cors,"Content-Type":"application/json"}
     });
