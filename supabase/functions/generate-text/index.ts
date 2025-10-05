@@ -183,60 +183,12 @@ async function chatOnce(system: string, userObj: unknown, maxTokens = 256, abort
   } finally { clearTimeout(timer); }
 }
 
-// ---------- Insert-word safety check ----------
-function validateInsertWords(lines: string[], inserts: string[]): boolean {
-  if (!inserts.length) return true;
-  
-  const allText = lines.join(" ").toLowerCase();
-  
-  if (inserts.length === 1) {
-    // Single word must appear in ALL lines
-    const word = inserts[0].toLowerCase();
-    return lines.every(line => {
-      const text = line.toLowerCase();
-      // Check for word and common variants (plural, possessive)
-      return text.includes(word) || 
-             text.includes(word + "s") || 
-             text.includes(word + "'s");
-    });
-  } else {
-    // Multiple words: each must appear at least once across all lines
-    return inserts.every(word => {
-      const w = word.toLowerCase();
-      return allText.includes(w) || 
-             allText.includes(w + "s") || 
-             allText.includes(w + "'s");
-    });
-  }
-}
-
 // ---------- Last-resort fallback (can't fail) ----------
-function synth(topic: string, tone: Tone, inserts: string[]): string[] {
+function synth(topic: string, tone: Tone): string[] {
   const base = tone==="savage" ? "sharp" : tone==="sentimental" ? "warm" : "witty";
   const t = topic || "the moment";
-  const name = inserts.length ? inserts[0] : "";
   const s = (x:string)=> x.replace(/[\u2013\u2014]/g, ",").trim().replace(/\s+/g," ")
                           .replace(/([^.?!])$/,"$1.");
-  
-  if (name) {
-    // Include name in all lines if single insert word
-    if (inserts.length === 1) {
-      return [
-        s(`${name}: ${base} and memorable about ${t}.`),
-        s(`${name}, say less, laugh more.`),
-        s(`${name} makes ${t} interesting.`),
-        s(`Keep it punchy, ${name}.`)
-      ];
-    }
-    // Multiple insert words
-    return [
-      s(`${name}: ${base} and memorable.`),
-      s(`Say less about ${inserts.slice(1).join(", ")}.`),
-      s(`${t}, but actually interesting.`),
-      s(`Keep it punchy, keep it human.`)
-    ];
-  }
-  
   return [
     s(`${t}: ${base} and memorable.`),
     s(`Say less, laugh more about ${t}.`),
@@ -260,7 +212,7 @@ serve(async (req) => {
     const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
     const topic    = theme || subcat || category || "topic";
 
-    console.log(`[generate-text] Request: ${category}/${subcat}, tone:${tone}, rating:${rating}, inserts:${inserts.join(",")}`);
+    
 
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
@@ -275,30 +227,17 @@ serve(async (req) => {
     });
 
     let lines = await Promise.race([main, hedge]) as string[] | undefined;
-    
-    // Em-dash cleanup + trim
-    if (lines) {
-      lines = lines.map(l =>
-        l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g," ").trim()
-      );
-      
-      // Insert-word safety check
-      if (!validateInsertWords(lines, inserts)) {
-        console.log(`⚠️ Insert-word validation failed, using synth fallback`);
-        lines = synth(topic, tone, inserts);
-      }
-    } else {
-      console.log(`⚠️ No lines from AI, using synth fallback`);
-      lines = synth(topic, tone, inserts);
-    }
+    if (!lines) lines = synth(topic, tone);
 
-    console.log(`✅ Returning ${lines.length} lines`);
+    // Em-dash cleanup + trim, always
+    lines = lines.map(l =>
+      l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g," ").trim()
+    );
 
     return new Response(JSON.stringify({ success:true, options: lines.slice(0,4), model: MODEL }), {
       headers:{...cors,"Content-Type":"application/json"}
     });
   } catch (err) {
-    console.error(`❌ Error:`, err);
     // Never 502 — always return JSON the UI can show
     return new Response(JSON.stringify({ success:false, error:String(err) }), {
       status:200, headers:{...cors,"Content-Type":"application/json"}
