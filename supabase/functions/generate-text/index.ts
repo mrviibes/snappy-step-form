@@ -7,7 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const API = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-5-mini";
+const MODEL = "gpt-5-mini-2025-08-07";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
