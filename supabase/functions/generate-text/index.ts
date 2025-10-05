@@ -112,13 +112,14 @@ No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or p
 // ---------- OpenAI call ----------
 async function chatOnce(
   system: string, userObj: any,
-  maxTokens = 550, abortMs = 22000
+  maxTokens = 550, abortMs = 12000
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
 
   try {
+    console.log("[generate-text] sending request to OpenAI…");
     const r = await fetch(API, {
       method: "POST",
       headers: {
@@ -136,6 +137,7 @@ async function chatOnce(
       signal: ctl.signal,
     });
     const raw = await r.text();
+    console.log("[generate-text] received response length:", raw.length);
     if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0,400)}`);
     const data = JSON.parse(raw);
     const finish = data?.choices?.[0]?.finish_reason || "n/a";
@@ -186,12 +188,12 @@ serve(async req=>{
       return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<50||l.length>130||!/[.!?]$/.test(l));
     }
 
-    const main=chatOnce(SYSTEM,payload,700,22000);
+    const main=chatOnce(SYSTEM,payload,700,12000);
     const hedge=new Promise<{ok:boolean;lines?:string[];reason?:string}>(resolve=>{
       setTimeout(async()=>{
-        try{resolve(await chatOnce(SYSTEM,payload,900,22000));}
+        try{resolve(await chatOnce(SYSTEM,payload,900,12000));}
         catch{resolve({ok:false,reason:"hedge_failed"});}
-      },2000);
+      },1200);
     });
 
     let winner:any=await Promise.race([main,hedge]);
@@ -204,14 +206,14 @@ serve(async req=>{
     if(winner.ok&&winner.lines) lines=winner.lines;
     else{
       const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
-      const retry=await chatOnce(STRICT,payload,900,22000);
+      const retry=await chatOnce(STRICT,payload,900,12000);
       if(retry.ok&&retry.lines) lines=retry.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason=`model_failed:${(winner && winner.reason) || (retry && retry.reason) || 'unknown'}`;}
     }
 
-    if(source==="model"&&invalidSet(lines)){
+    if(false && source==="model"&&invalidSet(lines)){
       const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 75–125 character lines.";
-      const retry2=await chatOnce(STRICT,payload,900,22000);
+      const retry2=await chatOnce(STRICT,payload,900,12000);
       if(retry2.ok&&retry2.lines&&!invalidSet(retry2.lines)) lines=retry2.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason="invalid_set";}
     }

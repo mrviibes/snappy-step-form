@@ -72,7 +72,7 @@ export interface PollImageStatusResponse {
 // Helper function to call edge functions with timeout
 async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
-    "generate-text": 45000,
+    "generate-text": 70000,
     "generate-final-prompt": 120000,
     "generate-visuals": 120000,
     "generate-image": 45000,
