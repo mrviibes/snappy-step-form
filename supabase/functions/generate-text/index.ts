@@ -187,7 +187,9 @@ async function chatOnce(
       data?.choices?.[0]?.finish_reason; // often "length"
     return { ok: false, reason: String(reason || "no_lines") };
   } catch (e) {
-    return { ok: false, reason: e instanceof Error ? e.message : "unknown_error" };
+    const reason = e instanceof Error ? e.message : "unknown_error";
+    console.error("❌ chatOnce error:", reason);
+    return { ok: false, reason };
   } finally {
     clearTimeout(timer);
   }
@@ -214,6 +216,7 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
 
     const b = await req.json();
+    console.log("📥 Request received:", JSON.stringify(b, null, 2));
     const category = String(b.category||"").trim();
     const subcat   = String(b.subcategory||"").trim();
     const theme    = String(b.theme||"").trim();
@@ -221,6 +224,7 @@ serve(async (req) => {
     const rating   = (b.rating||"PG") as Rating;
     const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
     const topic    = theme || subcat || category || "topic";
+    console.log("🎯 Parsed params:", { category, subcat, theme, tone, rating, inserts, topic });
 
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
@@ -241,17 +245,21 @@ serve(async (req) => {
 
     // Pick the first successful one, otherwise fall back
     let result = await Promise.race([p1, p2]);
+    console.log("🏁 First race result:", result);
     if (!result.ok) {
       // If the first race failed (e.g., "length"), try the other in parallel, or synth
       const first = await p1;
       const second = await p2;
+      console.log("🔄 Trying other call. First:", first, "Second:", second);
       result = first.ok ? first : (second.ok ? second : { ok: false, reason: first.reason || second.reason });
     }
 
     let lines: string[];
     if (result.ok && result.lines) {
+      console.log("✅ Using AI-generated lines");
       lines = result.lines;
     } else {
+      console.log("⚠️ Using synth fallback. Reason:", result.reason);
       // LAST RESORT: synth 4 lines; never 500
       lines = synth(topic, tone);
     }
