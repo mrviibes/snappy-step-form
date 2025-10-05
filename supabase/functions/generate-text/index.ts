@@ -74,36 +74,21 @@ function buildSystem(
   topic: string,
   inserts: string[]
 ) {
-  const catKey = (category || "miscellaneous").toLowerCase() as Category;
-  const catHint = CATEGORY_HINT[catKey] || CATEGORY_HINT["miscellaneous"];
-  const jokesHint = catKey === "jokes" ? jokesFormatHint(subcategory) : "";
-  const birthdayNudge =
-    /celebrations/i.test(category) && /birthday/i.test(subcategory || topic)
-      ? "Include the word 'birthday' once somewhere in the set."
-      : "";
-  const insertsHint = inserts.length
-    ? `INSERT WORDS POLICY
-- Provided: ${inserts.join(", ")}
-- If one word, include it once in EVERY line.
-- If multiple, include each at least once across the 4 lines.
-- Vary position (start/middle/end). Do not start all lines with it.
-- Natural forms allowed (possessive/plural).`
-    : "";
+  const toneWord = TONE_HINT[tone] || "witty";
+  const ratingGate = RATING_HINT[rating] || "";
 
-  return [
-    "GOAL\nWrite 4 original, punchy on-image captions.",
-    "FORMAT\n- Exactly 4 lines\n- Each 28–120 chars\n- Each ends with . ! or ?\n- Return ONLY JSON: { \"lines\": [\"...\",\"...\",\"...\",\"...\"] }",
-    "STYLE\n- Human cadence, quick twist, one idea per line\n- One concrete visual detail per line\n- Vary rhythm; avoid repetitive openings\n- No emojis, hashtags, ellipses, or meta\n- Never use em-dashes (— or –); use commas or periods instead",
-    `TONE: ${TONE_HINT[tone]}`,
-    `RATING (movie-style): ${RATING_HINT[rating]}`,
-    humorPriority(tone, rating),
-    `CATEGORY: ${category}  |  SUBCATEGORY: ${subcategory}`,
-    `CATEGORY HINT: ${catHint}`,
-    jokesHint,
-    birthdayNudge,
-    insertsHint,
-    `TOPIC/CONTEXT: ${topic}`
-  ].filter(Boolean).join("\n\n");
+  const insertRule =
+    inserts.length === 1
+      ? `Include "${inserts[0]}" once in EVERY line, varied position, natural form ok.`
+      : inserts.length > 1
+        ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
+        : "";
+
+  return `Write 4 punchy captions for ${category}/${subcategory}. Topic: ${topic}.
+Tone: ${toneWord}. Rating: ${ratingGate}.
+${insertRule}
+Each line: 28-120 chars, ends with punctuation, one idea, human cadence.
+No emojis, hashtags, ellipses, or meta; never use em-dashes (— or –); use commas/periods.`.trim();
 }
 
 // ---------- JSON helpers ----------
@@ -135,7 +120,7 @@ function pickLinesFromChat(data: any): string[] | null {
 async function chatOnce(
   system: string,
   userObj: unknown,
-  maxTokens = 320,
+  maxTokens = 500,
   abortMs = 22000
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
   function parseLinesFromText(text: string): string[] {
@@ -250,14 +235,14 @@ serve(async (req) => {
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
 
-    // Primary: 320 tokens
-    const main = chatOnce(SYSTEM, userPayload, 320, 22000);
+    // Primary: 500 tokens
+    const main = chatOnce(SYSTEM, userPayload, 500, 22000);
 
-    // Hedge after 2s: 480 tokens (higher cap to beat tail latency)
+    // Hedge after 2s: 600 tokens (higher cap to beat tail latency)
     const hedge = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
       setTimeout(async () => {
         try {
-          resolve(await chatOnce(SYSTEM, userPayload, 480, 22000));
+          resolve(await chatOnce(SYSTEM, userPayload, 600, 22000));
         } catch {
           resolve({ ok: false, reason: "hedge_failed" });
         }
