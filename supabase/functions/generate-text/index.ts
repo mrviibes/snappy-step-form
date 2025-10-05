@@ -9,6 +9,12 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const API = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-5-mini-2025-08-07";
 
+// ---------- Tuning Constants ----------
+const TIMEOUT_MS = 18000;      // Main timeout (18s, well under Supabase 60s limit)
+const MAIN_TOKENS = 900;        // Initial call token limit
+const HEDGE_TOKENS = 1200;      // Hedge/retry token limit
+const HEDGE_DELAY_MS = 1500;    // Delay before starting hedge call
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -112,7 +118,7 @@ No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or p
 // ---------- OpenAI call ----------
 async function chatOnce(
   system: string, userObj: any,
-  maxTokens = 550, abortMs = 12000
+  maxTokens = 550, abortMs = TIMEOUT_MS
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
 
   const ctl = new AbortController();
@@ -137,7 +143,7 @@ async function chatOnce(
       signal: ctl.signal,
     });
     const raw = await r.text();
-    console.log("[generate-text] received response length:", raw.length);
+    console.log("[generate-text] status:", r.status, "response length:", raw.length, "chars");
     if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0,400)}`);
     const data = JSON.parse(raw);
     const finish = data?.choices?.[0]?.finish_reason || "n/a";
@@ -150,6 +156,12 @@ async function chatOnce(
       .filter((l:string)=>l.length>=50 && l.length<=130)
       .slice(0,4);
     return lines.length===4 ? {ok:true,lines}:{ok:false,reason:finish};
+  } catch (err) {
+    if (err.name === 'AbortError' || err === 'timeout') {
+      console.warn(`[generate-text] OpenAI call aborted after ${abortMs}ms`);
+      return { ok: false, reason: "timeout" };
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -188,12 +200,12 @@ serve(async req=>{
       return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<50||l.length>130||!/[.!?]$/.test(l));
     }
 
-    const main=chatOnce(SYSTEM,payload,900,12000);
+    const main=chatOnce(SYSTEM,payload,MAIN_TOKENS,TIMEOUT_MS);
     const hedge=new Promise<{ok:boolean;lines?:string[];reason?:string}>(resolve=>{
       setTimeout(async()=>{
-        try{resolve(await chatOnce(SYSTEM,payload,1200,12000));}
+        try{resolve(await chatOnce(SYSTEM,payload,HEDGE_TOKENS,TIMEOUT_MS + 5000));}
         catch{resolve({ok:false,reason:"hedge_failed"});}
-      },1200);
+      },HEDGE_DELAY_MS);
     });
 
     let winner:any=await Promise.race([main,hedge]);
@@ -206,14 +218,14 @@ serve(async req=>{
     if(winner.ok&&winner.lines) lines=winner.lines;
     else{
       const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
-      const retry=await chatOnce(STRICT,payload,1200,12000);
+      const retry=await chatOnce(STRICT,payload,HEDGE_TOKENS,TIMEOUT_MS + 5000);
       if(retry.ok&&retry.lines) lines=retry.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason=`model_failed:${(winner && winner.reason) || (retry && retry.reason) || 'unknown'}`;}
     }
 
     if(false && source==="model"&&invalidSet(lines)){
       const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 75–125 character lines.";
-      const retry2=await chatOnce(STRICT,payload,1200,12000);
+      const retry2=await chatOnce(STRICT,payload,HEDGE_TOKENS,TIMEOUT_MS + 5000);
       if(retry2.ok&&retry2.lines&&!invalidSet(retry2.lines)) lines=retry2.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason="invalid_set";}
     }
@@ -230,8 +242,9 @@ serve(async req=>{
       headers:{...cors,"Content-Type":"application/json"}
     });
   }catch(err){
-    return new Response(JSON.stringify({success:false,error:String(err)}),{
-      status:200,headers:{...cors,"Content-Type":"application/json"}
+    const isTimeout = String(err).includes('timeout') || String(err).includes('AbortError');
+    return new Response(JSON.stringify({success:false,error:String(err),status:isTimeout?504:500}),{
+      status:isTimeout?504:500,headers:{...cors,"Content-Type":"application/json"}
     });
   }
 });
