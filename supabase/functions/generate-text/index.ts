@@ -55,6 +55,32 @@ const RATING_HINTS: Record<string, string> = {
   R: "adult non-graphic sex OK; strong profanity OK; no slurs; no illegal how-to",
 };
 
+// Neutral subcategory hints (no birthday bias)
+const SUBCAT_HINT: Record<string, string> = {
+  "birthday": "birthday cards: age roast, cake chaos, party disasters, gifts, wishes.",
+  "baby-shower": "baby shower cards: diapers, bottles, onesies, nursery chaos, sleepless nights, baby registry.",
+  "baby shower": "baby shower cards: diapers, bottles, onesies, nursery chaos, sleepless nights, baby registry.",
+  "fathers-day": "Father's Day cards: dad skills, tools, grills, dad jokes, corny pride, lawn care.",
+  "fathers day": "Father's Day cards: dad skills, tools, grills, dad jokes, corny pride, lawn care.",
+  "mothers-day": "Mother's Day cards: superpowers, multitasking, chaos management, flowers, quiet time.",
+  "mothers day": "Mother's Day cards: superpowers, multitasking, chaos management, flowers, quiet time.",
+  "engagement": "engagement cards: proposal, ring, planning, guest lists, budgets, future together.",
+  "wedding": "wedding cards: vows, reception, in-laws, best man disasters, open bar, registry.",
+  "anniversary": "anniversary cards: years together, habits, teamwork, inside jokes, commitment.",
+  "graduation": "graduation cards: all-nighters, finals, diploma, job hunt, student loans, adulting.",
+  "valentines": "Valentine's cards: chaotic romance, cute threats, snacks framed as love.",
+  "valentine": "Valentine's cards: chaotic romance, cute threats, snacks framed as love.",
+  "baby": "new baby cards: diaper economy, sleep loss, tiny socks, feeding chaos.",
+  "retirement": "retirement cards: freedom, golf, no more meetings, pension, leisure chaos.",
+  "new-job": "new job cards: fresh start, office politics, coffee runs, first-day nerves.",
+  "new job": "new job cards: fresh start, office politics, coffee runs, first-day nerves.",
+  "housewarming": "housewarming cards: moving chaos, DIY disasters, furniture assembly, neighbors.",
+};
+
+function subcatHint(subcat: string, topic: string): string {
+  return SUBCAT_HINT[subcat.toLowerCase()] || `${topic} cards: write for that occasion; avoid birthday/cake imagery.`;
+}
+
 // Topicality cue patterns per subcategory
 const CUE_MAPS: Record<string, RegExp[]> = {
   birthday: [
@@ -79,6 +105,27 @@ const CUE_MAPS: Record<string, RegExp[]> = {
   anniversary: [
     /\banniversary\b/i, /\byears? together\b/i, /\bmarriage|relationship\b/i,
     /\bcommitment|love\b/i, /\bmemories|milestone\b/i
+  ],
+  'baby-shower': [
+    /\bdiapers?|nappies|wipes\b/i,
+    /\bbottle|formula|feeding\b/i,
+    /\bonesie|outfit|clothes\b/i,
+    /\bnursery|crib|stroller\b/i,
+    /\bparent|mom|dad|baby\b/i,
+    /\bsleep|nap|crying\b/i,
+    /\bgifts?|registry|receipt\b/i
+  ],
+  'fathers-day': [
+    /\bdad|father|papa\b/i,
+    /\btools?|grill|bbq\b/i,
+    /\bjokes?|puns?\b/i,
+    /\blawn|yard|garage\b/i,
+  ],
+  'mothers-day': [
+    /\bmom|mother|mama\b/i,
+    /\bflowers?|breakfast\b/i,
+    /\bmultitask|chaos\b/i,
+    /\bquiet|peace|break\b/i,
   ]
 };
 
@@ -171,29 +218,7 @@ function houseRules(tone: Tone, rating: Rating, task: TaskObject) {
   // Variety enforcement
   const varietyRules = "Across the 4 lines: vary structure (statements, a question or exclamation), avoid repeated openings, and cover at least three different topical angles for this subcategory.";
 
-  const subcatHint = subcategory === "wedding"
-    ? "Write savage wedding captions: vows, rings, reception chaos, best-man disasters, in-laws, registry, open bar. No birthday/age jokes."
-    : subcategory === "birthday"
-    ? "Write birthday captions: cake, candles, wish, age roast, party, gifts. No wedding content."
-    : subcategory === "engagement"
-    ? "Write engagement captions: ring, proposal, future planning, relationship milestones."
-    : subcategory === "graduation"
-    ? "Write graduation captions: diploma, career, student loans, caps and gowns."
-    : subcategory === "anniversary"
-    ? "Write anniversary captions: years together, commitment, shared memories."
-    : `Write ${subcategory || task.topic} captions.`;
-
-  // Few-shot examples covering different topics (not just cake)
-  const fewShotHint = subcategory === "birthday" ? `
-Examples covering different topics:
-- "The candles outnumber the safety briefing; HR is concerned."
-- "The party budget is 80% sprinkles, 20% damage control."
-- "This gift comes with a receipt and no follow-up questions."
-` : subcategory === "wedding" ? `
-Examples:
-- "Vows exchanged, open bar negotiated, in-laws on standby."
-- "The registry says 'blender,' the fine print says 'no returns.'"
-` : "";
+  const occasionHint = subcatHint(subcategory, task.topic);
 
   return [
     "Write 4 unique on-image card captions.",
@@ -208,8 +233,7 @@ Examples:
     `Rating: ${RATING_HINTS[rating]}`,
     "Never use em dashes. Use commas or periods.",
     "BANNED: gamer patch notes, fortune-cookie advice, 'Level up', 'Survived another lap', 'Make a wish', 'trip around the sun', 'legally binding', 'smoke detector', 'vintage classified', 'warranty expired', starting lines with 'Name,' or 'Name's'.",
-    subcatHint,
-    fewShotHint
+    `Occasion: ${occasionHint}`
   ].filter(Boolean).join("\n");
 }
 
@@ -638,11 +662,24 @@ function quickValidate(lines: string[], task: TaskObject) {
     return "banned_phrase";
   }
   
-  // Disallow second-person starters when no name was requested
+  // Auto-fix second-person starters when no name was requested (rewrite instead of reject)
   if (!task.insert_words?.length) {
     const badStarts = [/^you[, ]/i, /^your\b/i];
-    if (lines.some(l => badStarts.some(rx => rx.test(l)))) {
-      return "avoid_second_person_starter";
+    let fixed = false;
+    lines = lines.map(l => {
+      if (badStarts.some(rx => rx.test(l))) {
+        fixed = true;
+        return l
+          .replace(/^you,?\s*/i, "")
+          .replace(/^your\b/i, "The")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+      return l;
+    });
+    
+    if (fixed && DEBUG) {
+      console.log("✓ Auto-fixed second-person starters");
     }
   }
   
@@ -657,71 +694,87 @@ function quickValidate(lines: string[], task: TaskObject) {
   return null;
 }
 
-// Fallback lines per subcategory
-const SAFE_LINES_BY_CATEGORY: Record<string, string[]> = {
-  birthday: [
-    "The cake says 'serves 8' and {NAME} says 'challenge accepted.'",
-    "Birthday candles: a beautiful fire hazard with {NAME}'s wishes included.",
-    "If {NAME}'s frosting survives the group chat, it may be eaten unsupervised.",
-    "{NAME} is getting older, but the cake negotiations remain unchanged.",
-    "{NAME}'s age now officially classified as vintage. Handle with care.",
-    "The birthday cake arrived with {NAME}'s insurance policy and fire extinguisher.",
-    "{NAME} and the sprinkles are ready to testify in cake court.",
-    "Cake to calorie ratio is officially a {NAME} health concern."
-  ],
-  wedding: [
-    "Congrats to {NAME} on finding someone who'll put up with them—permanently.",
-    "Love is patient, love is kind, {NAME}'s love is signing a lifelong contract.",
-    "May {NAME}'s love be modern enough to survive the times, and old-fashioned enough to last forever.",
-    "Here's to {NAME}, love, laughter, and happily ever after—prenup optional."
-  ],
-  engagement: [
-    "Congrats to {NAME} on finding someone willing to argue about furniture for the rest of their life.",
-    "Ring acquired, registry loading, {NAME}'s wedding planner on speed dial. May the Wi-Fi be with you.",
-    "{NAME} said yes to forever, now say yes to fifty different venue options and a catering nightmare.",
-    "Engagement: when {NAME} and their partner agree to merge streaming subscriptions and pretend it's romantic."
-  ],
-  graduation: [
-    "Diploma unlocked for {NAME}, student loans loading. Welcome to the real world where nobody grades on a curve.",
-    "Congratulations to {NAME} on trading all-nighters for alarm clocks and coffee addictions for legitimate reasons.",
-    "Four years, one degree, lifelong debt for {NAME}. May your Wi-Fi be strong and your job offers be many.",
-    "Cap and gown returned for {NAME}, real clothes required. The final boss is adulting, and it doesn't offer extra credit."
-  ],
-  anniversary: [
-    "Another year of {NAME} not killing their partner. Cheers to that!",
-    "{NAME} is proof that love can survive anything—even each other.",
-    "Congratulations to {NAME} on another year of marriage. You're basically relationship veterans now.",
-    "May {NAME}'s love story continue to be better than any Netflix series."
-  ]
-};
+// Model-based fallback for when primary API fails
+async function modelFallback(category: string, subcategory: string, tone: Tone, rating: Rating) {
+  const occasion = subcatHint(subcategory.toLowerCase(), subcategory);
+  const system = [
+    "Return 4 card captions.",
+    "Each 70–110 chars; one idea per line; punctuation at end.",
+    `Tone: ${TONE_HINTS[tone]}`,
+    `Rating: ${RATING_HINTS[rating]}`,
+    `Occasion: ${occasion}`,
+    "Avoid second-person starters unless a name was requested."
+  ].join("\n");
 
-function getSafeLinesForSubcategory(subcategory: string, insertWords?: string[]): string[] {
-  const base = SAFE_LINES_BY_CATEGORY[subcategory.toLowerCase()] || SAFE_LINES_BY_CATEGORY.birthday;
-  const name = insertWords?.[0]?.trim();
-  
-  // Shuffle and take 4 to increase variety
-  const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, 4);
-  
-  return shuffled.map(line => {
-    if (/{NAME}/.test(line)) {
-      if (name) {
-        // weave name mid-sentence; never at the start
-        return line
-          .replace(/^{NAME},\s*/g, "")
-          .replace(/{NAME}'s\b/g, `${name}'s`)
-          .replace(/{NAME}/g, `${name}`); // mid-sentence templates only
+  const body = {
+    model: "gpt-5-mini-2025-08-07",
+    messages: [
+      { role: "system", content: system }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "ViibeTextFallbackV1",
+        strict: true,
+        schema: {
+          type: "object",
+          required: ["lines"],
+          additionalProperties: false,
+          properties: {
+            lines: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              items: { type: "string", minLength: 70, maxLength: 110 }
+            }
+          }
+        }
       }
-      // neutralize
-      return line
-        .replace(/^{NAME},\s*/g, "")
-        .replace(/{NAME}'s\b/g, "The")
-        .replace(/{NAME}/g, "the guest")
-        .replace(/\s+/g, " ")
-        .replace(/\s([.,!?;:])/g, "$1")
-        .trim();
+    },
+    max_completion_tokens: 420
+  };
+
+  const ctl = new AbortController();
+  const tid = setTimeout(() => ctl.abort("timeout"), 8000);
+  
+  try {
+    const r = await fetch(CHAT_COMPLETIONS_URL, {
+      method: "POST",
+      headers: { 
+        Authorization: `Bearer ${OPENAI_API_KEY}`, 
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify(body),
+      signal: ctl.signal
+    });
+    
+    const raw = await r.text();
+    if (!r.ok) {
+      console.error(`modelFallback API error: ${r.status} - ${raw.slice(0, 300)}`);
+      return [];
     }
-    return line;
-  });
+    
+    const data = JSON.parse(raw);
+    
+    // Try to parse from message.content
+    if (data.choices?.[0]?.message?.content) {
+      try {
+        const parsed = JSON.parse(data.choices[0].message.content);
+        if (Array.isArray(parsed?.lines) && parsed.lines.length === 4) {
+          return parsed.lines as string[];
+        }
+      } catch (e) {
+        console.error("modelFallback parse error:", e);
+      }
+    }
+    
+    return [];
+  } catch (e) {
+    console.error("modelFallback error:", e);
+    return [];
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 // ============ HTTP HANDLER ============
@@ -743,9 +796,14 @@ serve(async (req) => {
     // DRY-RUN BYPASS: call with ?dry=1 to prove wiring without model/key
     if (url.searchParams.get("dry") === "1") {
       const insert_words: string[] = Array.isArray(body.insertWords) ? body.insertWords.slice(0, 2) : [];
+      const category = String(body.category || "celebrations").trim();
+      const subcategory = String(body.subcategory || "birthday").trim();
+      const tone: Tone = (body.tone || "humorous") as Tone;
+      const rating: Rating = (body.rating || "PG") as Rating;
+      
       return new Response(JSON.stringify({ 
         success: true, 
-        options: getSafeLinesForSubcategory("birthday", insert_words), 
+        options: await modelFallback(category, subcategory, tone, rating), 
         model: "dry-run",
         source: "dry-run",
         req_id
@@ -822,19 +880,24 @@ serve(async (req) => {
           });
         }
         
-        console.log("⚠️ Parse/provider error → returning safe fallback lines");
-        const safeFallback = getSafeLinesForSubcategory(subcategory, insert_words);
-        return new Response(JSON.stringify({ 
-          success: true, 
-          options: safeFallback, 
-          model: CHAT_MODEL,
-          source: "fallback",
-          req_id,
-          count: safeFallback.length,
-          reason: msg
-        }), {
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
+        console.log("⚠️ Parse/provider error → attempting model-based fallback");
+        const safeFallback = await modelFallback(category, subcategory, tone, rating);
+        
+        if (safeFallback.length === 4) {
+          return new Response(JSON.stringify({ 
+            success: true, 
+            options: safeFallback, 
+            model: "gpt-5-mini-2025-08-07",
+            source: "model-fallback",
+            req_id,
+            count: 4
+          }), {
+            headers: { ...cors, "Content-Type": "application/json" },
+          });
+        }
+        
+        // If even model fallback failed
+        return err(502, "provider_error_fallback_failed", { details: msg });
       }
       
       return err(502, "provider_error", { details: msg });
