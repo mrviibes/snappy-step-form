@@ -188,10 +188,10 @@ serve(async req=>{
       return !Array.isArray(ls)||ls.length<4||ls.some(l=>l.length<50||l.length>130||!/[.!?]$/.test(l));
     }
 
-    const main=chatOnce(SYSTEM,payload,700,12000);
+    const main=chatOnce(SYSTEM,payload,900,12000);
     const hedge=new Promise<{ok:boolean;lines?:string[];reason?:string}>(resolve=>{
       setTimeout(async()=>{
-        try{resolve(await chatOnce(SYSTEM,payload,900,12000));}
+        try{resolve(await chatOnce(SYSTEM,payload,1200,12000));}
         catch{resolve({ok:false,reason:"hedge_failed"});}
       },1200);
     });
@@ -206,14 +206,14 @@ serve(async req=>{
     if(winner.ok&&winner.lines) lines=winner.lines;
     else{
       const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
-      const retry=await chatOnce(STRICT,payload,900,12000);
+      const retry=await chatOnce(STRICT,payload,1200,12000);
       if(retry.ok&&retry.lines) lines=retry.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason=`model_failed:${(winner && winner.reason) || (retry && retry.reason) || 'unknown'}`;}
     }
 
     if(false && source==="model"&&invalidSet(lines)){
       const STRICT=SYSTEM+"\nSTRICT: Retry with enforced 75–125 character lines.";
-      const retry2=await chatOnce(STRICT,payload,900,12000);
+      const retry2=await chatOnce(STRICT,payload,1200,12000);
       if(retry2.ok&&retry2.lines&&!invalidSet(retry2.lines)) lines=retry2.lines;
       else{lines=synth(topic,tone,inserts);source="synth";fallbackReason="invalid_set";}
     }
