@@ -243,7 +243,7 @@ serve(async (req) => {
     const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
     const rawTopic = theme || subcat || category || "topic";
     const displayTopic = String(rawTopic).replace(/[-_]/g, " ").trim();
-    console.log("🎯 Parsed params:", { category, subcat, theme, tone, rating, inserts, topic });
+    console.log("🎯 Parsed params:", { category, subcat, theme, tone, rating, inserts, displayTopic });
 
     const SYSTEM = buildSystem(tone, rating, category, subcat, displayTopic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic: displayTopic, insertWords: inserts };
