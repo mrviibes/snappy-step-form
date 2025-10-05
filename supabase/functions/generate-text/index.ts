@@ -37,6 +37,25 @@ const RATING_HINT: Record<Rating,string> = {
   R:"Hangover/Superbad; strong profanity allowed; non-graphic adult themes; no slurs; no illegal how-to"
 };
 
+// ---------- Comedy Style Rotation ----------
+const COMEDY_STYLES = [
+  "Observational humor using everyday logic and irony.",
+  "Roast-style humor, confident and sharp but still playful.",
+  "Surreal humor with weird twists that stay relatable.",
+  "Warm funny tone with kindness hidden in the punchline."
+];
+
+// ---------- POV Detection ----------
+function povHint(inserts: string[]) {
+  if (!inserts || inserts.length === 0)
+    return "Speak directly to the reader using 'you'.";
+  if (inserts.includes("I") || inserts.includes("me"))
+    return "Write from first person using 'I'.";
+  if (inserts.some(w => /^[A-Z]/.test(w)))
+    return `Write about ${inserts.join(" and ")} in third person.`;
+  return `Write about ${inserts.join(" and ")} as casual descriptors.`;
+}
+
 // ---------- Category hint ----------
 const CATEGORY_HINT: Record<Category,string> = {
   "celebrations":"Focus on the person and the moment; party energy, cake, friends; clear occasion.",
@@ -84,6 +103,9 @@ function buildSystem(
         ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
         : "";
 
+  const pov = povHint(inserts);
+  const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
+
   const catVoice: Record<string, string> = {
     "celebrations": "Speak like the funniest friend at the party.",
     "daily-life": "Speak like a sarcastic friend narrating their day.",
@@ -97,9 +119,12 @@ function buildSystem(
   return `Write 4 punchy one-liners for ${category}/${subcategory}. Topic: ${topic}.
 Tone: ${toneWord}. Rating: ${ratingGate}.
 ${insertRule}
+${pov}
+Comedy style: ${style}
 ${(/jokes/i.test(category) && /pun/i.test((subcategory||topic||""))) ? "PUN MODE: heavy wordplay about the topic; do not say 'pun' or talk about jokes." : ""}
+Use setup, pivot, and tag like a live comedian. Make each line sound spoken, not written.
 Each line: 60–120 characters, ends with punctuation, one idea, human cadence.
-No emojis, hashtags, ellipses, or meta; never use em-dashes (— or –); use commas or periods.`.trim();
+No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.`.trim();
 }
 
 // ---------- JSON helpers ----------
