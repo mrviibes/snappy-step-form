@@ -84,11 +84,24 @@ function buildSystem(
         ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
         : "";
 
-  return `Write 4 punchy captions for ${category}/${subcategory}. Topic: ${topic}.
-Tone: ${toneWord}. Rating: ${ratingGate}.
+  const catVoice: Record<string, string> = {
+    "celebrations": "Speak like the funniest friend at the party.",
+    "daily-life": "Speak like a sarcastic friend narrating their day.",
+    "sports": "Speak like a coach who roasts everyone with love.",
+    "pop-culture": "Speak like a late-night host making pop jokes.",
+    "jokes": "Each line should feel like a stand-up punchline.",
+    "miscellaneous": "Keep it observational and witty."
+  };
+  const voiceHint = catVoice[category.toLowerCase()] || "";
+
+  return `Write 4 punchy, hilarious one-liners for ${category}/${subcategory}.
+Topic: ${topic}. Tone: ${toneWord}. Rating: ${ratingGate}.
 ${insertRule}
-Each line: 28-120 chars, ends with punctuation, one idea, human cadence.
-No emojis, hashtags, ellipses, or meta; never use em-dashes (— or –); use commas/periods.`.trim();
+${voiceHint}
+Each line: 60–120 characters, ends with punctuation.
+Sound like a comedian, not a caption bot.
+Use timing, misdirection, and punchlines — quick setup, fast twist, no fluff.
+No emojis, hashtags, or meta references. Never use em-dashes.`.trim();
 }
 
 // ---------- JSON helpers ----------
@@ -120,7 +133,7 @@ function pickLinesFromChat(data: any): string[] | null {
 async function chatOnce(
   system: string,
   userObj: unknown,
-  maxTokens = 500,
+  maxTokens = 550,
   abortMs = 22000
 ): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
   function parseLinesFromText(text: string): string[] {
@@ -130,10 +143,10 @@ async function chatOnce(
       .split(/\r?\n+/)
       .map((l) => l.replace(/^\s*[-*•\d\.)]+\s*/, "").trim())
       .filter(Boolean);
-    // Ensure punctuation at end; keep between 28-160 chars roughly
+    // Ensure punctuation at end; keep between 60-120 chars
     const cleaned = raw.map((l) => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").trim())
       .map((l) => (/[.!?]$/.test(l) ? l : l + "."))
-      .filter((l) => l.length >= 28 && l.length <= 160);
+      .filter((l) => l.length >= 60 && l.length <= 120);
     return cleaned.slice(0, 4);
   }
 
@@ -235,14 +248,14 @@ serve(async (req) => {
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
 
-    // Primary: 500 tokens
-    const main = chatOnce(SYSTEM, userPayload, 500, 22000);
+    // Primary: 550 tokens
+    const main = chatOnce(SYSTEM, userPayload, 550, 22000);
 
-    // Hedge after 2s: 600 tokens (higher cap to beat tail latency)
+    // Hedge after 2s: 650 tokens (higher cap to beat tail latency)
     const hedge = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
       setTimeout(async () => {
         try {
-          resolve(await chatOnce(SYSTEM, userPayload, 600, 22000));
+          resolve(await chatOnce(SYSTEM, userPayload, 650, 22000));
         } catch {
           resolve({ ok: false, reason: "hedge_failed" });
         }
