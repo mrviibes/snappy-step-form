@@ -5,9 +5,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const API = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+const API = "https://api.openai.com/v1/chat/completions";
+const MODEL = "gpt-5-mini-2025-08-07";
 
 // ---------- Tuning Constants ----------
 const TIMEOUT_MS = 18000;      // Main timeout (18s, well under Supabase 60s limit)
@@ -172,7 +172,7 @@ async function reformatToFourLines(raw: string): Promise<string[] | null> {
     const r = await fetch(API, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -184,7 +184,7 @@ async function reformatToFourLines(raw: string): Promise<string[] | null> {
           },
           { role: "user", content: raw }
         ],
-        max_tokens: 300,
+        max_completion_tokens: 300,
       }),
       signal: ctl.signal,
     });
@@ -219,11 +219,11 @@ async function chatOnce(
   const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
 
   try {
-    console.log("[generate-text] sending request to AI gateway…");
+    console.log("[generate-text] sending request to OpenAI…");
     const r = await fetch(API, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -232,13 +232,13 @@ async function chatOnce(
           { role: "system", content: system },
           { role: "user", content: JSON.stringify(userObj) },
         ],
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
       }),
       signal: ctl.signal,
     });
     const raw = await r.text();
     console.log("[generate-text] status:", r.status, "response length:", raw.length, "chars");
-    if (!r.ok) throw new Error(`AI gateway ${r.status}: ${raw.slice(0,400)}`);
+    if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0,400)}`);
     const data = JSON.parse(raw);
     const finish = data?.choices?.[0]?.finish_reason || "n/a";
     console.log("[generate-text] finish_reason:", finish);
@@ -268,7 +268,7 @@ async function chatOnce(
     return { ok: false, reason: finish, raw: content };
   } catch (err) {
     if (err.name === 'AbortError' || err === 'timeout') {
-      console.warn(`[generate-text] AI call aborted after ${abortMs}ms`);
+      console.warn(`[generate-text] OpenAI call aborted after ${abortMs}ms`);
       return { ok: false, reason: "timeout" };
     }
     throw err;
@@ -292,7 +292,7 @@ function synth(topic:string,tone:Tone,inserts:string[]=[]){
 serve(async req=>{
   if(req.method==="OPTIONS") return new Response(null,{headers:cors});
   try{
-    if(!LOVABLE_API_KEY) throw new Error("Missing LOVABLE_API_KEY");
+    if(!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
     const b=await req.json();
     const category=String(b.category||"").trim();
