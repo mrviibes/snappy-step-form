@@ -150,63 +150,81 @@ async function chatOnce(
           type: "array",
           minItems: 4,
           maxItems: 4,
-          items: { type: "string", minLength: 28, maxLength: 120, pattern: "[.!?]$" },
+          // Loosened: removed pattern so model doesn't stretch output hitting "length"
+          items: { type: "string", minLength: 28, maxLength: 120 },
         },
       },
     },
   };
-  const body = {
-    model: MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: JSON.stringify(userObj) },
-    ],
-    response_format: { type: "json_schema", json_schema: schema },
-    max_completion_tokens: maxTokens, // do not send temperature/top_p for 5-family
-  };
 
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
-  try {
-    const r = await fetch(API, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: ctl.signal,
-    });
-    const raw = await r.text();
-    if (r.status === 402) return { ok: false, reason: "payment_required" };
-    if (r.status === 429) return { ok: false, reason: "rate_limited" };
-    if (!r.ok) return { ok: false, reason: `OpenAI ${r.status}: ${raw.slice(0, 120)}` };
-    const data = JSON.parse(raw);
-    const lines = pickLinesFromChat(data);
-    if (lines && lines.length === 4) return { ok: true, lines };
-    const reason =
-      data?.choices?.[0]?.message?.refusal ||
-      data?.incomplete_details?.reason ||
-      data?.choices?.[0]?.finish_reason; // often "length"
-    return { ok: false, reason: String(reason || "no_lines") };
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : "unknown_error";
-    console.error("❌ chatOnce error:", reason);
-    return { ok: false, reason };
-  } finally {
-    clearTimeout(timer);
+  async function call(cap: number) {
+    const body = {
+      model: MODEL,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: JSON.stringify(userObj) },
+      ],
+      response_format: { type: "json_schema", json_schema: schema },
+      max_completion_tokens: cap,
+    };
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
+    try {
+      const r = await fetch(API, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      });
+      const raw = await r.text();
+      if (!r.ok) throw new Error(`OpenAI ${r.status}: ${raw.slice(0, 600)}`);
+      const data = JSON.parse(raw);
+      console.log("[generate-text] finish_reason:", data?.choices?.[0]?.finish_reason || data?.incomplete_details?.reason || "n/a");
+      const lines = pickLinesFromChat(data);
+      if (lines && lines.length === 4) return { ok: true, lines };
+
+      const reason =
+        data?.choices?.[0]?.message?.refusal ||
+        data?.incomplete_details?.reason ||
+        data?.choices?.[0]?.finish_reason || "no_lines";
+      return { ok: false, reason: String(reason) };
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  // Primary try
+  let res = await call(maxTokens);
+  if (res.ok) return res;
+
+  // If the model stopped for "length", retry ONCE with a bigger cap immediately
+  if (res.reason === "length") {
+    console.log("🔄 Retrying due to length with +160 tokens");
+    const second = await call(maxTokens + 160); // e.g., 320→480
+    if (second.ok) return second;
+    return second; // still not ok
+  }
+
+  return res; // not length → bubble reason
 }
 
 // ---------- Last-resort fallback (can't fail) ----------
 function synth(topic: string, tone: Tone): string[] {
-  const base = tone==="savage" ? "sharp" : tone==="sentimental" ? "warm" : "witty";
   const t = topic || "the moment";
-  const s = (x:string)=> x.replace(/[\u2013\u2014]/g, ",").trim().replace(/\s+/g," ")
-                          .replace(/([^.?!])$/,"$1.");
-  return [
-    s(`${t}: ${base} and memorable.`),
-    s(`Say less, laugh more about ${t}.`),
-    s(`${t}, but actually interesting.`),
-    s(`Keep it punchy, keep it human on ${t}.`)
+  const funny = [
+    `${t} doesn't need context, it needs commitment.`,
+    `Schedule says no, ${t} says do it anyway.`,
+    `You brought logic; ${t} brought glitter.`,
+    `${t}: short plan, long story.`,
   ];
+  const warm = [
+    `${t} shows up small and still matters.`,
+    `A quiet ${t} is still a win.`,
+    `Keep ${t} simple and kind.`,
+    `Let ${t} be enough today.`,
+  ];
+  const set = (tone === "sentimental" || tone === "serious" || tone === "romantic") ? warm : funny;
+  return set.map((x) => x.replace(/[\u2013\u2014]/g, ",").replace(/([^.?!])$/, "$1."));
 }
 
 // ---------- HTTP handler ----------
@@ -230,44 +248,43 @@ serve(async (req) => {
     const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
 
     // Primary: 320 tokens
-    const p1 = chatOnce(SYSTEM, userPayload, 320, 22000);
+    const main = chatOnce(SYSTEM, userPayload, 320, 22000);
 
-    // Hedge after 2s: 448 tokens
-    const p2 = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
+    // Hedge after 2s: 480 tokens (higher cap to beat tail latency)
+    const hedge = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
       setTimeout(async () => {
         try {
-          resolve(await chatOnce(SYSTEM, userPayload, 448, 22000));
+          resolve(await chatOnce(SYSTEM, userPayload, 480, 22000));
         } catch {
           resolve({ ok: false, reason: "hedge_failed" });
         }
       }, 2000);
     });
 
-    // Pick the first successful one, otherwise fall back
-    let result = await Promise.race([p1, p2]);
-    console.log("🏁 First race result:", result);
-    if (!result.ok) {
-      // If the first race failed (e.g., "length"), try the other in parallel, or synth
-      const first = await p1;
-      const second = await p2;
-      console.log("🔄 Trying other call. First:", first, "Second:", second);
-      result = first.ok ? first : (second.ok ? second : { ok: false, reason: first.reason || second.reason });
+    let winner = await Promise.race([main, hedge]);
+
+    if (!winner.ok) {
+      // If the first to complete failed, await the other result once
+      const other = (winner === (await main)) ? await hedge : await main;
+      winner = other.ok ? other : winner;
     }
 
-    let lines: string[];
-    if (result.ok && result.lines) {
+    let lines: string[], source = "model";
+    if (winner.ok && winner.lines) {
       console.log("✅ Using AI-generated lines");
-      lines = result.lines;
+      lines = winner.lines;
     } else {
-      console.log("⚠️ Using synth fallback. Reason:", result.reason);
-      // LAST RESORT: synth 4 lines; never 500
+      console.log("⚠️ Using synth fallback. Reason:", winner.reason);
       lines = synth(topic, tone);
+      source = "synth";
     }
 
-    // Cleanup em/en dashes & whitespace
-    lines = lines.map((l) => l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").trim());
+    // Cleanup em/en dashes + whitespace + ensure punctuation
+    lines = lines.map((l) =>
+      l.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").replace(/([^.?!])$/, "$1.").trim()
+    );
 
-    return new Response(JSON.stringify({ success: true, options: lines.slice(0, 4), model: MODEL }), {
+    return new Response(JSON.stringify({ success: true, options: lines.slice(0, 4), model: MODEL, source }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {
