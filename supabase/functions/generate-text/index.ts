@@ -94,14 +94,12 @@ function buildSystem(
   };
   const voiceHint = catVoice[category.toLowerCase()] || "";
 
-  return `Write 4 punchy, hilarious one-liners for ${category}/${subcategory}.
-Topic: ${topic}. Tone: ${toneWord}. Rating: ${ratingGate}.
+  return `Write 4 punchy one-liners for ${category}/${subcategory}. Topic: ${topic}.
+Tone: ${toneWord}. Rating: ${ratingGate}.
 ${insertRule}
-${voiceHint}
-Each line: 60–120 characters, ends with punctuation.
-Sound like a comedian, not a caption bot.
-Use timing, misdirection, and punchlines — quick setup, fast twist, no fluff.
-No emojis, hashtags, or meta references. Never use em-dashes.`.trim();
+${(/jokes/i.test(category) && /pun/i.test((subcategory||topic||""))) ? "PUN MODE: heavy wordplay about the topic; do not say 'pun' or talk about jokes." : ""}
+Each line: 60–120 characters, ends with punctuation, one idea, human cadence.
+No emojis, hashtags, ellipses, or meta; never use em-dashes (— or –); use commas or periods.`.trim();
 }
 
 // ---------- JSON helpers ----------
@@ -210,22 +208,23 @@ async function chatOnce(
 }
 
 // ---------- Last-resort fallback (can't fail) ----------
-function synth(topic: string, tone: Tone): string[] {
+function synth(topic: string, tone: Tone, inserts: string[] = []): string[] {
   const t = topic || "the moment";
+  const name = inserts[0] ? ` ${inserts[0]}` : "";
   const funny = [
-    `${t} doesn't need context, it needs commitment.`,
-    `Schedule says no, ${t} says do it anyway.`,
-    `You brought logic; ${t} brought glitter.`,
-    `${t}: short plan, long story.`,
+    `Breakfast${name} arrives with confidence and crumbs; the day can catch up later.`,
+    `${inserts[0] ? inserts[0] + " " : ""}defends the last bite like a championship; the cereal box files an appeal.`,
+    `Coffee narrates, toast heckles, eggs improvise; ${t} is organized chaos that tastes good.`,
+    `${t}${name} turns “five more minutes” into a lifestyle and the plate into a witness statement.`
   ];
   const warm = [
-    `${t} shows up small and still matters.`,
-    `A quiet ${t} is still a win.`,
-    `Keep ${t} simple and kind.`,
-    `Let ${t} be enough today.`,
+    `${t}${name} is ordinary and that’s why it saves the morning.`,
+    `Small rituals like ${t}${name} hold the day together quietly.`,
+    `${inserts[0] ? inserts[0] + " " : ""}chooses calm; ${t} chooses comfort; the sun negotiates the rest.`,
+    `You don’t owe the world speed; start with ${t}${name} and breathe.`
   ];
   const set = (tone === "sentimental" || tone === "serious" || tone === "romantic") ? warm : funny;
-  return set.map((x) => x.replace(/[\u2013\u2014]/g, ",").replace(/([^.?!])$/, "$1."));
+  return set.map((s) => s.replace(/[\u2013\u2014]/g, ",").replace(/\s+/g, " ").replace(/([^.?!])$/, "$1"));
 }
 
 // ---------- HTTP handler ----------
@@ -242,20 +241,26 @@ serve(async (req) => {
     const tone     = (b.tone||"humorous") as Tone;
     const rating   = (b.rating||"PG") as Rating;
     const inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0,2) : [];
-    const topic    = theme || subcat || category || "topic";
+    const rawTopic = theme || subcat || category || "topic";
+    const displayTopic = String(rawTopic).replace(/[-_]/g, " ").trim();
     console.log("🎯 Parsed params:", { category, subcat, theme, tone, rating, inserts, topic });
 
-    const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
-    const userPayload = { tone, rating, category, subcategory: subcat, topic, insertWords: inserts };
+    const SYSTEM = buildSystem(tone, rating, category, subcat, displayTopic, inserts);
+    const userPayload = { tone, rating, category, subcategory: subcat, topic: displayTopic, insertWords: inserts };
 
-    // Primary: 550 tokens
-    const main = chatOnce(SYSTEM, userPayload, 550, 22000);
+    // Helper: quick validation
+    function invalidSet(ls: string[]) {
+      return !Array.isArray(ls) || ls.length < 4 || ls.some((l) => l.length < 60 || l.length > 120 || !/[.!?]$/.test(l));
+    }
 
-    // Hedge after 2s: 650 tokens (higher cap to beat tail latency)
+    // Primary: 700 tokens
+    const main = chatOnce(SYSTEM, userPayload, 700, 22000);
+
+    // Hedge after 2s: 900 tokens (higher cap to beat tail latency)
     const hedge = new Promise<{ ok: boolean; lines?: string[]; reason?: string }>((resolve) => {
       setTimeout(async () => {
         try {
-          resolve(await chatOnce(SYSTEM, userPayload, 650, 22000));
+          resolve(await chatOnce(SYSTEM, userPayload, 900, 22000));
         } catch {
           resolve({ ok: false, reason: "hedge_failed" });
         }
@@ -270,14 +275,36 @@ serve(async (req) => {
       winner = other.ok ? other : winner;
     }
 
-    let lines: string[], source = "model";
+    let lines: string[] | undefined;
+    let source = "model";
+
     if (winner.ok && winner.lines) {
       console.log("✅ Using AI-generated lines");
       lines = winner.lines;
     } else {
-      console.log("⚠️ Using synth fallback. Reason:", winner.reason);
-      lines = synth(topic, tone);
-      source = "synth";
+      console.log("🔁 Strict retry invoked");
+      const STRICT = SYSTEM + "\nSTRICT: Each line must be 60–120 characters with clear wordplay and a twist.";
+      const retry = await chatOnce(STRICT, userPayload, 900, 22000);
+      if (retry.ok && retry.lines) {
+        lines = retry.lines;
+      } else {
+        console.log("⚠️ Using synth fallback. Reason:", winner.reason);
+        lines = synth(displayTopic, tone, inserts);
+        source = "synth";
+      }
+    }
+
+    // If model lines invalid, strict retry once more
+    if (source === "model" && lines && invalidSet(lines)) {
+      console.log("🔁 Strict retry invoked (validation)");
+      const STRICT = SYSTEM + "\nSTRICT: Each line must be 60–120 characters with clear wordplay and a twist.";
+      const retry2 = await chatOnce(STRICT, userPayload, 900, 22000);
+      if (retry2.ok && retry2.lines && !invalidSet(retry2.lines)) {
+        lines = retry2.lines;
+      } else {
+        lines = synth(displayTopic, tone, inserts);
+        source = "synth";
+      }
     }
 
     // Cleanup em/en dashes + whitespace + ensure punctuation
