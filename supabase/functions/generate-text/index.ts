@@ -115,11 +115,105 @@ No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or p
 `.trim();
 }
 
+// ---------- Robust line extractor ----------
+function extractFourLines(content: string): string[] {
+  const clean = (l: string) => 
+    l.replace(/[\u2013\u2014]/g, ",")
+     .replace(/[:;]+/g, ",")
+     .replace(/\s+/g, " ")
+     .trim();
+
+  // Strategy 1: Primary - split by newlines, accept 40-140 chars
+  let lines = content
+    .split(/\r?\n+/)
+    .map(clean)
+    .filter(l => l.length >= 40 && l.length <= 140)
+    .slice(0, 4);
+  
+  if (lines.length === 4) return lines;
+
+  // Strategy 2: Bullets/numbers - split on "1)", "2.", "- ", etc.
+  const bulletPattern = /(?:^\s*|\n\s*)(?:\d+[\.)]\s*|[-•]\s*)/;
+  if (bulletPattern.test(content)) {
+    lines = content
+      .split(bulletPattern)
+      .map(clean)
+      .filter(l => l.length >= 40 && l.length <= 140)
+      .slice(0, 4);
+    
+    if (lines.length === 4) return lines;
+  }
+
+  // Strategy 3: Sentence fallback - split on ". " and rejoin
+  const sentences = content
+    .split(/\.\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+  
+  lines = [];
+  for (const sent of sentences) {
+    const cleaned = clean(sent);
+    if (cleaned.length >= 40 && cleaned.length <= 140) {
+      lines.push(cleaned);
+      if (lines.length === 4) break;
+    }
+  }
+
+  return lines;
+}
+
+// ---------- Reformat helper ----------
+async function reformatToFourLines(raw: string): Promise<string[] | null> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort("timeout"), 15000);
+
+  try {
+    console.log("[generate-text] attempting reformat of raw output");
+    const r = await fetch(API, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { 
+            role: "system", 
+            content: "Rewrite the given text into exactly 4 one-liners. Each line: 60-120 characters, one per line, no emojis/hashtags/colons/semicolons/em-dashes. End each with punctuation (. ! ?)."
+          },
+          { role: "user", content: raw }
+        ],
+        max_completion_tokens: 300,
+      }),
+      signal: ctl.signal,
+    });
+    
+    const responseText = await r.text();
+    if (!r.ok) {
+      console.warn("[generate-text] reformat failed:", r.status);
+      return null;
+    }
+
+    const data = JSON.parse(responseText);
+    const content = data?.choices?.[0]?.message?.content || "";
+    const lines = extractFourLines(content);
+    
+    console.log("[generate-text] reformat yielded:", lines.length, "lines");
+    return lines.length === 4 ? lines : null;
+  } catch (err) {
+    console.warn("[generate-text] reformat error:", String(err));
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------- OpenAI call ----------
 async function chatOnce(
   system: string, userObj: any,
   maxTokens = 550, abortMs = TIMEOUT_MS
-): Promise<{ ok: boolean; lines?: string[]; reason?: string }> {
+): Promise<{ ok: boolean; lines?: string[]; reason?: string; raw?: string }> {
 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort("timeout"), abortMs);
@@ -150,12 +244,28 @@ async function chatOnce(
     console.log("[generate-text] finish_reason:", finish);
 
     const content = data?.choices?.[0]?.message?.content || "";
-    const lines = content
+    
+    // Try strict parse first (50-130 chars)
+    const strictLines = content
       .split(/\r?\n+/)
       .map((l:string)=>l.replace(/[\u2013\u2014]/g,",").replace(/[:;]+/g,",").replace(/\s+/g," ").trim())
       .filter((l:string)=>l.length>=50 && l.length<=130)
       .slice(0,4);
-    return lines.length===4 ? {ok:true,lines}:{ok:false,reason:finish};
+    
+    if (strictLines.length === 4) {
+      console.log("[generate-text] strict parse: 4 lines ✓");
+      return { ok: true, lines: strictLines };
+    }
+
+    // Try relaxed extraction
+    const relaxedLines = extractFourLines(content);
+    if (relaxedLines.length === 4) {
+      console.log("[generate-text] relaxed parse: 4 lines ✓");
+      return { ok: true, lines: relaxedLines };
+    }
+
+    console.log("[generate-text] parsing failed, returning raw for reformat");
+    return { ok: false, reason: finish, raw: content };
   } catch (err) {
     if (err.name === 'AbortError' || err === 'timeout') {
       console.warn(`[generate-text] OpenAI call aborted after ${abortMs}ms`);
@@ -215,12 +325,49 @@ serve(async req=>{
     }
 
     let lines:string[],source="model",fallbackReason="";
-    if(winner.ok&&winner.lines) lines=winner.lines;
-    else{
-      const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
-      const retry=await chatOnce(STRICT,payload,HEDGE_TOKENS,TIMEOUT_MS + 5000);
-      if(retry.ok&&retry.lines) lines=retry.lines;
-      else{lines=synth(topic,tone,inserts);source="synth";fallbackReason=`model_failed:${(winner && winner.reason) || (retry && retry.reason) || 'unknown'}`;}
+    
+    if(winner.ok&&winner.lines) {
+      lines=winner.lines;
+      console.log("[generate-text] chosen_source: primary_model");
+    } else if (winner.raw) {
+      // Try reformat if we have raw content
+      console.log("[generate-text] attempting reformat on winner.raw");
+      const reformatted = await reformatToFourLines(winner.raw);
+      if (reformatted && reformatted.length === 4) {
+        lines = reformatted;
+        source = "model";
+        console.log("[generate-text] chosen_source: reformatted");
+      } else {
+        // Fallback to strict retry
+        const STRICT=SYSTEM+"\nSTRICT: Each line must be 75–125 chars with clear wordplay and a twist.";
+        const retry=await chatOnce(STRICT,payload,HEDGE_TOKENS,TIMEOUT_MS + 5000);
+        if(retry.ok&&retry.lines) {
+          lines=retry.lines;
+          console.log("[generate-text] chosen_source: strict_retry");
+        } else if (retry.raw) {
+          const retryReformat = await reformatToFourLines(retry.raw);
+          if (retryReformat && retryReformat.length === 4) {
+            lines = retryReformat;
+            source = "model";
+            console.log("[generate-text] chosen_source: retry_reformatted");
+          } else {
+            lines=synth(topic,tone,inserts);
+            source="synth";
+            fallbackReason=`model_failed:${retry.reason || winner.reason || 'unknown'}`;
+            console.log("[generate-text] chosen_source: synth");
+          }
+        } else {
+          lines=synth(topic,tone,inserts);
+          source="synth";
+          fallbackReason=`model_failed:${retry.reason || winner.reason || 'unknown'}`;
+          console.log("[generate-text] chosen_source: synth");
+        }
+      }
+    } else {
+      lines=synth(topic,tone,inserts);
+      source="synth";
+      fallbackReason=`model_failed:${winner.reason || 'unknown'}`;
+      console.log("[generate-text] chosen_source: synth");
     }
 
     if(false && source==="model"&&invalidSet(lines)){
