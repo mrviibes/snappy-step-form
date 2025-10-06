@@ -80,6 +80,7 @@ Write 4 hilarious, sharp one-liners about ${subcategory}.
 Tone: ${tone}. Rating: ${rating}.
 Be funny, bold, and human. Use sarcasm or contrast for punchlines.
 Each line 60–125 characters, starts with a capital letter, ends with punctuation.
+If a line is under 60 characters, expand it with a funny tag or quick visual detail.
 Only commas and periods allowed. No em dashes, quotes, colons, or semicolons.
 `.trim();
 }
@@ -210,7 +211,7 @@ serve(async (req) => {
           { role: "system", content: SYSTEM },
           { role: "user", content: payload }
         ],
-        max_completion_tokens: 1500,
+        max_completion_tokens: 900,
       }),
       signal: ctl.signal,
     });
