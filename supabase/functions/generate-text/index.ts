@@ -9,8 +9,8 @@ const API = "https://api.openai.com/v1/chat/completions"; // ✅ back to stable 
 const MODEL = "gpt-5-mini-2025-08-07";
 
 // Enough time for one retry but well under Supabase 60s cap
-const TIMEOUT_MS = 32000;
-const HARD_DEADLINE_MS = 38000;
+const TIMEOUT_MS = 22000;
+const HARD_DEADLINE_MS = 26000;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -54,38 +54,17 @@ function buildSystem(
   topic: string,
   inserts: string[]
 ) {
-  const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
-  const catVoice = CATEGORY_HINT[category] || "";
-  const savageRule =
-    tone === "savage"
-      ? "Roast with sharp, playful sarcasm. Use attitude, mild profanity if needed (shit, hell, ass)."
-      : "";
-
-  const insertRule =
-    inserts.length === 1
-      ? `Include "${inserts[0]}" once in every line, near the punchline. The joke should fall apart without it.`
-      : inserts.length > 1
-      ? `Use these words creatively across the set so the humor depends on them: ${inserts.join(", ")}.`
-      : "";
+  const insertNote = inserts.length
+    ? `Insert words: ${inserts.join(', ')}. Each joke should depend on them, not tag them on.`
+    : `No insert words.`;
 
   return `
-Write four one-liners that actually make people laugh.
-Topic: ${subcategory}. Tone: ${tone}. Rating: ${rating}.
-${insertRule}
-Sound like a sarcastic friend telling stories at a bar, not a caption.
-Adjust intensity to match rating:
-R: strong profanity allowed (fuck, shit, asshole). Dark, risky humor fine, no slurs or explicit sex.
-PG-13: edgy, flirty, mild swears (hell, damn, crap). Alcohol or chaos jokes fine.
-PG: clever, cheeky, clean humor only.
-G: wholesome, simple, safe humor.
-${savageRule}
-${povHint(inserts)}
-${catVoice}
-Comedy style: ${style}
-Each line must have rhythm, attitude, and a punchline.
-Use commas and periods only. No em dashes, quotes, colons, semicolons, or symbols.
-Each line 70–125 characters, starts with a capital letter, ends with punctuation.
-Avoid repeating the exact topic word more than once.
+Write 4 truly funny one-liners inspired by ${subcategory}. Tone: ${tone}. Rating: ${rating}.
+Speak like a sarcastic friend, not a caption. Use contrast or a quick twist for punchlines.
+${insertNote}
+Rules: 70–125 characters per line, start with a capital, end with punctuation.
+Only commas and periods. No dashes, quotes, colons, or semicolons.
+Avoid repeating the exact word '${subcategory}' more than once across the set.
 `.trim();
 }
 
@@ -145,7 +124,7 @@ serve(async (req) => {
     topic    = (theme || subcat || category || "topic").replace(/[-_]/g, " ").trim();
 
     const SYSTEM  = buildSystem(tone, rating, category, subcat, topic, inserts);
-    const payload = `Category: ${category}, Subcategory: ${subcat}, Tone: ${tone}, Rating: ${rating}, Topic: ${topic}${inserts.length ? `, Insert words: ${inserts.join(", ")}` : ""}`;
+    const payload = `Category: ${category}, Subcategory: ${subcat}${inserts.length ? `, Inserts: ${inserts.join(", ")}` : ""}`;
 
     console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
 
@@ -164,7 +143,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         messages,
-        max_completion_tokens: 1200
+        max_completion_tokens: 650
       }),
       signal: ctl.signal
     });
@@ -186,7 +165,7 @@ serve(async (req) => {
     console.log("[generate-text] finish_reason:", finish, "| content len:", content.length);
 
     // ---- one retry on cutoff ----
-    if ((finish === "length" || finish === "incomplete") && !deadlineHit) {
+    if (finish === "length" && !deadlineHit) {
       console.warn("[generate-text] retrying due to finish_reason:", finish);
       const ctl2  = new AbortController();
       const timer2 = setTimeout(() => ctl2.abort(), TIMEOUT_MS);
@@ -197,7 +176,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: MODEL,
             messages,
-            max_completion_tokens: 1500
+            max_completion_tokens: 800
           }),
           signal: ctl2.signal
         });
