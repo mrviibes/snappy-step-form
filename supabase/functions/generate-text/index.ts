@@ -83,6 +83,7 @@ ${pov}
 Comedy style: ${style}
 ${catVoice}
 ${savageRule}
+Guideline: Use the subcategory (${subcategory}) only as creative context. You don't need to name it or describe it literally. If it's too specific, write about the vibe, routine, or emotion it implies.
 Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
 Each line: 75–125 characters, ends with punctuation. Write naturally, not clipped.
 If lines are too short, expand them with imagery or emotion.
