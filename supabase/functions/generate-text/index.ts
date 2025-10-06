@@ -241,6 +241,7 @@ serve(async (req) => {
     const content = data?.choices?.[0]?.message?.content || "";
     const finish = data?.choices?.[0]?.finish_reason || "n/a";
     console.log("[generate-text] finish_reason:", finish);
+    console.log("[generate-text] raw content:", content);
 
     // Two-pass parser: strip bullets/numbers, try strict then lenient
     const clean = (l: string) => l
@@ -253,6 +254,7 @@ serve(async (req) => {
       .replace(/([^.?!])$/, "$1.");
 
     const rawLines = content.split(/\r?\n+/).map(clean).filter(l => l.length > 0);
+    console.log("[generate-text] rawLines after clean:", rawLines.length, rawLines.map(l => `${l.length}ch`));
     
     // Pass 1: strict 60-130 char range
     let lines = rawLines.filter(l => l.length >= 60 && l.length <= 130).slice(0, 4);
