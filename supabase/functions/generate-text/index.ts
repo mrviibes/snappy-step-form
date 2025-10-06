@@ -64,7 +64,7 @@ function buildSystem(tone: Tone, rating: Rating, category: string, subcategory: 
   const toneWord = TONE_HINT[tone] || "witty";
   const ratingGate = RATING_HINT[rating] || "";
   const insertRule = inserts.length === 1
-    ? `Include "${inserts[0]}" once in every line, natural placement ok.`
+    ? `Include "${inserts[0]}" exactly once in every line, preferably near the end or as the closing punchline. Do not start a line with it unless it fits the rhythm.`
     : inserts.length > 1
     ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
     : "";
@@ -112,6 +112,19 @@ function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating
     let clean = l.trim().slice(0, 140);
     if (clean.length < 60) clean = `${clean} And honestly, that's perfectly fine.`;
     return filterWord(clean).replace(/([^.?!])$/, "$1.");
+  });
+}
+
+function ensureInsertPlacement(lines: string[], insert: string): string[] {
+  return lines.map(l => {
+    if (!l.toLowerCase().includes(insert.toLowerCase())) return l;
+    const tokens = l.split(" ");
+    if (tokens[0].toLowerCase() === insert.toLowerCase()) {
+      tokens.shift();
+      tokens.push(insert);
+      return tokens.join(" ").replace(/\s+/g, " ").trim().replace(/([^.?!])$/, "$1.");
+    }
+    return l;
   });
 }
 
@@ -208,6 +221,11 @@ if (!r.ok) {
       : lines.length === 4 
       ? "model+padded" 
       : "synth";
+
+    // Move leading inserts to end for better punchline placement
+    if (inserts.length === 1) {
+      lines = ensureInsertPlacement(lines, inserts[0]);
+    }
 
     console.log(`[generate-text] lines: ${lines.length} (${lines.map(l=>l.length).join(',')}) source: ${source}`);
 
