@@ -1,15 +1,16 @@
 // supabase/functions/generate-text/index.ts
-// Final Stable Viibe Text Generator - Faster, Funny, and Rating-Aware
+// Viibe Generator – Modern Responses API Fix (2025)
+// Stable, faster, and fully compatible with GPT-5 endpoint changes.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const API = "https://api.openai.com/v1/responses"; // faster endpoint
+const API = "https://api.openai.com/v1/responses"; // ✅ modern endpoint
 const MODEL = "gpt-5-mini-2025-08-07";
 
-const TIMEOUT_MS = 30000; // main per-call timeout
-const HARD_DEADLINE_MS = 35000; // full function cutoff
+const TIMEOUT_MS = 30000;
+const HARD_DEADLINE_MS = 35000;
 
 console.log("[generate-text] using", MODEL, "at", API);
 
@@ -20,10 +21,9 @@ const cors = {
 
 // ---------- Types ----------
 type Tone = "humorous" | "savage" | "sentimental" | "nostalgic" | "romantic" | "inspirational" | "playful" | "serious";
-
 type Rating = "G" | "PG" | "PG-13" | "R";
 
-// ---------- Tone/Rating Context ----------
+// ---------- Tone/Rating Hints ----------
 const TONE_HINT: Record<Tone, string> = {
   humorous: "funny, witty, punchy",
   savage: "blunt, cutting, roast-style",
@@ -58,7 +58,6 @@ const COMEDY_STYLES = [
   "Warm, kind humor that still lands a laugh.",
 ];
 
-// ---------- Helper ----------
 function povHint(inserts: string[]): string {
   if (!inserts?.length) return "Speak directly to the reader using 'you'.";
   if (inserts.includes("I") || inserts.includes("me")) return "Write from first person using 'I'.";
@@ -66,7 +65,7 @@ function povHint(inserts: string[]): string {
   return `Write about ${inserts.join(" and ")} as descriptive subjects.`;
 }
 
-// ---------- System Prompt Builder ----------
+// ---------- Prompt Builder ----------
 function buildSystem(
   tone: Tone,
   rating: Rating,
@@ -75,20 +74,17 @@ function buildSystem(
   topic: string,
   inserts: string[],
 ) {
-  const toneWord = TONE_HINT[tone] || "witty";
-  const ratingGate = RATING_HINT[rating] || "";
   const insertRule =
     inserts.length === 1
-      ? `Include "${inserts[0]}" exactly once in every line, preferably near the end or as the closing punchline.`
+      ? `Include "${inserts[0]}" once in every line, near the punchline.`
       : inserts.length > 1
-        ? `Include each of these at least once across the set: ${inserts.join(", ")}.`
+        ? `Include each of these words at least once across the set: ${inserts.join(", ")}.`
         : "";
   const pov = povHint(inserts);
   const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
-  const catVoice = CATEGORY_HINT[category] || "";
   const savageRule =
     tone === "savage"
-      ? "Roast the subject or reader with sharp, playful sarcasm. Use attitude, mild profanity if needed (shit, hell, ass). Be honest, not cruel."
+      ? "Roast with sharp, playful sarcasm. Use attitude, mild profanity if needed (shit, hell, ass)."
       : "";
 
   return `
@@ -104,8 +100,8 @@ G: wholesome, simple, safe humor.
 ${savageRule}
 ${pov}
 Comedy style: ${style}
-Each line must have rhythm, attitude, and a solid punchline.
-Use only commas and periods. No em dashes, hyphens-as-pauses, quotes, colons, semicolons, or symbols.
+Each line must have rhythm, attitude, and a punchline.
+Use commas and periods only. No em dashes, quotes, colons, semicolons, or symbols.
 Each line 70–125 characters, starts with a capital letter, ends with punctuation.
 `.trim();
 }
@@ -114,67 +110,13 @@ Each line 70–125 characters, starts with a capital letter, ends with punctuati
 function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG"): string[] {
   const name = inserts[0] || "you";
   const t = (topic || "the moment").replace(/[-_]/g, " ").trim();
-
-  const jokes = {
-    humorous: [
-      `Time tried to sneak by, ${t} caught it mid-yawn.`,
-      `${name} called it ${t}, destiny called it a rerun.`,
-      `${t} showed up early, confidence showed up late.`,
-      `If ${t} had a loyalty card, ${name} would have maxed it out.`,
-    ],
-    savage: [
-      `${t} showed up loud and uninvited, ${name} blamed gravity.`,
-      `${name} survived ${t}, barely, sarcasm included.`,
-      `${t} tried to teach humility, ${name} skipped class.`,
-      `${name} mastered ${t}, chaos wrote the review.`,
-    ],
-    sentimental: [
-      `${t} reminds ${name} how ordinary days become quiet miracles.`,
-      `${name} found calm hiding inside ${t}.`,
-      `There's comfort in small things like ${t} and trying again.`,
-      `${t} isn't perfect, but neither is life, and that's okay.`,
-    ],
-    nostalgic: [
-      `${t} feels like an old song ${name} forgot they loved.`,
-      `${name} remembers ${t} differently now, softer somehow.`,
-      `${t} was simpler then, or maybe ${name} just thought it was.`,
-      `Looking back at ${t}, ${name} wishes they'd known what they had.`,
-    ],
-    romantic: [
-      `${name} found magic hiding in ${t}.`,
-      `${t} made ${name} believe in second chances.`,
-      `Every moment of ${t} feels like ${name} wrote it themselves.`,
-      `${name} and ${t}, a story worth retelling.`,
-    ],
-    inspirational: [
-      `${name} turned ${t} into proof that trying matters.`,
-      `${t} taught ${name} that courage starts small.`,
-      `${name} faced ${t} and chose to keep going.`,
-      `${t} reminds ${name} that growth looks messy first.`,
-    ],
-    playful: [
-      `${name} approached ${t} like a game show challenge.`,
-      `${t} got silly fast, ${name} made it sillier.`,
-      `${name} treated ${t} like recess, rules optional.`,
-      `${t} was serious until ${name} added sound effects.`,
-    ],
-    serious: [
-      `${name} met ${t} with clarity and intention.`,
-      `${t} demanded honesty, ${name} delivered.`,
-      `${name} faced ${t} without excuses or shortcuts.`,
-      `${t} tested ${name}, substance won.`,
-    ],
-  };
-
-  const pool = jokes[tone] || jokes.humorous;
-  return pool
-    .map((l) =>
-      l
-        .trim()
-        .replace(/([^.?!])$/, "$1.")
-        .slice(0, 140),
-    )
-    .slice(0, 4);
+  const lines = [
+    `${t} showed up loud and uninvited, ${name} blamed gravity.`,
+    `${name} survived ${t}, barely, sarcasm included.`,
+    `${t} tried to teach humility, ${name} skipped class.`,
+    `${name} mastered ${t}, chaos wrote the review.`,
+  ];
+  return lines.map((l) => l.replace(/([^.?!])$/, "$1."));
 }
 
 // ---------- Insert placement ----------
@@ -185,17 +127,16 @@ function ensureInsertPlacement(lines: string[], insert: string): string[] {
     if (tokens[0].toLowerCase() === insert.toLowerCase()) {
       tokens.shift();
       tokens.push(insert);
-      return tokens
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .replace(/([^.?!])$/, "$1.");
     }
-    return l;
+    return tokens
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/([^.?!])$/, "$1.");
   });
 }
 
-// ---------- Main Handler ----------
+// ---------- Handler ----------
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
@@ -213,7 +154,7 @@ serve(async (req) => {
   let deadlineHit = false;
   const hardTimer = setTimeout(() => {
     deadlineHit = true;
-    console.warn("[generate-text] hard deadline reached at 35s, returning synth");
+    console.warn("[generate-text] hard deadline reached, returning synth");
   }, HARD_DEADLINE_MS);
 
   try {
@@ -235,14 +176,10 @@ serve(async (req) => {
     console.log("[generate-text] model:", MODEL);
     console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
 
-    const messages = [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: payload },
-    ];
-
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
+    // ✅ Modern API schema
     const r = await fetch(API, {
       method: "POST",
       headers: {
@@ -251,7 +188,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        input: messages,
+        input: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: payload },
+        ],
         max_output_tokens: 1200,
       }),
       signal: ctl.signal,
@@ -259,24 +199,21 @@ serve(async (req) => {
 
     clearTimeout(timer);
 
-    console.log("[generate-text] response status:", r.status);
-
     if (!r.ok) {
-      const errorText = await r.text();
-      console.error("[generate-text] API error:", r.status, errorText);
+      const errText = await r.text();
+      console.error("[generate-text] API error:", r.status, errText);
       const fallback = synth(topic, tone, inserts, rating);
-      console.warn("[generate-text] returning synth due to API error");
       return new Response(JSON.stringify({ success: true, options: fallback, model: MODEL, source: "synth" }), {
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
     const data = await r.json();
-    let content = data?.choices?.[0]?.message?.content || "";
-    let finish = data?.choices?.[0]?.finish_reason || "n/a";
+    let content = data?.output_text || "";
+    let finish = data?.status || "n/a";
     console.log("[generate-text] finish_reason:", finish);
 
-    // ---------- Retry on token cutoff ----------
+    // ---------- Retry ----------
     if (finish === "length") {
       console.warn("[generate-text] retrying due to finish_reason: length");
       const ctl2 = new AbortController();
@@ -290,20 +227,19 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: MODEL,
-            input: messages,
+            input: [
+              { role: "system", content: SYSTEM },
+              { role: "user", content: payload },
+            ],
             max_output_tokens: 1500,
           }),
           signal: ctl2.signal,
         });
-        const raw2 = await r2.text();
         if (r2.ok) {
-          const data2 = JSON.parse(raw2);
-          const msg2 = data2?.choices?.[0]?.message;
-          content = typeof msg2?.content === "string" ? msg2.content : "";
-          finish = data2?.choices?.[0]?.finish_reason || "n/a";
+          const d2 = await r2.json();
+          content = d2?.output_text || "";
+          finish = d2?.status || "n/a";
           console.log("[generate-text] finish_reason (retry):", finish);
-        } else {
-          console.warn("[generate-text] retry failed:", r2.status);
         }
       } finally {
         clearTimeout(timer2);
@@ -312,7 +248,7 @@ serve(async (req) => {
 
     console.log("[generate-text] raw content:", content);
 
-    // ---------- Parse lines ----------
+    // ---------- Parse ----------
     const clean = (l: string) =>
       l
         .replace(/^[\s>*-]+\s*/, "")
@@ -327,16 +263,10 @@ serve(async (req) => {
       .split(/\r?\n+/)
       .map(clean)
       .filter((l) => l.length > 0);
-    console.log(
-      "[generate-text] rawLines after clean:",
-      rawLines.length,
-      rawLines.map((l) => `${l.length}ch`),
-    );
+    console.log("[generate-text] rawLines after clean:", rawLines.length);
 
-    // ---------- Strict validation ----------
     let lines = rawLines.filter((l) => l.length >= 70 && l.length <= 125).slice(0, 4);
-
-    let source: string;
+    let source = "model";
     if (lines.length < 2) {
       lines = synth(topic, tone, inserts, rating);
       source = "synth";
@@ -344,15 +274,9 @@ serve(async (req) => {
       const pad = synth(topic, tone, inserts, rating).slice(0, 4 - lines.length);
       lines = [...lines, ...pad];
       source = "model+padded";
-    } else {
-      source = "model";
     }
 
-    // ---------- Adjust insert placement ----------
-    if (inserts.length === 1) {
-      lines = ensureInsertPlacement(lines, inserts[0]);
-    }
-
+    if (inserts.length === 1) lines = ensureInsertPlacement(lines, inserts[0]);
     console.log("✅ FINAL SOURCE:", source);
 
     clearTimeout(hardTimer);
@@ -376,7 +300,6 @@ serve(async (req) => {
     const isTimeout = String(err).includes("timeout") || String(err).includes("AbortError");
     console.error("[generate-text] error:", String(err));
     if (deadlineHit || isTimeout) {
-      console.warn("[generate-text] timeout occurred, returning synth");
       return new Response(
         JSON.stringify({
           success: true,
