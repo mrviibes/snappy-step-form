@@ -251,8 +251,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages,
-        max_completion_tokens: 1200,
+        input: messages,
+        max_output_tokens: 1200,
       }),
       signal: ctl.signal,
     });
@@ -290,8 +290,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: MODEL,
-            messages,
-            max_completion_tokens: 1500,
+            input: messages,
+            max_output_tokens: 1500,
           }),
           signal: ctl2.signal,
         });
