@@ -1,5 +1,8 @@
 project_id = "qxfnvtnchuigjivcalqe"
 
+[functions]
+region = "us-east-1"
+
 [api]
 enabled = true
 port = 54321

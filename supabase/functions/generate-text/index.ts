@@ -7,7 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const API = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-5-mini-2025-08-07";
-const TIMEOUT_MS = 18000;
+const TIMEOUT_MS = 25000;
 
 console.log("[generate-text] using", MODEL, "at", API);
 
@@ -167,6 +167,14 @@ serve(async (req) => {
   // Predeclare for catch fallback
   let category = "", subcat = "", theme = "", tone: Tone = "humorous", rating: Rating = "PG", inserts: string[] = [], topic = "topic";
 
+  // Hard deadline to ensure response within 28s
+  const HARD_DEADLINE_MS = 28000;
+  let deadlineHit = false;
+  const hardTimer = setTimeout(() => {
+    deadlineHit = true;
+    console.warn("[generate-text] hard deadline reached at 28s, returning synth");
+  }, HARD_DEADLINE_MS);
+
   try {
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
@@ -272,18 +280,29 @@ serve(async (req) => {
 
     console.log(`[generate-text] lines: ${lines.length} (${lines.map(l=>l.length).join(',')}) source: ${source}`);
 
+    clearTimeout(hardTimer);
+    if (deadlineHit) {
+      return new Response(
+        JSON.stringify({ success: true, options: synth(topic, tone, inserts, rating), model: MODEL, source: "synth-deadline" }),
+        { headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, options: lines, model: MODEL, source }),
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
 
 } catch (err) {
+    clearTimeout(hardTimer);
+    
     const isTimeout = String(err).includes("timeout") || String(err).includes("AbortError");
     console.error("[generate-text] error:", String(err));
-    if (isTimeout) {
-      console.warn("[generate-text] local timeout hit, returning synth");
+    
+    if (deadlineHit || isTimeout) {
+      console.warn("[generate-text] timeout occurred, returning synth");
       return new Response(
-        JSON.stringify({ success: true, options: synth(topic, tone, inserts, rating), model: MODEL, source: "synth" }),
+        JSON.stringify({ success: true, options: synth(topic, tone, inserts, rating), model: MODEL, source: "synth-timeout" }),
         { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
