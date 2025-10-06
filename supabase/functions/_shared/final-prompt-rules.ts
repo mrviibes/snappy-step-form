@@ -105,7 +105,7 @@ export const ratingNegatives: Record<string, string> = {
 
 // ===== TEXT QUALITY NEGATIVES =====
 export const textQualityNegatives =
-  "misspelled text, gibberish text, blurry text, illegible text, cut-off text, overlapping text, distorted fonts, poor typography, low contrast, broken words, duplicate words, uneven spacing, extra watermarks, extra logos, extra UI";
+  "misspelled words, warped letters, distorted characters, oversized text, text covering faces";
 
 // ===== TEXT FAILURE NEGATIVES =====
 export const textFailureNegatives =

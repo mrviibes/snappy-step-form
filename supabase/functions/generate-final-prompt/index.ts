@@ -68,37 +68,35 @@ interface PromptTemplate {
 }
 
 // ============== AI SYSTEM PROMPT ==============
-const buildSystemPrompt = () => `You are an expert prompt formatter. You MUST follow this EXACT 3-line structure:
+const buildSystemPrompt = () => `You are an expert Ideogram prompt formatter.
+Return exactly TWO text blocks:
 
-TEXT: exactly reads "[mandatory_text]"
-STYLE: [typography_description], [font_style], evenly spaced letters
-SCENE: [visual_style] [scene_description], [lighting], [aspect_ratio]
+1️⃣ Positive prompt (4 sentences total)
+2️⃣ Negative prompt (one comma-separated line)
 
-⚠️ CRITICAL RULES:
-1. TEXT line must say "exactly reads" followed by the exact text in quotes
-2. STYLE describes typography only: font weight, style, letter spacing
-3. SCENE combines visual style, scene elements, lighting, and aspect ratio
-4. Keep it clean and flowing - no extra formatting or line breaks
-5. Never extract visual keywords from the text for the scene
+Positive prompt rules:
+• Start with a short scene description sentence.
+• Second sentence MUST begin with: The text exactly reads "[mandatory_text]".
+• Describe font, placement, lighting, and mood in natural language.
+• Keep it cinematic, realistic, under 110 words total.
+• No lens jargon, camera terms, brand names, or exposure settings.
 
-TYPOGRAPHY STYLES BY LAYOUT:
-- meme-text: bold impact-style font, high contrast
-- badge-callout: rounded geometric sans-serif, friendly weight
-- negative-space: modern clean sans-serif, balanced weight
-- caption: editorial sans-serif, refined weight
-- integrated-in-scene: text physically part of environment (mirror fog, wall paint, sign etching, fabric print)
-- dynamic-overlay: bold geometric sans-serif, strong angles
+Negative prompt rules:
+• Always include: misspelled words, warped letters, distorted characters, oversized text, text covering faces.
 
 EXAMPLES:
 ✅ CORRECT:
-TEXT: exactly reads "BIRTHDAY MIKE IS ORDINARY AND THAT IS WHY IT SAVES THE MORNING"
-STYLE: overlayed text, bold clean print font, evenly spaced letters
-SCENE: realistic family birthday with cake and candles, colorful decor, cinematic lighting, 16:9
+A lively realistic photograph of friends laughing together around a birthday cake glowing with candles and confetti scattered on the table.
+The text exactly reads "TIME TRIED TO SNEAK BY. BIRTHDAY CAUGHT IT MID YAWN." shown in clear printed bold condensed sans-serif lettering, centered above the cake in two lines for balance and legibility.
+Soft warm indoor lighting, cinematic depth, and confetti highlights create a fun celebratory mood.
+The overall tone is humorous and cheerful, capturing the spontaneous laughter and energy of a birthday celebration shared among close friends.
+
+Negative: misspelled words, warped letters, distorted characters, oversized text, text covering faces
 
 ❌ WRONG:
-TEXT: "[text]" in a badge-callout format with 25% coverage (too complex)
-STYLE: bold font with birthday cake (don't include scene elements)
-SCENE: realistic style, overlayed text (don't repeat typography)`;
+Shot on Canon EOS R5 with 50mm f/1.8 lens (no camera jargon)
+Text says "Birthday" with multiple fonts (text must be exact)
+Cluttered background with many props (keep simple and clean)`;
 
 // ============== AI TOOL DEFINITION ==============
 const promptCraftingTool = {
@@ -327,16 +325,16 @@ function enforceLayout(key: string, completedText: string, thresh = 12) {
   return key;
 }
 
-// NEW: Minimum text coverage per layout
+// NEW: Minimum text coverage per layout (reduced by 5% for better balance)
 function minCoverageForLayout(key: string): number {
   switch (key) {
-    case "badge-callout": return 25;   // requested
-    case "meme-text":     return 20;   // requested
-    case "caption":       return 15;   // requested
-    case "negative-space":return 22;   // existing policy
-    case "integrated-in-scene": return 22;
-    case "dynamic-overlay":    return 18;
-    default: return 22;
+    case "badge-callout": return 20;   // reduced from 25%
+    case "meme-text":     return 18;   // reduced from 20%
+    case "caption":       return 15;   // already at minimum
+    case "negative-space":return 20;   // reduced from 22%
+    case "integrated-in-scene": return 20;  // reduced from 22%
+    case "dynamic-overlay":    return 18;   // keep at 18%
+    default: return 20;
   }
 }
 
@@ -552,104 +550,42 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const optimalCoverage = getOptimalCoverage(cleanText, minPct);
     const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
 
-    const userPrompt = `Format this IDEOGRAM prompt following the EXACT 3-line structure:
+    // Extract variables for hardcoded template
+    const subcategory = p.subcategory || category;
+    const lightingStr = "Soft cinematic lighting";
+    const toneStr = toneMap[tone] || tone;
+    
+    // Hardcoded 4-sentence positive prompt template (removes AI variability)
+    const positive_prompt = `
+A ${styleStr} photograph of ${visPhrase}.
+The text exactly reads "${cleanText}" shown in ${typographyStyle}, positioned for clear legibility and balance.
+${lightingStr} creates the correct mood and tone.
+The overall tone is ${toneStr}, capturing the feeling of ${subcategory}.
+`.trim();
 
-MANDATORY TEXT: "${cleanText}"
-TYPOGRAPHY STYLE: ${typographyStyle}
-VISUAL STYLE: ${styleStr}
-ASPECT RATIO: ${aspect}
-SCENE ELEMENTS: ${visPhrase}
-${tags.length > 0 ? `ADDITIONAL VISUALS: ${tags.join(", ")}` : ""}
+    // Fixed negative prompt for all Ideogram generations
+    const negative_prompt = "misspelled words, warped letters, distorted characters, oversized text, text covering faces";
 
-IDEOGRAM-SPECIFIC: Emphasize bold typography, text clarity, and high contrast.`;
+    console.log(`Ideogram ${layoutKey} - Hardcoded 4-sentence template:`);
+    console.log(`Positive:`, positive_prompt.slice(0, 150) + "...");
+    console.log(`Negative:`, negative_prompt);
 
-    try {
-      const aiResponse = await fetch(OPENAI_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [
-            { role: "system", content: buildSystemPrompt() + "\n\nIDEOGRAM OPTIMIZATION: Ideogram excels at text rendering. Emphasize bold typography, clear text zones, high contrast, and text prominence. Make text the PRIMARY focus." },
-            { role: "user", content: userPrompt }
-          ],
-          tools: [promptCraftingTool],
-          tool_choice: { type: "function", function: { name: "format_prompt" } }
-        })
-      });
-
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error(`OpenAI API error for Ideogram (${aiResponse.status}):`, errorText);
-        throw new Error(`OpenAI API returned ${aiResponse.status}`);
+    prompts.push({
+      name: `ideogram-${layoutKey}`,
+      description: `Ideogram 4-sentence prompt for ${layoutKey} layout`,
+      positive: positive_prompt,
+      negative: negative_prompt,
+      sections: {
+        aspect,
+        layout: layoutKey,
+        mandatoryText: cleanText,
+        typography: `${typographyStyle}; ${optimalCoverage}% coverage`,
+        scene: visPhrase,
+        mood: tone,
+        tags,
+        pretty: positive_prompt
       }
-
-      const aiData = await aiResponse.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      
-      if (!toolCall?.function?.arguments) {
-        throw new Error("AI did not return structured prompt data");
-      }
-
-      const result = JSON.parse(toolCall.function.arguments);
-      
-      // Combine the three lines
-      const positive_prompt = `${result.text_line}\n${result.style_line}\n${result.scene_line}`;
-      
-      console.log(`Ideogram ${layoutKey} - Structured prompt:`);
-      console.log(`Line 1:`, result.text_line);
-      console.log(`Line 2:`, result.style_line);
-      console.log(`Line 3:`, result.scene_line);
-
-      prompts.push({
-        name: `ideogram-${layoutKey}`,
-        description: `Ideogram structured prompt for ${layoutKey} layout`,
-        positive: positive_prompt,
-        negative: result.negative_prompt,
-        sections: {
-          aspect,
-          layout: layoutKey,
-          mandatoryText: cleanText,
-          typography: `bold modern sans-serif; ${optimalCoverage}% coverage; high contrast`,
-          scene: visPhrase,
-          mood: tone,
-          tags,
-          pretty: `${result.line1_text_and_typography}\n\n${result.line2_scene_description}`
-        }
-      });
-
-    } catch (error) {
-      console.error(`Error generating Ideogram prompt for layout ${layoutKey}:`, error);
-      // Fallback to 2-line flowing structure for Ideogram
-      const cleanText = sanitizeTextForImage(completed_text);
-      const optimalCoverage = getOptimalCoverage(cleanText, minPct);
-      
-      const fallbackPositive = `EXACT TEXT: "${cleanText}" in a ${layoutKey} format, bold modern sans-serif, high contrast, with ${optimalCoverage}% coverage.
-
-A vibrant ${styleStr} style in a ${rating} ${compName} composition with a scene with ${visPhrase} in a ${aspect} aspect ratio.`;
-      
-      const fallbackNegative = "misspelled text, broken letters, split characters, extra words";
-      
-      prompts.push({
-        name: `Ideogram Fallback — ${layoutKey}`,
-        description: `Fallback template (AI generation failed)`,
-        positive: fallbackPositive,
-        negative: fallbackNegative,
-        sections: {
-          aspect,
-          layout: layoutKey,
-          mandatoryText: cleanText,
-          typography: `bold sans-serif; ${optimalCoverage}% coverage`,
-          scene: visPhrase,
-          mood: tone,
-          tags,
-          pretty: fallbackPositive
-        }
-      });
-    }
+    });
   }
 
   return prompts;

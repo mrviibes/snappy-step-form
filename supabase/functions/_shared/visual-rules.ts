@@ -14,7 +14,7 @@ MUST INCLUDE (IN EVERY LINE)
 - Exactly ONE composition-mode cue (see cue list). If multiple modes are provided, rotate them across lines.
 
 LANGUAGE RULES
-- No hashtags, lens/camera jargon, technical brand names, or art-tech terms unless explicitly requested (e.g., "anime", "3D").
+- No hashtags, lens or camera jargon, brand names, or exposure terms.
 - Do not invent additional in-image text (signage/labels) unless the layout implies signage.
 - Avoid repeated phrasing; each line must be distinct.
 
