@@ -90,7 +90,8 @@ Each line: 75–125 characters, ends with punctuation. Write naturally, not clip
 If lines are too short, expand them with imagery or emotion.
 Do not repeat the topic word in every line. Write like clever card text or a one-liner caption people would actually print.
 Avoid ad-style phrasing; sound like a human telling a joke or observation.
-No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or periods only.
+Keep punctuation light and natural. Use commas and periods only, no quotes, no colons, no semicolons, no em dashes. Write like spoken language, not a tweet. Smooth flow over clever punctuation.
+No emojis or hashtags.
 `.trim();
 }
 
