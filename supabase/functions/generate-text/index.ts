@@ -9,10 +9,12 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const API = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-5-mini-2025-08-07";
 
+console.log("[generate-text] using", MODEL, "at", API);
+
 // ---------- Tuning Constants ----------
 const TIMEOUT_MS = 18000;      // Main timeout (18s, well under Supabase 60s limit)
-const MAIN_TOKENS = 900;        // Initial call token limit
-const HEDGE_TOKENS = 1200;      // Hedge/retry token limit
+const MAIN_TOKENS = 1500;       // Initial call token limit (increased to prevent length cutoff)
+const HEDGE_TOKENS = 2000;      // Hedge/retry token limit
 const HEDGE_DELAY_MS = 1500;    // Delay before starting hedge call
 
 const cors = {
