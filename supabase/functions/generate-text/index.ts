@@ -1,18 +1,16 @@
 // supabase/functions/generate-text/index.ts
-// Viibe Generator – Modern Responses API Fix (2025)
-// Stable, faster, and fully compatible with GPT-5 endpoint changes.
+// Viibe Generator – Responses API compatible, fast, rating-aware, no em dashes.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const API = "https://api.openai.com/v1/responses"; // ✅ modern endpoint
+const API = "https://api.openai.com/v1/responses"; // modern endpoint
 const MODEL = "gpt-5-mini-2025-08-07";
 
-const TIMEOUT_MS = 30000;
-const HARD_DEADLINE_MS = 35000;
-
-console.log("[generate-text] using", MODEL, "at", API);
+// Give the model enough time including one retry, but stay under Supabase 60s cap.
+const TIMEOUT_MS = 32000;
+const HARD_DEADLINE_MS = 38000;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +21,7 @@ const cors = {
 type Tone = "humorous" | "savage" | "sentimental" | "nostalgic" | "romantic" | "inspirational" | "playful" | "serious";
 type Rating = "G" | "PG" | "PG-13" | "R";
 
-// ---------- Tone/Rating Hints ----------
+// ---------- Hints ----------
 const TONE_HINT: Record<Tone, string> = {
   humorous: "funny, witty, punchy",
   savage: "blunt, cutting, roast-style",
@@ -58,6 +56,7 @@ const COMEDY_STYLES = [
   "Warm, kind humor that still lands a laugh.",
 ];
 
+// ---------- Helpers ----------
 function povHint(inserts: string[]): string {
   if (!inserts?.length) return "Speak directly to the reader using 'you'.";
   if (inserts.includes("I") || inserts.includes("me")) return "Write from first person using 'I'.";
@@ -65,7 +64,6 @@ function povHint(inserts: string[]): string {
   return `Write about ${inserts.join(" and ")} as descriptive subjects.`;
 }
 
-// ---------- Prompt Builder ----------
 function buildSystem(
   tone: Tone,
   rating: Rating,
@@ -80,12 +78,13 @@ function buildSystem(
       : inserts.length > 1
         ? `Include each of these words at least once across the set: ${inserts.join(", ")}.`
         : "";
-  const pov = povHint(inserts);
   const style = COMEDY_STYLES[Math.floor(Math.random() * COMEDY_STYLES.length)];
   const savageRule =
     tone === "savage"
       ? "Roast with sharp, playful sarcasm. Use attitude, mild profanity if needed (shit, hell, ass)."
       : "";
+  const pov = povHint(inserts);
+  const catVoice = CATEGORY_HINT[category] || "";
 
   return `
 Write four one-liners that actually make people laugh.
@@ -99,6 +98,7 @@ PG: clever, cheeky, clean humor only.
 G: wholesome, simple, safe humor.
 ${savageRule}
 ${pov}
+${catVoice}
 Comedy style: ${style}
 Each line must have rhythm, attitude, and a punchline.
 Use commas and periods only. No em dashes, quotes, colons, semicolons, or symbols.
@@ -106,7 +106,6 @@ Each line 70–125 characters, starts with a capital letter, ends with punctuati
 `.trim();
 }
 
-// ---------- Synth fallback ----------
 function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG"): string[] {
   const name = inserts[0] || "you";
   const t = (topic || "the moment").replace(/[-_]/g, " ").trim();
@@ -119,7 +118,6 @@ function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating
   return lines.map((l) => l.replace(/([^.?!])$/, "$1."));
 }
 
-// ---------- Insert placement ----------
 function ensureInsertPlacement(lines: string[], insert: string): string[] {
   return lines.map((l) => {
     if (!l.toLowerCase().includes(insert.toLowerCase())) return l;
@@ -136,12 +134,35 @@ function ensureInsertPlacement(lines: string[], insert: string): string[] {
   });
 }
 
+function capFirst(s: string) {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+// Extract content string from Responses API payload
+function readResponsesText(data: any): { status: string; text: string } {
+  let status = typeof data?.status === "string" ? data.status : "unknown";
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return { status, text: data.output_text.trim() };
+  }
+  if (Array.isArray(data?.output)) {
+    const parts: string[] = [];
+    for (const block of data.output) {
+      const items = Array.isArray(block?.content) ? block.content : [];
+      for (const it of items) {
+        if (typeof it?.text === "string" && it.text.trim()) parts.push(it.text.trim());
+      }
+    }
+    return { status, text: parts.join("\n").trim() };
+  }
+  return { status, text: "" };
+}
+
 // ---------- Handler ----------
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   const region = Deno.env.get("VERCEL_REGION") || Deno.env.get("SUPABASE_REGION") || "unknown";
-  console.log("[generate-text] region:", region);
+  console.log("[generate-text] region:", region, "| model:", MODEL, "| endpoint:", API);
 
   let category = "",
     subcat = "",
@@ -172,14 +193,12 @@ serve(async (req) => {
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const payload = `Category: ${category}, Subcategory: ${subcat}, Tone: ${tone}, Rating: ${rating}, Topic: ${topic}${inserts.length ? `, Insert words: ${inserts.join(", ")}` : ""}`;
 
-    console.log("[generate-text] → OpenAI");
-    console.log("[generate-text] model:", MODEL);
     console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
 
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
-    // ✅ Modern API schema
+    // Main call
     const r = await fetch(API, {
       method: "POST",
       headers: {
@@ -202,20 +221,19 @@ serve(async (req) => {
     if (!r.ok) {
       const errText = await r.text();
       console.error("[generate-text] API error:", r.status, errText);
-      const fallback = synth(topic, tone, inserts, rating);
-      return new Response(JSON.stringify({ success: true, options: fallback, model: MODEL, source: "synth" }), {
+      const fb = synth(topic, tone, inserts, rating);
+      clearTimeout(hardTimer);
+      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth" }), {
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
-    const data = await r.json();
-    let content = data?.output_text || "";
-    let finish = data?.status || "n/a";
-    console.log("[generate-text] finish_reason:", finish);
+    let { status, text: content } = readResponsesText(await r.json());
+    console.log("[generate-text] status:", status, "content len:", content.length);
 
-    // ---------- Retry ----------
-    if (finish === "length") {
-      console.warn("[generate-text] retrying due to finish_reason: length");
+    // One retry if model cut off
+    if ((status === "length" || status === "incomplete") && !deadlineHit) {
+      console.warn("[generate-text] retrying due to status:", status);
       const ctl2 = new AbortController();
       const timer2 = setTimeout(() => ctl2.abort(), TIMEOUT_MS);
       try {
@@ -236,19 +254,17 @@ serve(async (req) => {
           signal: ctl2.signal,
         });
         if (r2.ok) {
-          const d2 = await r2.json();
-          content = d2?.output_text || "";
-          finish = d2?.status || "n/a";
-          console.log("[generate-text] finish_reason (retry):", finish);
+          ({ status, text: content } = readResponsesText(await r2.json()));
+          console.log("[generate-text] status (retry):", status, "content len:", content.length);
+        } else {
+          console.warn("[generate-text] retry failed:", r2.status);
         }
       } finally {
         clearTimeout(timer2);
       }
     }
 
-    console.log("[generate-text] raw content:", content);
-
-    // ---------- Parse ----------
+    // ---------- Parse and clean ----------
     const clean = (l: string) =>
       l
         .replace(/^[\s>*-]+\s*/, "")
@@ -263,9 +279,8 @@ serve(async (req) => {
       .split(/\r?\n+/)
       .map(clean)
       .filter((l) => l.length > 0);
-    console.log("[generate-text] rawLines after clean:", rawLines.length);
-
     let lines = rawLines.filter((l) => l.length >= 70 && l.length <= 125).slice(0, 4);
+
     let source = "model";
     if (lines.length < 2) {
       lines = synth(topic, tone, inserts, rating);
@@ -277,19 +292,16 @@ serve(async (req) => {
     }
 
     if (inserts.length === 1) lines = ensureInsertPlacement(lines, inserts[0]);
+    lines = lines.map(capFirst);
+
     console.log("✅ FINAL SOURCE:", source);
 
     clearTimeout(hardTimer);
     if (deadlineHit) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          options: synth(topic, tone, inserts, rating),
-          model: MODEL,
-          source: "synth-deadline",
-        }),
-        { headers: { ...cors, "Content-Type": "application/json" } },
-      );
+      const fb = synth(topic, tone, inserts, rating);
+      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth-deadline" }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ success: true, options: lines, model: MODEL, source }), {
@@ -300,15 +312,10 @@ serve(async (req) => {
     const isTimeout = String(err).includes("timeout") || String(err).includes("AbortError");
     console.error("[generate-text] error:", String(err));
     if (deadlineHit || isTimeout) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          options: synth(topic, tone, inserts, rating),
-          model: MODEL,
-          source: "synth-timeout",
-        }),
-        { headers: { ...cors, "Content-Type": "application/json" } },
-      );
+      const fb = synth(topic, tone, inserts, rating);
+      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth-timeout" }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
     }
     return new Response(JSON.stringify({ success: false, error: String(err), status: 500 }), {
       status: 500,
