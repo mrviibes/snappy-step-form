@@ -76,12 +76,19 @@ function buildSystem(tone: Tone, rating: Rating, category: string, subcategory: 
     : "";
 
   return `
-Write 4 hilarious, sharp one-liners about ${subcategory}.
-Tone: ${tone}. Rating: ${rating}.
-Be funny, bold, and human. Use sarcasm or contrast for punchlines.
-Each line 60–125 characters, starts with a capital letter, ends with punctuation.
-If a line is under 60 characters, expand it with a funny tag or quick visual detail.
-Only commas and periods allowed. No em dashes, quotes, colons, or semicolons.
+Write 4 ${toneWord} one-liners inspired by ${subcategory}.
+Style: ${style}
+${pov}
+${catVoice}
+${savageRule}
+${ratingGate}
+${insertRule}
+
+Be bold, observational, and funny like a stand-up comic.
+Make each line sound spoken, not written. No explanations or rhymes.
+Each line 70–125 characters, starts with a capital letter, ends with punctuation.
+Avoid repeating the exact topic word more than once per line.
+Use commas and periods only, no dashes, quotes, colons, or semicolons.
 `.trim();
 }
 
