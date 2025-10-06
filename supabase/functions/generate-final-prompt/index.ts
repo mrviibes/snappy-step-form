@@ -558,13 +558,13 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     // Hardcoded 4-sentence positive prompt template (removes AI variability)
     const positive_prompt = `
 A ${styleStr} photograph of ${visPhrase}.
-The text exactly reads "${cleanText}" shown in ${typographyStyle}, positioned for clear legibility and balance.
+The text exactly reads "${cleanText}" shown in ${typographyStyle}, placed naturally so the letters stand out against the scene without any backdrop box or overlay, using gentle contrast from the lighting.
 ${lightingStr} creates the correct mood and tone.
 The overall tone is ${toneStr}, capturing the feeling of ${subcategory}.
 `.trim();
 
     // Fixed negative prompt for all Ideogram generations
-    const negative_prompt = "misspelled words, warped letters, distorted characters, oversized text, text covering faces";
+    const negative_prompt = "misspelled words, warped letters, distorted characters, oversized text, text covering faces, text with solid background box or banner";
 
     console.log(`Ideogram ${layoutKey} - Hardcoded 4-sentence template:`);
     console.log(`Positive:`, positive_prompt.slice(0, 150) + "...");
