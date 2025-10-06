@@ -202,6 +202,11 @@ serve(async (req) => {
     console.log("[generate-text] API key present:", !!OPENAI_API_KEY);
     console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
     
+    const messages = [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: payload }
+    ];
+    
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
@@ -213,11 +218,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: payload }
-        ],
-        max_completion_tokens: 900,
+        messages,
+        max_completion_tokens: 1200,
       }),
       signal: ctl.signal,
     });
@@ -238,9 +240,42 @@ serve(async (req) => {
     }
 
     const data = await r.json();
-    const content = data?.choices?.[0]?.message?.content || "";
-    const finish = data?.choices?.[0]?.finish_reason || "n/a";
+    let content = data?.choices?.[0]?.message?.content || "";
+    let finish = data?.choices?.[0]?.finish_reason || "n/a";
     console.log("[generate-text] finish_reason:", finish);
+    
+    // Retry once if model hit token limit
+    if (finish === "length") {
+      console.warn("[generate-text] retrying due to finish_reason: length");
+      const ctl2 = new AbortController();
+      const timer2 = setTimeout(() => ctl2.abort(), TIMEOUT_MS);
+      try {
+        const r2 = await fetch(API, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: MODEL,
+            messages,
+            max_completion_tokens: 1500,
+          }),
+          signal: ctl2.signal,
+        });
+        const raw2 = await r2.text();
+        if (r2.ok) {
+          const data2 = JSON.parse(raw2);
+          const msg2 = data2?.choices?.[0]?.message;
+          content = typeof msg2?.content === "string" ? msg2.content : "";
+          finish = data2?.choices?.[0]?.finish_reason || "n/a";
+          console.log("[generate-text] finish_reason (retry):", finish);
+        }
+      } finally {
+        clearTimeout(timer2);
+      }
+    }
+    
     console.log("[generate-text] raw content:", content);
 
     // Two-pass parser: strip bullets/numbers, try strict then lenient
