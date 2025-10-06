@@ -76,26 +76,11 @@ function buildSystem(tone: Tone, rating: Rating, category: string, subcategory: 
     : "";
 
   return `
-Write 4 one-liners for ${category}/${subcategory}. Topic: ${topic}.
-Tone: ${toneWord}. Rating: ${ratingGate}.
-${insertRule}
-${pov}
-Comedy style: ${style}
-${catVoice}
-${savageRule}
-Guideline: Use the subcategory (${subcategory}) only as creative context. You don't need to name it or describe it literally. If it's too specific, write about the vibe, routine, or emotion it implies.
-Blend the tone with the occasion so the humor feels specific to the event (${subcategory}) but not forced.
-Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
-Each line: 75–125 characters, ends with punctuation. Write naturally, not clipped.
-If lines are too short, expand them with imagery or emotion.
-Do not repeat the topic word in every line. Write like clever card text or a one-liner caption people would actually print.
-Avoid ad-style phrasing; sound like a human telling a joke or observation.
-Keep punctuation light and natural. Use commas and periods only, no quotes, no colons, no semicolons, no em dashes. Write like spoken language, not a tweet. Smooth flow over clever punctuation.
-No emojis or hashtags.
-Every line must be 60–125 characters long, one sentence, readable aloud.
-If a line ends up shorter than 60 characters, expand it slightly with a tag, emotion, or detail.
-Use only commas and periods for punctuation.
-Never use em dashes, colons, semicolons, quotes, or symbols.
+Write 4 hilarious, sharp one-liners about ${subcategory}.
+Tone: ${tone}. Rating: ${rating}.
+Be funny, bold, and human. Use sarcasm or contrast for punchlines.
+Each line 60–125 characters, starts with a capital letter, ends with punctuation.
+Only commas and periods allowed. No em dashes, quotes, colons, or semicolons.
 `.trim();
 }
 
