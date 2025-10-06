@@ -100,33 +100,64 @@ Never use em dashes, colons, semicolons, quotes, or symbols.
 }
 
 function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG"): string[] {
-  const name = inserts[0] ? inserts[0] : "someone";
+  const name = inserts[0] || "you";
   const t = (topic || "the moment").replace(/[-_]/g, " ").trim();
 
-  const roast = [
-    `${name} locked in ${t} but kept the receipts just in case.`,
-    `Nothing says commitment like ${name} signing up for lifetime ${t}.`,
-    `${name} said yes to ${t}, the universe whispered good luck.`,
-    `${t} happened for ${name}, patience sold separately.`
-  ];
-  const funny = [
-    `${t} is official now, even ${name} can't undo the paperwork.`,
-    `${name} made ${t} happen, Wi-Fi password still negotiable.`,
-    `${t} for ${name} means champagne poured, dignity optional.`,
-    `${name} upgraded from hopeful to ${t} survivor.`
-  ];
-  const warm = [
-    `${name} found ${t} and signed for the delivery.`,
-    `Every grin today proves ${name} was right about ${t}.`,
-    `Two hearts, one ${t}, zero refund policy for ${name}.`,
-    `${t} looks good on ${name}.`
-  ];
+  const jokes = {
+    humorous: [
+      `Time tried to sneak by, ${t} caught it mid-yawn.`,
+      `${name} called it ${t}, destiny called it a rerun.`,
+      `${t} showed up early, confidence showed up late.`,
+      `If ${t} had a loyalty card, ${name} would have maxed it out.`
+    ],
+    savage: [
+      `${t} showed up loud and uninvited, ${name} blamed gravity.`,
+      `${name} survived ${t}, barely, sarcasm included.`,
+      `${t} tried to teach humility, ${name} skipped class.`,
+      `${name} mastered ${t}, chaos wrote the review.`
+    ],
+    sentimental: [
+      `${t} reminds ${name} how ordinary days become quiet miracles.`,
+      `${name} found calm hiding inside ${t}.`,
+      `There's comfort in small things like ${t} and trying again.`,
+      `${t} isn't perfect, but neither is life, and that's okay.`
+    ],
+    nostalgic: [
+      `${t} feels like an old song ${name} forgot they loved.`,
+      `${name} remembers ${t} differently now, softer somehow.`,
+      `${t} was simpler then, or maybe ${name} just thought it was.`,
+      `Looking back at ${t}, ${name} wishes they'd known what they had.`
+    ],
+    romantic: [
+      `${name} found magic hiding in ${t}.`,
+      `${t} made ${name} believe in second chances.`,
+      `Every moment of ${t} feels like ${name} wrote it themselves.`,
+      `${name} and ${t}, a story worth retelling.`
+    ],
+    inspirational: [
+      `${name} turned ${t} into proof that trying matters.`,
+      `${t} taught ${name} that courage starts small.`,
+      `${name} faced ${t} and chose to keep going.`,
+      `${t} reminds ${name} that growth looks messy first.`
+    ],
+    playful: [
+      `${name} approached ${t} like a game show challenge.`,
+      `${t} got silly fast, ${name} made it sillier.`,
+      `${name} treated ${t} like recess, rules optional.`,
+      `${t} was serious until ${name} added sound effects.`
+    ],
+    serious: [
+      `${name} met ${t} with clarity and intention.`,
+      `${t} demanded honesty, ${name} delivered.`,
+      `${name} faced ${t} without excuses or shortcuts.`,
+      `${t} tested ${name}, substance won.`
+    ]
+  };
 
-  const bank = tone === "savage" ? roast
-             : tone === "humorous" || tone === "playful" ? funny
-             : warm;
-
-  return bank.map(l => l.replace(/([^.?!])$/, "$1.")).slice(0, 4);
+  const pool = jokes[tone] || jokes.humorous;
+  return pool.map(l =>
+    l.trim().replace(/([^.?!])$/, "$1.").slice(0, 140)
+  ).slice(0, 4);
 }
 
 function ensureInsertPlacement(lines: string[], insert: string): string[] {
@@ -224,17 +255,21 @@ if (!r.ok) {
       lines = rawLines.filter(l => l.length >= 40 && l.length <= 160).slice(0, 4);
     }
     
-    // Pad with topic-aware fallback if still short
-    if (lines.length < 4) {
+    // Determine source and handle fallback
+    let source: string;
+    if (lines.length < 2) {
+      // Model failed completely, use full synth
+      lines = synth(topic, tone, inserts, rating);
+      source = "synth";
+    } else if (lines.length < 4) {
+      // Model gave us some lines, pad with synth
       const pad = synth(topic, tone, inserts, rating).slice(0, 4 - lines.length);
       lines = [...lines, ...pad];
+      source = "model+padded";
+    } else {
+      // Model gave us 4+ good lines
+      source = "model";
     }
-
-    const source = lines.length === 4 && rawLines.filter(l => l.length >= 60 && l.length <= 130).length === 4 
-      ? "model" 
-      : lines.length === 4 
-      ? "model+padded" 
-      : "synth";
 
     // Move leading inserts to end for better punchline placement
     if (inserts.length === 1) {
