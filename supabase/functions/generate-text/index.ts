@@ -76,19 +76,18 @@ function buildSystem(tone: Tone, rating: Rating, category: string, subcategory: 
     : "";
 
   return `
-Write 4 ${toneWord} one-liners inspired by ${subcategory}.
-Style: ${style}
-${pov}
-${catVoice}
-${savageRule}
-${ratingGate}
-${insertRule}
-
-Be bold, observational, and funny like a stand-up comic.
-Make each line sound spoken, not written. No explanations or rhymes.
+Write four one-liners that actually make people laugh.
+Topic: ${subcategory}. Tone: ${tone}. Rating: ${rating}.
+Sound like a sarcastic friend telling stories at a bar, not a caption.
+Adjust intensity to match rating:
+R: strong profanity allowed (fuck, shit, asshole). Dark, risky humor fine, no slurs or explicit sex.
+PG-13: edgy, flirty, mild swears (hell, damn, crap). Alcohol or chaos jokes fine.
+PG: clever, cheeky, clean humor only.
+G: wholesome, simple, safe humor.
+Each line must have rhythm, attitude, and a solid punchline.
+If insert words exist, build every joke naturally around them so they matter to the punch.
+Use only commas and periods. No em dashes, hyphens-as-pauses, quotes, colons, semicolons, or symbols.
 Each line 70–125 characters, starts with a capital letter, ends with punctuation.
-Avoid repeating the exact topic word more than once per line.
-Use commas and periods only, no dashes, quotes, colons, or semicolons.
 `.trim();
 }
 
@@ -257,13 +256,8 @@ serve(async (req) => {
     const rawLines = content.split(/\r?\n+/).map(clean).filter(l => l.length > 0);
     console.log("[generate-text] rawLines after clean:", rawLines.length, rawLines.map(l => `${l.length}ch`));
     
-    // Pass 1: strict 60-130 char range
-    let lines = rawLines.filter(l => l.length >= 60 && l.length <= 130).slice(0, 4);
-    
-    // Pass 2: if we don't have 4, try lenient 40-160
-    if (lines.length < 4) {
-      lines = rawLines.filter(l => l.length >= 40 && l.length <= 160).slice(0, 4);
-    }
+    // Strict validation: 70-125 characters only
+    let lines = rawLines.filter(l => l.length >= 70 && l.length <= 125).slice(0, 4);
     
     // Determine source and handle fallback
     let source: string;
@@ -286,7 +280,7 @@ serve(async (req) => {
       lines = ensureInsertPlacement(lines, inserts[0]);
     }
 
-    console.log(`[generate-text] lines: ${lines.length} (${lines.map(l=>l.length).join(',')}) source: ${source}`);
+    console.log("✅ FINAL SOURCE:", source);
 
     clearTimeout(hardTimer);
     if (deadlineHit) {
