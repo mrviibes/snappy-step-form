@@ -92,6 +92,10 @@ Do not repeat the topic word in every line. Write like clever card text or a one
 Avoid ad-style phrasing; sound like a human telling a joke or observation.
 Keep punctuation light and natural. Use commas and periods only, no quotes, no colons, no semicolons, no em dashes. Write like spoken language, not a tweet. Smooth flow over clever punctuation.
 No emojis or hashtags.
+Every line must be 60–125 characters long, one sentence, readable aloud.
+If a line ends up shorter than 60 characters, expand it slightly with a tag, emotion, or detail.
+Use only commas and periods for punctuation.
+Never use em dashes, colons, semicolons, quotes, or symbols.
 `.trim();
 }
 
