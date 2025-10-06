@@ -92,14 +92,27 @@ No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or p
 `.trim();
 }
 
-function synth(topic: string, tone: Tone, inserts: string[] = []) {
-  const set = [
-    "Love wins again and the catering survived.",
-    "Two rings, one group chat forever changed.",
-    "The champagne's judging no one tonight.",
-    "Here's to promises that age better than haircuts."
+function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG") {
+  const cleanTopic = topic.replace(/[-_]/g, " ").toLowerCase();
+  const insertOne = inserts?.[0] || cleanTopic;
+  const toneHints = TONE_HINT[tone] || "witty";
+  
+  // Mild profanity gate for non-R ratings
+  const profanity = ["fuck", "fucking", "shit", "damn", "hell", "ass"];
+  const filterWord = (w: string) => rating === "R" ? w : w.replace(/fuck/gi, "heck").replace(/shit/gi, "dang");
+  
+  const templates = [
+    `${insertOne} just reminds me why ${toneHints} moments matter.`,
+    `If ${insertOne} had a theme song, it would be ${toneHints} and slightly off-key.`,
+    `${insertOne} is proof that life doesn't need to be perfect to be ${toneHints}.`,
+    `Here's to ${insertOne}, where ${toneHints} energy meets real life chaos.`
   ];
-  return set.map(l => l.trim().replace(/([^.?!])$/, "$1."));
+  
+  return templates.map(l => {
+    let clean = l.trim().slice(0, 140);
+    if (clean.length < 60) clean = `${clean} And honestly, that's perfectly fine.`;
+    return filterWord(clean).replace(/([^.?!])$/, "$1.");
+  });
 }
 
 serve(async (req) => {
@@ -151,7 +164,7 @@ serve(async (req) => {
     
 if (!r.ok) {
       console.error("[generate-text] API error:", r.status);
-      const fallback = synth(topic, tone, inserts);
+      const fallback = synth(topic, tone, inserts, rating);
       console.warn("[generate-text] returning synth due to API error");
       return new Response(
         JSON.stringify({ success: true, options: fallback, model: MODEL, source: "synth" }),
@@ -164,27 +177,42 @@ if (!r.ok) {
     const finish = data?.choices?.[0]?.finish_reason || "n/a";
     console.log("[generate-text] finish_reason:", finish);
 
-    // Single-pass parse: split on newlines, clean, filter 60-130 chars
+    // Two-pass parser: strip bullets/numbers, try strict then lenient
     const clean = (l: string) => l
-      .replace(/[\u2013\u2014]/g, ",")
-      .replace(/[:;]+/g, ",")
+      .replace(/^[\s>*-]+\s*/, "")      // strip bullets like -, *, >
+      .replace(/^\d+\.\s+/, "")         // strip "1. "
+      .replace(/[\u2013\u2014]/g, ",")  // em/en dash → comma
+      .replace(/[:;]+/g, ",")           // colons/semicolons → comma
       .replace(/\s+/g, " ")
       .trim()
       .replace(/([^.?!])$/, "$1.");
 
-    const lines = content
-      .split(/\r?\n+/)
-      .map(clean)
-      .filter(l => l.length >= 60 && l.length <= 130)
-      .slice(0, 4);
+    const rawLines = content.split(/\r?\n+/).map(clean).filter(l => l.length > 0);
+    
+    // Pass 1: strict 60-130 char range
+    let lines = rawLines.filter(l => l.length >= 60 && l.length <= 130).slice(0, 4);
+    
+    // Pass 2: if we don't have 4, try lenient 40-160
+    if (lines.length < 4) {
+      lines = rawLines.filter(l => l.length >= 40 && l.length <= 160).slice(0, 4);
+    }
+    
+    // Pad with topic-aware fallback if still short
+    if (lines.length < 4) {
+      const pad = synth(topic, tone, inserts, rating).slice(0, 4 - lines.length);
+      lines = [...lines, ...pad];
+    }
 
-    const final = lines.length === 4 ? lines : synth(topic, tone, inserts);
-    const source = lines.length === 4 ? "model" : "synth";
+    const source = lines.length === 4 && rawLines.filter(l => l.length >= 60 && l.length <= 130).length === 4 
+      ? "model" 
+      : lines.length === 4 
+      ? "model+padded" 
+      : "synth";
 
-    console.log("[generate-text] source:", source, "| lines:", final.length);
+    console.log(`[generate-text] lines: ${lines.length} (${lines.map(l=>l.length).join(',')}) source: ${source}`);
 
     return new Response(
-      JSON.stringify({ success: true, options: final, model: MODEL, source }),
+      JSON.stringify({ success: true, options: lines, model: MODEL, source }),
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
 
@@ -194,7 +222,7 @@ if (!r.ok) {
     if (isTimeout) {
       console.warn("[generate-text] local timeout hit, returning synth");
       return new Response(
-        JSON.stringify({ success: true, options: synth(topic, tone, inserts), model: MODEL, source: "synth" }),
+        JSON.stringify({ success: true, options: synth(topic, tone, inserts, rating), model: MODEL, source: "synth" }),
         { headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
