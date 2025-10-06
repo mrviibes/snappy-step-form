@@ -105,17 +105,23 @@ function synth(topic: string, tone: Tone, inserts: string[] = []) {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
+  const region = Deno.env.get("VERCEL_REGION") || Deno.env.get("SUPABASE_REGION") || "unknown";
+  console.log("[generate-text] region:", region);
+
+  // Predeclare for catch fallback
+  let category = "", subcat = "", theme = "", tone: Tone = "humorous", rating: Rating = "PG", inserts: string[] = [], topic = "topic";
+
   try {
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
     const b = await req.json();
-    const category = String(b.category || "").trim();
-    const subcat = String(b.subcategory || "").trim();
-    const theme = String(b.theme || "").trim();
-    const tone = (b.tone || "humorous") as Tone;
-    const rating = (b.rating || "PG") as Rating;
-    const inserts = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0, 2) : [];
-    const topic = (theme || subcat || category || "topic").replace(/[-_]/g, " ").trim();
+    category = String(b.category || "").trim();
+    subcat = String(b.subcategory || "").trim();
+    theme = String(b.theme || "").trim();
+    tone = (b.tone || "humorous") as Tone;
+    rating = (b.rating || "PG") as Rating;
+    inserts = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0, 2) : [];
+    topic = (theme || subcat || category || "topic").replace(/[-_]/g, " ").trim();
 
     const SYSTEM = buildSystem(tone, rating, category, subcat, topic, inserts);
     const payload = `Category: ${category}, Subcategory: ${subcat}, Tone: ${tone}, Rating: ${rating}, Topic: ${topic}${inserts.length ? `, Insert words: ${inserts.join(", ")}` : ""}`;
@@ -143,9 +149,14 @@ serve(async (req) => {
 
     clearTimeout(timer);
     
-    if (!r.ok) {
+if (!r.ok) {
       console.error("[generate-text] API error:", r.status);
-      throw new Error(`OpenAI ${r.status}`);
+      const fallback = synth(topic, tone, inserts);
+      console.warn("[generate-text] returning synth due to API error");
+      return new Response(
+        JSON.stringify({ success: true, options: fallback, model: MODEL, source: "synth" }),
+        { headers: { ...cors, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await r.json();
@@ -177,12 +188,19 @@ serve(async (req) => {
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
 
-  } catch (err) {
+} catch (err) {
     const isTimeout = String(err).includes("timeout") || String(err).includes("AbortError");
     console.error("[generate-text] error:", String(err));
+    if (isTimeout) {
+      console.warn("[generate-text] local timeout hit, returning synth");
+      return new Response(
+        JSON.stringify({ success: true, options: synth(topic, tone, inserts), model: MODEL, source: "synth" }),
+        { headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
     return new Response(
-      JSON.stringify({ success: false, error: String(err), status: isTimeout ? 504 : 500 }),
-      { status: isTimeout ? 504 : 500, headers: { ...cors, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: String(err), status: 500 }),
+      { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
     );
   }
 });
