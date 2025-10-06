@@ -86,7 +86,7 @@ TYPOGRAPHY STYLES BY LAYOUT:
 - badge-callout: rounded geometric sans-serif, friendly weight
 - negative-space: modern clean sans-serif, balanced weight
 - caption: editorial sans-serif, refined weight
-- integrated-in-scene: contextual typography matching environment
+- integrated-in-scene: text physically part of environment (mirror fog, wall paint, sign etching, fabric print)
 - dynamic-overlay: bold geometric sans-serif, strong angles
 
 EXAMPLES:
@@ -191,7 +191,7 @@ const TYPOGRAPHY_STYLES: Record<string, string> = {
   "badge-callout": "rounded geometric sans-serif, friendly weight, clean kerning",
   "negative-space": "modern clean sans-serif, balanced weight, professional",
   "caption": "editorial sans-serif or clean serif, refined weight, subtle",
-  "integrated-in-scene": "contextual typography matching environment (stencil/painted/handwritten/sign)",
+  "integrated-in-scene": "text physically integrated into a real surface or object in the environment - not an overlay. Choose an appropriate surface that fits the scene context: fogged mirror, painted wall, paper note, fabric label, engraved sign, chalk board, steam on glass, etc. The text should appear as part of the physical world",
   "dynamic-overlay": "bold geometric sans-serif, strong angles, editorial weight"
 };
 
