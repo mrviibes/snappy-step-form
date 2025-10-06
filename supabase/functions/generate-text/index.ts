@@ -198,6 +198,10 @@ serve(async (req) => {
     const payload = `Category: ${category}, Subcategory: ${subcat}, Tone: ${tone}, Rating: ${rating}, Topic: ${topic}${inserts.length ? `, Insert words: ${inserts.join(", ")}` : ""}`;
 
     console.log("[generate-text] → OpenAI");
+    console.log("[generate-text] model:", MODEL);
+    console.log("[generate-text] API key present:", !!OPENAI_API_KEY);
+    console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
+    
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
@@ -220,8 +224,11 @@ serve(async (req) => {
 
     clearTimeout(timer);
     
-if (!r.ok) {
-      console.error("[generate-text] API error:", r.status);
+    console.log("[generate-text] response status:", r.status);
+    
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error("[generate-text] API error:", r.status, errorText);
       const fallback = synth(topic, tone, inserts, rating);
       console.warn("[generate-text] returning synth due to API error");
       return new Response(
