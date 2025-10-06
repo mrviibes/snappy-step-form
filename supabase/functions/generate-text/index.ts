@@ -84,6 +84,7 @@ Comedy style: ${style}
 ${catVoice}
 ${savageRule}
 Guideline: Use the subcategory (${subcategory}) only as creative context. You don't need to name it or describe it literally. If it's too specific, write about the vibe, routine, or emotion it implies.
+Blend the tone with the occasion so the humor feels specific to the event (${subcategory}) but not forced.
 Use setup, pivot, and tag like a live comedian. Vary sentence openings so not all lines start the same.
 Each line: 75–125 characters, ends with punctuation. Write naturally, not clipped.
 If lines are too short, expand them with imagery or emotion.
@@ -93,27 +94,34 @@ No emojis, hashtags, ellipses, colons, semicolons, or em-dashes. Use commas or p
 `.trim();
 }
 
-function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG") {
-  const cleanTopic = topic.replace(/[-_]/g, " ").toLowerCase();
-  const insertOne = inserts?.[0] || cleanTopic;
-  const toneHints = TONE_HINT[tone] || "witty";
-  
-  // Mild profanity gate for non-R ratings
-  const profanity = ["fuck", "fucking", "shit", "damn", "hell", "ass"];
-  const filterWord = (w: string) => rating === "R" ? w : w.replace(/fuck/gi, "heck").replace(/shit/gi, "dang");
-  
-  const templates = [
-    `${insertOne} just reminds me why ${toneHints} moments matter.`,
-    `If ${insertOne} had a theme song, it would be ${toneHints} and slightly off-key.`,
-    `${insertOne} is proof that life doesn't need to be perfect to be ${toneHints}.`,
-    `Here's to ${insertOne}, where ${toneHints} energy meets real life chaos.`
+function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG"): string[] {
+  const name = inserts[0] ? inserts[0] : "someone";
+  const t = (topic || "the moment").replace(/[-_]/g, " ").trim();
+
+  const roast = [
+    `${name} locked in ${t} but kept the receipts just in case.`,
+    `Nothing says commitment like ${name} signing up for lifetime ${t}.`,
+    `${name} said yes to ${t}, the universe whispered good luck.`,
+    `${t} happened for ${name}, patience sold separately.`
   ];
-  
-  return templates.map(l => {
-    let clean = l.trim().slice(0, 140);
-    if (clean.length < 60) clean = `${clean} And honestly, that's perfectly fine.`;
-    return filterWord(clean).replace(/([^.?!])$/, "$1.");
-  });
+  const funny = [
+    `${t} is official now, even ${name} can't undo the paperwork.`,
+    `${name} made ${t} happen, Wi-Fi password still negotiable.`,
+    `${t} for ${name} means champagne poured, dignity optional.`,
+    `${name} upgraded from hopeful to ${t} survivor.`
+  ];
+  const warm = [
+    `${name} found ${t} and signed for the delivery.`,
+    `Every grin today proves ${name} was right about ${t}.`,
+    `Two hearts, one ${t}, zero refund policy for ${name}.`,
+    `${t} looks good on ${name}.`
+  ];
+
+  const bank = tone === "savage" ? roast
+             : tone === "humorous" || tone === "playful" ? funny
+             : warm;
+
+  return bank.map(l => l.replace(/([^.?!])$/, "$1.")).slice(0, 4);
 }
 
 function ensureInsertPlacement(lines: string[], insert: string): string[] {
