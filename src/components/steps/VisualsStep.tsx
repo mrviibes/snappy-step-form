@@ -92,7 +92,7 @@ export default function VisualsStep({
     if ((e.key === 'Enter' || e.key === ',') && visualInput.trim()) {
       const input = visualInput.trim().replace(/,$/g, '');
       const currentVisuals = data.visuals?.insertedVisuals || [];
-      if (currentVisuals.length >= 8) {
+      if (currentVisuals.length >= 3) {
         return;
       }
       if (input.length < 2 || input.length > 50) {
@@ -408,10 +408,10 @@ export default function VisualsStep({
             
           </div>
           
-          <Input placeholder="Add visual element(s) by pressing comma or enter" value={visualInput} onChange={e => setVisualInput(e.target.value)} onKeyDown={handleAddVisual} className="text-base h-12 text-center placeholder:text-muted-foreground/60" disabled={(data.visuals?.insertedVisuals || []).length >= 8} />
+          <Input placeholder="Add visual element(s) by pressing comma or enter" value={visualInput} onChange={e => setVisualInput(e.target.value)} onKeyDown={handleAddVisual} className="text-base h-12 text-center placeholder:text-muted-foreground/60" disabled={(data.visuals?.insertedVisuals || []).length >= 3} />
           
           <div className="text-sm text-muted-foreground text-center">
-            {(data.visuals?.insertedVisuals || []).length}/8 visuals added
+            {(data.visuals?.insertedVisuals || []).length}/3 visuals added
           </div>
           
           {(data.visuals?.insertedVisuals || []).length > 0 && <div className="flex flex-wrap gap-2 justify-center">
