@@ -519,22 +519,17 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
                   key={index}
                   onClick={() => handleVisualOptionSelect(index)}
                   className={cn(
-                    "cursor-pointer transition-all duration-200 border-2 p-4",
+                    "cursor-pointer transition-all duration-200 border-2 p-5 bg-card",
                     selectedVisualOption === index 
                       ? "border-primary bg-accent" 
-                      : "border-border hover:border-primary/50"
+                      : "border-border hover:border-primary/50 hover:bg-accent/50"
                   )}
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-base text-foreground">
-                        Option {index + 1}
-                      </h3>
-                      {selectedVisualOption === index && (
-                        <div className="w-2 h-2 bg-primary rounded-full" />
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{line}</p>
+                    <h3 className="font-semibold text-base text-foreground">
+                      Option {index + 1}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{line}</p>
                   </div>
                 </Card>
               ))}
