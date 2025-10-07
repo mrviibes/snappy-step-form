@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type VisualRecommendation, type GenerateVisualsResponse } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
@@ -29,16 +29,6 @@ const visualStyles = [
   { id: "anime",       title: "Anime",     description: "Japanese cartoon", preview: animeImage }
 ];
 
-/** NEW: Composition modes (1–2 word labels) */
-const customVisualStyles = [
-  { value: "norman",     label: "Normal" },        // normal photoreal
-  { value: "big_head",   label: "Big-Head" },      // giant symmetrical caricature head
-  { value: "close_up",   label: "Close-Up" },      // very tight on face, shallow DOF
-  { value: "goofy",      label: "Goofy" },         // zoomed-out, playful, small subject
-  { value: "zoomed",     label: "Zoomed" },        // distant subject, wide shot
-  { value: "surreal",    label: "Surreal" }        // extreme scale contrast
-];
-
 const dimensionOptions = [
   { id: "square",    title: "Square",    description: "1:1 aspect ratio" },
   { id: "landscape", title: "Landscape", description: "16:9 aspect ratio" },
@@ -47,7 +37,6 @@ const dimensionOptions = [
 ];
 
 export default function VisualsStep({ data, updateData }: VisualsStepProps) {
-  const [tagInput, setTagInput] = useState('');
   const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,19 +53,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
     model?: string;
     error?: any;
   } | null>(null);
-
-  // Set default composition mode to "norman" on mount if not set
-  useEffect(() => {
-    if (!data.visuals?.compositionMode) {
-      updateData({
-        visuals: {
-          ...data.visuals,
-          compositionMode: "norman"
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -97,42 +73,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
       visuals: {
         ...data.visuals,
         isComplete: false
-      }
-    });
-  };
-
-  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      const currentVisuals = data.visuals?.insertedVisuals || [];
-      if (!currentVisuals.includes(tagInput.trim())) {
-        updateData({
-          visuals: {
-            ...data.visuals,
-            insertedVisuals: [...currentVisuals, tagInput.trim()]
-          }
-        });
-      }
-      setTagInput('');
-    }
-  };
-
-  const handleCompositionModeChange = (value: string) => {
-    if (value) {
-      updateData({
-        visuals: {
-          ...data.visuals,
-          compositionMode: value
-        }
-      });
-    }
-  };
-
-  const handleRemoveTag = (visualToRemove: string) => {
-    const currentVisuals = data.visuals?.insertedVisuals || [];
-    updateData({
-      visuals: {
-        ...data.visuals,
-        insertedVisuals: currentVisuals.filter((visual: string) => visual !== visualToRemove)
       }
     });
   };
@@ -158,9 +98,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
         tone: data.vibe?.tone || "Humorous",
         style: data.visuals?.style || "general",
         layout: data.text?.textLayout || "Open Space",
-        completed_text: finalText,
-        composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
-        insertedVisuals: data.visuals?.insertedVisuals || []
+        completed_text: finalText
       };
 
       setDebugInfo({
@@ -238,8 +176,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
   const handleEditStyle = () => { setEditingStyle(true); setEditingDimension(false); };
   const handleEditDimension = () => { setEditingDimension(true); setEditingStyle(false); };
   const handleEditProcess = () => { updateData({ visuals: { ...data.visuals, writingProcess: undefined } }); };
-  const handleEditInsertWords = () => { updateData({ visuals: { ...data.visuals, insertedVisuals: [] } }); };
-  const handleEditLayout = () => { updateData({ visuals: { ...data.visuals, compositionMode: undefined } }); };
   const handleEditVisualConcept = () => {
     setGeneratedVisuals([]);
     setSelectedVisualOption(null);
@@ -318,33 +254,9 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             </div>
           )}
 
-          {/* Insert Words Row */}
-          {data.visuals?.insertedVisuals?.length > 0 && (
-            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (isComplete && data.visuals?.selectedVisualRecommendation)) && "border-t border-border")}>
-              <div className="text-sm text-foreground">
-                <span className="font-semibold">Insert Words</span> - {data.visuals.insertedVisuals.join(', ')}
-              </div>
-              <button onClick={handleEditInsertWords} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          )}
-
-          {/* Composition Row */}
-          {data.visuals?.compositionMode && (
-            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (isComplete && data.visuals?.selectedVisualRecommendation) || (data.visuals?.insertedVisuals?.length > 0)) && "border-t border-border")}>
-              <div className="text-sm text-foreground">
-                <span className="font-semibold">Composition</span> - {customVisualStyles.find(style => style.value === data.visuals.compositionMode)?.label || data.visuals.compositionMode}
-              </div>
-              <button onClick={handleEditLayout} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>
-          )}
-
           {/* Visual Concept Row */}
           {isComplete && data.visuals?.selectedVisualRecommendation && (
-            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || (data.visuals?.insertedVisuals?.length > 0) || data.visuals?.compositionMode) && "border-t border-border")}>
+            <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
               <div className="text-sm text-foreground">
                 <span className="font-semibold">Visual Concept</span> - Option {(data.visuals?.selectedVisualOption ?? 0) + 1}
               </div>
@@ -449,80 +361,30 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
         </>
       )}
 
-      {/* Visual Tags + Generate */}
+      {/* Generate Button */}
       {showGenerateButton && !showVisualOptions && !isComplete && !editingStyle && !editingDimension && (
-        <>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground">Optional - any specific visuals?</h3>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
-                onKeyDown={handleAddTag}
-                placeholder="e.g., dogs, mountains, cars..."
-                className="flex-1"
-              />
-            </div>
-            {data.visuals?.insertedVisuals?.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {data.visuals.insertedVisuals.map((visual: string, index: number) => (
-                  <div key={index} className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-full text-sm">
-                    <span>{visual}</span>
-                    <button onClick={() => handleRemoveTag(visual)} className="hover:text-primary/60">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+        <div className="pt-4 space-y-4">
+          {error && (
+            <Alert className="mb-4 border-destructive bg-destructive/10">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
+            {isGeneratingVisuals ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate 4 AI Visuals
+              </>
             )}
-          </div>
-
-          {/* Generate + Composition Mode */}
-          <div className="pt-4 space-y-4">
-            {error && (
-              <Alert className="mb-4 border-destructive bg-destructive/10">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-destructive">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Composition Mode (Optional)
-                </label>
-                <Select value={data.visuals?.compositionMode || ""} onValueChange={handleCompositionModeChange}>
-                  <SelectTrigger className="w-full h-12 bg-background border-2 border-border hover:border-primary/50 focus:border-primary z-[100]">
-                    <SelectValue placeholder="Select composition mode (optional)" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border shadow-lg z-[100] max-h-48">
-                    {customVisualStyles.map(style => (
-                      <SelectItem key={style.value} value={style.value} className="hover:bg-accent focus:bg-accent cursor-pointer">
-                        {style.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
-                {isGeneratingVisuals ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate 4 AI Visuals
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </>
+          </Button>
+        </div>
       )}
 
       {/* Visual Selection */}
