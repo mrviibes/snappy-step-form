@@ -450,7 +450,46 @@ export default function VisualsStep({
 
       {/* Writing Process Selection */}
       {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
-...
+          <div className="text-center pt-6 pb-2">
+            <h2 className="text-xl font-semibold text-foreground">How would you like to create your visuals?</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Card 
+              className={cn(
+                "cursor-pointer text-center transition-all duration-200 border-2 p-6 flex flex-col justify-center items-center h-40 hover:shadow-md",
+                data.visuals?.writingProcess === 'ai' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
+              )}
+              onClick={() => handleWritingProcessSelect('ai')}
+            >
+              <div className="text-4xl mb-2">🤖</div>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">AI Assist</h4>
+              <p className="text-xs text-muted-foreground">Generate visual concepts with AI</p>
+            </Card>
+            
+            <Card 
+              className={cn(
+                "cursor-pointer text-center transition-all duration-200 border-2 p-6 flex flex-col justify-center items-center h-40 hover:shadow-md",
+                data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
+              )}
+              onClick={() => handleWritingProcessSelect('manual')}
+            >
+              <div className="text-4xl mb-2">✍️</div>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">Create Myself</h4>
+              <p className="text-xs text-muted-foreground">I'll create my own visual manually</p>
+            </Card>
+            
+            <Card 
+              className={cn(
+                "cursor-pointer text-center transition-all duration-200 border-2 p-6 flex flex-col justify-center items-center h-40 hover:shadow-md",
+                data.visuals?.writingProcess === 'random' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
+              )}
+              onClick={() => handleWritingProcessSelect('random')}
+            >
+              <div className="text-4xl mb-2">🎲</div>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">Random</h4>
+              <p className="text-xs text-muted-foreground">Surprise me with random visuals</p>
+            </Card>
+          </div>
         </>}
 
       {/* Optional Visuals Input */}
