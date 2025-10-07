@@ -101,20 +101,15 @@ export default function TextStep({
         });
       }
 
-      const insertWords = Array.from(new Set(nameTokens)).slice(0, 2);
-      const themeValue = themePhrase.length ? themePhrase.join(" ") : undefined;
-      const category = data.category?.name || 'misc';
-      const subcategory = themeValue || 'general';
+      // Extract topics directly from tags (up to 3)
+      const topics = (data.tags || []).filter(Boolean).slice(0, 3);
 
       // Create debug info
       const requestPayload = {
-        category,
-        subcategory,
-        theme: themeValue,
+        topics,
         tone: data.text.tone,
         rating: data.text.rating,
         styleId: pickDefaultStyle(data.text.tone),
-        insertWords,
         userId: 'anonymous'
       };
       

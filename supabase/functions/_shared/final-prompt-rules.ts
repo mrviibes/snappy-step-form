@@ -20,13 +20,12 @@ TYPOGRAPHY POLICY
 - Exact spelling only; no duplicates or extra text.
 
 STRUCTURE
-- Category: broad context. Subcategory: props/setting (never named).
 - Tone: mood/energy. Rating: maturity limits. Layout: placement rules.
 - Dimensions: aspect ratio. Visual Recommendation: optional scene guide.
 
 PROMPT CONSTRUCTION
 - Positive (≤80 words): include mandatory text, layout rules, style, aspect, tone/rating, scene/props, readability, and minimum coverage.
-- Negative (≤10 words): block text errors and enforce rating/category.
+- Negative (≤10 words): block text errors and enforce rating.
 
 OUTPUT
 - Return ONE Positive string + ONE Negative string, ready for API.`;
@@ -36,7 +35,7 @@ export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI 
 - Positive prompt ≤80 words.
 - Text overlay follows chosen layout or auto negative-space.
 - If layout = meme-text: split at first comma (top/bottom).
-- Brief scene: category/subcategory style (label not named), aspect, tone/rating, 1–3 props.
+- Brief scene: visual style, aspect, tone/rating, 1–3 props.
 - Bright key light, vivid saturation, crisp focus, cinematic contrast.
 - Typography policy: see minimum coverage by layout above; no panels/bubbles.`;
 
@@ -108,11 +107,3 @@ export const textQualityNegatives =
 // ===== TEXT FAILURE NEGATIVES =====
 export const textFailureNegatives =
   "missing text, tiny caption text, black bars, filled panels, speech bubbles, low contrast text, warped letters, cramped padding, duplicate words, thin caption strip";
-
-// ===== Helper =====
-export function getCategoryNegatives(category: string, rating: string): string {
-  const categoryKey = (category || "").toLowerCase();
-  const categoryNeg = baseNegatives[categoryKey] || "";
-  const ratingNeg = ratingNegatives[rating] || "";
-  return [categoryNeg, ratingNeg].filter(Boolean).join(", ");
-}

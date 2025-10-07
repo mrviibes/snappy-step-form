@@ -22,12 +22,9 @@ function canonStyle(s?: string): ComedyStyleId | undefined {
 
 // Types
 export interface GenerateTextParams {
-  category: string;
-  subcategory?: string;
+  topics?: string[];
   tone?: string;
   rating?: string;
-  insertWords?: string[];
-  theme?: string;
   styleId?: ComedyStyleId;
 }
 
@@ -146,23 +143,14 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 
 // Text generation
 export async function generateTextOptions(params: GenerateTextParams): Promise<GenerateTextResponse> {
-  const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
-  
-  // Safety check: ensure category/subcategory are always provided
-  if (!params.category && !params.subcategory) {
-    params.category = "misc";
-    params.subcategory = "general";
-  }
+  const topics = Array.isArray(params.topics) ? params.topics.filter(Boolean).slice(0, 3) : [];
   
   const nonce = crypto.randomUUID().slice(0, 8);
   
   const payload = {
-    category: params.category || "misc",
-    subcategory: params.subcategory || "general",
-    theme: params.theme,
+    topics,
     tone: canonTone(params.tone),
     rating: canonRating(params.rating),
-    insertWords,
     styleId: canonStyle(params.styleId),
     nonce
   };
@@ -212,8 +200,6 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
 
 // Final prompt generation
 export async function generateFinalPrompt(params: {
-  category: string;
-  subcategory?: string;
   tone?: string;
   rating?: string;
   style?: string;
@@ -228,8 +214,6 @@ export async function generateFinalPrompt(params: {
     image_dimensions: (params as any).image_dimensions ?? (params as any).aspectRatio ?? "square",
 
     // Optional context
-    category: params.category || "celebrations",
-    subcategory: params.subcategory,
     tone: params.tone || "humorous",
     rating: params.rating || "PG",
     image_style: ((params as any).image_style ?? params.style) || "Auto",

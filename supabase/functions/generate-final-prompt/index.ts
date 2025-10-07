@@ -10,7 +10,6 @@ import {
   ratingMap,
   textQualityNegatives,
   textFailureNegatives,
-  getCategoryNegatives
 } from "../_shared/final-prompt-rules.ts";
 
 // ============== OPENAI DIRECT ==============
@@ -35,11 +34,8 @@ function err(status: number, message: string, details?: unknown) {
 // ============== INTERFACES ==============
 interface FinalPromptRequest {
   completed_text: string;
-  category?: string;
-  subcategory?: string;
   tone?: string;
   rating?: string;
-  insertWords?: string[];
   image_style?: string;         // "realistic" | "illustrated" etc.
   text_layout?: string;         // "auto" or one of six
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
@@ -382,7 +378,6 @@ function getOptimalCoverage(text: string, baseMin: number): number {
 async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
-    category = "celebrations",
     tone = "humorous",
     rating = "PG",
     image_style = "realistic",
@@ -527,17 +522,17 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
 // ============== LAYOUT TEMPLATE SYSTEM ==============
 
 // Template constants with {variable} placeholders
-const MEME_TEXT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in all-caps impact font at the top and bottom, classic meme layout with clean spacing and balanced stroke, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing for strong readability. A transparent black overlay (~{overlayOpacity}% opacity) adds contrast. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const MEME_TEXT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in all-caps impact font at the top and bottom, classic meme layout with clean spacing and balanced stroke, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing for strong readability. A transparent black overlay (~{overlayOpacity}% opacity) adds contrast. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
-const BADGE_CALLOUT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" inside a small floating badge using rounded sans-serif font, matte white, cleanly spaced, occupying roughly {textCoverage}% of the frame. Composition follows {composition_mode} framing, badge placed in open space without blocking faces or props. A soft overlay (~{overlayOpacity}% opacity) adds depth. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const BADGE_CALLOUT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" inside a small floating badge using rounded sans-serif font, matte white, cleanly spaced, occupying roughly {textCoverage}% of the frame. Composition follows {composition_mode} framing, badge placed in open space without blocking faces or props. A soft overlay (~{overlayOpacity}% opacity) adds depth. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
-const NEGATIVE_SPACE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" shown in modern clean sans-serif font, positioned in open negative space, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing with breathable margins and soft balance between subject and text. A subtle transparent overlay (~{overlayOpacity}% opacity) boosts readability. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const NEGATIVE_SPACE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" shown in modern clean sans-serif font, positioned in open negative space, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing with breathable margins and soft balance between subject and text. A subtle transparent overlay (~{overlayOpacity}% opacity) boosts readability. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
-const CAPTION_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" displayed as a bottom caption in condensed sans-serif, centered and evenly spaced, occupying around {textCoverage}% of the width. Composition follows {composition_mode} framing with natural hierarchy and clear separation from the subject. A soft black overlay (~{overlayOpacity}% opacity) keeps tone consistent. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const CAPTION_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" displayed as a bottom caption in condensed sans-serif, centered and evenly spaced, occupying around {textCoverage}% of the width. Composition follows {composition_mode} framing with natural hierarchy and clear separation from the subject. A soft black overlay (~{overlayOpacity}% opacity) keeps tone consistent. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
-const INTEGRATED_IN_SCENE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" appearing naturally as part of the environment, printed or engraved on a visible surface such as a wall, sign, shirt, or object, matching perspective and light. Font style adapts to the surface texture, occupying about {textCoverage}% of the frame. Composition follows {composition_mode} framing with realistic lighting and depth cues. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const INTEGRATED_IN_SCENE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" appearing naturally as part of the environment, printed or engraved on a visible surface such as a wall, sign, shirt, or object, matching perspective and light. Font style adapts to the surface texture, occupying about {textCoverage}% of the frame. Composition follows {composition_mode} framing with realistic lighting and depth cues. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
-const DYNAMIC_OVERLAY_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in bold geometric sans-serif lettering, angled dynamically or along a leading line, occupying about {textCoverage}% of the image. Composition follows {composition_mode} framing with energetic diagonal flow and balanced legibility. A uniform transparent black overlay (~{overlayOpacity}% opacity) adds natural contrast. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
+const DYNAMIC_OVERLAY_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in bold geometric sans-serif lettering, angled dynamically or along a leading line, occupying about {textCoverage}% of the image. Composition follows {composition_mode} framing with energetic diagonal flow and balanced legibility. A uniform transparent black overlay (~{overlayOpacity}% opacity) adds natural contrast. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
 
 // Negative prompt constants (short, layout-specific)
 const MEME_TEXT_NEGATIVE = "misspelled text, warped letters, weak stroke, oversized text, cluttered frame, sticker look, low contrast, text box, poor balance";
@@ -646,7 +641,6 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
     composition_mode: p.composition_modes?.[0] || "cinematic",
     overlayOpacity: overlayOpacityByLayout[layoutKey] || 12,
     tone: visualToneMap[tone] || tone,
-    subcategory: p.subcategory || p.category || "everyday humor",
     image_dimensions: aspectLabel(p.image_dimensions)
   };
 }

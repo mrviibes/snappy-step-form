@@ -21,15 +21,11 @@ type Tone = "Humorous" | "Savage" | "Sentimental" | "Inspirational";
 type Rating = "G" | "PG" | "PG-13" | "R";
 
 type Body = {
-  category?: string;
-  subcategory?: string;
+  topics?: string[];
   tone?: string;
   rating?: string;
-  insertWords?: string[];
-  insertwords?: string[]; // legacy
   style?: string;
   styleId?: string;
-  theme?: string;
   comedian?: string; // optional override
 };
 
@@ -124,8 +120,8 @@ const ratingModifiers: Record<Rating, string> = {
 };
 
 function systemPrompt(b: {
-  category: string; subcategory: string; tone: Tone; rating: Rating;
-  insertWords: string[]; styleId?: string; comedian?: string | null;
+  topics: string[]; tone: Tone; rating: Rating;
+  styleId?: string; comedian?: string | null;
 }) {
   const styleId = (b.styleId && STYLE_DEFS[b.styleId]) ? b.styleId : pickDefaultStyle(b.tone);
   const styleRule = STYLE_DEFS[styleId];
@@ -133,19 +129,14 @@ function systemPrompt(b: {
     ? b.comedian
     : pickRandom(COMEDIAN_CODES[b.tone]);
 
-  // Parse insertWords: [0] = subject/name, [1] = situation/context (but situation becomes thematic guidance)
-  const subject = b.insertWords[0] || b.category || "the subject";
-  const situation = b.insertWords[1] || b.subcategory || "general topics";
-  
-  const contextLine = b.insertWords.length >= 2
-    ? `The subject is ${subject}. The scenario theme is "${situation}" — use this as context inspiration, NOT a literal phrase to insert.`
-    : b.insertWords.length === 1
-    ? `The subject is ${subject}. Write about this subject naturally.`
-    : `Topic context: ${b.category}, ${b.subcategory}.`;
+  const topics = b.topics || [];
+  const contextLine = topics.length
+    ? `Topics: ${topics.join(", ")}. Weave them naturally into the humor, don't copy verbatim.`
+    : `No specific topics given.`;
 
-  const nameRule = b.insertWords.length
-    ? `Include ${subject} by name naturally, as the subject or target of the humor. Imply the scenario through action or consequence, not by repeating the theme phrase.`
-    : `Write jokes about the given topic.`;
+  const nameRule = topics.length && topics[0]
+    ? `Include "${topics[0]}" as the main subject or target.`
+    : `Write general jokes.`;
 
   // Comedian style reference based on tone
   const comedianStyle =
@@ -196,16 +187,15 @@ function systemPrompt(b: {
 }
 
 function userPrompt(b: {
-  category: string; subcategory: string; tone: Tone; rating: Rating;
-  insertWords: string[]; styleId?: string; comedian?: string | null;
+  topics: string[]; tone: Tone; rating: Rating;
+  styleId?: string; comedian?: string | null;
 }) {
   return JSON.stringify({
-    main_topic: b.subcategory || b.category,
+    topics: b.topics || [],
     tone: b.tone,
     rating: b.rating,
     style: b.styleId || pickDefaultStyle(b.tone),
-    include_names: b.insertWords || [],
-    goal: "Write 4 concise one-liner jokes that revolve around the topic and names above."
+    goal: "Write 4 concise one-liner jokes that revolve around the topics above."
   });
 }
 
@@ -267,9 +257,9 @@ function isProperNameToken(tok: string): boolean {
   return /^[A-Z][a-z]+$/.test(tok);
 }
 
-function deriveRequiredTokens(inserts: string[]): string[] {
+function deriveRequiredTokens(topics: string[]): string[] {
   const tokens: string[] = [];
-  for (const phrase of inserts) {
+  for (const phrase of topics) {
     for (const tok of splitTokens(phrase)) {
       if (isProperNameToken(tok)) tokens.push(tok);
     }
@@ -277,14 +267,14 @@ function deriveRequiredTokens(inserts: string[]): string[] {
   return Array.from(new Set(tokens));
 }
 
-function hasAllRequiredNames(s: string, inserts: string[]): boolean {
-  const required = deriveRequiredTokens(inserts);
+function hasAllRequiredNames(s: string, topics: string[]): boolean {
+  const required = deriveRequiredTokens(topics);
   if (required.length === 0) return true;
   return required.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
 }
 
-function containsAnyThemePhrase(s: string, inserts: string[]): boolean {
-  return inserts.some(p => p && new RegExp(escapeRegExp(p), "i").test(s));
+function containsAnyThemeTopic(s: string, topics: string[]): boolean {
+  return topics.some(p => p && new RegExp(escapeRegExp(p), "i").test(s));
 }
 
 // rating filter: block slurs always, loosen profanity gate
@@ -311,53 +301,42 @@ function uniqueByText(lines: string[]) {
   }
   return out;
 }
-function filterBySubcatUse(lines: string[], subcat: string) {
-  if (!subcat) return lines;
-  let used = 0;
-  const re = new RegExp(`\\b${escapeRegExp(subcat)}\\b`, "i");
-  return lines.filter(l => re.test(l) ? used++ < 1 : true);
-}
 
 function validateLinesOnce(
   raw: string,
-  inserts: string[],
-  subcat: string,
+  topics: string[],
   rating: Rating,
 ): string[] {
   let lines = raw.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
   lines = lines.filter(l =>
-    isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, inserts) && !violatesRating(l, rating)
+    isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, topics) && !violatesRating(l, rating)
   );
   lines = uniqueByText(lines);
-  lines = filterBySubcatUse(lines, subcat);
   return lines;
 }
 
 function validateWithFallback(
   raw: string,
-  inserts: string[],
-  subcat: string,
+  topics: string[],
   rating: Rating,
   want = 4
 ): string[] {
-  let out = validateLinesOnce(raw, inserts, subcat, rating);
+  let out = validateLinesOnce(raw, topics, rating);
   if (out.length >= want) return out.slice(0, want);
 
   // second pass: allow thematic mention without hard name requirement,
-  // but still prefer lines that at least hint the theme
+  // but still prefer lines that at least hint the topics
   let lines = raw.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
   lines = lines.filter(l =>
     isOneSentence(l) && inCharRange(l) && !violatesRating(l, rating)
   );
-  // softly prefer lines that mention any theme phrase or the subcategory
-  const themeRe = new RegExp(escapeRegExp(subcat), "i");
+  // softly prefer lines that mention any topic
   lines.sort((a, b) => {
-    const as = (containsAnyThemePhrase(a, inserts) ? 1 : 0) + (themeRe.test(a) ? 1 : 0);
-    const bs = (containsAnyThemePhrase(b, inserts) ? 1 : 0) + (themeRe.test(b) ? 1 : 0);
+    const as = containsAnyThemeTopic(a, topics) ? 1 : 0;
+    const bs = containsAnyThemeTopic(b, topics) ? 1 : 0;
     return bs - as;
   });
   lines = uniqueByText(lines);
-  lines = filterBySubcatUse(lines, subcat);
   return lines.slice(0, want);
 }
 
@@ -382,15 +361,15 @@ function addEdgeIfR(line: string): string {
   return line;
 }
 
-function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
-  const subject = inserts[0] || "you";
-  const situation = inserts[1] || topic || "life";
+function synthFallback(topics: string[], tone: Tone): string[] {
+  const subject = topics[0] || "you";
+  const context = topics[1] || "life";
   
   const base = [
-    `${subject} tried ${situation}, but gravity had other plans.`,
-    `${subject} said ${situation} would be easy, and the universe laughed.`,
-    `${subject}'s approach to ${situation} is a masterclass in chaos.`,
-    `They told ${subject} about ${situation}, but nobody mentioned the fine print.`
+    `${subject} tried ${context}, but gravity had other plans.`,
+    `${subject} said ${context} would be easy, and the universe laughed.`,
+    `${subject}'s approach to ${context} is a masterclass in chaos.`,
+    `They told ${subject} about ${context}, but nobody mentioned the fine print.`
   ];
   return base.map(normalizeLine).filter(l => inCharRange(l, 60, 120));
 }
@@ -406,24 +385,18 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
     const b = (await req.json()) as Body;
 
-    const category = String(b.category || "").trim();
-    const subcategory = String(b.subcategory || "").trim();
     const tone = canonTone(b.tone);
     const rating = canonRating(b.rating);
     const styleId = b.styleId || undefined;
     const comedian = b.comedian || null;
 
-    const insertWords = (Array.isArray(b.insertWords) ? b.insertWords : Array.isArray(b.insertwords) ? b.insertwords : [])
-      .filter(Boolean).slice(0, 2).map(String);
-
-    const topic = (b.theme || subcategory || category || "the moment").replace(/[-_]/g, " ").trim();
+    const topics = (Array.isArray(b.topics) ? b.topics : [])
+      .filter(Boolean).slice(0, 3).map(String);
 
     const full = {
-      category: category || "misc",
-      subcategory: subcategory || "general",
+      topics,
       tone,
       rating,
-      insertWords,
       styleId,
       comedian
     };
@@ -458,9 +431,9 @@ serve(async (req) => {
       const content = data?.choices?.[0]?.message?.content ?? "";
       
       console.log("[generate-text] raw:", content?.slice(0, 400));
-      console.log("[generate-text] pass1 count:", validateLinesOnce(content, insertWords, full.subcategory, rating).length);
+      console.log("[generate-text] pass1 count:", validateLinesOnce(content, topics, rating).length);
       
-      let lines = validateWithFallback(content, insertWords, full.subcategory, rating, 4);
+      let lines = validateWithFallback(content, topics, rating, 4);
       console.log("[generate-text] pass2 count:", lines.length);
 
       if (lines.length < 4 && !deadlineHit) {
@@ -492,14 +465,14 @@ serve(async (req) => {
       const errText = await r.text();
       console.error("[generate-text] API error:", r.status, errText);
       source = "synth";
-      outputs = synthFallback(topic, insertWords, tone);
+      outputs = synthFallback(topics, tone);
     }
 
     outputs = outputs
       .map(normalizeLine)
       .map(polishGrammar)
       .map(ensureSentenceFlow)
-      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, insertWords) && !violatesRating(l, rating));
+      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, topics) && !violatesRating(l, rating));
 
     // Add edge to R-rated lines if they're too tame
     if (rating === "R") {
@@ -507,7 +480,7 @@ serve(async (req) => {
     }
 
     if (outputs.length < 4) {
-      const pad = synthFallback(topic, insertWords, tone).filter(l => !violatesRating(l, rating));
+      const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating));
       outputs = uniqueByText([...outputs, ...pad]).slice(0, 4);
       source = "synth-final";
     }
@@ -529,7 +502,7 @@ serve(async (req) => {
     clearTimeout(guard);
     clearTimeout(HARD);
     console.error("[generate-text] error:", String(err));
-    const outputs = synthFallback("the moment", [], "Humorous");
+    const outputs = synthFallback([], "Humorous");
     return new Response(JSON.stringify({
       success: true,
       model: MODEL,
