@@ -1,81 +1,134 @@
-// supabase/functions/generate-text/index.ts
-// Viibe Generator - Chat Completions version, 3.5 Turbo, stricter validation
-// Enforces: 4 one-liners, 70-125 chars, one sentence, commas and periods only,
-// includes all insert words, tone and rating aware, no em dashes.
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const API = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-3.5-turbo";
-
-// timeouts kept inside Supabase 60s limit
-const TIMEOUT_MS = 22000;
+const TIMEOUT_MS = 18000;
 const HARD_DEADLINE_MS = 26000;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Tone = "humorous" | "savage" | "sentimental" | "nostalgic";
+type Tone = "Humorous" | "Savage" | "Sentimental" | "Inspirational";
 type Rating = "G" | "PG" | "PG-13" | "R";
 
 type Body = {
   category?: string;
   subcategory?: string;
-  tone?: Tone;
-  rating?: Rating;
+  tone?: string;
+  rating?: string;
   insertWords?: string[];
+  insertwords?: string[];
   style?: string;
+  styleId?: string;
+  theme?: string;
 };
 
-// ---------- Prompt builder ----------
+const toTitle = (s?: string) => (s || "").trim().toLowerCase().replace(/^\w/, c => c.toUpperCase());
+const CANON_TONES = new Set<Tone>(["Humorous","Savage","Sentimental","Inspirational"]);
+const CANON_RATINGS = new Set<Rating>(["G","PG","PG-13","R"]);
+const canonTone = (s?: string): Tone => {
+  const t = toTitle(s) as Tone;
+  return CANON_TONES.has(t) ? t : "Humorous";
+};
+const canonRating = (s?: string): Rating => {
+  const r = (s || "").toUpperCase() as Rating;
+  return CANON_RATINGS.has(r) ? r : "PG";
+};
 
-function systemPrompt(b: Required<Body>) {
-  const { category, subcategory, tone, rating, insertWords, style } = b;
+const STYLE_DEFS: Record<string, string> = {
+  "punchline-first": "Start with hit, explain after, tight reversal.",
+  "story": "Mini scene, quick build, clean laugh.",
+  "everyday-pain": "Relatable hassle, small misery, wink.",
+  "pop-culture": "One clear reference, not name spam.",
+  "self-deprecating": "Speaker takes the loss, charming.",
+  "observation": "Noticing pattern, crisp contrast lands.",
+  "absurdist": "Strange logic, still tracks, quick twist.",
+  "punny": "Wordplay once, no groan stack.",
+  "word-flip": "Expectation setup, meaning flips late.",
+  "relatable-chaos": "Human mess, controlled punch finish.",
+  "brutal-truth": "Plain hard truth, surgical wording.",
+  "playground-insult": "Petty jab, clever not cruel.",
+  "roast-monologue": "Stacked tag, one sentence cadence.",
+  "dark-irony": "Bleak turn, witty restraint.",
+  "petty-comeback": "Score settling, compact sting.",
+  "confidence-flex": "Self as prize, playful brag.",
+  "mock-advice": "Fake tip, wrong lesson.",
+  "arrogant-confession": "Shameless reveal, smug grin.",
+  "sarcastic-proverb": "Twisted saying, modern spin.",
+  "ego-trip": "Hyperbole about self, crisp.",
+  "heartfelt-humor": "Warm note, gentle laugh.",
+  "memory-flash": "Nostalgia beat, soft twist.",
+  "rom-com": "Playful flirt, hopeful tag.",
+  "cheerful-irony": "Sweet tone, sly flip.",
+  "friendship-toast": "Affection first, punch second.",
+  "love-roast": "Kind tease, caring core.",
+  "bittersweet-laugh": "Soft ache, light smile.",
+  "thankful-chaos": "Gratitude amid mess, grin.",
+  "family-banter": "Household dynamic, loving jab.",
+  "flirty-line": "Confident tease, charming close.",
+  "self-improvement-roast": "Boost with burn, upbeat.",
+  "fake-guru": "Motivation parody, faux wisdom.",
+  "winners-sarcasm": "Smug cheer, trophy tone.",
+  "life-lesson": "Simple truth, funny turn.",
+  "hustle-parody": "Grind culture send-up.",
+  "wisdom-twist": "Aphorism, left turn ending.",
+  "cheer-up": "Light lift, playful nudge.",
+  "inner-peace": "Zen calm, tiny smirk.",
+  "big-dream-roast": "Ambition joke, spicy hope.",
+  "enlightened-idiot": "Dumb take, weirdly wise."
+};
 
-  const styleLine = style
-    ? `Style: ${style}.`
-    : `Style: one-liner with a quick setup and a sharp payoff.`;
+function pickDefaultStyle(tone: Tone): string {
+  if (tone === "Humorous") return "punchline-first";
+  if (tone === "Savage") return "brutal-truth";
+  if (tone === "Sentimental") return "heartfelt-humor";
+  return "self-improvement-roast";
+}
 
-  const insertsLine = insertWords.length
-    ? `Insert words: ${insertWords.join(", ")}. Each output must include all insert words naturally.`
+function systemPrompt(b: {
+  category: string; subcategory: string; tone: Tone; rating: Rating;
+  insertWords: string[]; styleId?: string;
+}) {
+  const styleId = (b.styleId && STYLE_DEFS[b.styleId]) ? b.styleId : pickDefaultStyle(b.tone);
+  const styleRule = STYLE_DEFS[styleId];
+
+  const insertsLine = b.insertWords.length
+    ? `Insert words: ${b.insertWords.join(", ")}. Each output must include all insert words naturally.`
     : `No insert words provided.`;
 
   return [
     `You are a professional comedy writer generating four one-liner jokes.`,
-    `Category: ${category || "misc"}, Subcategory: ${subcategory || "general"}.`,
-    `Tone: ${tone}. Rating: ${rating}. ${styleLine}`,
+    `Category: ${b.category}, Subcategory: ${b.subcategory}.`,
+    `Tone: ${b.tone}. Rating: ${b.rating}.`,
+    `Style: ${styleId} — ${styleRule}`,
     insertsLine,
     `Rules:`,
     `- Exactly 4 outputs.`,
-    `- Each output is exactly one sentence with a clear setup and punchline.`,
-    `- Character range per output: 70 to 125.`,
-    `- Use only commas and periods. No dashes, no colons, no semicolons, no emojis, no hashtags.`,
-    `- Start with a capital letter and end with a period.`,
-    `- Do not repeat the exact word "${subcategory}" more than once across the entire set.`,
-    `- Keep language within the rating.`,
-    `- Avoid meta talk about jokes.`,
-    `Output format: a plain numbered list 1-4, one line per item.`,
+    `- One sentence each, setup then punchline.`,
+    `- 60 to 110 characters.`,
+    `- Only commas and periods.`,
+    `- Start with a capital, end with a period.`,
+    `- Do not repeat the exact word "${b.subcategory}" more than once across the set.`,
+    `- Stay within rating. No meta talk.`,
+    `Output format: a plain numbered list 1-4, one line per item.`
   ].join(" ");
 }
 
-function userPrompt(b: Required<Body>) {
-  const { category, subcategory, tone, rating, insertWords, style } = b;
-  const payload = {
-    category,
-    subcategory,
-    tone,
-    rating,
-    style: style || "one-liner",
-    insert_words: insertWords,
-  };
-  return JSON.stringify(payload);
+function userPrompt(b: { category: string; subcategory: string; tone: Tone; rating: Rating; insertWords: string[]; styleId?: string }) {
+  return JSON.stringify({
+    category: b.category,
+    subcategory: b.subcategory,
+    tone: b.tone,
+    rating: b.rating,
+    styleId: b.styleId || pickDefaultStyle(b.tone),
+    insert_words: b.insertWords
+  });
 }
-
-// ---------- Post-processing and validation ----------
 
 const ILLEGAL_CHARS = /[:;!?"""'''(){}\[\]<>/_*#+=~^`|\\]/g;
 const EM_DASH = /[\u2014\u2013]/g;
@@ -87,81 +140,46 @@ function normalizeLine(s: string): string {
   t = t.replace(ILLEGAL_CHARS, "");
   t = t.replace(/\s+/g, " ");
   if (t.length) t = t[0].toUpperCase() + t.slice(1);
-  if (!/[.?!]$/.test(t)) t += ".";
-  t = t.replace(/[?]$/, ".");
+  if (!/[.]$/.test(t)) t = t.replace(/[.?!]$/, "") + ".";
   return t;
 }
 
-function isOneSentence(s: string): boolean {
-  const parts = s.split(".").filter(Boolean);
-  return parts.length === 1;
+function isOneSentence(s: string): boolean { 
+  return s.split(".").filter(Boolean).length === 1; 
 }
 
-function inCharRange(s: string, min = 70, max = 125): boolean {
-  const len = [...s].length;
-  return len >= min && len <= max;
+function inCharRange(s: string, min = 60, max = 110): boolean { 
+  const len = [...s].length; 
+  return len >= min && len <= max; 
 }
 
-function hasAllInserts(s: string, inserts: string[]): boolean {
-  return inserts.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
+function escapeRegExp(s: string) { 
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); 
 }
 
-function escapeRegExp(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function hasAllInserts(s: string, inserts: string[]) { 
+  return inserts.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s)); 
 }
 
-function uniqueByText(lines: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const l of lines) {
-    const key = l.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(l);
-    }
-  }
-  return out;
+function uniqueByText(lines: string[]) { 
+  const seen = new Set<string>(); 
+  return lines.filter(l => !seen.has(l.toLowerCase()) && seen.add(l.toLowerCase())); 
 }
 
-function filterBySubcatUse(lines: string[], subcat: string): string[] {
+function filterBySubcatUse(lines: string[], subcat: string) {
   if (!subcat) return lines;
-  let used = 0;
+  let used = 0; 
   const re = new RegExp(`\\b${escapeRegExp(subcat)}\\b`, "i");
-  return lines.filter(l => {
-    if (re.test(l)) {
-      if (used === 0) {
-        used++;
-        return true;
-      }
-      return false;
-    }
-    return true;
-  });
+  return lines.filter(l => re.test(l) ? used++ < 1 : true);
 }
 
-function validateAndTrim(
-  raw: string,
-  inserts: string[],
-  subcat: string,
-  want = 4,
-): string[] {
-  const lines = raw
-    .split(/\r?\n+/)
-    .map(normalizeLine)
-    .filter(Boolean);
-
-  let val = lines.filter(l =>
-    isOneSentence(l) && inCharRange(l) && hasAllInserts(l, inserts)
-  );
-
-  val = uniqueByText(val);
-  val = filterBySubcatUse(val, subcat);
-
-  if (val.length > want) val = val.slice(0, want);
-  return val;
+function validateAndTrim(raw: string, inserts: string[], subcat: string, want = 4): string[] {
+  let lines = raw.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
+  lines = lines.filter(l => isOneSentence(l) && inCharRange(l) && hasAllInserts(l, inserts));
+  lines = uniqueByText(lines);
+  lines = filterBySubcatUse(lines, subcat);
+  return lines.slice(0, want);
 }
-
-// ---------- Fallback synthesis ----------
 
 function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
   const [a, b] = [inserts[0] || "you", inserts[1] || "life"];
@@ -169,77 +187,65 @@ function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
     `${a} trained for ${topic}, ${b} graded on a curve.`,
     `${a} met ${topic} at full speed, ${b} filed the report.`,
     `${topic} tried to teach patience, ${a} borrowed time from ${b}.`,
-    `${a} survived ${topic}, ${b} wrote a cheerful obituary.`,
+    `${a} survived ${topic}, ${b} wrote a cheerful obituary.`
   ];
-  return base.map(normalizeLine).map(l => {
-    return hasAllInserts(l, inserts) ? l : `${a} ${b} ${l}`;
-  }).map(normalizeLine).filter(l => inCharRange(l));
+  return base.map(normalizeLine).filter(l => inCharRange(l));
 }
-
-// ---------- HTTP handler ----------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-  const hardTimer = setTimeout(() => {}, HARD_DEADLINE_MS);
+  const HARD = setTimeout(() => {}, HARD_DEADLINE_MS);
   let deadlineHit = false;
-  const deadlineGuard = setTimeout(() => { deadlineHit = true; }, HARD_DEADLINE_MS);
+  const guard = setTimeout(() => { deadlineHit = true; }, HARD_DEADLINE_MS);
 
   try {
-    if (!OPENAI_API_KEY) {
-      clearTimeout(deadlineGuard);
-      clearTimeout(hardTimer);
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing OPENAI_API_KEY" }),
-        { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
-      );
-    }
+    if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
-    const body = (await req.json()) as Body;
-    const category = String(body.category || "").trim();
-    const subcategory = String(body.subcategory || "").trim();
-    const tone = (body.tone || "humorous") as Tone;
-    const rating = (body.rating || "PG") as Rating;
-    const style = String(body.style || "").trim();
-    const insertWords = Array.isArray(body.insertWords)
-      ? body.insertWords.filter(Boolean).slice(0, 2).map(s => String(s))
-      : [];
+    const b = (await req.json()) as Body;
 
-    const topic = (subcategory || category || "the moment").replace(/[-_]/g, " ").trim();
+    const category = String(b.category || "").trim();
+    const subcategory = String(b.subcategory || "").trim();
+    const tone = canonTone(b.tone);
+    const rating = canonRating(b.rating);
+    const styleId = b.styleId || undefined;
+    const insertWords = (Array.isArray(b.insertWords) ? b.insertWords : Array.isArray(b.insertwords) ? b.insertwords : [])
+      .filter(Boolean).slice(0, 2).map(String);
 
-    const full: Required<Body> = {
+    const topic = (b.theme || subcategory || category || "the moment").replace(/[-_]/g, " ").trim();
+
+    console.log("[generate-text] Request:", {
+      category: category || "misc",
+      subcategory: subcategory || "general",
+      tone,
+      rating,
+      styleId: styleId || pickDefaultStyle(tone),
+      insertWords,
+      topic
+    });
+
+    const full = {
       category: category || "misc",
       subcategory: subcategory || "general",
       tone,
       rating,
       insertWords,
-      style: style || "",
+      styleId
     };
 
     const messages = [
       { role: "system", content: systemPrompt(full) },
-      { role: "user", content: userPrompt(full) },
+      { role: "user", content: userPrompt(full) }
     ];
 
-    console.log("[generate-text] prompt length:", JSON.stringify(messages).length);
-
-    // main call
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
     const r = await fetch(API, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages,
-        temperature: 0.8,
-        max_tokens: 400,
-      }),
-      signal: ctl.signal,
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: MODEL, messages, temperature: 0.8, max_tokens: 400 }),
+      signal: ctl.signal
     });
 
     clearTimeout(timer);
@@ -250,94 +256,83 @@ serve(async (req) => {
     if (r.ok) {
       const data = await r.json();
       const content = data?.choices?.[0]?.message?.content ?? "";
+      console.log("[generate-text] Raw response:", content.substring(0, 200));
+      
       let lines = validateAndTrim(content, insertWords, full.subcategory);
+      console.log("[generate-text] Valid lines after first pass:", lines.length);
 
-      // one retry if we got fewer than 4 valid lines and deadline allows
       if (lines.length < 4 && !deadlineHit) {
+        console.log("[generate-text] Retrying with higher temperature");
         const ctl2 = new AbortController();
-        const timer2 = setTimeout(() => ctl2.abort(), 8000);
+        const t2 = setTimeout(() => ctl2.abort(), 8000);
         try {
           const r2 = await fetch(API, {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: MODEL,
-              messages,
-              temperature: 0.9,
-              max_tokens: 500,
-            }),
-            signal: ctl2.signal,
+            headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: MODEL, messages, temperature: 0.9, max_tokens: 500 }),
+            signal: ctl2.signal
           });
           if (r2.ok) {
             const d2 = await r2.json();
             const c2 = d2?.choices?.[0]?.message?.content ?? "";
             const more = validateAndTrim(c2, insertWords, full.subcategory);
             lines = uniqueByText([...lines, ...more]).slice(0, 4);
+            console.log("[generate-text] Valid lines after retry:", lines.length);
           }
-        } catch (retryErr) {
-          console.warn("[generate-text] retry error:", String(retryErr));
-        } finally {
-          clearTimeout(timer2);
-        }
+        } finally { clearTimeout(t2); }
       }
 
       if (lines.length < 4) {
         source = lines.length ? "model+padded" : "synth";
-        const pad = synthFallback(topic, insertWords, tone);
-        lines = uniqueByText([...lines, ...pad]).slice(0, 4);
+        console.log("[generate-text] Padding with synth, reason:", source);
+        lines = uniqueByText([...lines, ...synthFallback(topic, insertWords, tone)]).slice(0, 4);
       }
 
       outputs = lines;
     } else {
-      console.error("[generate-text] API error:", r.status, await r.text());
+      const errText = await r.text();
+      console.error("[generate-text] API error:", r.status, errText);
       source = "synth";
       outputs = synthFallback(topic, insertWords, tone);
     }
 
-    // final guarantee pass on all rules
-    outputs = outputs
-      .map(normalizeLine)
+    outputs = outputs.map(normalizeLine)
       .filter(l => isOneSentence(l) && inCharRange(l) && hasAllInserts(l, insertWords));
 
-    // last resort if strict filter removed too much
     if (outputs.length < 4) {
       const pad = synthFallback(topic, insertWords, tone);
       outputs = uniqueByText([...outputs, ...pad]).slice(0, 4);
+      source = "synth-final";
+      console.log("[generate-text] Final padding applied");
     }
 
-    clearTimeout(deadlineGuard);
-    clearTimeout(hardTimer);
+    clearTimeout(guard); 
+    clearTimeout(HARD);
 
-    console.log("[generate-text] success | source:", source, "| count:", outputs.length);
+    console.log("[generate-text] Final outputs:", outputs);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        model: MODEL,
-        options: outputs,
-        source,
-      }),
-      { headers: { ...cors, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ 
+      success: true, 
+      model: MODEL, 
+      options: outputs, 
+      source,
+      styleId: styleId || pickDefaultStyle(tone)
+    }), {
+      headers: { ...cors, "Content-Type": "application/json" }
+    });
   } catch (err) {
-    clearTimeout(deadlineGuard);
-    clearTimeout(hardTimer);
+    clearTimeout(guard); 
+    clearTimeout(HARD);
     console.error("[generate-text] error:", String(err));
-    
-    const topic = "the moment";
-    const outputs = synthFallback(topic, [], "humorous");
-    
-    return new Response(
-      JSON.stringify({
-        success: true,
-        model: MODEL,
-        options: outputs,
-        source: "synth-error",
-      }),
-      { headers: { ...cors, "Content-Type": "application/json" } },
-    );
+    const outputs = synthFallback("the moment", [], "Humorous");
+    return new Response(JSON.stringify({ 
+      success: true, 
+      model: MODEL, 
+      options: outputs, 
+      source: "synth-error", 
+      error: String(err) 
+    }), {
+      headers: { ...cors, "Content-Type": "application/json" }
+    });
   }
 });

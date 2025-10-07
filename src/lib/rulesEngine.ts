@@ -50,45 +50,20 @@ export async function getRules(): Promise<ViiibesRules> {
 }
 
 export function enforceBasicRules(line: string, rules: ViiibesRules): string {
-  // Replace em dashes
   if (rules.punctuation.ban_em_dash) {
     Object.entries(rules.punctuation.replacement).forEach(([from, to]) => {
-      line = line.replace(new RegExp(from, 'g'), to);
+      line = line.replace(new RegExp(from, "g"), to);
     });
   }
-  
-  // Apply auto substitutions
-  Object.entries(rules.spelling.auto_substitutions).forEach(([from, to]) => {
-    line = line.replace(new RegExp(`\\b${from}\\b`, 'gi'), to);
-  });
-  
-  // Clean up empty punctuation patterns
-  line = line.replace(/\(\s*\)/g, ''); // Remove empty parentheses
-  line = line.replace(/\[\s*\]/g, ''); // Remove empty brackets
-  line = line.replace(/\{\s*\}/g, ''); // Remove empty braces
-  line = line.replace(/['"]\s*['"]/g, ''); // Remove empty quotes
-  line = line.replace(/\s+/g, ' '); // Normalize whitespace
-  
-  // Count and limit punctuation marks
-  const allowedPattern = rules.punctuation.allowed.map(p => `\\${p}`).join('');
-  const punctuationRegex = new RegExp(`[${allowedPattern}]`, 'g');
-  const matches = line.match(punctuationRegex) || [];
-  
-  if (matches.length > rules.punctuation.max_marks_per_line) {
-    // Remove excess punctuation, keeping the first few
-    let count = 0;
-    line = line.replace(punctuationRegex, (match) => {
-      count++;
-      return count <= rules.punctuation.max_marks_per_line ? match : '';
+  if (rules.spelling?.auto_substitutions) {
+    Object.entries(rules.spelling.auto_substitutions).forEach(([from, to]) => {
+      const re = new RegExp(`\\b${from}\\b`, "gi");
+      line = line.replace(re, to);
     });
   }
-  
-  // Clean up any trailing spaces and ensure proper ending punctuation
-  line = line.trim();
-  if (line && !line.match(/[.!?]$/)) {
-    line = line + '.';
-  }
-  
+  line = line.replace(/[:;!?"""'''(){}\[\]<>/_*#+=~^`|\\]/g, "");
+  line = line.replace(/\s+/g, " ").trim();
+  if (!/[.]$/.test(line)) line += ".";
   return line;
 }
 

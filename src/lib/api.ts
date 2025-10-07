@@ -1,4 +1,24 @@
 import { supabase } from "@/integrations/supabase/client";
+import { STYLE_DEFS, type ComedyStyleId } from "@/lib/comedyStyles";
+
+// Normalizers
+const toTitle = (s?: string) =>
+  (s || "").trim().toLowerCase().replace(/^\w/, c => c.toUpperCase());
+
+const CANON_TONES = new Set(["Humorous","Savage","Sentimental","Inspirational"]);
+const CANON_RATINGS = new Set(["G","PG","PG-13","R"]);
+
+function canonTone(s?: string): string {
+  const t = toTitle(s);
+  return CANON_TONES.has(t) ? t : "Humorous";
+}
+function canonRating(s?: string): string {
+  const r = (s || "").toUpperCase();
+  return CANON_RATINGS.has(r) ? r : "PG";
+}
+function canonStyle(s?: string): ComedyStyleId | undefined {
+  return s && (s in STYLE_DEFS) ? s as ComedyStyleId : undefined;
+}
 
 // Types
 export interface GenerateTextParams {
@@ -8,6 +28,7 @@ export interface GenerateTextParams {
   rating?: string;
   insertWords?: string[];
   theme?: string;
+  styleId?: ComedyStyleId;
 }
 
 export interface TextOptionsResponse {
@@ -72,13 +93,13 @@ export interface PollImageStatusResponse {
 // Helper function to call edge functions with timeout
 async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T> {
   const TIMEOUTS: Record<string, number> = {
-    "generate-text": 70000,
-    "generate-final-prompt": 120000,
-    "generate-visuals": 120000,
-    "generate-image": 45000,
+    "generate-text": 26000,
+    "generate-final-prompt": 26000,
+    "generate-visuals": 26000,
+    "generate-image": 26000,
     "poll-image-status": 15000,
   };
-  const timeoutMs = TIMEOUTS[functionName] ?? 60000;
+  const timeoutMs = TIMEOUTS[functionName] ?? 26000;
 
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error(`Request timeout (${Math.round(timeoutMs/1000)}s)`)), timeoutMs)
@@ -130,27 +151,24 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 export async function generateTextOptions(params: GenerateTextParams): Promise<GenerateTextResponse> {
   const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
   
-  // Generate nonce for fresh generation
   const nonce = crypto.randomUUID().slice(0, 8);
   
   const payload = {
     category: params.category || "celebrations",
     subcategory: params.subcategory || "birthday",
     theme: params.theme,
-    tone: params.tone || "humorous",
-    rating: params.rating || "PG",
+    tone: canonTone(params.tone),
+    rating: canonRating(params.rating),
     insertWords,
-    nonce  // Include in body as backup
+    styleId: canonStyle(params.styleId),
+    nonce
   };
   
-  // TEMP: switch target function for debugging
   const targetFn = import.meta.env.VITE_USE_TEXT_DEBUG === "true" 
     ? "generate-text-debug" 
     : "generate-text";
   
-  // Add nonce to URL as primary method
-  const functionUrl = `${targetFn}?nonce=${nonce}`;
-  const res = await ctlFetch<any>(functionUrl, payload);
+  const res = await ctlFetch<any>(targetFn, payload);
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }

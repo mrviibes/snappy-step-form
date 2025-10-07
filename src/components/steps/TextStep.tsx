@@ -25,10 +25,10 @@ interface TextStepProps {
 }
 // Tone options
 const tones = [
-  { id: "humorous", label: "Humorous", description: "Funny, witty, light" },
-  { id: "savage", label: "Savage", description: "Harsh, blunt, cutting" },
-  { id: "sentimental", label: "Sentimental", description: "Warm, heartfelt, tender" },
-  { id: "nostalgic", label: "Nostalgic", description: "Reflective, old-times, wistful" }
+  { id: "Humorous", label: "Humorous", description: "Funny, witty, makes me smile" },
+  { id: "Savage", label: "Savage", description: "Harsh, brutal, cutting" },
+  { id: "Sentimental", label: "Sentimental", description: "Sweet, warm, heartfelt" },
+  { id: "Inspirational", label: "Inspirational", description: "Motivating, uplifting" }
 ];
 const writingPreferences = [{
   id: 'ai-assist',

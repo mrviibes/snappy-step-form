@@ -3,11 +3,11 @@
   "version": 4,
   "humor_baseline": true,
   "allow_positive_and_roast": true,
-  "length": { "min_chars": 70, "max_chars": 120 },
+  "length": { "min_chars": 60, "max_chars": 110 },
   "punctuation": {
     "ban_em_dash": true,
     "replacement": { "—": "," },
-    "allowed": [".", ",", "?", "!"],
+    "allowed": [".", ","],
     "max_marks_per_line": 3
   },
   "text_layout": {
@@ -22,14 +22,10 @@
     ]
   },
   "tones": {
-    "Humorous": { "rules": ["witty","wordplay","exaggeration","punchline_fast","punchline_surprise"] },
-    "Savage": { "rules": ["blunt","cutting","roast_style","no_soft_language","punchline_sting","no_explain"] },
-    "Sentimental": { "rules": ["warm","affectionate","no_sarcasm","punchline_resolves_clearly"] },
-    "Nostalgic": { "rules": ["past_refs","no_modern_slang","punchline_ties_to_memory"] },
-    "Romantic": { "rules": ["affectionate","playful","no_mean","punchline_charming"] },
-    "Inspirational": { "rules": ["uplifting","no_negativity_or_irony","punchline_elevates_message"] },
-    "Playful": { "rules": ["cheeky","silly","no_formal","punchline_quick","punchline_mischievous"] },
-    "Serious": { "rules": ["dry","deadpan","formal_weight","punchline_understated","punchline_concise"] }
+    "Humorous": { "rules": ["witty","relatable","ironic","punchline_fast"] },
+    "Savage": { "rules": ["blunt","cutting","roast_style","no_explain"] },
+    "Sentimental": { "rules": ["warm","affectionate","bittersweet","clean_finish"] },
+    "Inspirational": { "rules": ["motivational","cheeky","truth_twist","clean_finish"] }
   },
   "ratings": {
     "G": {
