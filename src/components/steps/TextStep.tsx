@@ -100,6 +100,7 @@ export default function TextStep({
         tone: data.text.tone,
         rating: data.text.rating,
         styleId: pickDefaultStyle(data.text.tone),
+        insertWords: tags,
         userId: 'anonymous'
       };
       

@@ -125,24 +125,29 @@ function systemPrompt(b: {
     ? b.comedian
     : pickRandom(COMEDIAN_CODES[b.tone]);
 
-  const inserts = b.insertWords.length
-    ? `Insert words: ${b.insertWords.join(", ")}. Each line must include all insert words naturally.`
-    : `No insert words.`;
+  const topicLine = b.subcategory
+    ? `The jokes should center around "${b.subcategory}".`
+    : `Write jokes about general topics.`;
+
+  const insertsLine = b.insertWords.length
+    ? `Always include the name(s) or subject(s): ${b.insertWords.join(", ")}. These should appear naturally in each line.`
+    : `No specific names provided.`;
 
   return [
-    `You are a professional comedian writing one-liner jokes in the style of ${comedianRef}.`,
-    `Context: ${b.category}, ${b.subcategory}. Use as theme only, do not force these exact words.`,
+    `You are a professional comedy writer generating four one-liner jokes.`,
+    `Topic context: ${b.category}, ${b.subcategory}. ${topicLine}`,
     `Tone: ${b.tone}. Rating: ${b.rating}. ${RATING_TONE_ADJUSTMENTS[b.rating]}`,
     `Style: ${styleId} — ${styleRule}`,
-    inserts,
-    "Hard rules:",
-    "- Generate exactly 4 outputs.",
-    "- One sentence per output, setup then punchline.",
-    "- 60 to 110 characters per output.",
-    "- Allowed punctuation: commas and periods only.",
-    "- Start with a capital, end with a period.",
-    "- No meta talk, no instructions, no emojis.",
-    "Return a plain numbered list 1-4."
+    insertsLine,
+    `Rules:`,
+    `- Exactly 4 outputs.`,
+    `- Each output must mention or revolve around the provided name(s) or topic.`,
+    `- Each joke is one sentence with a clear setup and punchline.`,
+    `- 60 to 110 characters.`,
+    `- Use only commas and periods.`,
+    `- Start with a capital, end with a period.`,
+    `- Stay within rating. No meta talk.`,
+    `Output format: a plain numbered list 1-4, one line per item.`
   ].join(" ");
 }
 
@@ -151,13 +156,12 @@ function userPrompt(b: {
   insertWords: string[]; styleId?: string; comedian?: string | null;
 }) {
   return JSON.stringify({
-    category: b.category,
-    subcategory: b.subcategory,
+    main_topic: b.subcategory || b.category,
     tone: b.tone,
     rating: b.rating,
-    styleId: b.styleId || pickDefaultStyle(b.tone),
-    insert_words: b.insertWords,
-    comedian: b.comedian || undefined
+    style: b.styleId || pickDefaultStyle(b.tone),
+    include_names: b.insertWords || [],
+    goal: "Write 4 concise one-liner jokes that revolve around the topic and names above."
   });
 }
 
