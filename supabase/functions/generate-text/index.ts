@@ -19,8 +19,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Tone = "humorous" | "savage" | "sentimental" | "nostalgic" 
-  | "romantic" | "inspirational" | "playful" | "serious";
+type Tone = "humorous" | "savage" | "sentimental" | "nostalgic";
 type Rating = "G" | "PG" | "PG-13" | "R";
 
 type Body = {

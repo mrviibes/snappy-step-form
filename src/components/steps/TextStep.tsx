@@ -28,11 +28,7 @@ const tones = [
   { id: "humorous", label: "Humorous", description: "Funny, witty, light" },
   { id: "savage", label: "Savage", description: "Harsh, blunt, cutting" },
   { id: "sentimental", label: "Sentimental", description: "Warm, heartfelt, tender" },
-  { id: "nostalgic", label: "Nostalgic", description: "Reflective, old-times, wistful" },
-  { id: "romantic", label: "Romantic", description: "Loving, passionate, sweet" },
-  { id: "inspirational", label: "Inspirational", description: "Motivating, uplifting, bold" },
-  { id: "playful", label: "Playful", description: "Silly, cheeky, fun" },
-  { id: "serious", label: "Serious", description: "Formal, direct, weighty" }
+  { id: "nostalgic", label: "Nostalgic", description: "Reflective, old-times, wistful" }
 ];
 const writingPreferences = [{
   id: 'ai-assist',

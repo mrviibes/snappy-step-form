@@ -72,10 +72,8 @@ export const dimensionMap: Record<string, string> = {
 export const toneMap: Record<string, string> = {
   humorous: "funny, witty, playful",
   savage: "bold, edgy, confident, cutting",
-  sarcastic: "witty, ironic, sharp",
-  wholesome: "warm, positive, uplifting",
-  dark: "edgy, moody, dramatic",
-  inspirational: "motivating, uplifting, powerful"
+  sentimental: "warm, heartfelt, tender, emotional",
+  nostalgic: "reflective, old-times, wistful, reminiscent"
 };
 
 // ===== RATINGS =====
