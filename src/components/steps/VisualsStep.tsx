@@ -68,35 +68,30 @@ const dimensionOptions = [{
   description: "Define your own dimensions"
 }];
 const compositionModes = [{
-  id: "normal",
-  title: "Normal",
-  description: "Standard balanced composition",
-  emoji: "📸"
-}, {
-  id: "big-head",
-  title: "Big-Head",
-  description: "Exaggerated facial features",
-  emoji: "🎭"
+  id: "cinematic",
+  title: "Cinematic",
+  description: "Wide, dramatic framing with storytelling energy",
+  emoji: "🎬"
 }, {
   id: "close-up",
   title: "Close-Up",
-  description: "Tight framing, detailed view",
+  description: "Tight focus on a face or key detail",
   emoji: "🔍"
 }, {
   id: "goofy",
   title: "Goofy",
-  description: "Silly, cartoonish perspective",
+  description: "Fun, exaggerated, or absurd layouts",
   emoji: "🤪"
-}, {
-  id: "zoomed",
-  title: "Zoomed",
-  description: "Extreme magnification effect",
-  emoji: "🔬"
 }, {
   id: "surreal",
   title: "Surreal",
-  description: "Abstract, dreamlike framing",
+  description: "Dreamlike, artistic compositions",
   emoji: "🌀"
+}, {
+  id: "minimal",
+  title: "Minimal",
+  description: "Clean, centered, simple framing",
+  emoji: "✨"
 }];
 export default function VisualsStep({
   data,
@@ -178,11 +173,8 @@ export default function VisualsStep({
     const topics: string[] = Array.isArray(data.topics) ? data.topics.slice(0, 3) : Array.isArray(data.tags) ? data.tags.slice(0, 3) : [];
     const optional_visuals: string[] = data.visuals?.insertedVisuals || [];
     const customVisualStyles = [{
-      value: "normal",
-      label: "Normal"
-    }, {
-      value: "big-head",
-      label: "Big-Head"
+      value: "cinematic",
+      label: "Cinematic"
     }, {
       value: "close-up",
       label: "Close-Up"
@@ -190,13 +182,13 @@ export default function VisualsStep({
       value: "goofy",
       label: "Goofy"
     }, {
-      value: "zoomed",
-      label: "Zoomed"
-    }, {
       value: "surreal",
       label: "Surreal"
+    }, {
+      value: "minimal",
+      label: "Minimal"
     }];
-    const composition = customVisualStyles.find(s => s.value === data.visuals?.compositionMode)?.label || "Normal";
+    const composition = customVisualStyles.find(s => s.value === data.visuals?.compositionMode)?.label || "Cinematic";
     if (!finalText.trim()) {
       setError("Please complete Step 2 (Text) first before generating visuals.");
       return;
@@ -331,13 +323,13 @@ export default function VisualsStep({
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
 
-  // Set default composition to normal
+  // Set default composition to cinematic
   useEffect(() => {
     if (hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai' && !data.visuals?.compositionMode) {
       updateData({
         visuals: {
           ...data.visuals,
-          compositionMode: 'normal'
+          compositionMode: 'cinematic'
         }
       });
     }
@@ -517,7 +509,7 @@ export default function VisualsStep({
             </Alert>}
 
           <div className="flex gap-3 items-center">
-            <Select value={data.visuals?.compositionMode || 'normal'} onValueChange={handleCompositionSelect}>
+            <Select value={data.visuals?.compositionMode || 'cinematic'} onValueChange={handleCompositionSelect}>
               <SelectTrigger className="w-[180px] h-12 bg-background border-border z-50">
                 <SelectValue placeholder="Composition" />
               </SelectTrigger>
