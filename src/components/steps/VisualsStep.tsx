@@ -451,18 +451,30 @@ export default function VisualsStep({
           </div>
           <div className="grid grid-cols-3 gap-4">
             <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'ai' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('ai')}>
-              <h4 className="mb-1 text-sm font-semibold text-foreground">AI Assist</h4>
-              <p className="text-xs text-muted-foreground">Generate visual concepts with AI</p>
+              <div className="h-6 flex items-center justify-center mb-2">
+                <h4 className="text-sm font-semibold text-foreground">AI Assist</h4>
+              </div>
+              <div className="h-10 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground leading-tight">Generate visual concepts with AI</p>
+              </div>
             </Card>
             
             <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('manual')}>
-              <h4 className="mb-1 text-sm font-semibold text-foreground">Create Myself</h4>
-              <p className="text-xs text-muted-foreground">I'll create my own visual manually</p>
+              <div className="h-6 flex items-center justify-center mb-2">
+                <h4 className="text-sm font-semibold text-foreground">Create Myself</h4>
+              </div>
+              <div className="h-10 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground leading-tight">I'll create my own visual manually</p>
+              </div>
             </Card>
             
             <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'random' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('random')}>
-              <h4 className="mb-1 text-sm font-semibold text-foreground">Random</h4>
-              <p className="text-xs text-muted-foreground">Surprise me with random visuals</p>
+              <div className="h-6 flex items-center justify-center mb-2">
+                <h4 className="text-sm font-semibold text-foreground">Random</h4>
+              </div>
+              <div className="h-10 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground leading-tight">Surprise me with random visuals</p>
+              </div>
             </Card>
           </div>
         </>}
