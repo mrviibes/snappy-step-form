@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { generateVisualOptions, type VisualRecommendation, type GenerateVisualsResponse } from "@/lib/api";
+import { generateVisualOptions, type GenerateVisualsResponse } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
@@ -37,7 +37,7 @@ const dimensionOptions = [
 ];
 
 export default function VisualsStep({ data, updateData }: VisualsStepProps) {
-  const [generatedVisuals, setGeneratedVisuals] = useState<VisualRecommendation[]>([]);
+  const [generatedVisuals, setGeneratedVisuals] = useState<string[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
@@ -78,84 +78,65 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
   };
 
   const handleGenerateVisuals = async () => {
-    if (!data.text?.selectedLine && !data.text?.generatedText && !data.text?.customText) {
+    const finalText = data.text?.selectedLine || data.text?.generatedText || data.text?.customText || "";
+    const topics: string[] = Array.isArray(data.topics) ? data.topics.slice(0, 3) : (Array.isArray(data.tags) ? data.tags.slice(0, 3) : []);
+    const optional_visuals: string[] = data.visuals?.insertedVisuals || [];
+    const customVisualStyles = [
+      { value: "normal", label: "Normal" },
+      { value: "big-head", label: "Big-Head" },
+      { value: "close-up", label: "Close-Up" },
+      { value: "goofy", label: "Goofy" },
+      { value: "zoomed", label: "Zoomed" },
+      { value: "surreal", label: "Surreal" }
+    ];
+    const composition = (customVisualStyles.find(s => s.value === data.visuals?.compositionMode)?.label) || "Normal";
+
+    if (!finalText.trim()) {
       setError("Please complete Step 2 (Text) first before generating visuals.");
       return;
     }
-    setError(null);
-    setIsGeneratingVisuals(true);
-    try {
-      const finalText = data.text?.selectedLine || data.text.generatedText || data.text.customText;
-      const tags = data.tags || [];
-      
-      // Map tags to backend fields
-      const category = tags[0] || "general";
-      const subcategory = tags[1] || tags[0] || "general";
-      
-      const params = {
-        category,
-        subcategory,
-        tone: data.vibe?.tone || "Humorous",
-        style: data.visuals?.style || "general",
-        layout: data.text?.textLayout || "Open Space",
-        completed_text: finalText
-      };
 
-      setDebugInfo({
-        timestamp: new Date().toISOString(),
-        step: 'API_CALL_START',
-        params,
-        formData: {
-          tags: data.tags,
-          text: data.text,
-          vibe: data.vibe,
-          visuals: data.visuals
-        }
+    setIsGeneratingVisuals(true);
+    setError(null);
+
+    try {
+      const resp = await generateVisualOptions({
+        topics,
+        text: finalText,
+        optional_visuals,
+        composition: composition as any
       });
 
-      updateData({ visuals: { ...data.visuals, isGeneratingVisuals: true } });
-
-      const response: GenerateVisualsResponse = await generateVisualOptions(params);
-      console.log('📥 Received visuals from API:', response);
-
-      setDebugInfo(prev => ({
-        ...prev!,
-        step: 'API_CALL_SUCCESS',
-        apiResponse: response,
-        visualsCount: response.visuals.length,
-        model: response.model || 'gpt-5-mini'
-      }));
-      setGeneratedVisuals(response.visuals);
-      console.log('💾 Set generatedVisuals to:', response.visuals);
-    } catch (error) {
-      console.error("Failed to generate visuals:", error);
-      setDebugInfo(prev => ({
-        ...prev!,
-        step: 'API_CALL_ERROR',
-        error: {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          type: typeof error,
-          raw: error
-        }
-      }));
-      setError(`Failed to generate visuals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setGeneratedVisuals(resp.visuals);
+      setDebugInfo({
+        timestamp: new Date().toISOString(),
+        step: "API_CALL_SUCCESS",
+        params: { topics, optional_visuals, composition, text: finalText },
+        apiResponse: resp,
+        visualsCount: resp.visuals.length,
+        model: resp.model
+      });
+    } catch (e: any) {
+      setError(e?.message || "Failed to generate visuals");
       setGeneratedVisuals([]);
+      setDebugInfo({
+        timestamp: new Date().toISOString(),
+        step: "API_CALL_ERROR",
+        error: e
+      });
     } finally {
       setIsGeneratingVisuals(false);
-      updateData({ visuals: { ...data.visuals, isGeneratingVisuals: false } });
     }
   };
 
   const handleVisualOptionSelect = (optionIndex: number) => {
     setSelectedVisualOption(optionIndex);
-    const selectedVisual = generatedVisuals[optionIndex];
+    const selected = generatedVisuals[optionIndex];
     updateData({
       visuals: {
         ...data.visuals,
-        option: `visual-concept-${optionIndex + 1}`,
         selectedVisualOption: optionIndex,
-        selectedVisualRecommendation: selectedVisual,
+        selectedVisualRecommendation: selected,   // now a string
         isComplete: true
       }
     });
@@ -258,7 +239,11 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
           {isComplete && data.visuals?.selectedVisualRecommendation && (
             <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
               <div className="text-sm text-foreground">
-                <span className="font-semibold">Visual Concept</span> - Option {(data.visuals?.selectedVisualOption ?? 0) + 1}
+                <span className="font-semibold">Visual Concept</span> - 
+                {typeof data.visuals.selectedVisualRecommendation === 'string' 
+                  ? ` ${data.visuals.selectedVisualRecommendation.slice(0, 50)}...`
+                  : ` Option ${(data.visuals?.selectedVisualOption ?? 0) + 1}`
+                }
               </div>
               <button onClick={handleEditVisualConcept} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
                 Edit
@@ -438,28 +423,27 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
 
           {generatedVisuals.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
-              {generatedVisuals.map((visual, index) => (
+              {generatedVisuals.map((line: string, index: number) => (
                 <Card
                   key={index}
+                  onClick={() => handleVisualOptionSelect(index)}
                   className={cn(
                     "cursor-pointer transition-all duration-200 border-2 p-4",
-                    selectedVisualOption === index ? "border-primary bg-accent" : "border-border hover:border-primary/50"
+                    selectedVisualOption === index 
+                      ? "border-primary bg-accent" 
+                      : "border-border hover:border-primary/50"
                   )}
-                  onClick={() => handleVisualOptionSelect(index)}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-base text-foreground">{visual.title}</h3>
-                      {selectedVisualOption === index && <div className="w-2 h-2 bg-primary rounded-full" />}
+                      <h3 className="font-semibold text-base text-foreground">
+                        Option {index + 1}
+                      </h3>
+                      {selectedVisualOption === index && (
+                        <div className="w-2 h-2 bg-primary rounded-full" />
+                      )}
                     </div>
-                    
-                    {/* Subject & Setting */}
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium">Subject:</span> {visual.subject}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium">Setting:</span> {visual.setting}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{line}</p>
                   </div>
                 </Card>
               ))}

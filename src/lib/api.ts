@@ -42,29 +42,18 @@ export interface GenerateTextResponse {
   req_id?: string;
 }
 
-export interface VisualRecommendation {
-  title: string;
-  subject: string;
-  setting: string;
-  action: string;
-  prop: string;
-  camera: "close-up" | "medium" | "wide" | "overhead";
-  lens: "24mm" | "35mm" | "50mm";
-  lighting: "soft daylight" | "hard flash" | "warm kitchen" | "studio key";
-  color: "muted pastels" | "punchy saturated" | "neutral clean";
-  composition: "base_realistic" | "very_close" | "zoomed" | "goofy_wide" | "surreal_scale" | "integrated";
-  readability: "negative-left" | "negative-right" | "bottom-caption" | "integrated-sign";
-  description?: string;
+// Types for visual generation
+export interface GenerateVisualsParams {
+  topics: string[];              // from Step 1 tags
+  text: string;                  // final selected line from Step 2
+  optional_visuals?: string[];   // optional user-added visual tags
+  composition?: "Normal" | "Big-Head" | "Close-Up" | "Goofy" | "Zoomed" | "Surreal";
 }
 
 export interface GenerateVisualsResponse {
-  visuals: VisualRecommendation[];
+  success: boolean;
   model?: string;
-  req_id?: string;
-  debug?: {
-    diversityCheck: boolean;
-    compositionCount: number;
-  };
+  visuals: string[];             // exactly 4 strings, ≤10 words each
 }
 
 export interface PromptTemplate {
@@ -181,40 +170,29 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
 }
 
 // Visual generation
-export async function generateVisualOptions(params: {
-  category: string;
-  subcategory?: string;
-  tone?: string;
-  style?: string;
-  layout?: string;
-  completed_text: string;
-  composition_modes?: string[];
-  insertedVisuals?: string[];
-}): Promise<GenerateVisualsResponse> {
-  const payload = {
-    category: params.category || "celebrations",
-    subcategory: params.subcategory,
-    tone: params.tone || "humorous",
-    rating: "PG",
-    image_style: params.style || "Auto",
-    text_layout: params.layout || "Open Space",
-    completed_text: params.completed_text,
-    composition_modes: params.composition_modes || [],
-    specific_visuals: params.insertedVisuals || [],
-    count: 4
-  };
+export async function generateVisualOptions(params: GenerateVisualsParams): Promise<GenerateVisualsResponse> {
+  const { data, error } = await supabase.functions.invoke("generate-visuals", { 
+    body: {
+      topics: params.topics || [],
+      text: params.text || "",
+      optional_visuals: params.optional_visuals || [],
+      composition: params.composition || "Normal"
+    }
+  });
 
-  const res = await ctlFetch<any>("generate-visuals", payload);
-  if (!res || res.success !== true || !Array.isArray(res.visuals) || res.visuals.length === 0) {
-    throw new Error(res?.error || "Visual generation failed");
+  if (error) {
+    const ctx: any = (error as any).context || {};
+    const msg = ctx?.body || (error as any).message || "Visual generation failed";
+    throw new Error(typeof msg === "string" ? msg : "Visual generation failed");
   }
-  
-  return {
-    visuals: res.visuals,
-    model: res.model,
-    req_id: res.req_id,
-    debug: res.debug
-  };
+
+  const body = typeof data === "string" ? JSON.parse(data) : data;
+  if (!body?.success || !Array.isArray(body.visuals)) {
+    throw new Error(body?.error || "Visual generation failed");
+  }
+  // hard ensure only 4 lines
+  body.visuals = body.visuals.slice(0, 4);
+  return body as GenerateVisualsResponse;
 }
 
 // Final prompt generation
