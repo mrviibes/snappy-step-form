@@ -13,6 +13,14 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
+// Extract imageable keywords from caption text
+function extractCaptionKeywords(text: string): string[] {
+  // Match concrete nouns, objects, or symbolic words (not articles/pronouns)
+  const words = text.match(/\b[a-z]{4,15}\b/gi) || [];
+  const stopwords = new Set(["that", "this", "with", "from", "have", "been", "were", "what", "when", "where", "more", "than", "very", "just", "only", "even", "also", "would", "could", "should"]);
+  return words.filter(w => !stopwords.has(w.toLowerCase())).slice(0, 5);
+}
+
 // prompt builder
 function sysPrompt(args: {
   topics: string[];
@@ -27,47 +35,58 @@ function sysPrompt(args: {
     ? args.subjectScene
     : "a real person in a relatable environment";
 
-  const scenePlaceHints = "street, park, café, living room, kitchen, bookstore, office, beach, rooftop, studio, stage, parade, city square, bar, club, gallery, balcony, yard, backyard";
+  const scenePlaceHints = "street, park, café, living room, kitchen, bookstore, office, beach, rooftop, studio, stage, parade, city square, bar, club, gallery, balcony, yard, backyard, garden, sidewalk, plaza";
+
+  // Extract keywords from caption to ground the visuals
+  const captionKeywords = extractCaptionKeywords(args.text);
+  const keywordHint = captionKeywords.length > 0 
+    ? `Caption keywords to visualize: ${captionKeywords.join(", ")}`
+    : "";
 
   return `
-You are an art director creating four truly distinct visual concepts for a short poster/meme.
+You are an art director creating four truly distinct visual concepts for a comedic editorial poster/meme.
 
 Topics: ${topicText}
 Caption text: "${args.text}"
+${keywordHint}
 Subject Scene (must guide all outputs): ${scene}
 Required visual elements: ${visualHints}
 Composition: ${args.composition}
 
 Strict rules:
 - Return EXACTLY 4 unique concepts.
-- Each must use the given Subject Scene and feel like a film still or editorial image.
+- Each visual must either:
+  (a) directly visualize something from the caption text (objects, props, actions mentioned)
+  OR
+  (b) use symbolic props to exaggerate the caption's theme
+- At least ONE concept must include a literal object or metaphor from the caption.
 - Each must have THREE labeled lines:
 
 Design: (short title)
-Subject: (who/what is shown, ≤10 words; include one concrete prop or action)
-Setting: (where it happens, ≤10 words; pick a real place such as: ${scenePlaceHints})
+Subject: (who/what is shown, ≤10 words; include one concrete prop or action from caption)
+Setting: (where it happens, ≤10 words; pick a real place: ${scenePlaceHints})
 
-- Do NOT repeat the same place or action twice.
-- No abstract or monochrome-only ideas; avoid wordplay lists; describe a shot we could stage.
-- No camera or lens jargon. No emoji. No quotes around the fields.
+- Do NOT repeat the same place, action, or props twice.
+- No abstract concepts; describe shots we can photograph.
+- No camera jargon, lens specs, or emoji.
 
 Output example:
 
-1. Design: Sunrise Confetti
-   Subject: Jesse laughs with friends, holding a small pride flag.
-   Setting: City street at sunrise with streamers.
+1. Design: Garden Crawl
+   Subject: Jesse stares at a snail inching along a garden path.
+   Setting: Bright backyard garden with coffee mug on bench.
 
-2. Design: Window Display
-   Subject: Jesse points at a colorful banner in a shop window.
-   Setting: Boutique storefront with bright posters.
+2. Design: Clocked Out
+   Subject: Jesse yawns beside a park clock showing noon.
+   Setting: Sunny park bench surrounded by pigeons.
 
-3. Design: Rooftop Toast
-   Subject: Jesse raises a cup as confetti falls.
-   Setting: Rooftop terrace with city skyline.
+3. Design: The Eternal Commute
+   Subject: Jesse runs after a departing bus with spilled coffee.
+   Setting: Busy downtown street with blurred motion.
 
-4. Design: Coffee & Color
-   Subject: Jesse smiles at a café table with a colorful scarf.
-   Setting: Cozy café window with soft focus.
+4. Design: Turtle Time
+   Subject: Jesse races a turtle on the sidewalk.
+   Setting: City plaza in early morning light.
 `.trim();
 }
 
@@ -93,8 +112,15 @@ function hasRealPlace(s: string): boolean {
 
 // Enforce concrete subjects (verbs or props)
 function hasConcreteSubject(s: string): boolean {
-  return /\b(holding|laughing|dancing|reading|walking|singing|hugging|high-five|posing|mixing|cooking|painting|typing|points|raises|smiles|celebrates)\b/i.test(s)
-      || /\b(flag|cake|banner|sign|book|balloons|confetti|coffee|phone|bag|mic|camera|cup|scarf|poster)\b/i.test(s);
+  return /\b(holding|laughing|dancing|reading|walking|singing|hugging|high-five|posing|mixing|cooking|painting|typing|points|raises|smiles|celebrates|stares|yawns|runs|races|watches|sips|waits)\b/i.test(s)
+      || /\b(flag|cake|banner|sign|book|balloons|confetti|coffee|phone|bag|mic|camera|cup|scarf|poster|snail|clock|turtle|watch|calendar|garden|bus|traffic)\b/i.test(s);
+}
+
+// Check if two concepts are too similar (by setting OR subject)
+function conceptsAreTooSimilar(a: any, b: any): boolean {
+  const settingMatch = a.setting.toLowerCase() === b.setting.toLowerCase();
+  const subjectSimilar = tooSimilar(a.subject, b.subject);
+  return settingMatch || subjectSimilar;
 }
 
 serve(async req => {
@@ -105,9 +131,13 @@ serve(async req => {
 
     const topics: string[] = Array.isArray(body.topics) ? body.topics.filter(Boolean).slice(0,3) : [];
     const text: string = String(body.text || "");
-    const visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0,8) : [];
+    let visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0,8) : [];
     const composition: string = String(body.composition || "Normal");
     const subjectScene: string = typeof body.subjectScene === "string" ? body.subjectScene : "";
+
+    // Auto-extract keywords from caption and add to visuals
+    const captionKeywords = extractCaptionKeywords(text);
+    visuals = [...new Set([...visuals, ...captionKeywords])].slice(0, 10);
 
     const messages = [
       { role: "system", content: sysPrompt({ topics, text, visuals, composition, subjectScene }) },
@@ -160,23 +190,24 @@ serve(async req => {
       };
     });
 
-    // Filter out near-duplicates AND enforce concrete scenes
+    // Filter out duplicates and enforce concrete scenes with diversity
     const filtered = [];
     for (const v of visualsOutput) {
-      if (!filtered.some(f => tooSimilar(f.subject, v.subject)) 
+      if (!filtered.some(f => conceptsAreTooSimilar(f, v))
           && hasConcreteSubject(v.subject) 
           && hasRealPlace(v.setting)) {
         filtered.push(v);
       }
     }
 
-    // Soft pad with concrete fallbacks if filtering shrinks the list
+    // Soft pad with thematic concrete fallbacks if filtering shrinks the list
     while (filtered.length < 4) {
       const idx = filtered.length;
+      const keywords = captionKeywords[idx % Math.max(1, captionKeywords.length)] || "props";
       filtered.push({
         design: `Concept ${idx + 1}`,
-        subject: "Person smiles with friends, holding a colorful item.",
-        setting: "City street at sunset with warm lighting."
+        subject: `Person interacts with ${keywords} in a meaningful way.`,
+        setting: "Real-world location with natural lighting."
       });
     }
 
