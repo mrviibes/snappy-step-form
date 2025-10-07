@@ -107,12 +107,20 @@ const COMEDIAN_CODES: Record<Tone, string[]> = {
 
 function pickRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
+// Tone modifiers for different humor styles
+const toneModifiers: Record<Tone, string> = {
+  Humorous: "funny, clever, quick observational humor with a modern tone.",
+  Savage: "sharp, savage, cutting humor that roasts the subject brutally but playfully. Each joke should land like a confident insult, not a narrative.",
+  Sentimental: "heartfelt, lightly humorous, gentle and warm.",
+  Inspirational: "motivating and witty, playful optimism."
+};
+
 // Rating modifiers actually used in prompt
-const RATING_TONE_ADJUSTMENTS: Record<Rating, string> = {
-  G: "Completely clean, family-friendly, no innuendo or profanity.",
-  PG: "Light sarcasm, very mild innuendo allowed, still safe.",
-  "PG-13": "Clever adult undertone allowed, moderate sarcasm.",
-  R: "Unfiltered, bold, edgy or dark humor allowed; keep it witty, not gross."
+const ratingModifiers: Record<Rating, string> = {
+  G: "family friendly, no edge or adult content.",
+  PG: "light sarcasm, mild tone, still safe for everyone.",
+  "PG-13": "modern language allowed, light edge or innuendo is fine.",
+  R: "bold, unfiltered, edgy or darkly funny humor. Swearing or provocative references allowed if it fits tone."
 };
 
 function systemPrompt(b: {
@@ -139,15 +147,15 @@ function systemPrompt(b: {
     ? `Include ${subject} by name naturally, as the subject or target of the humor. Imply the scenario through action or consequence, not by repeating the theme phrase.`
     : `Write jokes about the given topic.`;
 
-  // Rating-specific intensity and edge
-  const ratingNote =
-    b.rating === "R"
-      ? "Make these lines bold, edgy, and darkly funny. Unfiltered sarcasm, confident roasting, and swagger expected. Add real bite."
-      : b.rating === "PG-13"
-      ? "Clever adult undertones with moderate edge and dry wit allowed."
-      : b.rating === "PG"
-      ? "Sharp sarcasm allowed, but keep it playful and accessible."
-      : "Keep it wholesome, gentle, and family-safe.";
+  // Comedian style reference based on tone
+  const comedianStyle =
+    b.tone === "Savage"
+      ? "Write like a roast from Bill Burr or Anthony Jeselnik."
+      : b.tone === "Humorous"
+      ? "Write like John Mulaney or Ali Wong."
+      : b.tone === "Inspirational"
+      ? "Write like Jim Carrey or Robin Williams."
+      : "Write like Taylor Tomlinson.";
 
   // Force imagery
   const imageryRule = `Include one specific visual element or prop (e.g., cake, candles, balloons, fire, smoke alarm, decorations, etc.) to paint a mental picture.`;
@@ -156,20 +164,23 @@ function systemPrompt(b: {
   const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses).`;
 
   return [
-    `You are a professional comedy writer generating four one-liner jokes.`,
+    `You are a professional comedian writing four unique one-liner jokes.`,
     contextLine,
-    `Tone: ${b.tone}. Rating: ${b.rating}. ${ratingNote}`,
+    `Tone: ${b.tone} (${toneModifiers[b.tone]}).`,
+    `Rating: ${b.rating} (${ratingModifiers[b.rating]}).`,
+    comedianStyle,
     `Style: ${styleId} — ${styleRule}`,
     nameRule,
     imageryRule,
     grammarRule,
     `Rules:`,
-    `- Exactly 4 outputs.`,
-    `- Each joke is one sentence with a clear setup and punchline.`,
+    `- Each line must sound like a comedian speaking.`,
+    `- Each joke must be complete, not fragments or metaphors.`,
+    `- Avoid clichés. Each output should feel fresh and punchy.`,
     `- 60 to 120 characters.`,
     `- Use only commas and periods.`,
     `- Start with a capital, end with a period.`,
-    `- Stay within rating. No meta talk.`,
+    `- Stay within rating. No meta talk or explanations.`,
     `Output format: a plain numbered list 1-4, one line per item.`
   ].join(" ");
 }
@@ -268,11 +279,10 @@ function containsAnyThemePhrase(s: string, inserts: string[]): boolean {
 
 // rating filter: only restrict lower ratings
 function violatesRating(s: string, rating: Rating): boolean {
-  const hardR = /\b(fuck|shit|bitch|asshole|goddamn|bullshit)\b/i;
-  const pg13 = /\b(hell|damn)\b/i;
-  if (rating === "G") return hardR.test(s) || pg13.test(s);
+  const hardR = /\b(fuck|shit|cunt|cock|pussy)\b/i;
+  if (rating === "G") return hardR.test(s) || /\b(hell|damn)\b/i.test(s);
   if (rating === "PG") return hardR.test(s);
-  return false; // PG-13 and R can carry edge
+  return false; // PG-13 and R are fully open
 }
 
 function uniqueByText(lines: string[]) {
@@ -382,7 +392,8 @@ serve(async (req) => {
 
     const messages = [
       { role: "system", content: systemPrompt(full) },
-      { role: "user", content: userPrompt(full) }
+      { role: "user", content: userPrompt(full) },
+      { role: "user", content: `Write jokes in different formats:\n1. A roast (direct insult)\n2. A witty analogy\n3. A pop-culture reference\n4. A surreal exaggeration\n\nEach should sound original and stand-alone.` }
     ];
 
     const ctl = new AbortController();
