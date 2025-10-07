@@ -390,8 +390,8 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
       {showGenerateButton && !showVisualOptions && !isComplete && (
         <div className="space-y-4 pt-2">
           <div className="text-center">
-            <h3 className="text-base font-medium text-foreground mb-1">Optional Visuals</h3>
-            <p className="text-xs text-muted-foreground">Add specific visual elements (optional)</p>
+            <h3 className="text-base font-medium text-foreground mb-1">🖼️ Optional Visuals</h3>
+            <p className="text-xs text-muted-foreground">Add up to 3 extra visual details (objects, props, or setting).</p>
           </div>
           
           <Input 
@@ -428,10 +428,10 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             </div>
           )}
           
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-            <p className="text-xs font-medium text-foreground mb-1">Examples:</p>
-            <p className="text-xs text-muted-foreground">
-              "rainbow", "calendar", "pride flag" • "cake", "candles" • "coffee cup"
+          <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+            <p className="text-xs font-semibold text-foreground mb-2">Examples:</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              "bald obese man", "coffee cup", or "birthday balloons and cake"
             </p>
           </div>
         </div>
