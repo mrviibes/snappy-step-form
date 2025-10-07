@@ -111,12 +111,14 @@ export default function CategoryStep({
       </div>
 
       {/* Examples */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4">
-        <p className="text-sm font-medium text-foreground mb-2">Example topics:</p>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>• "birthday", "16th birthday", "getting very drunk"</p>
-          <p>• "Jesse", "stupid moments", "roast"</p>
-          <p>• "Monday morning", "coffee", "barely awake"</p>
+      <div className="rounded-lg border border-border bg-muted/30 p-5">
+        <p className="text-sm font-semibold text-foreground mb-3">Example topics:</p>
+        <div className="text-sm text-muted-foreground space-y-2 leading-relaxed">
+          <p>• "advertisement for a pet store"</p>
+          <p>• "Mike" and "can't golf"</p>
+          <p>• "birthday party gone wrong"</p>
+          <p>• "Emma burning dinner again"</p>
+          <p>• "Monday morning coffee struggle"</p>
         </div>
       </div>
     </div>;
