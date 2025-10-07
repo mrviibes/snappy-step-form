@@ -136,8 +136,11 @@ export default function TextStep({
           line: option.line
         }));
         
-        // Ensure we have exactly 4 options
-        const finalOptions = formattedOptions.slice(0, 4);
+        // Client-side filter: ensure all lines are 60-110 characters
+        const finalOptions = formattedOptions.filter(o => {
+          const len = (o.line || "").length;
+          return len >= 60 && len <= 110;
+        }).slice(0, 4);
         
         setTextOptions(finalOptions);
         setShowTextOptions(true);

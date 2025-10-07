@@ -147,11 +147,17 @@ async function ctlFetch<T = any>(functionName: string, payload: any): Promise<T>
 export async function generateTextOptions(params: GenerateTextParams): Promise<GenerateTextResponse> {
   const insertWords = Array.isArray(params.insertWords) ? params.insertWords.filter(Boolean).slice(0,2) : [];
   
+  // Safety check: ensure category/subcategory are always provided
+  if (!params.category && !params.subcategory) {
+    params.category = "misc";
+    params.subcategory = "general";
+  }
+  
   const nonce = crypto.randomUUID().slice(0, 8);
   
   const payload = {
-    category: params.category || "celebrations",
-    subcategory: params.subcategory || "birthday",
+    category: params.category || "misc",
+    subcategory: params.subcategory || "general",
     theme: params.theme,
     tone: canonTone(params.tone),
     rating: canonRating(params.rating),
