@@ -50,10 +50,17 @@ export interface GenerateVisualsParams {
   composition?: "Normal" | "Big-Head" | "Close-Up" | "Goofy" | "Zoomed" | "Surreal";
 }
 
+export interface VisualOption {
+  design: string;
+  subject: string;
+  setting: string;
+}
+
 export interface GenerateVisualsResponse {
   success: boolean;
   model?: string;
-  visuals: string[];             // exactly 4 strings, ≤10 words each
+  visuals: VisualOption[];
+  source?: string;
 }
 
 export interface PromptTemplate {

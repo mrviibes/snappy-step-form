@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { generateVisualOptions, type GenerateVisualsResponse } from "@/lib/api";
+import { generateVisualOptions, type GenerateVisualsResponse, type VisualOption } from "@/lib/api";
 import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
@@ -38,7 +38,7 @@ const dimensionOptions = [
 ];
 
 export default function VisualsStep({ data, updateData }: VisualsStepProps) {
-  const [generatedVisuals, setGeneratedVisuals] = useState<string[]>([]);
+  const [generatedVisuals, setGeneratedVisuals] = useState<VisualOption[]>([]);
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
@@ -176,7 +176,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
       visuals: {
         ...data.visuals,
         selectedVisualOption: optionIndex,
-        selectedVisualRecommendation: selected,   // now a string
+        selectedVisualRecommendation: selected,   // now a VisualOption object
         isComplete: true
       }
     });
@@ -280,8 +280,8 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
               <div className="text-sm text-foreground">
                 <span className="font-semibold">Visual Concept</span> - 
-                {typeof data.visuals.selectedVisualRecommendation === 'string' 
-                  ? ` ${data.visuals.selectedVisualRecommendation.slice(0, 50)}...`
+                {typeof data.visuals.selectedVisualRecommendation === 'object' && data.visuals.selectedVisualRecommendation.design
+                  ? ` ${data.visuals.selectedVisualRecommendation.design}`
                   : ` Option ${(data.visuals?.selectedVisualOption ?? 0) + 1}`
                 }
               </div>
@@ -490,7 +490,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
 
           {generatedVisuals.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
-              {generatedVisuals.map((line: string, index: number) => (
+              {generatedVisuals.map((visual: VisualOption, index: number) => (
                 <Card
                   key={index}
                   onClick={() => handleVisualOptionSelect(index)}
@@ -502,10 +502,20 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
                   )}
                 >
                   <div className="space-y-2">
-                    <h3 className="font-semibold text-base text-foreground">
-                      Option {index + 1}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{line}</p>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-base text-foreground">
+                        Option {index + 1}
+                      </h3>
+                      <span className="text-xs text-muted-foreground italic">
+                        {visual.design}
+                      </span>
+                    </div>
+                    <div className="text-sm text-foreground">
+                      <span className="font-medium">Subject:</span> {visual.subject}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">Setting:</span> {visual.setting}
+                    </div>
                   </div>
                 </Card>
               ))}

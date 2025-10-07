@@ -1,5 +1,5 @@
 // supabase/functions/generate-visuals/index.ts
-// 3.5 Turbo, topic-first. Returns exactly four lines, ≤10 words each.
+// 3.5 Turbo, returns four visual recommendations with Design, Subject, Setting
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -20,37 +20,38 @@ function sysPrompt(args: {
   composition: string;
 }) {
   const topicText = args.topics.filter(Boolean).join(", ") || "unspecified";
-  const extras = args.visuals.filter(Boolean).join(", ") || "none";
+  const visualHints = args.visuals.filter(Boolean).join(", ") || "none";
 
   return `
-You are an art director. Generate exactly 4 ultra-brief scene descriptions.
+You are an art director creating four visual design ideas.
 
 Topics: ${topicText}
 Caption text: "${args.text}"
-Optional visuals to include: ${extras}
+Required visual elements: ${visualHints}
 Composition: ${args.composition}
 
 Rules:
-- Output 4 separate lines, numbered 1-4.
-- Each line is at most 10 words.
-- Describe only what is visible and happening.
-- Include topics and optional visuals naturally.
-- Apply composition:
-  Normal = balanced framing
-  Big-Head = oversized head emphasis
-  Close-Up = tight emotional crop
-  Goofy = playful exaggeration
-  Zoomed = wide dynamic scene
-  Surreal = dreamlike oddities
-- Do not mention style, camera, lens, lighting, or quality.
-- No quotes, hashtags, or emojis. Commas and periods allowed.
+- Generate exactly 4 distinct visual design ideas.
+- Each idea must include ALL provided visual elements naturally.
+- Each idea must have three labeled parts:
+
+Design: (creative short title)
+Subject: (who/what is shown, ≤10 words)
+Setting: (where or environment, ≤10 words)
+
+- Keep each line concise, clear, and visual.
+- No quotes, emojis, camera info, lighting, or style adjectives.
+Output format example:
+
+1. Design: "Birthday Chaos"
+   Subject: Jesse blows candles while balloons explode.
+   Setting: Crowded party table indoors.
+
+2. ...
 `.trim();
 }
 
-const clean = (s: string) =>
-  s.replace(/^[\s>*-]+\s*/, "").replace(/^\d+\.\s*/, "").trim();
-
-const isTenWordsOrLess = (s: string) => s.split(/\s+/).filter(Boolean).length <= 10;
+const clean = (s: string) => s.replace(/^[\s>*-]+\s*/, "").trim();
 
 serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -58,64 +59,100 @@ serve(async req => {
   try {
     const body = await req.json();
 
-    const topics: string[] = Array.isArray(body.topics) ? body.topics.filter(Boolean).slice(0, 3) : [];
+    const topics: string[] = Array.isArray(body.topics) ? body.topics.filter(Boolean).slice(0,3) : [];
     const text: string = String(body.text || "");
-    const optional_visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0, 8) : [];
+    const visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0,8) : [];
     const composition: string = String(body.composition || "Normal");
 
-    console.log("[generate-visuals] Request:", { topics, text, optional_visuals, composition });
+    console.log("[generate-visuals] Request:", { topics, text, visuals, composition });
 
     const messages = [
-      { role: "system", content: sysPrompt({ topics, text, visuals: optional_visuals, composition }) },
-      { role: "user", content: "Generate now." }
+      { role: "system", content: sysPrompt({ topics, text, visuals, composition }) },
+      { role: "user", content: "Generate 4 labeled visual concepts now." }
     ];
 
     const r = await fetch(API, {
       method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 140 })
+      headers: {
+        Authorization: `Bearer ${OPENAI_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        temperature: 0.8,
+        max_tokens: 350
+      })
     });
 
     if (!r.ok) {
       const err = await r.text();
       console.error("[generate-visuals] API error:", err);
-      return new Response(JSON.stringify({ success: false, error: err }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: false, error: err }), { 
+        status: 500, 
+        headers: { ...cors, "Content-Type": "application/json" } 
+      });
     }
 
     const data = await r.json();
-    const content: string = data?.choices?.[0]?.message?.content ?? "";
+    const content = data?.choices?.[0]?.message?.content ?? "";
     console.log("[generate-visuals] Raw response:", content);
 
-    let lines = content.split(/\r?\n+/).map(clean).filter(Boolean);
-
-    lines = lines
-      .map(s => s.replace(/^"+|"+$/g, ""))
-      .filter(isTenWordsOrLess)
+    // split results by design label
+    const blocks = content
+      .split(/\n\s*\d+\.\s*/g)
+      .map(b => b.trim())
+      .filter(Boolean)
       .slice(0, 4);
 
-    console.log("[generate-visuals] Valid lines:", lines.length);
+    // structure results cleanly
+    const visualsOutput = blocks.map(block => {
+      const designMatch = block.match(/Design:\s*"?([^"\n]+)"?/i);
+      const subjectMatch = block.match(/Subject:\s*([^\n]+)/i);
+      const settingMatch = block.match(/Setting:\s*([^\n]+)/i);
+      return {
+        design: designMatch ? designMatch[1].trim() : "Untitled Concept",
+        subject: subjectMatch ? subjectMatch[1].trim() : "Unclear subject",
+        setting: settingMatch ? settingMatch[1].trim() : "Generic setting"
+      };
+    });
 
-    // pad if model under-delivers
-    while (lines.length < 4) {
-      const base = topics[lines.length % Math.max(1, topics.length)] || "subject";
-      const extra = optional_visuals[lines.length % Math.max(1, optional_visuals.length)] || "scene";
-      lines.push(`${base} interacts with ${extra}.`);
+    // Pad if needed
+    while (visualsOutput.length < 4) {
+      const idx = visualsOutput.length;
+      const topic = topics[idx % Math.max(1, topics.length)] || "subject";
+      const visual = visuals[idx % Math.max(1, visuals.length)] || "scene";
+      visualsOutput.push({
+        design: `Concept ${idx + 1}`,
+        subject: `${topic} interacts with ${visual}.`,
+        setting: "Generic background"
+      });
     }
 
-    console.log("[generate-visuals] Final outputs:", lines.slice(0, 4));
+    console.log("[generate-visuals] Final outputs:", visualsOutput.slice(0, 4));
 
-    return new Response(JSON.stringify({ success: true, model: MODEL, visuals: lines.slice(0, 4) }), {
-      headers: { ...cors, "Content-Type": "application/json" }
+    return new Response(JSON.stringify({
+      success: true,
+      model: MODEL,
+      visuals: visualsOutput.slice(0, 4)
+    }), { 
+      headers: { ...cors, "Content-Type": "application/json" } 
     });
+
   } catch (err) {
     console.error("[generate-visuals] error:", err);
     const fallback = [
-      "Subject reacts to scene, playful moment.",
-      "Wide view, action around subject.",
-      "Close-up emotion, key prop included.",
-      "Surreal twist hints at topic."
+      { design: "Fallback 1", subject: "Subject missing", setting: "Generic background" },
+      { design: "Fallback 2", subject: "Subject missing", setting: "Generic background" },
+      { design: "Fallback 3", subject: "Subject missing", setting: "Generic background" },
+      { design: "Fallback 4", subject: "Subject missing", setting: "Generic background" }
     ];
-    return new Response(JSON.stringify({ success: true, model: MODEL, visuals: fallback, source: "synth-error" }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      model: MODEL, 
+      visuals: fallback, 
+      source: "synth-error" 
+    }), {
       headers: { ...cors, "Content-Type": "application/json" }
     });
   }
