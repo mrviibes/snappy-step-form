@@ -98,12 +98,12 @@ function systemPrompt(b: {
   const styleRule = STYLE_DEFS[styleId];
 
   const insertsLine = b.insertWords.length
-    ? `Insert words: ${b.insertWords.join(", ")}. Each output must include all insert words naturally.`
+    ? `Insert words: ${b.insertWords.join(", ")}. Each output must include all insert words naturally. ONLY these insert words are required to appear verbatim.`
     : `No insert words provided.`;
 
   return [
     `You are a professional comedy writer generating four one-liner jokes.`,
-    `Category: ${b.category}, Subcategory: ${b.subcategory}.`,
+    `Topic context: ${b.category}, ${b.subcategory}. Use these as thematic guidance only — do not force these exact words into your outputs.`,
     `Tone: ${b.tone}. Rating: ${b.rating}.`,
     `Style: ${styleId} — ${styleRule}`,
     insertsLine,
@@ -113,7 +113,6 @@ function systemPrompt(b: {
     `- 50 to 100 characters.`,
     `- Only commas and periods.`,
     `- Start with a capital, end with a period.`,
-    `- Do not repeat the exact word "${b.subcategory}" more than once across the set.`,
     `- Stay within rating. No meta talk.`,
     `Output format: a plain numbered list 1-4, one line per item.`
   ].join(" ");
