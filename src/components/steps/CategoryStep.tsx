@@ -92,7 +92,7 @@ export default function CategoryStep({
 
       {/* Tag Input */}
       <div className="space-y-4">
-        <Input placeholder="Add topic(s) by pressing comma (,) or enter" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} className="text-base h-14 text-center placeholder:text-muted-foreground/60" disabled={currentTags.length >= 3} />
+        <Input placeholder="Add topic(s) by pressing comma or enter" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} className="text-base h-14 text-center placeholder:text-muted-foreground/60" disabled={currentTags.length >= 3} />
         
         {/* Tag Count */}
         <div className="text-sm text-muted-foreground text-center">
