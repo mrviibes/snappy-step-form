@@ -41,10 +41,10 @@ const writingPreferences = [{
   label: 'I Don\'t Want Text'
 }];
 const ratingOptions = [
-  { id: "G", label: "G", name: "G", description: "wholesome/playful" },
-  { id: "PG", label: "PG", name: "PG", description: "light sarcasm, safe ironic" },
-  { id: "PG-13", label: "PG-13", name: "PG-13", description: "edgy, ironic, sharp" },
-  { id: "R", label: "R", name: "R", description: "savage, raw, unfiltered" }
+  { id: "G", label: "G", name: "G", description: "Clean jokes for everyone" },
+  { id: "PG", label: "PG", name: "PG", description: "Light sarcasm, still safe" },
+  { id: "PG-13", label: "PG-13", name: "PG-13", description: "Slightly edgy, modern humor" },
+  { id: "R", label: "R", name: "R", description: "Adult, bold, unfiltered wit" }
 ];
 export default function TextStep({
   data,

@@ -78,10 +78,10 @@ export const toneMap: Record<string, string> = {
 
 // ===== RATINGS =====
 export const ratingMap: Record<string, string> = {
-  G: "family-friendly, innocent, wholesome",
-  PG: "mild content, suitable for general audiences",
-  "PG-13": "moderate content, some mature themes",
-  R: "adult content, intense themes, mature audiences"
+  G: "clean, family-friendly, everyone",
+  PG: "light sarcasm, safe, gentle",
+  "PG-13": "slightly edgy, modern humor, bold",
+  R: "adult, bold, unfiltered, mature wit"
 };
 
 // ===== CATEGORY NEGATIVES =====
