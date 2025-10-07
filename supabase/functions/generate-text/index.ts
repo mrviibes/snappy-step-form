@@ -6,7 +6,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const API = "https://api.openai.com/v1/chat/completions"; // ✅ back to stable endpoint
-const MODEL = "gpt-5-mini-2025-08-07";
+const MODEL = "gpt-3.5-turbo";
 
 // Enough time for one retry but well under Supabase 60s cap
 const TIMEOUT_MS = 22000;
@@ -143,7 +143,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         messages,
-        max_completion_tokens: 650
+        max_tokens: 650,
+        temperature: 0.9
       }),
       signal: ctl.signal
     });
@@ -176,7 +177,8 @@ serve(async (req) => {
           body: JSON.stringify({
             model: MODEL,
             messages,
-            max_completion_tokens: 800
+            max_tokens: 800,
+            temperature: 0.9
           }),
           signal: ctl2.signal
         });
