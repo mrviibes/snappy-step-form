@@ -1,15 +1,16 @@
 // supabase/functions/generate-text/index.ts
-// Viibe Generator — Chat Completions version (stable), fast, rating-aware, no em dashes.
-// Using gpt-3.5-turbo - Force redeployment triggered
+// Viibe Generator - Chat Completions version, 3.5 Turbo, stricter validation
+// Enforces: 4 one-liners, 70-125 chars, one sentence, commas and periods only,
+// includes all insert words, tone and rating aware, no em dashes.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const API = "https://api.openai.com/v1/chat/completions"; // ✅ back to stable endpoint
+const API = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-3.5-turbo";
 
-// Enough time for one retry but well under Supabase 60s cap
+// timeouts kept inside Supabase 60s limit
 const TIMEOUT_MS = 22000;
 const HARD_DEADLINE_MS = 26000;
 
@@ -18,232 +19,326 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Tone =
-  | "humorous" | "savage" | "sentimental" | "nostalgic"
+type Tone = "humorous" | "savage" | "sentimental" | "nostalgic" 
   | "romantic" | "inspirational" | "playful" | "serious";
 type Rating = "G" | "PG" | "PG-13" | "R";
 
-// hints kept for future tuning if needed
-const CATEGORY_HINT: Record<string, string> = {
-  celebrations: "Party chaos, cake, people being dramatic. Focus on personality and timing.",
-  "daily-life": "Relatable small struggles; caffeine, alarms, habits, moods.",
-  sports: "Competition, energy, mistakes that build character.",
-  "pop-culture": "One anchor from a show, movie, or trend; make it snappy.",
-  jokes: "Setup, twist, done. Avoid meta talk about jokes.",
-  miscellaneous: "Observational with one vivid detail that lands a thought."
+type Body = {
+  category?: string;
+  subcategory?: string;
+  tone?: Tone;
+  rating?: Rating;
+  insertWords?: string[];
+  style?: string;
 };
 
-const COMEDY_STYLES = [
-  "Observational humor using everyday irony.",
-  "Roast-style humor, sharp but playful.",
-  "Surreal humor with strange logic that still makes sense.",
-  "Warm, kind humor that still lands a laugh."
-];
+// ---------- Prompt builder ----------
 
-function povHint(inserts: string[]): string {
-  if (!inserts?.length) return "Speak directly to the reader using 'you'.";
-  if (inserts.includes("I") || inserts.includes("me")) return "Write from first person using 'I'.";
-  if (inserts.some(w => /^[A-Z]/.test(w))) return `Write about ${inserts.join(" and ")} in third person.`;
-  return `Write about ${inserts.join(" and ")} as descriptive subjects.`;
+function systemPrompt(b: Required<Body>) {
+  const { category, subcategory, tone, rating, insertWords, style } = b;
+
+  const styleLine = style
+    ? `Style: ${style}.`
+    : `Style: one-liner with a quick setup and a sharp payoff.`;
+
+  const insertsLine = insertWords.length
+    ? `Insert words: ${insertWords.join(", ")}. Each output must include all insert words naturally.`
+    : `No insert words provided.`;
+
+  return [
+    `You are a professional comedy writer generating four one-liner jokes.`,
+    `Category: ${category || "misc"}, Subcategory: ${subcategory || "general"}.`,
+    `Tone: ${tone}. Rating: ${rating}. ${styleLine}`,
+    insertsLine,
+    `Rules:`,
+    `- Exactly 4 outputs.`,
+    `- Each output is exactly one sentence with a clear setup and punchline.`,
+    `- Character range per output: 70 to 125.`,
+    `- Use only commas and periods. No dashes, no colons, no semicolons, no emojis, no hashtags.`,
+    `- Start with a capital letter and end with a period.`,
+    `- Do not repeat the exact word "${subcategory}" more than once across the entire set.`,
+    `- Keep language within the rating.`,
+    `- Avoid meta talk about jokes.`,
+    `Output format: a plain numbered list 1-4, one line per item.`,
+  ].join(" ");
 }
 
-function buildSystem(
-  tone: Tone,
-  rating: Rating,
-  category: string,
-  subcategory: string,
-  topic: string,
-  inserts: string[]
-) {
-  const insertNote = inserts.length
-    ? `Insert words: ${inserts.join(', ')}. Each joke should depend on them, not tag them on.`
-    : `No insert words.`;
-
-  return `
-Write 4 truly funny one-liners inspired by ${subcategory}. Tone: ${tone}. Rating: ${rating}.
-Speak like a sarcastic friend, not a caption. Use contrast or a quick twist for punchlines.
-${insertNote}
-Rules: 70–125 characters per line, start with a capital, end with punctuation.
-Only commas and periods. No dashes, quotes, colons, or semicolons.
-Avoid repeating the exact word '${subcategory}' more than once across the set.
-`.trim();
+function userPrompt(b: Required<Body>) {
+  const { category, subcategory, tone, rating, insertWords, style } = b;
+  const payload = {
+    category,
+    subcategory,
+    tone,
+    rating,
+    style: style || "one-liner",
+    insert_words: insertWords,
+  };
+  return JSON.stringify(payload);
 }
 
-function synth(topic: string, tone: Tone, inserts: string[] = [], rating: Rating = "PG"): string[] {
-  const name = inserts[0] || "you";
-  const t = (topic || "the moment").replace(/[-_]/g, " ").trim();
-  const lines = [
-    `${t} showed up loud and uninvited, ${name} blamed gravity.`,
-    `${name} survived ${t}, barely, sarcasm included.`,
-    `${t} tried to teach humility, ${name} skipped class.`,
-    `${name} mastered ${t}, chaos wrote the review.`
-  ];
-  return lines.map(l => l.replace(/([^.?!])$/, "$1."));
+// ---------- Post-processing and validation ----------
+
+const ILLEGAL_CHARS = /[:;!?"""'''(){}\[\]<>/_*#+=~^`|\\]/g;
+const EM_DASH = /[\u2014\u2013]/g;
+
+function normalizeLine(s: string): string {
+  let t = s.trim();
+  t = t.replace(/^[>*\-]+\s*/, "").replace(/^\d+\.\s*/, "");
+  t = t.replace(EM_DASH, ",");
+  t = t.replace(ILLEGAL_CHARS, "");
+  t = t.replace(/\s+/g, " ");
+  if (t.length) t = t[0].toUpperCase() + t.slice(1);
+  if (!/[.?!]$/.test(t)) t += ".";
+  t = t.replace(/[?]$/, ".");
+  return t;
 }
 
-function ensureInsertPlacement(lines: string[], insert: string): string[] {
-  return lines.map(l => {
-    if (!l.toLowerCase().includes(insert.toLowerCase())) return l;
-    const tokens = l.split(" ");
-    if (tokens[0].toLowerCase() === insert.toLowerCase()) {
-      tokens.shift();
-      tokens.push(insert);
+function isOneSentence(s: string): boolean {
+  const parts = s.split(".").filter(Boolean);
+  return parts.length === 1;
+}
+
+function inCharRange(s: string, min = 70, max = 125): boolean {
+  const len = [...s].length;
+  return len >= min && len <= max;
+}
+
+function hasAllInserts(s: string, inserts: string[]): boolean {
+  return inserts.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
+}
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function uniqueByText(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const l of lines) {
+    const key = l.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(l);
     }
-    return tokens.join(" ").replace(/\s+/g, " ").trim().replace(/([^.?!])$/, "$1.");
+  }
+  return out;
+}
+
+function filterBySubcatUse(lines: string[], subcat: string): string[] {
+  if (!subcat) return lines;
+  let used = 0;
+  const re = new RegExp(`\\b${escapeRegExp(subcat)}\\b`, "i");
+  return lines.filter(l => {
+    if (re.test(l)) {
+      if (used === 0) {
+        used++;
+        return true;
+      }
+      return false;
+    }
+    return true;
   });
 }
 
-function capFirst(s: string) {
-  return s ? s[0].toUpperCase() + s.slice(1) : s;
+function validateAndTrim(
+  raw: string,
+  inserts: string[],
+  subcat: string,
+  want = 4,
+): string[] {
+  const lines = raw
+    .split(/\r?\n+/)
+    .map(normalizeLine)
+    .filter(Boolean);
+
+  let val = lines.filter(l =>
+    isOneSentence(l) && inCharRange(l) && hasAllInserts(l, inserts)
+  );
+
+  val = uniqueByText(val);
+  val = filterBySubcatUse(val, subcat);
+
+  if (val.length > want) val = val.slice(0, want);
+  return val;
 }
+
+// ---------- Fallback synthesis ----------
+
+function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
+  const [a, b] = [inserts[0] || "you", inserts[1] || "life"];
+  const base = [
+    `${a} trained for ${topic}, ${b} graded on a curve.`,
+    `${a} met ${topic} at full speed, ${b} filed the report.`,
+    `${topic} tried to teach patience, ${a} borrowed time from ${b}.`,
+    `${a} survived ${topic}, ${b} wrote a cheerful obituary.`,
+  ];
+  return base.map(normalizeLine).map(l => {
+    return hasAllInserts(l, inserts) ? l : `${a} ${b} ${l}`;
+  }).map(normalizeLine).filter(l => inCharRange(l));
+}
+
+// ---------- HTTP handler ----------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-  const region = Deno.env.get("VERCEL_REGION") || Deno.env.get("SUPABASE_REGION") || "unknown";
-  console.log("[generate-text] region:", region, "| model:", MODEL, "| endpoint:", API);
-
-  let category = "", subcat = "", theme = "", tone: Tone = "humorous", rating: Rating = "PG",
-      inserts: string[] = [], topic = "topic";
-
+  const hardTimer = setTimeout(() => {}, HARD_DEADLINE_MS);
   let deadlineHit = false;
-  const hardTimer = setTimeout(() => {
-    deadlineHit = true;
-    console.warn("[generate-text] hard deadline reached, returning synth");
-  }, HARD_DEADLINE_MS);
+  const deadlineGuard = setTimeout(() => { deadlineHit = true; }, HARD_DEADLINE_MS);
 
   try {
-    if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      clearTimeout(deadlineGuard);
+      clearTimeout(hardTimer);
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing OPENAI_API_KEY" }),
+        { status: 500, headers: { ...cors, "Content-Type": "application/json" } }
+      );
+    }
 
-    const b = await req.json();
-    category = String(b.category || "").trim();
-    subcat   = String(b.subcategory || "").trim();
-    theme    = String(b.theme || "").trim();
-    tone     = (b.tone || "humorous") as Tone;
-    rating   = (b.rating || "PG") as Rating;
-    inserts  = Array.isArray(b.insertWords) ? b.insertWords.filter(Boolean).slice(0, 2) : [];
-    topic    = (theme || subcat || category || "topic").replace(/[-_]/g, " ").trim();
+    const body = (await req.json()) as Body;
+    const category = String(body.category || "").trim();
+    const subcategory = String(body.subcategory || "").trim();
+    const tone = (body.tone || "humorous") as Tone;
+    const rating = (body.rating || "PG") as Rating;
+    const style = String(body.style || "").trim();
+    const insertWords = Array.isArray(body.insertWords)
+      ? body.insertWords.filter(Boolean).slice(0, 2).map(s => String(s))
+      : [];
 
-    const SYSTEM  = buildSystem(tone, rating, category, subcat, topic, inserts);
-    const payload = `Category: ${category}, Subcategory: ${subcat}${inserts.length ? `, Inserts: ${inserts.join(", ")}` : ""}`;
+    const topic = (subcategory || category || "the moment").replace(/[-_]/g, " ").trim();
 
-    console.log("[generate-text] prompt length:", SYSTEM.length + payload.length);
+    const full: Required<Body> = {
+      category: category || "misc",
+      subcategory: subcategory || "general",
+      tone,
+      rating,
+      insertWords,
+      style: style || "",
+    };
 
     const messages = [
-      { role: "system", content: SYSTEM },
-      { role: "user",   content: payload }
+      { role: "system", content: systemPrompt(full) },
+      { role: "user", content: userPrompt(full) },
     ];
 
-    // ---- main call ----
-    const ctl  = new AbortController();
+    console.log("[generate-text] prompt length:", JSON.stringify(messages).length);
+
+    // main call
+    const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
     const r = await fetch(API, {
       method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         model: MODEL,
         messages,
-        max_tokens: 650,
-        temperature: 0.9
+        temperature: 0.8,
+        max_tokens: 400,
       }),
-      signal: ctl.signal
+      signal: ctl.signal,
     });
 
     clearTimeout(timer);
 
-    if (!r.ok) {
-      const errText = await r.text();
-      console.error("[generate-text] API error:", r.status, errText);
-      const fb = synth(topic, tone, inserts, rating);
-      clearTimeout(hardTimer);
-      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth" }),
-        { headers: { ...cors, "Content-Type": "application/json" } });
-    }
-
-    const data = await r.json();
-    let content = data?.choices?.[0]?.message?.content || "";
-    let finish  = data?.choices?.[0]?.finish_reason || "n/a";
-    console.log("[generate-text] finish_reason:", finish, "| content len:", content.length);
-
-    // ---- one retry on cutoff ----
-    if (finish === "length" && !deadlineHit) {
-      console.warn("[generate-text] retrying due to finish_reason:", finish);
-      const ctl2  = new AbortController();
-      const timer2 = setTimeout(() => ctl2.abort(), TIMEOUT_MS);
-      try {
-        const r2 = await fetch(API, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: MODEL,
-            messages,
-            max_tokens: 800,
-            temperature: 0.9
-          }),
-          signal: ctl2.signal
-        });
-        if (r2.ok) {
-          const d2 = await r2.json();
-          content  = d2?.choices?.[0]?.message?.content || content;
-          finish   = d2?.choices?.[0]?.finish_reason || finish;
-          console.log("[generate-text] finish_reason (retry):", finish, "| content len:", content.length);
-        } else {
-          console.warn("[generate-text] retry failed:", r2.status);
-        }
-      } finally {
-        clearTimeout(timer2);
-      }
-    }
-
-    // ---- parse and clean ----
-    const clean = (l: string) =>
-      l.replace(/^[\s>*-]+\s*/, "")
-       .replace(/^\d+\.\s+/, "")
-       .replace(/[\u2013\u2014]/g, ",")
-       .replace(/[:;]+/g, ",")
-       .replace(/\s+/g, " ")
-       .trim()
-       .replace(/([^.?!])$/, "$1.");
-
-    const rawLines = content.split(/\r?\n+/).map(clean).filter(l => l.length > 0);
-    let lines = rawLines.filter(l => l.length >= 70 && l.length <= 125).slice(0, 4);
-
     let source = "model";
-    if (lines.length < 2) {
-      lines = synth(topic, tone, inserts, rating);
+    let outputs: string[] = [];
+
+    if (r.ok) {
+      const data = await r.json();
+      const content = data?.choices?.[0]?.message?.content ?? "";
+      let lines = validateAndTrim(content, insertWords, full.subcategory);
+
+      // one retry if we got fewer than 4 valid lines and deadline allows
+      if (lines.length < 4 && !deadlineHit) {
+        const ctl2 = new AbortController();
+        const timer2 = setTimeout(() => ctl2.abort(), 8000);
+        try {
+          const r2 = await fetch(API, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: MODEL,
+              messages,
+              temperature: 0.9,
+              max_tokens: 500,
+            }),
+            signal: ctl2.signal,
+          });
+          if (r2.ok) {
+            const d2 = await r2.json();
+            const c2 = d2?.choices?.[0]?.message?.content ?? "";
+            const more = validateAndTrim(c2, insertWords, full.subcategory);
+            lines = uniqueByText([...lines, ...more]).slice(0, 4);
+          }
+        } catch (retryErr) {
+          console.warn("[generate-text] retry error:", String(retryErr));
+        } finally {
+          clearTimeout(timer2);
+        }
+      }
+
+      if (lines.length < 4) {
+        source = lines.length ? "model+padded" : "synth";
+        const pad = synthFallback(topic, insertWords, tone);
+        lines = uniqueByText([...lines, ...pad]).slice(0, 4);
+      }
+
+      outputs = lines;
+    } else {
+      console.error("[generate-text] API error:", r.status, await r.text());
       source = "synth";
-    } else if (lines.length < 4) {
-      const pad = synth(topic, tone, inserts, rating).slice(0, 4 - lines.length);
-      lines = [...lines, ...pad];
-      source = "model+padded";
+      outputs = synthFallback(topic, insertWords, tone);
     }
 
-    if (inserts.length === 1) lines = ensureInsertPlacement(lines, inserts[0]);
-    lines = lines.map(capFirst);
+    // final guarantee pass on all rules
+    outputs = outputs
+      .map(normalizeLine)
+      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllInserts(l, insertWords));
 
-    console.log("✅ FINAL SOURCE:", source);
+    // last resort if strict filter removed too much
+    if (outputs.length < 4) {
+      const pad = synthFallback(topic, insertWords, tone);
+      outputs = uniqueByText([...outputs, ...pad]).slice(0, 4);
+    }
 
+    clearTimeout(deadlineGuard);
     clearTimeout(hardTimer);
-    if (deadlineHit) {
-      const fb = synth(topic, tone, inserts, rating);
-      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth-deadline" }),
-        { headers: { ...cors, "Content-Type": "application/json" } });
-    }
 
-    return new Response(JSON.stringify({ success: true, options: lines, model: MODEL, source }),
-      { headers: { ...cors, "Content-Type": "application/json" } });
+    console.log("[generate-text] success | source:", source, "| count:", outputs.length);
 
+    return new Response(
+      JSON.stringify({
+        success: true,
+        model: MODEL,
+        options: outputs,
+        source,
+      }),
+      { headers: { ...cors, "Content-Type": "application/json" } },
+    );
   } catch (err) {
+    clearTimeout(deadlineGuard);
     clearTimeout(hardTimer);
-    const isTimeout = String(err).includes("timeout") || String(err).includes("AbortError");
     console.error("[generate-text] error:", String(err));
-    if (deadlineHit || isTimeout) {
-      const fb = synth(topic, tone, inserts, rating);
-      return new Response(JSON.stringify({ success: true, options: fb, model: MODEL, source: "synth-timeout" }),
-        { headers: { ...cors, "Content-Type": "application/json" } });
-    }
-    return new Response(JSON.stringify({ success: false, error: String(err), status: 500 }),
-      { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    
+    const topic = "the moment";
+    const outputs = synthFallback(topic, [], "humorous");
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        model: MODEL,
+        options: outputs,
+        source: "synth-error",
+      }),
+      { headers: { ...cors, "Content-Type": "application/json" } },
+    );
   }
 });
