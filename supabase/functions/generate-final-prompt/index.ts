@@ -299,13 +299,22 @@ function normTags(tags?: string[], max = 6) {
   return out;
 }
 
-// Split meme text at first comma for top/bottom
+// Split meme text at first comma for top/bottom - only if it looks like setup/punchline
 function maybeSplitMeme(text: string, layoutKey?: string) {
   if (layoutKey !== "meme-text") return `MANDATORY TEXT (exact, verbatim): "${text}" — render as one block.`;
+  
   const i = text.indexOf(",");
   if (i === -1) return `MANDATORY TEXT (exact, verbatim): "${text}" — render as one block.`;
+  
   const top = text.slice(0, i).trim();
   const bottom = text.slice(i + 1).trim();
+  
+  // Only split if both halves are reasonably short (< 60 chars) - typical meme format
+  // Otherwise treat as a single sentence with grammatical comma
+  if (top.length > 60 || bottom.length > 60) {
+    return `MANDATORY TEXT (exact, verbatim): "${text}" — render as one block.`;
+  }
+  
   return `Text top (verbatim): "${top}" Text bottom (verbatim): "${bottom}"`;
 }
 
@@ -682,6 +691,12 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   const placementRules = getPlacementRules(layoutKey);
   const integrationHints = getIntegrationHints(layoutKey);
   const compositionMode = composition_modes[0] || "cinematic";
+
+  // Validation check before building prompt
+  if (!cleanText || cleanText.trim().length < 3) {
+    console.error("Invalid or empty completed_text:", completed_text);
+    throw new Error("Empty or invalid completed_text passed to image generator");
+  }
 
   // Build positive prompt with dynamic variables
   const positive_prompt = `
