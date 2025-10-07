@@ -414,9 +414,26 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             />
           )}
 
-          <div className="text-center mb-6 pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-2">Select a visual recommendation</h2>
-            <p className="text-sm text-muted-foreground">Select one of these AI-generated recommendations:</p>
+          <div className="flex justify-between items-center mb-6 pt-6">
+            <div className="flex-1"></div>
+            <Button 
+              variant="outline" 
+              onClick={handleGenerateVisuals}
+              disabled={isGeneratingVisuals}
+              className="gap-2"
+            >
+              {isGeneratingVisuals ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Regenerate
+                </>
+              )}
+            </Button>
           </div>
 
           {generatedVisuals.length > 0 ? (
