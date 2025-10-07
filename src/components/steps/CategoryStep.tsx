@@ -3,68 +3,71 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
   onNext: () => void;
 }
-
-export default function CategoryStep({ data, updateData }: CategoryStepProps) {
+export default function CategoryStep({
+  data,
+  updateData
+}: CategoryStepProps) {
   const [tagInput, setTagInput] = useState('');
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Sync local state with incoming data
   useEffect(() => {
     if (!data.tags) {
-      updateData({ tags: [] });
+      updateData({
+        tags: []
+      });
     }
   }, []);
-
   const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       const input = tagInput.trim();
       const currentTags = data.tags || [];
-      
+
       // Validate: Max 3 tags
       if (currentTags.length >= 3) {
-        toast({ 
-          title: "Tag limit reached", 
+        toast({
+          title: "Tag limit reached",
           description: "You can only add 3 tags maximum",
-          variant: "destructive" 
+          variant: "destructive"
         });
         return;
       }
-      
+
       // Validate: Length (2-50 characters)
       if (input.length < 2) {
-        toast({ 
-          title: "Tag too short", 
+        toast({
+          title: "Tag too short",
           description: "Each tag must be at least 2 characters",
-          variant: "destructive" 
+          variant: "destructive"
         });
         return;
       }
-      
       if (input.length > 50) {
-        toast({ 
-          title: "Tag too long", 
+        toast({
+          title: "Tag too long",
           description: "Each tag must be 50 characters or less",
-          variant: "destructive" 
+          variant: "destructive"
         });
         return;
       }
-      
+
       // Validate: No duplicates (case-insensitive)
       if (currentTags.some((tag: string) => tag.toLowerCase() === input.toLowerCase())) {
-        toast({ 
-          title: "Duplicate tag", 
+        toast({
+          title: "Duplicate tag",
           description: "This tag has already been added",
-          variant: "destructive" 
+          variant: "destructive"
         });
         return;
       }
-      
+
       // All validations passed - add the tag
       updateData({
         tags: [...currentTags, input]
@@ -72,37 +75,24 @@ export default function CategoryStep({ data, updateData }: CategoryStepProps) {
       setTagInput('');
     }
   };
-
   const handleRemoveTag = (tagToRemove: string) => {
     const currentTags = data.tags || [];
     updateData({
       tags: currentTags.filter((tag: string) => tag !== tagToRemove)
     });
   };
-
   const currentTags = data.tags || [];
-
-  return (
-    <div className="space-y-8 max-w-2xl mx-auto">
+  return <div className="space-y-8 max-w-2xl mx-auto">
       <div className="text-center space-y-3">
         <h2 className="text-2xl font-semibold text-foreground">
           What's Your Topic?
         </h2>
-        <p className="text-base text-muted-foreground">
-          Add 1-3 topics to guide your content (e.g., "birthday", "no one showed up", "Mike")
-        </p>
+        
       </div>
 
       {/* Tag Input */}
       <div className="space-y-4">
-        <Input
-          placeholder="Add a topic... (press Enter)"
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          onKeyDown={handleAddTag}
-          className="text-base h-14 text-center placeholder:text-muted-foreground/60"
-          disabled={currentTags.length >= 3}
-        />
+        <Input placeholder="Add a topic... (press Enter)" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} className="text-base h-14 text-center placeholder:text-muted-foreground/60" disabled={currentTags.length >= 3} />
         
         {/* Tag Count */}
         <div className="text-sm text-muted-foreground text-center">
@@ -110,26 +100,14 @@ export default function CategoryStep({ data, updateData }: CategoryStepProps) {
         </div>
 
         {/* Current Tags */}
-        {currentTags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {currentTags.map((tag: string) => (
-              <Badge 
-                key={tag} 
-                variant="secondary" 
-                className="text-sm py-1.5 px-3 flex items-center gap-2"
-              >
+        {currentTags.length > 0 && <div className="flex flex-wrap gap-2">
+            {currentTags.map((tag: string) => <Badge key={tag} variant="secondary" className="text-sm py-1.5 px-3 flex items-center gap-2">
                 {tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="hover:text-destructive transition-colors"
-                  type="button"
-                >
+                <button onClick={() => handleRemoveTag(tag)} className="hover:text-destructive transition-colors" type="button">
                   <X className="h-3 w-3" />
                 </button>
-              </Badge>
-            ))}
-          </div>
-        )}
+              </Badge>)}
+          </div>}
       </div>
 
       {/* Examples */}
@@ -141,6 +119,5 @@ export default function CategoryStep({ data, updateData }: CategoryStepProps) {
           <p>• "Monday morning", "coffee", "barely awake"</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
