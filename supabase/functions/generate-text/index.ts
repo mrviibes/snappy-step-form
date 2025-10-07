@@ -120,7 +120,7 @@ const ratingModifiers: Record<Rating, string> = {
   G: "family friendly, no edge or adult content.",
   PG: "light sarcasm, mild tone, still safe for everyone.",
   "PG-13": "modern language allowed, light edge or innuendo is fine.",
-  R: "bold, unfiltered, edgy or darkly funny humor. Swearing or provocative references allowed if it fits tone."
+  R: "Write like a late-night set. Use unfiltered adult language when it helps the punchline (e.g., hell, damn, shit, asshole). Keep it witty, not gross or hateful. No slurs. No targeting protected traits."
 };
 
 function systemPrompt(b: {
@@ -163,6 +163,15 @@ function systemPrompt(b: {
   // Grammar enforcement
   const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses).`;
 
+  // Extra rules for R rating
+  const extraRules: string[] = [];
+  if (b.rating === "R") {
+    extraRules.push(
+      "- At least two outputs must contain clear adult language.",
+      "- Keep jokes about situations/decisions, never about identity traits."
+    );
+  }
+
   return [
     `You are a professional comedian writing four unique one-liner jokes.`,
     contextLine,
@@ -181,6 +190,7 @@ function systemPrompt(b: {
     `- Use only commas and periods.`,
     `- Start with a capital, end with a period.`,
     `- Stay within rating. No meta talk or explanations.`,
+    ...extraRules,
     `Output format: a plain numbered list 1-4, one line per item.`
   ].join(" ");
 }
@@ -277,12 +287,19 @@ function containsAnyThemePhrase(s: string, inserts: string[]): boolean {
   return inserts.some(p => p && new RegExp(escapeRegExp(p), "i").test(s));
 }
 
-// rating filter: only restrict lower ratings
+// rating filter: block slurs always, loosen profanity gate
 function violatesRating(s: string, rating: Rating): boolean {
-  const hardR = /\b(fuck|shit|cunt|cock|pussy)\b/i;
-  if (rating === "G") return hardR.test(s) || /\b(hell|damn)\b/i.test(s);
-  if (rating === "PG") return hardR.test(s);
-  return false; // PG-13 and R are fully open
+  // hard-banned slurs stay blocked always
+  const slurs = /\b(faggot|tranny|retard|kike|chink|spic)\b/i;
+  if (slurs.test(s)) return true;
+
+  const heavy = /\b(fuck|shit|asshole|dick|pussy|bitch)\b/i;
+  const mild = /\b(hell|damn|crap|ass)\b/i;
+
+  if (rating === "G") return heavy.test(s) || mild.test(s);
+  if (rating === "PG") return heavy.test(s);
+  // PG-13 and R: no restriction (except slurs above)
+  return false;
 }
 
 function uniqueByText(lines: string[]) {
@@ -344,6 +361,27 @@ function validateWithFallback(
   return lines.slice(0, want);
 }
 
+// Check if line lacks edgy language for R rating
+function lacksEdge(s: string): boolean {
+  return !/\b(hell|damn|shit|ass|asshole|bitch|crap|wtf)\b/i.test(s);
+}
+
+// Add edge to R-rated lines that are too tame
+function addEdgeIfR(line: string): string {
+  const boosters = [
+    "Seriously, show up on time, for once",
+    "Set a fucking alarm",
+    "Time isn't your bitch",
+    "Bring your ass five minutes early"
+  ];
+  if (lacksEdge(line)) {
+    const tag = boosters[Math.floor(Math.random() * boosters.length)];
+    // keep one sentence rule: graft with comma
+    return line.replace(/\.$/, `, ${tag}.`);
+  }
+  return line;
+}
+
 function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
   const subject = inserts[0] || "you";
   const situation = inserts[1] || topic || "life";
@@ -399,10 +437,14 @@ serve(async (req) => {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
+    // Adjust sampling for R rating
+    const temp = rating === "R" ? 0.95 : 0.85;
+    const top_p = rating === "R" ? 0.92 : 0.9;
+
     const r = await fetch(API, {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.7, max_tokens: 450 }),
+      body: JSON.stringify({ model: MODEL, messages, temperature: temp, top_p, max_tokens: 450 }),
       signal: ctl.signal
     });
 
@@ -428,7 +470,7 @@ serve(async (req) => {
           const r2 = await fetch(API, {
             method: "POST",
             headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: MODEL, messages, temperature: 0.85, max_tokens: 520 }),
+            body: JSON.stringify({ model: MODEL, messages, temperature: temp, top_p, max_tokens: 520 }),
             signal: ctl2.signal
           });
           if (r2.ok) {
@@ -458,6 +500,11 @@ serve(async (req) => {
       .map(polishGrammar)
       .map(ensureSentenceFlow)
       .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, insertWords) && !violatesRating(l, rating));
+
+    // Add edge to R-rated lines if they're too tame
+    if (rating === "R") {
+      outputs = outputs.map(addEdgeIfR);
+    }
 
     if (outputs.length < 4) {
       const pad = synthFallback(topic, insertWords, tone).filter(l => !violatesRating(l, rating));
