@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type GenerateVisualsResponse, type VisualOption } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle, X, Film, ZoomIn, Laugh, Orbit, Minimize } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
@@ -70,28 +70,23 @@ const dimensionOptions = [{
 const compositionModes = [{
   id: "cinematic",
   title: "Cinematic",
-  description: "Wide, dramatic framing with storytelling energy",
-  icon: Film
+  description: "Wide, dramatic framing with storytelling energy"
 }, {
   id: "close-up",
   title: "Close-Up",
-  description: "Tight focus on a face or key detail",
-  icon: ZoomIn
+  description: "Tight focus on a face or key detail"
 }, {
   id: "goofy",
   title: "Goofy",
-  description: "Fun, exaggerated, or absurd layouts",
-  icon: Laugh
+  description: "Fun, exaggerated, or absurd layouts"
 }, {
   id: "surreal",
   title: "Surreal",
-  description: "Dreamlike, artistic compositions",
-  icon: Orbit
+  description: "Dreamlike, artistic compositions"
 }, {
   id: "minimal",
   title: "Minimal",
-  description: "Clean, centered, simple framing",
-  icon: Minimize
+  description: "Clean, centered, simple framing"
 }];
 export default function VisualsStep({
   data,
@@ -515,10 +510,7 @@ export default function VisualsStep({
               </SelectTrigger>
               <SelectContent className="bg-background border-border z-50">
                 {compositionModes.map(mode => <SelectItem key={mode.id} value={mode.id} className="cursor-pointer hover:bg-accent">
-                    <span className="flex items-center gap-2">
-                      <mode.icon className="w-4 h-4" />
-                      <span>{mode.title}</span>
-                    </span>
+                    {mode.title}
                   </SelectItem>)}
               </SelectContent>
             </Select>
