@@ -46,6 +46,7 @@ interface FinalPromptRequest {
   composition_modes?: string[]; // e.g., ["norman"]
   specific_visuals?: string[];  // tags from UI
   visual_recommendation?: string;
+  subjectScene?: string;        // explicit concrete scene description
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
@@ -625,9 +626,16 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
   const textCoverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
 
-  // Build base scene with expression
-  const baseScene = cleanVisRec(p.visual_recommendation) || "a well-lit subject in context";
-  const subjectScene = `${baseScene} ${expressionMap[tone] || ""}`.trim();
+  // Build subject scene: prioritize explicit subjectScene, then visual_recommendation, then fallback
+  let subjectScene: string;
+  if (p.subjectScene && p.subjectScene.trim()) {
+    // Use explicit scene description with expression added
+    subjectScene = `${p.subjectScene.trim()} ${expressionMap[tone] || ""}`.trim();
+  } else {
+    // Fallback to visual_recommendation or generic
+    const baseScene = cleanVisRec(p.visual_recommendation) || "a well-lit subject in context";
+    subjectScene = `${baseScene} ${expressionMap[tone] || ""}`.trim();
+  }
 
   return {
     completed_text: sanitizeTextForImage(p.completed_text),

@@ -220,6 +220,7 @@ export async function generateFinalPrompt(params: {
   layout?: string;
   textLine?: string;
   visualScene?: string;
+  subjectScene?: string;
 }): Promise<{ templates: PromptTemplate[] }> {
   const payload: any = {
     // Required by edge function
@@ -235,6 +236,7 @@ export async function generateFinalPrompt(params: {
     text_layout: ((params as any).text_layout ?? params.layout) || "Open Space",
     composition_modes: (params as any).composition_modes,
     visual_recommendation: (params as any).visual_recommendation ?? params.visualScene,
+    subjectScene: (params as any).subjectScene,
     provider: (params as any).provider || "ideogram",
   };
 
