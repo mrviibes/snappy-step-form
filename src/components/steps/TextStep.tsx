@@ -222,6 +222,15 @@ export default function TextStep({
       }
     });
   };
+  
+  const handleEditRating = () => {
+    updateData({
+      text: {
+        ...data.text,
+        rating: ""
+      }
+    });
+  };
   const handleTextOptionSelect = (optionIndex: number) => {
     setSelectedTextOption(optionIndex);
     // Don't automatically show layout options, keep them visible in the flow
@@ -396,7 +405,7 @@ export default function TextStep({
             <div className="text-sm text-foreground">
               <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
             </div>
-            <button onClick={() => handleRatingSelect("")} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            <button onClick={handleEditRating} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
               Edit
             </button>
           </div>
@@ -475,6 +484,16 @@ export default function TextStep({
             <div className="text-sm text-foreground"><span className="font-semibold">Tone</span> - {selectedTone?.label}</div>
           </div>
           <button onClick={handleEditTone} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
+        </div>
+
+        {/* Selected Rating */}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="text-sm text-foreground">
+            <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
+          </div>
+          <button onClick={handleEditRating} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
@@ -569,35 +588,6 @@ export default function TextStep({
         {/* Generation Section */}
         {showGeneration && !showTextOptions && <div className="space-y-4 pt-4">
             <div className="space-y-4">
-              {/* Rating Selection */}
-              <div className="space-y-3">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">
-                    Choose Your Rating
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {ratingOptions.map(rating => (
-                    <button 
-                      key={rating.id} 
-                      onClick={() => handleRatingSelect(rating.id)} 
-                      className={cn(
-                        "h-20 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-                        data.text?.rating === rating.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-                      )}
-                    >
-                      <div className="flex h-full flex-col items-center justify-center space-y-1">
-                        <div className="font-semibold text-sm">{rating.name}</div>
-                        <div className="text-xs text-muted-foreground">{rating.description}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-
               {/* Generate Button - Full width on mobile */}
               <div className="w-full space-y-3 pt-5">
                 <Button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200">
