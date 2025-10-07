@@ -488,22 +488,22 @@ export default function TextStep({
           </button>
         </div>
 
-        {/* Selected Rating */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
-          <div className="text-sm text-foreground">
-            <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
-          </div>
-          <button onClick={handleEditRating} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-            Edit
-          </button>
-        </div>
-
         {/* Selected Writing Preference */}
         <div className="flex items-center justify-between p-4 border-t border-border">
           <div className="space-y-1">
             <div className="text-sm text-foreground"><span className="font-semibold">Process</span> - {selectedWritingPreference?.label}</div>
           </div>
           <button onClick={handleEditWritingPreference} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+            Edit
+          </button>
+        </div>
+
+        {/* Selected Rating */}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="text-sm text-foreground">
+            <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.name}
+          </div>
+          <button onClick={handleEditRating} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
             Edit
           </button>
         </div>
