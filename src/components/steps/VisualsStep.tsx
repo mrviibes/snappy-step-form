@@ -146,9 +146,15 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
     setIsGeneratingVisuals(true);
     try {
       const finalText = data.text?.selectedLine || data.text.generatedText || data.text.customText;
+      const tags = data.tags || [];
+      
+      // Map tags to backend fields
+      const category = tags[0] || "general";
+      const subcategory = tags[1] || tags[0] || "general";
+      
       const params = {
-        category: data.category || "",
-        subcategory: data.subcategory || "",
+        category,
+        subcategory,
         tone: data.vibe?.tone || "Humorous",
         style: data.visuals?.style || "general",
         layout: data.text?.textLayout || "Open Space",
@@ -162,9 +168,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
         step: 'API_CALL_START',
         params,
         formData: {
-          category: data.category,
-          subcategory: data.subcategory,
-          theme: data.theme,
+          tags: data.tags,
           text: data.text,
           vibe: data.vibe,
           visuals: data.visuals
@@ -259,11 +263,11 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
 
   return (
     <div className="space-y-6">
-      {/* Category Breadcrumb */}
-      {data.category && data.subcategory && (
+      {/* Tags Breadcrumb */}
+      {data.tags && data.tags.length > 0 && (
         <div className="text-left mb-1">
           <div className="text-sm text-muted-foreground">
-            <span className="font-semibold">Your selection:</span> {data.category} &gt; {data.subcategory}{data.theme ? ` > ${data.theme}` : ''}
+            <span className="font-semibold">Your topics:</span> {data.tags.join(' > ')}
           </div>
         </div>
       )}

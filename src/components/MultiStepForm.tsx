@@ -7,10 +7,7 @@ import TextStep from "./steps/TextStep";
 import VisualsStep from "./steps/VisualsStep";
 import SummaryStep from "./steps/SummaryStep";
 interface FormData {
-  category: string;
-  subcategory: string;
-  theme?: string;
-  specificItem?: string;
+  tags: string[]; // Max 3 tags for topic guidance
   text: {
     tone: string;
     writingPreference: string;
@@ -60,9 +57,7 @@ const steps = [{
 export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
-    category: "",
-    subcategory: "",
-    theme: "",
+    tags: [],
     text: {
       tone: "",
       writingPreference: ""
@@ -90,9 +85,7 @@ export default function MultiStepForm() {
     // Reset form to initial state
     setCurrentStep(1);
     setFormData({
-      category: "",
-      subcategory: "",
-      theme: "",
+      tags: [],
       text: {
         tone: "",
         writingPreference: ""
@@ -122,8 +115,8 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
-        // For Pop Culture category, specificItem is optional but category and subcategory are required
-        return !!formData.category && !!formData.subcategory;
+        // Require at least 1 tag
+        return formData.tags && formData.tags.length >= 1;
       case 2:
         // Special case for "no-text" - only need tone and writing preference
         if (formData.text.writingPreference === 'no-text') {

@@ -80,9 +80,9 @@ export default function TextStep({
     return stylesForTone?.[0] || "punchline-first";
   };
 
-  // Clear stale words when category changes
+  // Clear stale words when tags change
   useEffect(() => {
-    if (data.category && data.text?.insertWords?.length > 0) {
+    if (data.tags && data.text?.insertWords?.length > 0) {
       updateData({
         text: {
           ...data.text,
@@ -91,13 +91,14 @@ export default function TextStep({
       });
       toast({
         title: "Insert words cleared",
-        description: "Previous words were removed for the new category"
+        description: "Previous words were removed for the new tags"
       });
     }
-  }, [data.category, data.subcategory]);
+  }, [data.tags]);
 
   const handleGenerate = async () => {
-    if (!data.category || !data.subcategory || !data.text?.tone || !data.text?.rating) return;
+    const tags = data.tags || [];
+    if (tags.length === 0 || !data.text?.tone || !data.text?.rating) return;
 
     // Clear pending input (auto-capture removed for single-word system)
     setTagInput('');
@@ -109,10 +110,16 @@ export default function TextStep({
     setSelectedTextOption(null); // Reset selection
     
     try {
+      // Map tags to backend fields
+      const category = tags[0] || 'general';
+      const subcategory = tags[1] || tags[0] || 'general';
+      const theme = tags[2] || undefined;
+      
       // Create debug info
       const requestPayload = {
-        category: data.category || 'celebrations',
-        subcategory: data.subcategory,
+        category,
+        subcategory,
+        theme,
         tone: data.text.tone,
         rating: data.text.rating,
         insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
@@ -404,31 +411,15 @@ export default function TextStep({
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
-  // Helper function to get category and subcategory titles
-  const getCategoryTitle = () => {
-    const category = fitnessGoals.find(cat => cat.id === data.category);
-    return category?.title || data.category;
-  };
-
-  const getSubcategoryTitle = () => {
-    const category = fitnessGoals.find(cat => cat.id === data.category);
-    const subcategory = category?.subcategories.find(sub => sub.id === data.subcategory);
-    return subcategory?.title || data.subcategory;
-  };
-
+  // Helper function to render tags breadcrumb
   const renderBreadcrumb = () => {
-    if (!data.category || !data.subcategory) return null;
+    const tags = data.tags || [];
+    if (tags.length === 0) return null;
     
     return (
       <div className="text-left mb-1">
         <div className="text-sm text-muted-foreground">
-          <span className="font-semibold">Your selection:</span> {getCategoryTitle()} &gt; {getSubcategoryTitle()}
-          {data.selectedTheme && data.category !== "pop-culture" && (
-            <span> &gt; {data.selectedTheme}</span>
-          )}
-          {data.specificItems && data.specificItems.length > 0 && (
-            <span> &gt; {data.specificItems.join(', ')}</span>
-          )}
+          <span className="font-semibold">Your topics:</span> {tags.join(' > ')}
         </div>
       </div>
     );

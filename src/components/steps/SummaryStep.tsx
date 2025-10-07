@@ -53,11 +53,16 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       try {
         // Build the final prompt parameters from all collected data
         const completed_text = data.text?.generatedText || data.text?.customText || '';
+        const tags = data.tags || [];
+        
+        // Map tags to backend fields
+        const category = tags[0] || 'general';
+        const subcategory = tags[1] || tags[0] || 'general';
         
         const params = {
           completed_text,
-          category: data.category || '',
-          subcategory: data.subcategory || '',
+          category,
+          subcategory,
           tone: data.text?.tone || 'Humorous',
           rating: data.text?.rating || 'PG',
           insertWords: data.text?.insertWords || [],
@@ -106,7 +111,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     };
 
     generateTemplates();
-  }, [data.category, data.subcategory, data.theme, data.text?.generatedText, data.text?.customText, data.text?.tone, data.text?.style, data.text?.layout, data.text?.rating, data.visuals?.style, data.visuals?.dimension]);
+  }, [data.tags, data.text?.generatedText, data.text?.customText, data.text?.tone, data.text?.style, data.text?.layout, data.text?.rating, data.visuals?.style, data.visuals?.dimension]);
 
   const generateImageFromTemplate = async (template: PromptTemplate, requestToken?: string) => {
     const currentToken = requestToken || Date.now().toString();
@@ -332,18 +337,18 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     return value || 'None';
   };
 
+  const tags = data.tags || [];
   const summaryData = [
-    { label: '1. category', value: data.category },
-    { label: '2. subcategory', value: data.subcategory },
-    { label: '3. tone', value: data.text?.tone },
-    { label: '4. rating', value: data.text?.rating },
-    { label: '5. completed_text', value: data.text?.generatedText || data.text?.customText || 'No text' },
-    { label: '6. text_layout', value: data.text?.layout },
-    { label: '7. image_style', value: data.visuals?.style },
-    { label: '8. image_dimensions', value: data.visuals?.dimension },
-    { label: '9. specific_visuals', value: formatArrayValue(data.visuals?.insertedVisuals) },
-    { label: '10. composition_mode', value: data.visuals?.compositionMode || 'None' },
-    { label: '11. visual_recommendation', value: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation || 'None' },
+    { label: '1. tags', value: tags.length > 0 ? tags.join(', ') : 'None' },
+    { label: '2. tone', value: data.text?.tone },
+    { label: '3. rating', value: data.text?.rating },
+    { label: '4. completed_text', value: data.text?.generatedText || data.text?.customText || 'No text' },
+    { label: '5. text_layout', value: data.text?.layout },
+    { label: '6. image_style', value: data.visuals?.style },
+    { label: '7. image_dimensions', value: data.visuals?.dimension },
+    { label: '8. specific_visuals', value: formatArrayValue(data.visuals?.insertedVisuals) },
+    { label: '9. composition_mode', value: data.visuals?.compositionMode || 'None' },
+    { label: '10. visual_recommendation', value: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation || 'None' },
   ];
 
   // Generate custom prompt using user's format
