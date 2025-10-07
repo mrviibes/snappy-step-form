@@ -125,33 +125,44 @@ function systemPrompt(b: {
     ? b.comedian
     : pickRandom(COMEDIAN_CODES[b.tone]);
 
-  // Parse insertWords: [0] = subject/name, [1] = situation/context
+  // Parse insertWords: [0] = subject/name, [1] = situation/context (but situation becomes thematic guidance)
   const subject = b.insertWords[0] || b.category || "the subject";
   const situation = b.insertWords[1] || b.subcategory || "general topics";
   
   const contextLine = b.insertWords.length >= 2
-    ? `The subject is ${subject}. The scenario is about ${situation}.`
+    ? `The subject is ${subject}. The scenario theme is "${situation}" — use this as context inspiration, NOT a literal phrase to insert.`
     : b.insertWords.length === 1
-    ? `The subject is ${subject}. Write about this subject.`
+    ? `The subject is ${subject}. Write about this subject naturally.`
     : `Topic context: ${b.category}, ${b.subcategory}.`;
 
-  const instructionLine = b.insertWords.length
-    ? `Each joke must naturally include or refer to ${subject} by name, in the context of ${situation}.`
+  const nameRule = b.insertWords.length
+    ? `Include ${subject} by name naturally, as the subject or target of the humor. Imply the scenario through action or consequence, not by repeating the theme phrase.`
     : `Write jokes about the given topic.`;
 
+  // Rating-specific intensity and edge
   const ratingNote =
     b.rating === "R"
-      ? "Make these lines bold and edgy. Unfiltered sarcasm and dark humor are expected when it fits. Keep it witty, not gross."
+      ? "Make these lines bold, edgy, and darkly funny. Unfiltered sarcasm, confident roasting, and swagger expected. Add real bite."
       : b.rating === "PG-13"
-      ? "Clever adult undertones and moderate edge are allowed."
-      : "Keep it clean and family-safe.";
+      ? "Clever adult undertones with moderate edge and dry wit allowed."
+      : b.rating === "PG"
+      ? "Sharp sarcasm allowed, but keep it playful and accessible."
+      : "Keep it wholesome, gentle, and family-safe.";
+
+  // Force imagery
+  const imageryRule = `Include one specific visual element or prop (e.g., cake, candles, balloons, fire, smoke alarm, decorations, etc.) to paint a mental picture.`;
+
+  // Grammar enforcement
+  const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses).`;
 
   return [
     `You are a professional comedy writer generating four one-liner jokes.`,
     contextLine,
     `Tone: ${b.tone}. Rating: ${b.rating}. ${ratingNote}`,
     `Style: ${styleId} — ${styleRule}`,
-    instructionLine,
+    nameRule,
+    imageryRule,
+    grammarRule,
     `Rules:`,
     `- Exactly 4 outputs.`,
     `- Each joke is one sentence with a clear setup and punchline.`,
