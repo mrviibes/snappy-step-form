@@ -466,30 +466,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
       {/* Visual Selection */}
       {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && (
         <>
-          {debugInfo && (
-            <DebugPanel
-              title="Visual Generation Debug"
-              model={debugInfo.model || "gpt-5-mini"}
-              status={
-                debugInfo.step === 'API_CALL_START' ? 'sending...' :
-                debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
-                debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'
-              }
-              endpoint="generate-visuals"
-              timestamp={debugInfo.timestamp}
-              requestPayload={debugInfo.params}
-              responseData={{
-                ...debugInfo.apiResponse,
-                req_id: debugInfo.apiResponse?.req_id,
-                diversity: debugInfo.apiResponse?.debug?.diversityCheck,
-                composition_count: debugInfo.apiResponse?.debug?.compositionCount
-              }}
-              formData={debugInfo.formData}
-              error={debugInfo.error}
-              className="mb-6"
-            />
-          )}
-
           <div className="flex justify-between items-center mb-6 pt-6">
             <div className="flex-1"></div>
             <Button 
@@ -545,6 +521,32 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* Debug Panel at bottom */}
+      {debugInfo && (
+        <div className="mt-8">
+          <DebugPanel
+            title="Visual Generation Debug"
+            model={debugInfo.model || "gpt-5-mini"}
+            status={
+              debugInfo.step === 'API_CALL_START' ? 'sending...' :
+              debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' :
+              debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'
+            }
+            endpoint="generate-visuals"
+            timestamp={debugInfo.timestamp}
+            requestPayload={debugInfo.params}
+            responseData={{
+              ...debugInfo.apiResponse,
+              req_id: debugInfo.apiResponse?.req_id,
+              diversity: debugInfo.apiResponse?.debug?.diversityCheck,
+              composition_count: debugInfo.apiResponse?.debug?.compositionCount
+            }}
+            formData={debugInfo.formData}
+            error={debugInfo.error}
+          />
+        </div>
       )}
     </div>
   );
