@@ -387,7 +387,9 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     { label: '7. image_dimensions', value: data.visuals?.dimension },
     { label: '8. specific_visuals', value: formatArrayValue(data.visuals?.insertedVisuals) },
     { label: '9. composition_mode', value: data.visuals?.compositionMode || 'None' },
-    { label: '10. visual_recommendation', value: data.visuals?.selectedVisualRecommendation ? `${data.visuals.selectedVisualRecommendation.design || 'Untitled'} — ${data.visuals.selectedVisualRecommendation.description || data.visuals.selectedVisualRecommendation.interpretation || 'No description'}` : 'None' },
+    { label: '10. visual_concept', value: data.visuals?.selectedVisualRecommendation?.design || 'None' },
+    { label: '11. visual_subject', value: data.visuals?.selectedVisualRecommendation?.subject || 'None' },
+    { label: '12. visual_setting', value: data.visuals?.selectedVisualRecommendation?.setting || 'None' },
   ];
 
   // Generate custom prompt using user's format
