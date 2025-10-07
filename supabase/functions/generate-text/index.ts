@@ -449,7 +449,7 @@ serve(async (req) => {
           if (r2.ok) {
             const d2 = await r2.json();
             const c2 = d2?.choices?.[0]?.message?.content ?? "";
-            const more = validateWithFallback(c2, insertWords, full.subcategory, rating, 4);
+            const more = validateWithFallback(c2, topics, rating, 4);
             lines = uniqueByText([...lines, ...more]).slice(0, 4);
           }
         } finally { clearTimeout(t2); }
@@ -457,7 +457,7 @@ serve(async (req) => {
 
       if (lines.length < 4) {
         source = lines.length ? "model+padded" : "synth";
-        const pad = synthFallback(topic, insertWords, tone).filter(l => !violatesRating(l, rating));
+        const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating));
         lines = uniqueByText([...lines, ...pad]).slice(0, 4);
       }
       outputs = lines;
