@@ -1,5 +1,5 @@
 // supabase/functions/generate-visuals/index.ts
-// 3.5 Turbo, returns four visual recommendations with Design, Subject, Setting
+// 3.5 Turbo | returns four short visual recommendations with Design, Subject, Setting
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -13,6 +13,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
+// prompt builder
 function sysPrompt(args: {
   topics: string[];
   text: string;
@@ -51,8 +52,6 @@ Output format example:
 `.trim();
 }
 
-const clean = (s: string) => s.replace(/^[\s>*-]+\s*/, "").trim();
-
 serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
@@ -63,8 +62,6 @@ serve(async req => {
     const text: string = String(body.text || "");
     const visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0,8) : [];
     const composition: string = String(body.composition || "Normal");
-
-    console.log("[generate-visuals] Request:", { topics, text, visuals, composition });
 
     const messages = [
       { role: "system", content: sysPrompt({ topics, text, visuals, composition }) },
@@ -96,7 +93,6 @@ serve(async req => {
 
     const data = await r.json();
     const content = data?.choices?.[0]?.message?.content ?? "";
-    console.log("[generate-visuals] Raw response:", content);
 
     // split results by design label
     const blocks = content
@@ -111,9 +107,9 @@ serve(async req => {
       const subjectMatch = block.match(/Subject:\s*([^\n]+)/i);
       const settingMatch = block.match(/Setting:\s*([^\n]+)/i);
       return {
-        design: designMatch ? designMatch[1].trim() : "Untitled Concept",
-        subject: subjectMatch ? subjectMatch[1].trim() : "Unclear subject",
-        setting: settingMatch ? settingMatch[1].trim() : "Generic setting"
+        design: designMatch ? clean(designMatch[1]) : "Untitled Concept",
+        subject: subjectMatch ? clean(subjectMatch[1]) : "Unclear subject",
+        setting: settingMatch ? clean(settingMatch[1]) : "Generic setting"
       };
     });
 
@@ -128,8 +124,6 @@ serve(async req => {
         setting: "Generic background"
       });
     }
-
-    console.log("[generate-visuals] Final outputs:", visualsOutput.slice(0, 4));
 
     return new Response(JSON.stringify({
       success: true,
@@ -157,3 +151,5 @@ serve(async req => {
     });
   }
 });
+
+const clean = (s: string) => s.replace(/^[\s>*-]+\s*/, "").trim();
