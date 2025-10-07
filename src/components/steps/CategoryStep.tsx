@@ -83,24 +83,24 @@ export default function CategoryStep({ data, updateData }: CategoryStepProps) {
   const currentTags = data.tags || [];
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="mb-2 text-xl font-semibold text-foreground">
+    <div className="space-y-8 max-w-2xl mx-auto">
+      <div className="text-center space-y-3">
+        <h2 className="text-2xl font-semibold text-foreground">
           What's Your Topic?
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Add 1-3 topics to guide your content (e.g., "birthday", "no one showed up", "Mike")
         </p>
       </div>
 
       {/* Tag Input */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <Input
           placeholder="Add a topic... (press Enter)"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={handleAddTag}
-          className="text-base"
+          className="text-base h-14 text-center placeholder:text-muted-foreground/60"
           disabled={currentTags.length >= 3}
         />
         
