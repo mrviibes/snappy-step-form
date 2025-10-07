@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type GenerateVisualsResponse, type VisualOption } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, X, Film, ZoomIn, Laugh, Orbit, Minimize } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
@@ -71,27 +71,27 @@ const compositionModes = [{
   id: "cinematic",
   title: "Cinematic",
   description: "Wide, dramatic framing with storytelling energy",
-  emoji: "🎬"
+  icon: Film
 }, {
   id: "close-up",
   title: "Close-Up",
   description: "Tight focus on a face or key detail",
-  emoji: "🔍"
+  icon: ZoomIn
 }, {
   id: "goofy",
   title: "Goofy",
   description: "Fun, exaggerated, or absurd layouts",
-  emoji: "🤪"
+  icon: Laugh
 }, {
   id: "surreal",
   title: "Surreal",
   description: "Dreamlike, artistic compositions",
-  emoji: "🌀"
+  icon: Orbit
 }, {
   id: "minimal",
   title: "Minimal",
   description: "Clean, centered, simple framing",
-  emoji: "✨"
+  icon: Minimize
 }];
 export default function VisualsStep({
   data,
@@ -516,7 +516,7 @@ export default function VisualsStep({
               <SelectContent className="bg-background border-border z-50">
                 {compositionModes.map(mode => <SelectItem key={mode.id} value={mode.id} className="cursor-pointer hover:bg-accent">
                     <span className="flex items-center gap-2">
-                      <span>{mode.emoji}</span>
+                      <mode.icon className="w-4 h-4" />
                       <span>{mode.title}</span>
                     </span>
                   </SelectItem>)}
