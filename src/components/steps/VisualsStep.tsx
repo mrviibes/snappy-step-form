@@ -67,6 +67,38 @@ const dimensionOptions = [{
   title: "Custom",
   description: "Define your own dimensions"
 }];
+
+const compositionModes = [{
+  id: "normal",
+  title: "Normal",
+  description: "Standard balanced composition",
+  emoji: "📸"
+}, {
+  id: "big-head",
+  title: "Big-Head",
+  description: "Exaggerated facial features",
+  emoji: "🎭"
+}, {
+  id: "close-up",
+  title: "Close-Up",
+  description: "Tight framing, detailed view",
+  emoji: "🔍"
+}, {
+  id: "goofy",
+  title: "Goofy",
+  description: "Silly, cartoonish perspective",
+  emoji: "🤪"
+}, {
+  id: "zoomed",
+  title: "Zoomed",
+  description: "Extreme magnification effect",
+  emoji: "🔬"
+}, {
+  id: "surreal",
+  title: "Surreal",
+  description: "Abstract, dreamlike framing",
+  emoji: "🌀"
+}];
 export default function VisualsStep({
   data,
   updateData
@@ -77,6 +109,7 @@ export default function VisualsStep({
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
+  const [editingComposition, setEditingComposition] = useState(false);
   const [visualInput, setVisualInput] = useState('');
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
@@ -243,6 +276,26 @@ export default function VisualsStep({
       });
     }
   };
+
+  const handleCompositionSelect = (modeId: string) => {
+    updateData({
+      visuals: {
+        ...data.visuals,
+        compositionMode: modeId
+      }
+    });
+    setEditingComposition(false);
+  };
+
+  const handleEditComposition = () => {
+    setEditingComposition(true);
+    updateData({
+      visuals: {
+        ...data.visuals,
+        compositionMode: undefined
+      }
+    });
+  };
   const handleEditStyle = () => {
     setEditingStyle(true);
     setEditingDimension(false);
@@ -272,10 +325,12 @@ export default function VisualsStep({
     });
   };
   const selectedStyle = visualStyles.find(style => style.id === data.visuals?.style);
+  const selectedComposition = compositionModes.find(mode => mode.id === data.visuals?.compositionMode);
   const hasSelectedStyle = !!data.visuals?.style;
   const hasSelectedDimension = !!data.visuals?.dimension;
   const hasSelectedWritingProcess = !!data.visuals?.writingProcess;
-  const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai';
+  const hasSelectedComposition = !!data.visuals?.compositionMode;
+  const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && hasSelectedComposition && data.visuals?.writingProcess === 'ai';
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
   return <div className="space-y-6">
@@ -297,7 +352,7 @@ export default function VisualsStep({
       </div>
 
       {/* Consolidated Summary Card */}
-      {(hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || isComplete) && !editingStyle && !editingDimension && <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
+      {(hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess || hasSelectedComposition || isComplete) && !editingStyle && !editingDimension && !editingComposition && <div className="rounded-xl border-2 border-cyan-400 bg-card overflow-hidden">
           {hasSelectedStyle && <div className="flex items-center justify-between p-4">
               <div className="text-sm text-foreground">
                 <span className="font-semibold">Style</span> - {selectedStyle?.title}
@@ -321,6 +376,15 @@ export default function VisualsStep({
                 <span className="font-semibold">Process</span> - {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}
               </div>
               <button onClick={handleEditProcess} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
+                Edit
+              </button>
+            </div>}
+
+          {hasSelectedComposition && <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Composition</span> - {selectedComposition?.emoji} {selectedComposition?.title}
+              </div>
+              <button onClick={handleEditComposition} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
                 Edit
               </button>
             </div>}
@@ -401,11 +465,26 @@ export default function VisualsStep({
           </div>
         </>}
 
+      {/* Composition Mode Selection */}
+      {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai' && (!hasSelectedComposition || editingComposition) && <>
+          <div className="text-center pt-6 pb-2">
+            <h2 className="text-xl font-semibold text-foreground">Choose Composition Mode</h2>
+            <p className="text-sm text-muted-foreground mt-1">Select how you want the scene framed</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {compositionModes.map(mode => <Card key={mode.id} className={cn("cursor-pointer transition-all duration-200 border-2 p-4 text-center hover:shadow-md", data.visuals?.compositionMode === mode.id ? "border-cyan-400 bg-accent ring-2 ring-cyan-400/20" : "border-border hover:border-primary/50")} onClick={() => handleCompositionSelect(mode.id)}>
+                <div className="text-3xl mb-2">{mode.emoji}</div>
+                <h4 className="text-sm font-semibold text-foreground mb-1">{mode.title}</h4>
+                <p className="text-xs text-muted-foreground">{mode.description}</p>
+              </Card>)}
+          </div>
+        </>}
+
       {/* Optional Visuals Input */}
       {showGenerateButton && !showVisualOptions && !isComplete && <div className="space-y-4 pt-2">
           <div className="text-center">
             <h3 className="text-base font-medium text-foreground mb-1">🖼️ Optional Visuals</h3>
-            
+            <p className="text-xs text-muted-foreground">Add up to 3 extra visual details (objects, props, or setting).</p>
           </div>
           
           <Input placeholder="Add visual element(s) by pressing comma or enter" value={visualInput} onChange={e => setVisualInput(e.target.value)} onKeyDown={handleAddVisual} className="text-base h-12 text-center placeholder:text-muted-foreground/60" disabled={(data.visuals?.insertedVisuals || []).length >= 3} />
