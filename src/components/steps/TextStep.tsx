@@ -509,19 +509,6 @@ export default function TextStep({
         </div>
         
 
-        {/* Rating Summary - only show after text generation */}
-        {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Rating</span> - {ratingOptions.find(r => r.id === data.text?.rating)?.label.split(' (')[0] || 'G'}
-            </div>
-            <button onClick={() => {
-          setShowTextOptions(false);
-          setSelectedTextOption(null);
-        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>}
-
         {/* Selected Text Summary - only show after text selection or saved custom text */}
         {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="text-sm text-foreground">
