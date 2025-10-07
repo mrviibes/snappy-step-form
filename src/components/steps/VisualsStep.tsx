@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type GenerateVisualsResponse, type VisualOption } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
+import { Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
@@ -520,7 +520,6 @@ export default function VisualsStep({
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Generating...
                 </> : <>
-                  <Sparkles className="w-4 h-4 mr-2" />
                   Generate 4 AI Visuals
                 </>}
             </Button>
@@ -536,7 +535,6 @@ export default function VisualsStep({
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Regenerating...
                 </> : <>
-                  <Sparkles className="w-4 h-4" />
                   Regenerate
                 </>}
             </Button>
