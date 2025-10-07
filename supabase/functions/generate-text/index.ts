@@ -110,7 +110,7 @@ function systemPrompt(b: {
     `Rules:`,
     `- Exactly 4 outputs.`,
     `- One sentence each, setup then punchline.`,
-    `- 60 to 110 characters.`,
+    `- 50 to 100 characters.`,
     `- Only commas and periods.`,
     `- Start with a capital, end with a period.`,
     `- Do not repeat the exact word "${b.subcategory}" more than once across the set.`,
@@ -148,7 +148,7 @@ function isOneSentence(s: string): boolean {
   return s.split(".").filter(Boolean).length === 1; 
 }
 
-function inCharRange(s: string, min = 60, max = 110): boolean { 
+function inCharRange(s: string, min = 50, max = 100): boolean { 
   const len = [...s].length; 
   return len >= min && len <= max; 
 }
