@@ -512,81 +512,150 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
   return prompts;
 }
 
-// ============== IDEOGRAM (AI-powered, text-first) ==============
+// ============== IDEOGRAM (revamped, layout-aware, spelling-lock) ==============
 async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const {
     completed_text,
     category = "celebrations",
+    subcategory = "",
     tone = "humorous",
     rating = "PG",
     image_style = "realistic",
-    image_dimensions = "square",
-    text_layout,
+    image_dimensions = "landscape",
+    text_layout = "negative-space",
     visual_recommendation = "",
     composition_modes = [],
     specific_visuals = []
   } = p;
 
   const aspect = aspectLabel(image_dimensions);
-  const styleStr = image_style;
-  const compName = (composition_modes && composition_modes[0]) || "norman";
+  const styleStr = (image_style || "realistic").toLowerCase();
+  const compInsert = getCompositionInserts(composition_modes);
   const visPhrase = cleanVisRec(visual_recommendation);
   const tags = normTags(specific_visuals);
+  const cleanText = sanitizeTextForImage(completed_text);
 
-  let layoutsToGenerate = SIX_LAYOUTS;
-  if (text_layout && text_layout !== "auto") {
-    const one = SIX_LAYOUTS.find(L => L.key === text_layout);
-    layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
-  }
+  // ----- tone → lighting / color -----
+  const toneLighting: Record<string,string> = {
+    humorous: "bright golden-hour daylight with soft contrast",
+    savage: "bold directional light with crisp contrast",
+    sentimental: "gentle warm bokeh and candlelike glow",
+    inspirational: "balanced cinematic daylight with natural bloom"
+  };
+  const toneColor: Record<string,string> = {
+    humorous: "vibrant warm color grading with clean highlights",
+    savage: "rich cool undertones and sharp clarity",
+    sentimental: "warm golden tones with soft shadow depth",
+    inspirational: "natural cinematic palette with balanced saturation"
+  };
+  const lightingStr = toneLighting[(tone||"humorous").toLowerCase()] || toneLighting.humorous;
+  const colorStr    = toneColor[(tone||"humorous").toLowerCase()]    || toneColor.humorous;
 
-  console.log(`Generating AI-powered Ideogram prompts for ${layoutsToGenerate.length} layout(s)`);
+  // ----- layout → font & placement & target coverage -----
+  type LayoutKey = "negative-space"|"integrated-in-scene"|"meme-text"|"caption"|"badge-callout"|"dynamic-overlay";
+  const layoutKey = (text_layout as LayoutKey) || "negative-space";
 
-  const prompts: PromptTemplate[] = [];
+  const fontByLayout: Record<LayoutKey,string> = {
+    "negative-space":    "bold condensed sans-serif, matte pure white, crisp edges",
+    "integrated-in-scene":"clean modern type matching the surface (screen=LED sans, wall=matte serif, cake=frosted handwriting)",
+    "meme-text":         "all-caps impact-style font, strong contrast",
+    "caption":           "editorial sans-serif, restrained weight",
+    "badge-callout":     "rounded geometric sans-serif inside a small callout",
+    "dynamic-overlay":   "bold geometric sans-serif, angled editorial vibe"
+  };
+  const placeByLayout: Record<LayoutKey,string> = {
+    "negative-space":    "naturally in open negative space beside the subject, not covering faces",
+    "integrated-in-scene":"as part of the environment on a real object (TV screen, wall, sign, shirt, banner, or cake surface), aligned to surface lighting and perspective",
+    "meme-text":         "at the top and bottom edges as meme text, balanced spacing",
+    "caption":           "as a single caption near the lower third, centered",
+    "badge-callout":     "inside a compact badge/callout area with clean margins",
+    "dynamic-overlay":   "on a diagonal overlay aligned to composition lines"
+  };
+  // coverage clamps by layout (keeps text from going billboard-large)
+  const coverageByLayout: Record<LayoutKey,[number,number]> = {
+    "negative-space":    [10,18],
+    "integrated-in-scene":[20,28],
+    "meme-text":         [20,30],
+    "caption":           [12,18],
+    "badge-callout":     [18,24],
+    "dynamic-overlay":   [18,24]
+  };
+  const [covMin, covMax] = coverageByLayout[layoutKey] || [15,25];
+  const targetCoverage = Math.floor(Math.random()*(covMax-covMin+1))+covMin; // integer in range
 
-  for (const L of layoutsToGenerate) {
-    const layoutKey = enforceLayout(L.key, completed_text);
-    const minPct = minCoverageForLayout(layoutKey);
-    const cleanText = sanitizeTextForImage(completed_text);
-    const optimalCoverage = getOptimalCoverage(cleanText, minPct);
-    const typographyStyle = TYPOGRAPHY_STYLES[layoutKey] || TYPOGRAPHY_STYLES["negative-space"];
+  // subtle whole-frame overlay to help white text pop without boxes
+  const overlayRule = "a subtle transparent black overlay (~12% opacity) is applied evenly for natural contrast (not a box).";
+  // forbid brand-readable logos on props to avoid cursed labels
+  const brandingGuard = "product logos may be generic or unreadable; avoid clear brand text on props.";
 
-    // Extract variables for hardcoded template
-    const subcategory = p.subcategory || category;
-    const lightingStr = "Soft cinematic lighting";
-    const toneStr = toneMap[tone] || tone;
-    
-    // Hardcoded 4-sentence positive prompt template (removes AI variability)
-    const positive_prompt = `
-A ${styleStr} photograph of ${visPhrase}.
-The text exactly reads "${cleanText}" shown in ${typographyStyle}, placed naturally so the letters stand out against the scene without any backdrop box or overlay, using gentle contrast from the lighting.
-${lightingStr} creates the correct mood and tone.
-The overall tone is ${toneStr}, capturing the feeling of ${subcategory}.
-`.trim();
+  // ----- positive builder switches by layout -----
+  const sceneSentence =
+    `A ${styleStr} cinematic photograph of ${visPhrase || "a clear, well-composed scene"}, captured in ${lightingStr} with ${colorStr}.`;
 
-    // Fixed negative prompt for all Ideogram generations
-    const negative_prompt = "misspelled words, warped letters, distorted characters, oversized text, text covering faces, text with solid background box or banner";
+  // spelling lock line
+  const textLine =
+    `The text exactly reads "${cleanText}" rendered exactly as typed in ${fontByLayout[layoutKey]}, placed ${placeByLayout[layoutKey]}, covering ~${targetCoverage}% of the image.`;
 
-    console.log(`Ideogram ${layoutKey} - Hardcoded 4-sentence template:`);
-    console.log(`Positive:`, positive_prompt.slice(0, 150) + "...");
-    console.log(`Negative:`, negative_prompt);
+  const integrationHints =
+    layoutKey === "integrated-in-scene"
+      ? "The text matches surface lighting, reflections and perspective, feeling truly embedded — not floating."
+      : layoutKey === "negative-space"
+      ? "Text appears airy and well-spaced, balanced against the background without any shadow or panel."
+      : layoutKey === "meme-text"
+      ? "Large, punchy top/bottom layout with strong readability and clean stroke."
+      : "Clean placement with professional spacing and hierarchy.";
 
-    prompts.push({
-      name: `ideogram-${layoutKey}`,
-      description: `Ideogram 4-sentence prompt for ${layoutKey} layout`,
-      positive: positive_prompt,
-      negative: negative_prompt,
-      sections: {
-        aspect,
-        layout: layoutKey,
-        mandatoryText: cleanText,
-        typography: `${typographyStyle}; ${optimalCoverage}% coverage`,
-        scene: visPhrase,
-        mood: tone,
-        tags,
-        pretty: positive_prompt
-      }
-    });
-  }
+  const extraMood =
+    `${overlayRule} ${brandingGuard}${compInsert ? " " + compInsert.compPos : ""}`;
 
-  return prompts;
+  const positive_prompt = [
+    sceneSentence,
+    textLine,
+    integrationHints,
+    `The overall tone is ${tone.toLowerCase()}, capturing the feeling of ${(subcategory || category || "the scene").toLowerCase()}. ${extraMood} Aspect ratio ${aspect}.`
+  ].join(" ");
+
+  // ----- compact negatives (layout + tone aware) -----
+  const baseNeg   = "misspelled text, warped letters, oversized text, text covering faces";
+  const layoutNeg: Record<LayoutKey,string> = {
+    "negative-space":     "text overlay box, dense blocky layout, low contrast letters",
+    "integrated-in-scene":"floating text, wrong perspective, harsh outline, fake glow",
+    "meme-text":          "text cut off, weak contrast, uneven stroke",
+    "caption":            "text too large, top caption, low readability",
+    "badge-callout":      "sticker look, heavy shadow bubble, messy badge edges",
+    "dynamic-overlay":    "diagonal warp, perspective distortion, cluttered overlay"
+  };
+  const toneNeg: Record<string,string> = {
+    humorous:     "flat colors, dull light",
+    savage:       "soft haze, washed contrast",
+    sentimental:  "harsh light, cold tones",
+    inspirational:"lifeless tone, muddy midtones"
+  };
+
+  const negative_prompt = [
+    baseNeg,
+    layoutNeg[layoutKey],
+    toneNeg[(tone||"humorous").toLowerCase()],
+    compInsert?.compNeg || ""
+  ].filter(Boolean).join(", ");
+
+  // single layout template result
+  const result: PromptTemplate = {
+    name: `ideogram-${layoutKey}`,
+    description: `Ideogram template for ${layoutKey} layout`,
+    positive: positive_prompt,
+    negative: negative_prompt,
+    sections: {
+      aspect,
+      layout: layoutKey,
+      mandatoryText: cleanText,
+      typography: `${fontByLayout[layoutKey]}; target ${targetCoverage}%`,
+      scene: visPhrase,
+      mood: tone,
+      tags,
+      pretty: positive_prompt
+    }
+  };
+
+  return [result];
 }
