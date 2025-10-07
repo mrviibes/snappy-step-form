@@ -448,15 +448,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
                     <p className="text-xs text-muted-foreground/80 italic">
                       {visual.action}
                     </p>
-                    
-                    {/* Technical details */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.camera}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.lens}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{visual.lighting}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{visual.composition}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{visual.readability}</span>
-                    </div>
                   </div>
                 </Card>
               ))}
