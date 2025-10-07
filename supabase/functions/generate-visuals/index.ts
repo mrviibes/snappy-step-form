@@ -24,7 +24,7 @@ function sysPrompt(args: {
   const visualHints = args.visuals.filter(Boolean).join(", ") || "none";
 
   return `
-You are an art director creating four visual design ideas.
+You are an imaginative art director creating four completely distinct visual design ideas for a meme or short cinematic poster.
 
 Topics: ${topicText}
 Caption text: "${args.text}"
@@ -32,24 +32,49 @@ Required visual elements: ${visualHints}
 Composition: ${args.composition}
 
 Rules:
-- Generate exactly 4 distinct visual design ideas.
-- Each idea must include ALL provided visual elements naturally.
-- Each idea must have three labeled parts:
+- Generate EXACTLY 4 unique concepts.
+- Each must have a DIFFERENT creative approach.
+  Use these lenses in order:
+  1. Emotional / human moment.
+  2. Environmental / cinematic composition.
+  3. Comedic / exaggerated or ironic framing.
+  4. Symbolic / metaphorical representation.
+- Each idea MUST have three labeled parts:
 
-Design: (creative short title)
-Subject: (who/what is shown, ≤10 words)
-Setting: (where or environment, ≤10 words)
+Design: (short catchy creative title)
+Subject: (who/what is shown, ≤10 words, distinct for each)
+Setting: (where it happens, ≤10 words, distinct for each)
 
-- Keep each line concise, clear, and visual.
-- No quotes, emojis, camera info, lighting, or style adjectives.
+- Keep them short, clear, and visual — no camera jargon or style words.
+- Do NOT repeat similar scenes or verbs (no "Jesse reading a book" four times).
+- Make each concept feel visually unique and story-driven.
+
 Output format example:
 
-1. Design: "Birthday Chaos"
-   Subject: Jesse blows candles while balloons explode.
-   Setting: Crowded party table indoors.
+1. Design: "Bookmarked Love"
+   Subject: Jesse bookmarks a page in a romance novel.
+   Setting: Cozy bedroom lit by afternoon sun.
 
-2. ...
+2. Design: "Cover to Cover"
+   Subject: Jesse and a friend laugh over romance book titles.
+   Setting: Vintage bookstore with warm lighting.
+
+3. Design: "Plot Twist"
+   Subject: Jesse hides a romance novel behind a sports magazine.
+   Setting: Public library with bright daylight.
+
+4. Design: "Between the Lines"
+   Subject: Close-up of a folded page forming a heart.
+   Setting: Modern coffee shop, soft focus background.
 `.trim();
+}
+
+// Check if two subjects are too similar
+function tooSimilar(a: string, b: string): boolean {
+  const aTokens = a.toLowerCase().split(/\s+/);
+  const bTokens = b.toLowerCase().split(/\s+/);
+  const overlap = aTokens.filter(t => bTokens.includes(t)).length;
+  return overlap / Math.min(aTokens.length, bTokens.length) > 0.6;
 }
 
 serve(async req => {
@@ -77,8 +102,9 @@ serve(async req => {
       body: JSON.stringify({
         model: MODEL,
         messages,
-        temperature: 0.8,
-        max_tokens: 350
+        temperature: 0.9,
+        top_p: 0.92,
+        max_tokens: 380
       })
     });
 
@@ -113,12 +139,20 @@ serve(async req => {
       };
     });
 
+    // Filter out near-duplicates
+    const finalVisuals = [];
+    for (const v of visualsOutput) {
+      if (!finalVisuals.some(f => tooSimilar(f.subject, v.subject))) {
+        finalVisuals.push(v);
+      }
+    }
+
     // Pad if needed
-    while (visualsOutput.length < 4) {
-      const idx = visualsOutput.length;
+    while (finalVisuals.length < 4) {
+      const idx = finalVisuals.length;
       const topic = topics[idx % Math.max(1, topics.length)] || "subject";
       const visual = visuals[idx % Math.max(1, visuals.length)] || "scene";
-      visualsOutput.push({
+      finalVisuals.push({
         design: `Concept ${idx + 1}`,
         subject: `${topic} interacts with ${visual}.`,
         setting: "Generic background"
@@ -128,8 +162,8 @@ serve(async req => {
     return new Response(JSON.stringify({
       success: true,
       model: MODEL,
-      visuals: visualsOutput.slice(0, 4)
-    }), { 
+      visuals: finalVisuals.slice(0, 4)
+    }), {
       headers: { ...cors, "Content-Type": "application/json" } 
     });
 
