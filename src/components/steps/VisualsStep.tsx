@@ -461,8 +461,10 @@ export default function VisualsStep({
               )}
               onClick={() => handleWritingProcessSelect('ai')}
             >
-              <h4 className="mb-1 text-sm font-semibold text-foreground">AI Assist</h4>
-              <p className="text-xs text-muted-foreground">Generate visual concepts with AI</p>
+              <div className="flex flex-col items-center justify-center h-full">
+                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">AI Assist</h4>
+                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">Generate visual concepts with AI</p>
+              </div>
             </Card>
             
             <Card 
@@ -472,8 +474,10 @@ export default function VisualsStep({
               )}
               onClick={() => handleWritingProcessSelect('manual')}
             >
-              <h4 className="mb-1 text-sm font-semibold text-foreground">Create Myself</h4>
-              <p className="text-xs text-muted-foreground">I'll create my own visual manually</p>
+              <div className="flex flex-col items-center justify-center h-full">
+                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">Create Myself</h4>
+                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">I'll create my own visual manually</p>
+              </div>
             </Card>
             
             <Card 
@@ -483,8 +487,10 @@ export default function VisualsStep({
               )}
               onClick={() => handleWritingProcessSelect('random')}
             >
-              <h4 className="mb-1 text-sm font-semibold text-foreground">Random</h4>
-              <p className="text-xs text-muted-foreground">Surprise me with random visuals</p>
+              <div className="flex flex-col items-center justify-center h-full">
+                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">Random</h4>
+                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">Surprise me with random visuals</p>
+              </div>
             </Card>
           </div>
         </>}
