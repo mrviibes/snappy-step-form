@@ -560,7 +560,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "integrated-in-scene":"clean modern type matching the surface (screen=LED sans, wall=matte serif, cake=frosted handwriting)",
     "meme-text":         "all-caps impact-style font, strong contrast",
     "caption":           "editorial sans-serif, restrained weight",
-    "badge-callout":     "rounded geometric sans-serif inside a small callout",
+    "badge-callout":     "clean condensed sans-serif in a minimal callout, matte white, crisp edges",
     "dynamic-overlay":   "bold geometric sans-serif, angled editorial vibe"
   };
   const placeByLayout: Record<LayoutKey,string> = {
@@ -568,7 +568,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "integrated-in-scene":"as part of the environment on a real object (TV screen, wall, sign, shirt, banner, or cake surface), aligned to surface lighting and perspective",
     "meme-text":         "at the top and bottom edges as meme text, balanced spacing",
     "caption":           "as a single caption near the lower third, centered",
-    "badge-callout":     "inside a compact badge/callout area with clean margins",
+    "badge-callout":     "inside a compact minimal callout with generous internal padding, no visible outline or shadow, centered with clean margins",
     "dynamic-overlay":   "on a diagonal overlay aligned to composition lines"
   };
   // coverage clamps by layout (keeps text from going billboard-large)
@@ -577,7 +577,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "integrated-in-scene":[20,28],
     "meme-text":         [20,30],
     "caption":           [12,18],
-    "badge-callout":     [18,24],
+    "badge-callout":     [12,18],
     "dynamic-overlay":   [18,24]
   };
   const [covMin, covMax] = coverageByLayout[layoutKey] || [15,25];
@@ -622,7 +622,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     "integrated-in-scene":"floating text, wrong perspective, harsh outline, fake glow",
     "meme-text":          "text cut off, weak contrast, uneven stroke",
     "caption":            "text too large, top caption, low readability",
-    "badge-callout":      "sticker look, heavy shadow bubble, messy badge edges",
+    "badge-callout":      "sticker look, heavy shadow bubble, visible badge outline, thick stroke, messy edges",
     "dynamic-overlay":    "diagonal warp, perspective distortion, cluttered overlay"
   };
   const toneNeg: Record<string,string> = {
