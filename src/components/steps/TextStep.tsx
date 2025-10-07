@@ -87,20 +87,34 @@ export default function TextStep({
     setSelectedTextOption(null); // Reset selection
     
     try {
-      // Map tags to backend fields
-      const category = tags[0] || 'general';
-      const subcategory = tags[1] || tags[0] || 'general';
-      const theme = tags[2] || undefined;
-      
+      // Parse tags into names (capitalized tokens) vs theme phrases
+      const tags = data.tags || [];
+      const nameTokens: string[] = [];
+      const themePhrase: string[] = [];
+
+      if (tags.length > 0) {
+        tags.forEach(t => {
+          const parts = String(t).trim().split(/\s+/);
+          parts.every(p => /^[A-Z][a-z]+$/.test(p))
+            ? nameTokens.push(...parts)
+            : themePhrase.push(t);
+        });
+      }
+
+      const insertWords = Array.from(new Set(nameTokens)).slice(0, 2);
+      const themeValue = themePhrase.length ? themePhrase.join(" ") : undefined;
+      const category = data.category?.name || 'misc';
+      const subcategory = themeValue || 'general';
+
       // Create debug info
       const requestPayload = {
-        category: data.category?.name || 'misc',
-        subcategory: subcategory,
-        theme,
+        category,
+        subcategory,
+        theme: themeValue,
         tone: data.text.tone,
         rating: data.text.rating,
         styleId: pickDefaultStyle(data.text.tone),
-        insertWords: tags, // [subject/name, situation/context]
+        insertWords,
         userId: 'anonymous'
       };
       

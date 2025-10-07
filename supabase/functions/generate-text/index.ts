@@ -139,10 +139,17 @@ function systemPrompt(b: {
     ? `Each joke must naturally include or refer to ${subject} by name, in the context of ${situation}.`
     : `Write jokes about the given topic.`;
 
+  const ratingNote =
+    b.rating === "R"
+      ? "Make these lines bold and edgy. Unfiltered sarcasm and dark humor are expected when it fits. Keep it witty, not gross."
+      : b.rating === "PG-13"
+      ? "Clever adult undertones and moderate edge are allowed."
+      : "Keep it clean and family-safe.";
+
   return [
     `You are a professional comedy writer generating four one-liner jokes.`,
     contextLine,
-    `Tone: ${b.tone}. Rating: ${b.rating}. ${RATING_TONE_ADJUSTMENTS[b.rating]}`,
+    `Tone: ${b.tone}. Rating: ${b.rating}. ${ratingNote}`,
     `Style: ${styleId} — ${styleRule}`,
     instructionLine,
     `Rules:`,
@@ -190,8 +197,33 @@ function inCharRange(s: string, min = 60, max = 120): boolean {
   return len >= min && len <= max;
 }
 function escapeRegExp(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-function hasAllInserts(s: string, inserts: string[]) {
-  return inserts.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
+
+function splitTokens(s: string): string[] {
+  return s.split(/\s+/).filter(Boolean);
+}
+
+function isProperNameToken(tok: string): boolean {
+  return /^[A-Z][a-z]+$/.test(tok);
+}
+
+function deriveRequiredTokens(inserts: string[]): string[] {
+  const tokens: string[] = [];
+  for (const phrase of inserts) {
+    for (const tok of splitTokens(phrase)) {
+      if (isProperNameToken(tok)) tokens.push(tok);
+    }
+  }
+  return Array.from(new Set(tokens));
+}
+
+function hasAllRequiredNames(s: string, inserts: string[]): boolean {
+  const required = deriveRequiredTokens(inserts);
+  if (required.length === 0) return true;
+  return required.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
+}
+
+function containsAnyThemePhrase(s: string, inserts: string[]): boolean {
+  return inserts.some(p => p && new RegExp(escapeRegExp(p), "i").test(s));
 }
 
 // rating filter: only restrict lower ratings
@@ -219,17 +251,44 @@ function filterBySubcatUse(lines: string[], subcat: string) {
   return lines.filter(l => re.test(l) ? used++ < 1 : true);
 }
 
-function validateAndTrim(
+function validateLinesOnce(
   raw: string,
   inserts: string[],
   subcat: string,
-  want = 4,
-  rating: Rating = "PG"
+  rating: Rating,
 ): string[] {
   let lines = raw.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
   lines = lines.filter(l =>
-    isOneSentence(l) && inCharRange(l) && hasAllInserts(l, inserts) && !violatesRating(l, rating)
+    isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, inserts) && !violatesRating(l, rating)
   );
+  lines = uniqueByText(lines);
+  lines = filterBySubcatUse(lines, subcat);
+  return lines;
+}
+
+function validateWithFallback(
+  raw: string,
+  inserts: string[],
+  subcat: string,
+  rating: Rating,
+  want = 4
+): string[] {
+  let out = validateLinesOnce(raw, inserts, subcat, rating);
+  if (out.length >= want) return out.slice(0, want);
+
+  // second pass: allow thematic mention without hard name requirement,
+  // but still prefer lines that at least hint the theme
+  let lines = raw.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
+  lines = lines.filter(l =>
+    isOneSentence(l) && inCharRange(l) && !violatesRating(l, rating)
+  );
+  // softly prefer lines that mention any theme phrase or the subcategory
+  const themeRe = new RegExp(escapeRegExp(subcat), "i");
+  lines.sort((a, b) => {
+    const as = (containsAnyThemePhrase(a, inserts) ? 1 : 0) + (themeRe.test(a) ? 1 : 0);
+    const bs = (containsAnyThemePhrase(b, inserts) ? 1 : 0) + (themeRe.test(b) ? 1 : 0);
+    return bs - as;
+  });
   lines = uniqueByText(lines);
   lines = filterBySubcatUse(lines, subcat);
   return lines.slice(0, want);
@@ -304,7 +363,12 @@ serve(async (req) => {
     if (r.ok) {
       const data = await r.json();
       const content = data?.choices?.[0]?.message?.content ?? "";
-      let lines = validateAndTrim(content, insertWords, full.subcategory, 4, rating);
+      
+      console.log("[generate-text] raw:", content?.slice(0, 400));
+      console.log("[generate-text] pass1 count:", validateLinesOnce(content, insertWords, full.subcategory, rating).length);
+      
+      let lines = validateWithFallback(content, insertWords, full.subcategory, rating, 4);
+      console.log("[generate-text] pass2 count:", lines.length);
 
       if (lines.length < 4 && !deadlineHit) {
         const ctl2 = new AbortController();
@@ -319,7 +383,7 @@ serve(async (req) => {
           if (r2.ok) {
             const d2 = await r2.json();
             const c2 = d2?.choices?.[0]?.message?.content ?? "";
-            const more = validateAndTrim(c2, insertWords, full.subcategory, 4, rating);
+            const more = validateWithFallback(c2, insertWords, full.subcategory, rating, 4);
             lines = uniqueByText([...lines, ...more]).slice(0, 4);
           }
         } finally { clearTimeout(t2); }
@@ -339,7 +403,7 @@ serve(async (req) => {
     }
 
     outputs = outputs.map(normalizeLine)
-      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllInserts(l, insertWords) && !violatesRating(l, rating));
+      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, insertWords) && !violatesRating(l, rating));
 
     if (outputs.length < 4) {
       const pad = synthFallback(topic, insertWords, tone).filter(l => !violatesRating(l, rating));
