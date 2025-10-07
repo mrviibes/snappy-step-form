@@ -456,7 +456,7 @@ export default function VisualsStep({
                 <h4 className="text-sm font-semibold text-foreground">Create Myself</h4>
               </div>
               <div className="h-10 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground leading-tight">I'll create my own visual manually</p>
+                <p className="text-xs text-muted-foreground leading-tight">Create my own visuals manually</p>
               </div>
             </Card>
             
