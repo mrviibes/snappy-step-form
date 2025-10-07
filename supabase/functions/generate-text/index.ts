@@ -125,25 +125,30 @@ function systemPrompt(b: {
     ? b.comedian
     : pickRandom(COMEDIAN_CODES[b.tone]);
 
-  const topicLine = b.subcategory
-    ? `The jokes should center around "${b.subcategory}".`
-    : `Write jokes about general topics.`;
+  // Parse insertWords: [0] = subject/name, [1] = situation/context
+  const subject = b.insertWords[0] || b.category || "the subject";
+  const situation = b.insertWords[1] || b.subcategory || "general topics";
+  
+  const contextLine = b.insertWords.length >= 2
+    ? `The subject is ${subject}. The scenario is about ${situation}.`
+    : b.insertWords.length === 1
+    ? `The subject is ${subject}. Write about this subject.`
+    : `Topic context: ${b.category}, ${b.subcategory}.`;
 
-  const insertsLine = b.insertWords.length
-    ? `Always include the name(s) or subject(s): ${b.insertWords.join(", ")}. These should appear naturally in each line.`
-    : `No specific names provided.`;
+  const instructionLine = b.insertWords.length
+    ? `Each joke must naturally include or refer to ${subject} by name, in the context of ${situation}.`
+    : `Write jokes about the given topic.`;
 
   return [
     `You are a professional comedy writer generating four one-liner jokes.`,
-    `Topic context: ${b.category}, ${b.subcategory}. ${topicLine}`,
+    contextLine,
     `Tone: ${b.tone}. Rating: ${b.rating}. ${RATING_TONE_ADJUSTMENTS[b.rating]}`,
     `Style: ${styleId} — ${styleRule}`,
-    insertsLine,
+    instructionLine,
     `Rules:`,
     `- Exactly 4 outputs.`,
-    `- Each output must mention or revolve around the provided name(s) or topic.`,
     `- Each joke is one sentence with a clear setup and punchline.`,
-    `- 60 to 110 characters.`,
+    `- 60 to 120 characters.`,
     `- Use only commas and periods.`,
     `- Start with a capital, end with a period.`,
     `- Stay within rating. No meta talk.`,
@@ -180,7 +185,7 @@ function normalizeLine(s: string): string {
   return t;
 }
 function isOneSentence(s: string): boolean { return s.split(".").filter(Boolean).length === 1; }
-function inCharRange(s: string, min = 60, max = 110): boolean {
+function inCharRange(s: string, min = 60, max = 120): boolean {
   const len = [...s].length;
   return len >= min && len <= max;
 }
@@ -231,15 +236,16 @@ function validateAndTrim(
 }
 
 function synthFallback(topic: string, inserts: string[], tone: Tone): string[] {
-  const a = inserts[0] || "you";
-  const b = inserts[1] || "life";
+  const subject = inserts[0] || "you";
+  const situation = inserts[1] || topic || "life";
+  
   const base = [
-    `${a} trained for ${topic}, ${b} graded on a curve.`,
-    `${a} met ${topic} at full speed, ${b} filed the report.`,
-    `${topic} tried to teach patience, ${a} borrowed time from ${b}.`,
-    `${a} survived ${topic}, ${b} wrote a cheerful obituary.`
+    `${subject} tried ${situation}, but gravity had other plans.`,
+    `${subject} said ${situation} would be easy, and the universe laughed.`,
+    `${subject}'s approach to ${situation} is a masterclass in chaos.`,
+    `They told ${subject} about ${situation}, but nobody mentioned the fine print.`
   ];
-  return base.map(normalizeLine).filter(l => inCharRange(l));
+  return base.map(normalizeLine).filter(l => inCharRange(l, 60, 120));
 }
 
 serve(async (req) => {

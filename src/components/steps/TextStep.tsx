@@ -94,13 +94,13 @@ export default function TextStep({
       
       // Create debug info
       const requestPayload = {
-        category,
-        subcategory,
+        category: data.category?.name || 'misc',
+        subcategory: subcategory,
         theme,
         tone: data.text.tone,
         rating: data.text.rating,
         styleId: pickDefaultStyle(data.text.tone),
-        insertWords: tags,
+        insertWords: tags, // [subject/name, situation/context]
         userId: 'anonymous'
       };
       
@@ -137,10 +137,10 @@ export default function TextStep({
           line: option.line
         }));
         
-        // Client-side filter: ensure all lines are 60-110 characters
+        // Client-side filter: ensure all lines are 60-120 characters
         const finalOptions = formattedOptions.filter(o => {
           const len = (o.line || "").length;
-          return len >= 60 && len <= 110;
+          return len >= 60 && len <= 120;
         }).slice(0, 4);
         
         setTextOptions(finalOptions);
