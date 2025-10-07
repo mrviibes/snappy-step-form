@@ -19,53 +19,55 @@ function sysPrompt(args: {
   text: string;
   visuals: string[];
   composition: string;
+  subjectScene: string;
 }) {
   const topicText = args.topics.filter(Boolean).join(", ") || "unspecified";
   const visualHints = args.visuals.filter(Boolean).join(", ") || "none";
+  const scene = args.subjectScene && args.subjectScene.trim()
+    ? args.subjectScene
+    : "a real person in a relatable environment";
+
+  const scenePlaceHints = "street, park, café, living room, kitchen, bookstore, office, beach, rooftop, studio, stage, parade, city square, bar, club, gallery, balcony, yard, backyard";
 
   return `
-You are an imaginative art director creating four completely distinct visual design ideas for a meme or short cinematic poster.
+You are an art director creating four truly distinct visual concepts for a short poster/meme.
 
 Topics: ${topicText}
 Caption text: "${args.text}"
+Subject Scene (must guide all outputs): ${scene}
 Required visual elements: ${visualHints}
 Composition: ${args.composition}
 
-Rules:
-- Generate EXACTLY 4 unique concepts.
-- Each must have a DIFFERENT creative approach.
-  Use these lenses in order:
-  1. Emotional / human moment.
-  2. Environmental / cinematic composition.
-  3. Comedic / exaggerated or ironic framing.
-  4. Symbolic / metaphorical representation.
-- Each idea MUST have three labeled parts:
+Strict rules:
+- Return EXACTLY 4 unique concepts.
+- Each must use the given Subject Scene and feel like a film still or editorial image.
+- Each must have THREE labeled lines:
 
-Design: (short catchy creative title)
-Subject: (who/what is shown, ≤10 words, distinct for each)
-Setting: (where it happens, ≤10 words, distinct for each)
+Design: (short title)
+Subject: (who/what is shown, ≤10 words; include one concrete prop or action)
+Setting: (where it happens, ≤10 words; pick a real place such as: ${scenePlaceHints})
 
-- Keep them short, clear, and visual — no camera jargon or style words.
-- Do NOT repeat similar scenes or verbs (no "Jesse reading a book" four times).
-- Make each concept feel visually unique and story-driven.
+- Do NOT repeat the same place or action twice.
+- No abstract or monochrome-only ideas; avoid wordplay lists; describe a shot we could stage.
+- No camera or lens jargon. No emoji. No quotes around the fields.
 
-Output format example:
+Output example:
 
-1. Design: "Bookmarked Love"
-   Subject: Jesse bookmarks a page in a romance novel.
-   Setting: Cozy bedroom lit by afternoon sun.
+1. Design: Sunrise Confetti
+   Subject: Jesse laughs with friends, holding a small pride flag.
+   Setting: City street at sunrise with streamers.
 
-2. Design: "Cover to Cover"
-   Subject: Jesse and a friend laugh over romance book titles.
-   Setting: Vintage bookstore with warm lighting.
+2. Design: Window Display
+   Subject: Jesse points at a colorful banner in a shop window.
+   Setting: Boutique storefront with bright posters.
 
-3. Design: "Plot Twist"
-   Subject: Jesse hides a romance novel behind a sports magazine.
-   Setting: Public library with bright daylight.
+3. Design: Rooftop Toast
+   Subject: Jesse raises a cup as confetti falls.
+   Setting: Rooftop terrace with city skyline.
 
-4. Design: "Between the Lines"
-   Subject: Close-up of a folded page forming a heart.
-   Setting: Modern coffee shop, soft focus background.
+4. Design: Coffee & Color
+   Subject: Jesse smiles at a café table with a colorful scarf.
+   Setting: Cozy café window with soft focus.
 `.trim();
 }
 
@@ -75,6 +77,24 @@ function tooSimilar(a: string, b: string): boolean {
   const bTokens = b.toLowerCase().split(/\s+/);
   const overlap = aTokens.filter(t => bTokens.includes(t)).length;
   return overlap / Math.min(aTokens.length, bTokens.length) > 0.6;
+}
+
+// Enforce concrete places
+const PLACE_WORDS = [
+  "street", "park", "café", "cafe", "living room", "kitchen", "bookstore", "library", "office", 
+  "beach", "rooftop", "studio", "stage", "parade", "square", "balcony", "yard", "backyard", 
+  "bar", "club", "gallery", "storefront", "window", "terrace", "bedroom", "dressing room"
+];
+
+function hasRealPlace(s: string): boolean {
+  const t = s.toLowerCase();
+  return PLACE_WORDS.some(w => t.includes(w));
+}
+
+// Enforce concrete subjects (verbs or props)
+function hasConcreteSubject(s: string): boolean {
+  return /\b(holding|laughing|dancing|reading|walking|singing|hugging|high-five|posing|mixing|cooking|painting|typing|points|raises|smiles|celebrates)\b/i.test(s)
+      || /\b(flag|cake|banner|sign|book|balloons|confetti|coffee|phone|bag|mic|camera|cup|scarf|poster)\b/i.test(s);
 }
 
 serve(async req => {
@@ -87,9 +107,10 @@ serve(async req => {
     const text: string = String(body.text || "");
     const visuals: string[] = Array.isArray(body.optional_visuals) ? body.optional_visuals.filter(Boolean).slice(0,8) : [];
     const composition: string = String(body.composition || "Normal");
+    const subjectScene: string = typeof body.subjectScene === "string" ? body.subjectScene : "";
 
     const messages = [
-      { role: "system", content: sysPrompt({ topics, text, visuals, composition }) },
+      { role: "system", content: sysPrompt({ topics, text, visuals, composition, subjectScene }) },
       { role: "user", content: "Generate 4 labeled visual concepts now." }
     ];
 
@@ -139,30 +160,32 @@ serve(async req => {
       };
     });
 
-    // Filter out near-duplicates
-    const finalVisuals = [];
+    // Filter out near-duplicates AND enforce concrete scenes
+    const filtered = [];
     for (const v of visualsOutput) {
-      if (!finalVisuals.some(f => tooSimilar(f.subject, v.subject))) {
-        finalVisuals.push(v);
+      if (!filtered.some(f => tooSimilar(f.subject, v.subject)) 
+          && hasConcreteSubject(v.subject) 
+          && hasRealPlace(v.setting)) {
+        filtered.push(v);
       }
     }
 
-    // Pad if needed
-    while (finalVisuals.length < 4) {
-      const idx = finalVisuals.length;
-      const topic = topics[idx % Math.max(1, topics.length)] || "subject";
-      const visual = visuals[idx % Math.max(1, visuals.length)] || "scene";
-      finalVisuals.push({
+    // Soft pad with concrete fallbacks if filtering shrinks the list
+    while (filtered.length < 4) {
+      const idx = filtered.length;
+      filtered.push({
         design: `Concept ${idx + 1}`,
-        subject: `${topic} interacts with ${visual}.`,
-        setting: "Generic background"
+        subject: "Person smiles with friends, holding a colorful item.",
+        setting: "City street at sunset with warm lighting."
       });
     }
+
+    const finalVisuals = filtered.slice(0, 4);
 
     return new Response(JSON.stringify({
       success: true,
       model: MODEL,
-      visuals: finalVisuals.slice(0, 4)
+      visuals: finalVisuals
     }), {
       headers: { ...cors, "Content-Type": "application/json" } 
     });

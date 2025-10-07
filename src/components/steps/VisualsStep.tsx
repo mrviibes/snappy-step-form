@@ -163,6 +163,42 @@ export default function VisualsStep({
       }
     });
   };
+  // Helper to build concrete scene descriptions from topics/tags
+  const buildSubjectScene = (topics: string[], text: string): string => {
+    const t = topics.map(s => s.toLowerCase());
+    const hasPersonName = t.some(s => /\b[A-Z][a-z]+\b/.test(s));
+    
+    // Identity/lifestyle reframes to situational ad scenes
+    if (t.some(s => /advertisement/.test(s))) {
+      if (t.some(s => /\bgay|coming out|pride\b/.test(s))) {
+        const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s)) || "Someone";
+        return `${name} celebrating coming out with friends on a city street at sunset, pride flags and confetti in the background`;
+      }
+      if (t.some(s => /\bdrag|performance\b/.test(s))) {
+        return "Drag performer backstage in a dressing room with mirror lights and makeup brushes";
+      }
+    }
+    
+    // Birthday/celebrations
+    if (t.some(s => /birthday|celebration/.test(s))) {
+      const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s)) || "Someone";
+      return `${name} laughing with friends at a birthday party with cake and balloons`;
+    }
+    
+    // Sports
+    if (t.some(s => /sport|football|basketball|soccer/.test(s))) {
+      return "Athlete in action on the field with teammates and stadium in background";
+    }
+    
+    // Generic fallback with concrete elements
+    if (hasPersonName) {
+      const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s));
+      return `${name} in a real-world setting that matches the caption's energy`;
+    }
+    
+    return "A real person in a relatable environment that fits the caption";
+  };
+
   const handleGenerateVisuals = async () => {
     const finalText = data.text?.selectedLine || data.text?.generatedText || data.text?.customText || "";
     const topics: string[] = Array.isArray(data.topics) ? data.topics.slice(0, 3) : Array.isArray(data.tags) ? data.tags.slice(0, 3) : [];
@@ -188,6 +224,10 @@ export default function VisualsStep({
       setError("Please complete Step 2 (Text) first before generating visuals.");
       return;
     }
+    
+    // Build concrete subject scene
+    const subjectScene = buildSubjectScene(topics, finalText);
+    
     setIsGeneratingVisuals(true);
     setError(null);
     try {
@@ -195,7 +235,8 @@ export default function VisualsStep({
         topics,
         text: finalText,
         optional_visuals,
-        composition: composition as any
+        composition: composition as any,
+        subjectScene
       });
       setGeneratedVisuals(resp.visuals);
       setDebugInfo({

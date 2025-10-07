@@ -48,6 +48,7 @@ export interface GenerateVisualsParams {
   text: string;                  // final selected line from Step 2
   optional_visuals?: string[];   // optional user-added visual tags
   composition?: "Normal" | "Big-Head" | "Close-Up" | "Goofy" | "Zoomed" | "Surreal";
+  subjectScene?: string;         // concrete scene description
 }
 
 export interface VisualOption {
@@ -189,7 +190,8 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
       topics: params.topics || [],
       text: params.text || "",
       optional_visuals: params.optional_visuals || [],
-      composition: params.composition || "Normal"
+      composition: params.composition || "Normal",
+      subjectScene: params.subjectScene || ""
     }
   });
 
