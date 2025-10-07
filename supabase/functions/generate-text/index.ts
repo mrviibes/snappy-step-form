@@ -202,6 +202,35 @@ function normalizeLine(s: string): string {
   if (!/[.]$/.test(t)) t = t.replace(/[.?!]$/, "") + ".";
   return t;
 }
+// Fix small grammar slips (articles, contractions, common logic errors)
+function polishGrammar(s: string): string {
+  let t = s;
+
+  // Article correction: "like escape room" -> "like an escape room"
+  t = t.replace(/\blike ([aeiou])/gi, "like an $1");
+  t = t.replace(/\blike ([^aeiou\s])/gi, "like a $1");
+
+  // Contract fixes and possessive smoothing
+  t = t.replace(/\bi am\b/gi, "I'm");
+  t = t.replace(/\b([A-Za-z]+)s ([A-Z])/g, "$1's $2"); // Jesse s Approach -> Jesse's Approach
+  t = t.replace(/\bJesses\b/gi, "Jesse's");
+
+  // Cleanup stray punctuation spacing
+  t = t.replace(/\s([,.:;!?])/g, "$1");
+  t = t.replace(/\s+/g, " ").trim();
+
+  return t;
+}
+
+// Ensure the joke feels like a complete sentence
+function ensureSentenceFlow(s: string): string {
+  // Capitalize start and ensure ending punctuation
+  let t = s.trim();
+  if (!/^[A-Z]/.test(t)) t = t.charAt(0).toUpperCase() + t.slice(1);
+  if (!/[.?!]$/.test(t)) t += ".";
+  return t;
+}
+
 function isOneSentence(s: string): boolean { return s.split(".").filter(Boolean).length === 1; }
 function inCharRange(s: string, min = 60, max = 120): boolean {
   const len = [...s].length;
@@ -413,7 +442,10 @@ serve(async (req) => {
       outputs = synthFallback(topic, insertWords, tone);
     }
 
-    outputs = outputs.map(normalizeLine)
+    outputs = outputs
+      .map(normalizeLine)
+      .map(polishGrammar)
+      .map(ensureSentenceFlow)
       .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, insertWords) && !violatesRating(l, rating));
 
     if (outputs.length < 4) {
