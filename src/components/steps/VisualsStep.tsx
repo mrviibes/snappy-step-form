@@ -451,21 +451,21 @@ export default function VisualsStep({
               </div>
             </Card>
             
-            <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('manual')}>
-              <div className="h-6 flex items-center justify-center mb-2">
-                <h4 className="text-sm font-semibold text-foreground">Create Myself</h4>
-              </div>
-              <div className="h-10 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground leading-tight">Create my own visuals manually</p>
-              </div>
-            </Card>
-            
             <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'random' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('random')}>
               <div className="h-6 flex items-center justify-center mb-2">
                 <h4 className="text-sm font-semibold text-foreground">Random</h4>
               </div>
               <div className="h-10 flex items-center justify-center">
                 <p className="text-xs text-muted-foreground leading-tight">Surprise me with random visuals</p>
+              </div>
+            </Card>
+            
+            <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('manual')}>
+              <div className="h-6 flex items-center justify-center mb-2">
+                <h4 className="text-sm font-semibold text-foreground">Create Myself</h4>
+              </div>
+              <div className="h-10 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground leading-tight">Create my own visuals manually</p>
               </div>
             </Card>
           </div>
