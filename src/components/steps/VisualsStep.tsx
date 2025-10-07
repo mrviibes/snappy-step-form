@@ -330,9 +330,22 @@ export default function VisualsStep({
   const hasSelectedDimension = !!data.visuals?.dimension;
   const hasSelectedWritingProcess = !!data.visuals?.writingProcess;
   const hasSelectedComposition = !!data.visuals?.compositionMode;
-  const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && hasSelectedComposition && data.visuals?.writingProcess === 'ai';
+  const showGenerateButton = hasSelectedStyle && hasSelectedDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai';
   const showVisualOptions = generatedVisuals.length > 0;
   const isComplete = !!data.visuals?.isComplete;
+
+  // Set default composition to normal
+  useEffect(() => {
+    if (hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai' && !data.visuals?.compositionMode) {
+      updateData({
+        visuals: {
+          ...data.visuals,
+          compositionMode: 'normal'
+        }
+      });
+    }
+  }, [hasSelectedWritingProcess, data.visuals?.writingProcess, data.visuals?.compositionMode]);
+
   return <div className="space-y-6">
       {/* Tags Breadcrumb */}
       {data.tags && data.tags.length > 0 && <div className="text-left mb-1">
@@ -376,15 +389,6 @@ export default function VisualsStep({
                 <span className="font-semibold">Process</span> - {data.visuals?.writingProcess === 'ai' ? 'AI Assist' : data.visuals?.writingProcess === 'manual' ? 'Create Myself' : 'Random'}
               </div>
               <button onClick={handleEditProcess} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-                Edit
-              </button>
-            </div>}
-
-          {hasSelectedComposition && <div className={cn("flex items-center justify-between p-4", (hasSelectedStyle || hasSelectedDimension || hasSelectedWritingProcess) && "border-t border-border")}>
-              <div className="text-sm text-foreground">
-                <span className="font-semibold">Composition</span> - {selectedComposition?.emoji} {selectedComposition?.title}
-              </div>
-              <button onClick={handleEditComposition} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
                 Edit
               </button>
             </div>}
@@ -446,38 +450,7 @@ export default function VisualsStep({
 
       {/* Writing Process Selection */}
       {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && !hasSelectedWritingProcess && <>
-          <div className="text-center pt-6 pb-2">
-            <h2 className="text-xl font-semibold text-foreground">Choose Your Visual Process</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4">
-            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('ai')}>
-              <div className="text-lg font-medium text-foreground">AI Assist</div>
-              <div className="text-sm text-muted-foreground mt-2">Let AI help generate your content</div>
-            </Card>
-            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('manual')}>
-              <div className="text-lg font-medium text-foreground">Create Myself</div>
-              <div className="text-sm text-muted-foreground mt-2">Create your own custom visuals</div>
-            </Card>
-            <Card className="cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 hover:shadow-md p-4 text-center" onClick={() => handleWritingProcessSelect('random')}>
-              <div className="text-lg font-medium text-foreground">Random</div>
-              <div className="text-sm text-muted-foreground mt-2">Generate instantly</div>
-            </Card>
-          </div>
-        </>}
-
-      {/* Composition Mode Selection */}
-      {hasSelectedStyle && !editingStyle && hasSelectedDimension && !editingDimension && hasSelectedWritingProcess && data.visuals?.writingProcess === 'ai' && (!hasSelectedComposition || editingComposition) && <>
-          <div className="text-center pt-6 pb-2">
-            <h2 className="text-xl font-semibold text-foreground">Choose Composition Mode</h2>
-            <p className="text-sm text-muted-foreground mt-1">Select how you want the scene framed</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {compositionModes.map(mode => <Card key={mode.id} className={cn("cursor-pointer transition-all duration-200 border-2 p-4 text-center hover:shadow-md", data.visuals?.compositionMode === mode.id ? "border-cyan-400 bg-accent ring-2 ring-cyan-400/20" : "border-border hover:border-primary/50")} onClick={() => handleCompositionSelect(mode.id)}>
-                <div className="text-3xl mb-2">{mode.emoji}</div>
-                <h4 className="text-sm font-semibold text-foreground mb-1">{mode.title}</h4>
-                <p className="text-xs text-muted-foreground">{mode.description}</p>
-              </Card>)}
-          </div>
+...
         </>}
 
       {/* Optional Visuals Input */}
@@ -510,22 +483,38 @@ export default function VisualsStep({
           </div>
         </div>}
 
-      {/* Generate Button */}
+      {/* Generate Button with Composition Dropdown */}
       {showGenerateButton && !showVisualOptions && !isComplete && !editingStyle && !editingDimension && <div className="pt-4 space-y-4">
           {error && <Alert className="mb-4 border-destructive bg-destructive/10">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>}
 
-          <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="w-full h-12 text-base font-medium">
-            {isGeneratingVisuals ? <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </> : <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate 4 AI Visuals
-              </>}
-          </Button>
+          <div className="flex gap-3 items-center">
+            <Select value={data.visuals?.compositionMode || 'normal'} onValueChange={handleCompositionSelect}>
+              <SelectTrigger className="w-[180px] h-12 bg-background border-border z-50">
+                <SelectValue placeholder="Composition" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border z-50">
+                {compositionModes.map(mode => <SelectItem key={mode.id} value={mode.id} className="cursor-pointer hover:bg-accent">
+                    <span className="flex items-center gap-2">
+                      <span>{mode.emoji}</span>
+                      <span>{mode.title}</span>
+                    </span>
+                  </SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Button onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="flex-1 h-12 text-base font-medium">
+              {isGeneratingVisuals ? <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </> : <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate 4 AI Visuals
+                </>}
+            </Button>
+          </div>
         </div>}
 
       {/* Visual Selection */}
