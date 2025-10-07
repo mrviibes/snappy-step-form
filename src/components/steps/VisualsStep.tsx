@@ -67,7 +67,6 @@ const dimensionOptions = [{
   title: "Custom",
   description: "Define your own dimensions"
 }];
-
 const compositionModes = [{
   id: "normal",
   title: "Normal",
@@ -276,7 +275,6 @@ export default function VisualsStep({
       });
     }
   };
-
   const handleCompositionSelect = (modeId: string) => {
     updateData({
       visuals: {
@@ -286,7 +284,6 @@ export default function VisualsStep({
     });
     setEditingComposition(false);
   };
-
   const handleEditComposition = () => {
     setEditingComposition(true);
     updateData({
@@ -345,7 +342,6 @@ export default function VisualsStep({
       });
     }
   }, [hasSelectedWritingProcess, data.visuals?.writingProcess, data.visuals?.compositionMode]);
-
   return <div className="space-y-6">
       {/* Tags Breadcrumb */}
       {data.tags && data.tags.length > 0 && <div className="text-left mb-1">
@@ -454,43 +450,19 @@ export default function VisualsStep({
             <h2 className="text-xl font-semibold text-foreground">How would you like to create your visuals?</h2>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <Card 
-              className={cn(
-                "cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md",
-                data.visuals?.writingProcess === 'ai' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
-              )}
-              onClick={() => handleWritingProcessSelect('ai')}
-            >
-              <div className="flex flex-col items-center justify-center h-full">
-                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">AI Assist</h4>
-                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">Generate visual concepts with AI</p>
-              </div>
+            <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'ai' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('ai')}>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">AI Assist</h4>
+              <p className="text-xs text-muted-foreground">Generate visual concepts with AI</p>
             </Card>
             
-            <Card 
-              className={cn(
-                "cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md",
-                data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
-              )}
-              onClick={() => handleWritingProcessSelect('manual')}
-            >
-              <div className="flex flex-col items-center justify-center h-full">
-                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">Create Myself</h4>
-                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">I'll create my own visual manually</p>
-              </div>
+            <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'manual' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('manual')}>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">Create Myself</h4>
+              <p className="text-xs text-muted-foreground">I'll create my own visual manually</p>
             </Card>
             
-            <Card 
-              className={cn(
-                "cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md",
-                data.visuals?.writingProcess === 'random' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50"
-              )}
-              onClick={() => handleWritingProcessSelect('random')}
-            >
-              <div className="flex flex-col items-center justify-center h-full">
-                <h4 className="mb-2 text-sm font-semibold text-foreground whitespace-nowrap">Random</h4>
-                <p className="text-xs text-muted-foreground leading-tight h-8 flex items-center">Surprise me with random visuals</p>
-              </div>
+            <Card className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center items-center aspect-square hover:shadow-md", data.visuals?.writingProcess === 'random' ? "border-cyan-500 bg-accent ring-2 ring-cyan-500/20" : "border-border hover:border-cyan-500/50")} onClick={() => handleWritingProcessSelect('random')}>
+              <h4 className="mb-1 text-sm font-semibold text-foreground">Random</h4>
+              <p className="text-xs text-muted-foreground">Surprise me with random visuals</p>
             </Card>
           </div>
         </>}
@@ -499,7 +471,7 @@ export default function VisualsStep({
       {showGenerateButton && !showVisualOptions && !isComplete && <div className="space-y-4 pt-2">
           <div className="text-center">
             <h3 className="text-base font-medium text-foreground mb-1">🖼️ Optional Visuals</h3>
-            <p className="text-xs text-muted-foreground">Add up to 3 extra visual details (objects, props, or setting).</p>
+            
           </div>
           
           <Input placeholder="Add visual element(s) by pressing comma or enter" value={visualInput} onChange={e => setVisualInput(e.target.value)} onKeyDown={handleAddVisual} className="text-base h-12 text-center placeholder:text-muted-foreground/60" disabled={(data.visuals?.insertedVisuals || []).length >= 3} />
