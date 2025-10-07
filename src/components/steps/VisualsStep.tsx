@@ -443,11 +443,6 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
                     <p className="text-sm text-muted-foreground">
                       <span className="font-medium">Setting:</span> {visual.setting}
                     </p>
-                    
-                    {/* Action */}
-                    <p className="text-xs text-muted-foreground/80 italic">
-                      {visual.action}
-                    </p>
                   </div>
                 </Card>
               ))}
