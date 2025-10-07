@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 // Validation imports removed
 import DebugPanel from '@/components/DebugPanel';
 import { fitnessGoals } from '@/data/CategoryList';
+import { STYLES_BY_TONE, type ComedyStyleId } from '@/lib/comedyStyles';
 
 interface TextStepProps {
   data: any;
@@ -72,6 +73,13 @@ export default function TextStep({
   
   const { toast } = useToast();
 
+  // Pick default comedy style based on tone
+  const pickDefaultStyle = (tone?: string): ComedyStyleId => {
+    const toneKey = tone || "Humorous";
+    const stylesForTone = STYLES_BY_TONE[toneKey];
+    return stylesForTone?.[0] || "punchline-first";
+  };
+
   // Clear stale words when category changes
   useEffect(() => {
     if (data.category && data.text?.insertWords?.length > 0) {
@@ -108,6 +116,7 @@ export default function TextStep({
         tone: data.text.tone,
         rating: data.text.rating,
         insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
+        styleId: pickDefaultStyle(data.text.tone),
         gender: selectedGender,
         userId: 'anonymous'
       };
