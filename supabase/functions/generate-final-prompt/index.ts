@@ -526,17 +526,17 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
 // ============== LAYOUT TEMPLATE SYSTEM ==============
 
 // Template constants with {variable} placeholders
-const MEME_TEXT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with bold contrast and clear framing. The text exactly reads "{completed_text}" in all-caps impact font at the top and bottom, classic meme layout, clean spacing and balanced stroke, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing for strong readability and visual balance. A transparent black overlay (~{overlayOpacity}% opacity) enhances contrast evenly. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const MEME_TEXT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in all-caps impact font at the top and bottom, classic meme layout with clean spacing and balanced stroke, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing for strong readability. A transparent black overlay (~{overlayOpacity}% opacity) adds contrast. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
-const BADGE_CALLOUT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with balanced light and depth. The text exactly reads "{completed_text}" inside a small floating badge using rounded sans-serif font, matte white, cleanly spaced, occupying roughly {textCoverage}% of the frame. Composition follows {composition_mode} framing, badge placed in open space without blocking faces or props. A soft overlay (~{overlayOpacity}% opacity) increases depth and contrast. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const BADGE_CALLOUT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" inside a small floating badge using rounded sans-serif font, matte white, cleanly spaced, occupying roughly {textCoverage}% of the frame. Composition follows {composition_mode} framing, badge placed in open space without blocking faces or props. A soft overlay (~{overlayOpacity}% opacity) adds depth. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
-const NEGATIVE_SPACE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with crisp midtones and natural highlights. The text exactly reads "{completed_text}" shown in modern clean sans-serif font, positioned in open negative space, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing with breathable margins and soft balance between subject and text. A subtle transparent overlay (~{overlayOpacity}% opacity) boosts readability naturally. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const NEGATIVE_SPACE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" shown in modern clean sans-serif font, positioned in open negative space, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing with breathable margins and soft balance between subject and text. A subtle transparent overlay (~{overlayOpacity}% opacity) boosts readability. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
-const CAPTION_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with warm key light and cinematic depth. The text exactly reads "{completed_text}" displayed as a bottom caption in condensed sans-serif, centered and evenly spaced, occupying around {textCoverage}% of the width. Composition follows {composition_mode} framing with natural hierarchy and clear separation from the subject. A soft black overlay (~{overlayOpacity}% opacity) keeps tone consistent. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const CAPTION_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" displayed as a bottom caption in condensed sans-serif, centered and evenly spaced, occupying around {textCoverage}% of the width. Composition follows {composition_mode} framing with natural hierarchy and clear separation from the subject. A soft black overlay (~{overlayOpacity}% opacity) keeps tone consistent. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
-const INTEGRATED_IN_SCENE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with realistic ambient lighting and accurate reflections. The text exactly reads "{completed_text}" appearing naturally as part of the environment, printed or engraved on a visible surface such as a wall, sign, shirt, or object, matching perspective and light. Font style adapts to the surface texture, occupying about {textCoverage}% of the frame. Composition follows {composition_mode} framing with realistic lighting and depth cues. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const INTEGRATED_IN_SCENE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" appearing naturally as part of the environment, printed or engraved on a visible surface such as a wall, sign, shirt, or object, matching perspective and light. Font style adapts to the surface texture, occupying about {textCoverage}% of the frame. Composition follows {composition_mode} framing with realistic lighting and depth cues. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
-const DYNAMIC_OVERLAY_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor} with strong highlights and vivid contrast. The text exactly reads "{completed_text}" in bold geometric sans-serif lettering, angled dynamically or along a leading line, occupying about {textCoverage}% of the image. Composition follows {composition_mode} framing with energetic diagonal flow and balanced legibility. A uniform transparent black overlay (~{overlayOpacity}% opacity) enhances contrast without forming visible boxes. The overall tone is {tone}, capturing the feeling of {subcategory}. Aspect ratio {image_dimensions}.`;
+const DYNAMIC_OVERLAY_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in bold geometric sans-serif lettering, angled dynamically or along a leading line, occupying about {textCoverage}% of the image. Composition follows {composition_mode} framing with energetic diagonal flow and balanced legibility. A uniform transparent black overlay (~{overlayOpacity}% opacity) adds natural contrast. The overall tone is {tone}, matching {subcategory}. Aspect ratio {image_dimensions}.`;
 
 // Negative prompt constants (short, layout-specific)
 const MEME_TEXT_NEGATIVE = "misspelled text, warped letters, weak stroke, oversized text, cluttered frame, sticker look, low contrast, text box, poor balance";
@@ -579,25 +579,28 @@ function interpolateTemplate(template: string, vars: Record<string, any>): strin
 
 // Build complete variables object for template interpolation
 function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Record<string, any> {
+  // Simplified lighting descriptors (no repetition)
   const lightingMap: Record<string, string> = {
-    humorous: "bright golden-hour daylight with soft contrast",
-    savage: "bold directional light with crisp contrast",
-    sentimental: "gentle warm bokeh and candlelike glow",
+    humorous: "cinematic natural light with soft shadows",
+    savage: "cinematic directional light with sharp highlights and shadows",
+    sentimental: "gentle warm bokeh with candlelike glow",
     inspirational: "balanced cinematic daylight with natural bloom"
   };
 
-  const colorGradingMap: Record<string, string> = {
-    humorous: "vibrant warm color grading with clean highlights",
-    savage: "rich cool undertones and sharp clarity",
-    sentimental: "warm golden tones with soft shadow depth",
-    inspirational: "natural cinematic palette with balanced saturation"
+  // Expression descriptors by tone
+  const expressionMap: Record<string, string> = {
+    humorous: "with a light laugh or playful expression",
+    savage: "smirking confidently",
+    sentimental: "with a genuine warm smile",
+    inspirational: "with an uplifting hopeful gaze"
   };
 
-  const toneDescriptorMap: Record<string, string> = {
-    humorous: "playful and lighthearted",
-    savage: "bold and edgy",
-    sentimental: "warm and emotional",
-    inspirational: "uplifting and motivational"
+  // Visual tone descriptors (replaces generic "bold and edgy")
+  const visualToneMap: Record<string, string> = {
+    humorous: "lighthearted and energetic",
+    savage: "visually striking and confident",
+    sentimental: "warm and genuine",
+    inspirational: "uplifting and cinematic"
   };
 
   const textCoverageByLayout: Record<string, [number, number]> = {
@@ -622,16 +625,19 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
   const textCoverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
 
+  // Build base scene with expression
+  const baseScene = cleanVisRec(p.visual_recommendation) || "a well-lit subject in context";
+  const subjectScene = `${baseScene} ${expressionMap[tone] || ""}`.trim();
+
   return {
     completed_text: sanitizeTextForImage(p.completed_text),
-    subjectScene: cleanVisRec(p.visual_recommendation) || "a well-lit subject in context",
+    subjectScene,
     lightingDescriptor: lightingMap[tone] || lightingMap.humorous,
-    colorGrading: colorGradingMap[tone] || colorGradingMap.humorous,
     image_style: (p.image_style || "realistic").toLowerCase(),
     textCoverage,
     composition_mode: p.composition_modes?.[0] || "cinematic",
     overlayOpacity: overlayOpacityByLayout[layoutKey] || 12,
-    tone: toneDescriptorMap[tone] || tone,
+    tone: visualToneMap[tone] || tone,
     subcategory: p.subcategory || p.category || "everyday humor",
     image_dimensions: aspectLabel(p.image_dimensions)
   };
@@ -646,7 +652,28 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     throw new Error("Empty or invalid completed_text passed to image generator");
   }
 
-  const layoutKey = (p.text_layout as LayoutKey) || "negative-space";
+  // Smart layout selection based on tone (if layout not specified)
+  let layoutKey = (p.text_layout as LayoutKey) || "negative-space";
+  
+  // Auto-select better layout for certain tone/rating combinations
+  if (!p.text_layout || p.text_layout === "auto") {
+    const tone = (p.tone || "humorous").toLowerCase();
+    const rating = (p.rating || "PG").toUpperCase();
+    
+    // Tone-specific layout preferences
+    const layoutPreferences: Record<string, LayoutKey> = {
+      "savage": "dynamic-overlay",     // Savage needs energy
+      "humorous": "meme-text",         // Humorous works well with classic memes
+      "inspirational": "caption",      // Inspirational suits captions
+      "sentimental": "negative-space"  // Sentimental needs breathing room
+    };
+    
+    const preferredLayout = layoutPreferences[tone];
+    if (preferredLayout) {
+      layoutKey = preferredLayout;
+      console.log(`Auto-selected ${layoutKey} layout for ${tone} tone`);
+    }
+  }
   
   // Build variables object for interpolation
   const vars = buildVariablesObject(p, layoutKey);
