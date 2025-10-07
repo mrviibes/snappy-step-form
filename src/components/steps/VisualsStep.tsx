@@ -527,7 +527,7 @@ export default function VisualsStep({
         </div>}
 
       {/* Visual Selection */}
-      {(showVisualOptions || isGeneratingVisuals) && !isComplete && !editingStyle && !editingDimension && <>
+      {showVisualOptions && !isGeneratingVisuals && !isComplete && !editingStyle && !editingDimension && <>
           <div className="flex justify-between items-center mb-6 pt-6">
             <div className="flex-1"></div>
             <Button variant="outline" onClick={handleGenerateVisuals} disabled={isGeneratingVisuals} className="gap-2">
@@ -559,8 +559,6 @@ export default function VisualsStep({
                     </div>
                   </div>
                 </Card>)}
-            </div> : isGeneratingVisuals ? <div className="text-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
             </div> : <div className="text-center py-8">
               <div className="text-muted-foreground mb-4">No visual recommendations generated. Please try again.</div>
               <Button variant="outline" onClick={() => setGeneratedVisuals([])}>Try Again</Button>
@@ -568,7 +566,7 @@ export default function VisualsStep({
         </>}
 
       {/* Debug Panel at bottom */}
-      {debugInfo && <div className="mt-8">
+      {debugInfo && !isGeneratingVisuals && <div className="mt-8">
           <DebugPanel title="Visual Generation Debug" model={debugInfo.model || "gpt-5-mini"} status={debugInfo.step === 'API_CALL_START' ? 'sending...' : debugInfo.step === 'API_CALL_SUCCESS' ? 'completed' : debugInfo.step === 'API_CALL_ERROR' ? 'error' : 'idle'} endpoint="generate-visuals" timestamp={debugInfo.timestamp} requestPayload={debugInfo.params} responseData={{
         ...debugInfo.apiResponse,
         req_id: debugInfo.apiResponse?.req_id,
