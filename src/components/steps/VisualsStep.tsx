@@ -2,11 +2,12 @@ import { useState, KeyboardEvent, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { generateVisualOptions, type GenerateVisualsResponse } from "@/lib/api";
-import { Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, X } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
 import autoImage from "@/assets/visual-style-auto-new.jpg";
 import generalImage from "@/assets/visual-style-general-new.jpg";
@@ -43,6 +44,7 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
   const [selectedVisualOption, setSelectedVisualOption] = useState<number | null>(null);
   const [editingStyle, setEditingStyle] = useState(false);
   const [editingDimension, setEditingDimension] = useState(false);
+  const [visualInput, setVisualInput] = useState('');
   const [debugInfo, setDebugInfo] = useState<{
     timestamp: string;
     step: string;
@@ -53,6 +55,44 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
     model?: string;
     error?: any;
   } | null>(null);
+
+  const handleAddVisual = (e: KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === 'Enter' || e.key === ',') && visualInput.trim()) {
+      const input = visualInput.trim().replace(/,$/g, '');
+      const currentVisuals = data.visuals?.insertedVisuals || [];
+      
+      if (currentVisuals.length >= 8) {
+        return;
+      }
+      
+      if (input.length < 2 || input.length > 50) {
+        return;
+      }
+      
+      if (currentVisuals.some((v: string) => v.toLowerCase() === input.toLowerCase())) {
+        return;
+      }
+      
+      updateData({
+        visuals: {
+          ...data.visuals,
+          insertedVisuals: [...currentVisuals, input]
+        }
+      });
+      setVisualInput('');
+      if (e.key === ',') e.preventDefault();
+    }
+  };
+
+  const handleRemoveVisual = (visualToRemove: string) => {
+    const currentVisuals = data.visuals?.insertedVisuals || [];
+    updateData({
+      visuals: {
+        ...data.visuals,
+        insertedVisuals: currentVisuals.filter((v: string) => v !== visualToRemove)
+      }
+    });
+  };
 
   const handleStyleChange = (styleId: string) => {
     updateData({
@@ -344,6 +384,57 @@ export default function VisualsStep({ data, updateData }: VisualsStepProps) {
             </Card>
           </div>
         </>
+      )}
+
+      {/* Optional Visuals Input */}
+      {showGenerateButton && !showVisualOptions && !isComplete && (
+        <div className="space-y-4 pt-2">
+          <div className="text-center">
+            <h3 className="text-base font-medium text-foreground mb-1">Optional Visuals</h3>
+            <p className="text-xs text-muted-foreground">Add specific visual elements (optional)</p>
+          </div>
+          
+          <Input 
+            placeholder="Add visual element(s) by pressing comma or enter"
+            value={visualInput}
+            onChange={(e) => setVisualInput(e.target.value)}
+            onKeyDown={handleAddVisual}
+            className="text-base h-12 text-center placeholder:text-muted-foreground/60"
+            disabled={(data.visuals?.insertedVisuals || []).length >= 8}
+          />
+          
+          <div className="text-sm text-muted-foreground text-center">
+            {(data.visuals?.insertedVisuals || []).length}/8 visuals added
+          </div>
+          
+          {(data.visuals?.insertedVisuals || []).length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {(data.visuals?.insertedVisuals || []).map((visual: string) => (
+                <Badge 
+                  key={visual} 
+                  variant="secondary" 
+                  className="text-sm py-1.5 px-3 flex items-center gap-2"
+                >
+                  {visual}
+                  <button
+                    onClick={() => handleRemoveVisual(visual)}
+                    className="hover:text-destructive transition-colors"
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+          
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+            <p className="text-xs font-medium text-foreground mb-1">Examples:</p>
+            <p className="text-xs text-muted-foreground">
+              "rainbow", "calendar", "pride flag" • "cake", "candles" • "coffee cup"
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Generate Button */}
