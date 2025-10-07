@@ -52,7 +52,6 @@ export default function TextStep({
   updateData,
   onNext
 }: TextStepProps) {
-  const [tagInput, setTagInput] = useState('');
   const [showGeneration, setShowGeneration] = useState(false);
   const [showTextOptions, setShowTextOptions] = useState(false);
   const [selectedTextOption, setSelectedTextOption] = useState<number | null>(null);
@@ -64,12 +63,8 @@ export default function TextStep({
   const [showLayoutOptions, setShowLayoutOptions] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
-  const [showInsertWordsChoice, setShowInsertWordsChoice] = useState(false);
-  const [showInsertWordsInput, setShowInsertWordsInput] = useState(false);
-  const [showGenderSelection, setShowGenderSelection] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
-  const [selectedGender, setSelectedGender] = useState<string>("neutral");
   
   const { toast } = useToast();
 
@@ -80,28 +75,10 @@ export default function TextStep({
     return stylesForTone?.[0] || "punchline-first";
   };
 
-  // Clear stale words when tags change
-  useEffect(() => {
-    if (data.tags && data.text?.insertWords?.length > 0) {
-      updateData({
-        text: {
-          ...data.text,
-          insertWords: []
-        }
-      });
-      toast({
-        title: "Insert words cleared",
-        description: "Previous words were removed for the new tags"
-      });
-    }
-  }, [data.tags]);
 
   const handleGenerate = async () => {
     const tags = data.tags || [];
     if (tags.length === 0 || !data.text?.tone || !data.text?.rating) return;
-
-    // Clear pending input (auto-capture removed for single-word system)
-    setTagInput('');
 
     setIsGenerating(true);
     setGenerationError(null);
@@ -122,9 +99,7 @@ export default function TextStep({
         theme,
         tone: data.text.tone,
         rating: data.text.rating,
-        insertWords: Array.isArray(data.text?.insertWords) ? data.text.insertWords : data.text?.insertWords ? [data.text.insertWords] : [],
         styleId: pickDefaultStyle(data.text.tone),
-        gender: selectedGender,
         userId: 'anonymous'
       };
       
@@ -225,9 +200,9 @@ export default function TextStep({
         }
       });
     }
-    // If "AI Assist" is selected, show insert words choice
+    // If "AI Assist" is selected, go directly to generation
     else if (preferenceId === 'ai-assist') {
-      setShowInsertWordsChoice(true);
+      setShowGeneration(true);
     }
   };
   const handleEditWritingPreference = () => {
@@ -237,106 +212,7 @@ export default function TextStep({
         writingPreference: ""
       }
     });
-    setShowInsertWordsChoice(false);
-  };
-  const handleInsertWordsChoice = (hasWords: boolean) => {
-    if (hasWords) {
-      setShowInsertWordsChoice(false);
-      setShowInsertWordsInput(true);
-    } else {
-      setShowInsertWordsChoice(false);
-      updateData({ 
-        text: { 
-          ...data.text, 
-          insertWords: [] 
-        } 
-      });
-      setShowGenderSelection(true);
-    }
-  };
-
-  const handleGenderSelect = (genderId: string) => {
-    setSelectedGender(genderId);
-    setShowGeneration(true); // Now proceed to generation
-  };
-  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      const input = tagInput.trim();
-      const currentWords = data.text?.insertWords || [];
-      
-      // Validate: Max 2 words
-      if (currentWords.length >= 2) {
-        toast({ 
-          title: "Word limit reached", 
-          description: "You can only add 2 insert words maximum",
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Validate: No spaces (except hyphens allowed)
-      if (input.includes(' ')) {
-        toast({ 
-          title: "Single words only", 
-          description: "Each word must be a single word. Use hyphens for compound words (e.g., 'left-handed')",
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Validate: Max 20 chars per word
-      if (input.length > 20) {
-        toast({ 
-          title: "Word too long", 
-          description: "Each word must be 20 characters or less",
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Validate: Total character limit (20 chars across both words)
-      const totalChars = currentWords.join('').length + input.length;
-      if (totalChars > 20) {
-        toast({ 
-          title: "Character limit exceeded", 
-          description: "Total characters across all words cannot exceed 20",
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // Validate: No duplicates
-      if (currentWords.includes(input)) {
-        toast({ 
-          title: "Duplicate word", 
-          description: "This word has already been added",
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      // All validations passed - add the word
-      updateData({
-        text: {
-          ...data.text,
-          insertWords: [...currentWords, input]
-        }
-      });
-      setTagInput('');
-    }
-  };
-  const handleRemoveTag = (wordToRemove: string) => {
-    const currentWords = data.text?.insertWords || [];
-    updateData({
-      text: {
-        ...data.text,
-        insertWords: currentWords.filter(word => word !== wordToRemove)
-      }
-    });
-  };
-  const handleReadyToGenerate = () => {
-    setShowInsertWordsInput(false);
-    setShowGenderSelection(true);
+    setShowGeneration(false);
   };
   const handleRatingSelect = (ratingId: string) => {
     updateData({
@@ -613,19 +489,6 @@ export default function TextStep({
           </button>
         </div>
         
-        {/* Insert Words Section - show for AI assist */}
-        {data.text?.writingPreference === 'ai-assist' && <div className="flex items-center justify-between p-4 border-t border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Insert Words</span> - {data.text?.insertWords && data.text.insertWords.length > 0 ? data.text.insertWords.map(word => `${word}`).join(', ') : <span className="text-muted-foreground">None entered</span>}
-            </div>
-            <button onClick={() => {
-          setShowGeneration(false);
-          setShowInsertWordsChoice(true);
-          setShowInsertWordsInput(false);
-        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>}
 
         {/* Rating Summary - only show after text generation */}
         {showTextOptions && <div className="flex items-center justify-between p-4 border-b border-border">
@@ -681,152 +544,6 @@ export default function TextStep({
           </div>}
       </div>
 
-      {/* AI Assist Configuration - show directly when AI Assist is selected, hide when text options are shown */}
-      {data.text?.writingPreference === 'ai-assist' && !showTextOptions && <div className="space-y-6 pt-4">
-          {/* Insert Words Section */}
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">Optional - Any specific words you want</h3>
-            </div>
-            
-            <Input 
-              value={tagInput} 
-              onChange={e => setTagInput(e.target.value)} 
-              onKeyDown={handleAddTag} 
-              placeholder="Enter single word (hyphens allowed)" 
-              className="w-full"
-              disabled={(data.text?.insertWords?.length || 0) >= 2}
-            />
-            
-            <div className="text-right">
-              <span className="text-sm text-muted-foreground">
-                {data.text?.insertWords?.length || 0}/2 words | {data.text?.insertWords?.join('').length || 0}/20 chars
-              </span>
-            </div>
-            
-            {/* Display tags right under input box */}
-            {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
-                {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                    <span>{word}</span>
-                    <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
-                      ×
-                    </button>
-                  </div>)}
-              </div>}
-          </div>
-
-
-
-
-          {/* Generate Button */}
-          <div className="w-full pt-5">
-            <Button 
-              onClick={handleGenerate} 
-              disabled={isGenerating} 
-              className="w-full bg-cyan-400 hover:bg-cyan-500 disabled:bg-gray-400 text-white py-3 rounded-md font-medium min-h-[48px] text-base shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              {isGenerating ? <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </> : 'Generate Text'}
-            </Button>
-          </div>
-
-          {/* Error Display */}
-          {generationError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm">{generationError}</p>
-              </div>
-            </div>}
-        </div>}
-
-      {/* Add Insert Words Section - only show when showInsertWordsInput is true */}
-      {showInsertWordsInput && <div className="space-y-4 pt-4">
-        <div className="text-center min-h-[120px] flex flex-col justify-start">
-          <h2 className="text-xl font-semibold text-foreground">Do you have any specific words you want included?</h2>
-          <div className="mt-3">
-            <p className="text-sm text-muted-foreground text-center">eg. Names, Happy Birthday, Congrats etc.</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} placeholder="Enter words you want included into your final text" className="w-full py-6 min-h-[72px] text-center" />
-          
-          {/* Display tags right under input box */}
-          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex flex-wrap gap-2">
-              {data.text.insertWords.map((word: string, index: number) => <div key={index} className="flex items-center gap-2 bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                  <span>{word}</span>
-                  <button onClick={() => handleRemoveTag(word)} className="text-muted-foreground hover:text-foreground transition-colors">
-                    ×
-                  </button>
-                </div>)}
-            </div>}
-
-          {/* Done button - only show when there's at least one word */}
-          {data.text?.insertWords && data.text.insertWords.length > 0 && <div className="flex justify-center pt-4">
-              <Button onClick={handleReadyToGenerate} className="bg-gradient-primary shadow-primary hover:shadow-card-hover px-6 py-2 rounded-md font-medium transition-all duration-300 ease-spring">
-                Let's Generate the Final Text
-              </Button>
-            </div>}
-
-        </div>
-      </div>}
-      
-      {/* Gender Selection */}
-      {showGenderSelection && <div className="space-y-4 pt-4">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-foreground mb-2">Choose Gender for Pronouns</h2>
-            <p className="text-sm text-muted-foreground">This helps us use the right pronouns (he/she/they)</p>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            <button 
-              onClick={() => handleGenderSelect("male")} 
-              className={cn(
-                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-                selectedGender === "male"
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-              )}
-            >
-              <div className="flex h-full flex-col items-center justify-center space-y-1">
-                <div className="font-semibold text-sm">Male</div>
-                <div className="text-xs text-muted-foreground">he/his/him</div>
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => handleGenderSelect("female")} 
-              className={cn(
-                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-                selectedGender === "female"
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-              )}
-            >
-              <div className="flex h-full flex-col items-center justify-center space-y-1">
-                <div className="font-semibold text-sm">Female</div>
-                <div className="text-xs text-muted-foreground">she/her/hers</div>
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => handleGenderSelect("neutral")} 
-              className={cn(
-                "h-24 rounded-lg border-2 p-4 text-center transition-all duration-300 ease-smooth",
-                selectedGender === "neutral"
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-accent/50"
-              )}
-            >
-              <div className="flex h-full flex-col items-center justify-center space-y-1">
-                <div className="font-semibold text-sm">Neutral</div>
-                <div className="text-xs text-muted-foreground">no pronouns (use name)</div>
-              </div>
-            </button>
-          </div>
-        </div>}
       
       {/* Custom Text Input for Write Myself option */}
       {data.text?.writingPreference === 'write-myself' && !isCustomTextSaved && <div className="space-y-4 pt-4">
