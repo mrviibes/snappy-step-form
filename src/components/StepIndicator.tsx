@@ -40,11 +40,7 @@ export default function StepIndicator({
                   }
                 )}
               >
-                {isPast && isCompleted ? (
-                  <Check className="h-5 w-5" />
-                ) : (
-                  <span className="text-sm font-semibold">{step.id}</span>
-                )}
+              <span className="text-sm font-semibold">{step.id}</span>
               </div>
 
               {/* Step Title */}
