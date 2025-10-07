@@ -1,5 +1,6 @@
 // supabase/functions/generate-text/index.ts
 // Viibe Generator — Chat Completions version (stable), fast, rating-aware, no em dashes.
+// Using gpt-3.5-turbo - Force redeployment triggered
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
