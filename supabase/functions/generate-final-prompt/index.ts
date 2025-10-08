@@ -717,19 +717,31 @@ INPUT:
 - Tone: ${tone}
 - Style: ${style}
 
-Create a cinematic ${style} photograph prompt that:
-1. Opens with specific action and emotional details (e.g., "a man with a flustered expression as a drink slips from his grasp")
-2. Includes character details (appearance, clothing, emotional state)
-3. Layers environmental details (setting, lighting, atmosphere, background activity)
-4. Integrates the text naturally as part of the scene description
-5. Uses natural language flow, NOT technical photography jargon
-6. ${layoutKey === "meme-text" ? 'For meme layout: mention the text should be in "bold condensed sans-serif font" at "top and bottom"' : 'Describes where the text appears naturally'}
-7. Keep it under 100 words
+Create a prompt in TWO parts, in this EXACT order:
 
-Do NOT use: "shot on", camera models, lens specs, f-stops, ISO, technical terms
-DO use: narrative action, emotions, specific details, natural lighting descriptions
+PART 1 - TEXT OVERLAY INSTRUCTION (MUST COME FIRST):
+Start your prompt with: "Across the [position] of the image, in a [font description] font, reads '[EXACT TEXT HERE]' in [color]."
 
-Return ONLY the prompt text, nothing else.`;
+CRITICAL RULES FOR TEXT:
+- Use the EXACT text word-for-word: "${processedText}"
+- Do NOT modify, abbreviate, shorten, or paraphrase ANY words
+- Do NOT change punctuation or spelling
+- ${layoutKey === "meme-text" ? 'Position: "top and bottom", Font: "bold condensed sans-serif"' : 'Choose position and font based on layout style'}
+- Color: "matte pure white" or specify based on tone
+
+PART 2 - NARRATIVE SCENE (COMES AFTER):
+Then continue with: "A cinematic ${style} photograph of [scene description]."
+- Specific action and emotional details (e.g., "a man with a flustered expression as a drink slips from his grasp")
+- Character appearance, clothing, emotional state
+- Environmental layers (setting, lighting, atmosphere, background activity)
+- Natural language flow, NO technical jargon (no "shot on", camera models, lens specs, f-stops, ISO)
+
+STRUCTURE EXAMPLE:
+"Across the top and bottom of the image, in a bold condensed sans-serif font, reads '[EXACT TEXT]' in matte pure white. A cinematic photograph of [narrative scene with action, character details, environment]."
+
+CRITICAL: Check that you used the EXACT text "${processedText}" word-for-word before returning. No modifications allowed.
+
+Return ONLY the prompt text following this structure, nothing else.`;
 
     const response = await fetch(OPENAI_URL, {
       method: "POST",
