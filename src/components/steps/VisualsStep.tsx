@@ -15,6 +15,8 @@ import realisticImage from "@/assets/visual-style-realistic-new.jpg";
 import designImage from "@/assets/visual-style-design-new.jpg";
 import renderImage from "@/assets/visual-style-3d-new.jpg";
 import animeImage from "@/assets/visual-style-anime-new.jpg";
+import portrait45Image from "@/assets/dimension-portrait-4-5.jpg";
+import widescreen169Image from "@/assets/dimension-widescreen-16-9.jpg";
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -61,7 +63,8 @@ const dimensionOptions = [{
 }, {
   id: "portrait-4-5",
   title: "Portrait 4:5",
-  description: "4:5 aspect ratio (Instagram)"
+  description: "4:5 aspect ratio (Instagram)",
+  preview: portrait45Image
 }, {
   id: "landscape-3-2",
   title: "Landscape 3:2",
@@ -69,7 +72,8 @@ const dimensionOptions = [{
 }, {
   id: "landscape-16-9",
   title: "Widescreen",
-  description: "16:9 aspect ratio"
+  description: "16:9 aspect ratio",
+  preview: widescreen169Image
 }];
 const compositionModes = [{
   id: "cinematic",
@@ -463,13 +467,17 @@ export default function VisualsStep({
           <div className="grid grid-cols-2 gap-4">
             {dimensionOptions.map(dimension => <Card key={dimension.id} className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center h-32", data.visuals?.dimension === dimension.id ? "border-primary bg-accent" : "border-border hover:border-primary/50")} onClick={() => handleDimensionSelect(dimension.id)}>
                 <div className="flex justify-center mb-2">
-                  <div className={cn("border-2 border-muted-foreground/30 bg-muted/20", {
-              "w-8 h-8": dimension.id === "square",
-              "w-6 h-9": dimension.id === "portrait-2-3",
-              "w-6 h-7.5": dimension.id === "portrait-4-5",
-              "w-9 h-6": dimension.id === "landscape-3-2",
-              "w-12 h-6.75": dimension.id === "landscape-16-9"
-            })} />
+                  {dimension.preview ? (
+                    <img src={dimension.preview} alt={dimension.title} className="w-16 h-16 object-contain rounded" />
+                  ) : (
+                    <div className={cn("border-2 border-muted-foreground/30 bg-muted/20", {
+                      "w-8 h-8": dimension.id === "square",
+                      "w-6 h-9": dimension.id === "portrait-2-3",
+                      "w-6 h-7.5": dimension.id === "portrait-4-5",
+                      "w-9 h-6": dimension.id === "landscape-3-2",
+                      "w-12 h-6.75": dimension.id === "landscape-16-9"
+                    })} />
+                  )}
                 </div>
                 <h4 className="mb-1 text-sm font-medium text-foreground">{dimension.title}</h4>
                 <p className="text-xs text-muted-foreground">{dimension.description}</p>
