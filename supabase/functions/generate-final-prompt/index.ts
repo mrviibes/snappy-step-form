@@ -690,6 +690,106 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   };
 }
 
+// Generate narrative-driven prompt using LLM (with template fallback)
+async function generateNarrativePrompt(p: FinalPromptRequest, layoutKey: LayoutKey): Promise<PromptTemplate | null> {
+  if (!OPENAI_API_KEY) {
+    console.warn("No OpenAI API key, falling back to template system");
+    return null;
+  }
+
+  try {
+    const cleanText = sanitizeTextForImage(p.completed_text);
+    const processedText = layoutKey === "meme-text" ? splitMemeText(cleanText) : cleanText;
+    
+    const tone = (p.tone || "humorous").toLowerCase();
+    const style = (p.image_style || "realistic").toLowerCase();
+    const visualSubject = p.visual_subject?.trim() || "a subject";
+    const visualSetting = p.visual_setting?.trim() || "a setting";
+
+    // Build LLM prompt for narrative generation
+    const narrativePrompt = `You are an expert at creating cinematic image generation prompts. Create a rich, narrative-driven prompt for an image.
+
+INPUT:
+- Text to overlay: "${processedText}"
+- Subject: ${visualSubject}
+- Setting: ${visualSetting}
+- Layout: ${layoutKey}
+- Tone: ${tone}
+- Style: ${style}
+
+Create a cinematic ${style} photograph prompt that:
+1. Opens with specific action and emotional details (e.g., "a man with a flustered expression as a drink slips from his grasp")
+2. Includes character details (appearance, clothing, emotional state)
+3. Layers environmental details (setting, lighting, atmosphere, background activity)
+4. Integrates the text naturally as part of the scene description
+5. Uses natural language flow, NOT technical photography jargon
+6. ${layoutKey === "meme-text" ? 'For meme layout: mention the text should be in "bold condensed sans-serif font" at "top and bottom"' : 'Describes where the text appears naturally'}
+7. Keep it under 100 words
+
+Do NOT use: "shot on", camera models, lens specs, f-stops, ISO, technical terms
+DO use: narrative action, emotions, specific details, natural lighting descriptions
+
+Return ONLY the prompt text, nothing else.`;
+
+    const response = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: "You are an expert image prompt writer. Return only the prompt text, no explanations." },
+          { role: "user", content: narrativePrompt }
+        ],
+        max_completion_tokens: 300,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`LLM narrative generation failed: ${response.status}`, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const generatedPrompt = data.choices?.[0]?.message?.content?.trim();
+
+    if (!generatedPrompt || generatedPrompt.length < 50) {
+      console.warn("LLM returned invalid prompt, falling back to template");
+      return null;
+    }
+
+    console.log(`✅ Generated narrative prompt (${generatedPrompt.length} chars): ${generatedPrompt.substring(0, 100)}...`);
+
+    // Apply rating-specific negative prompt modifiers
+    const rating = (p.rating || "PG").toUpperCase();
+    const ratingNeg = ratingNegatives[rating] || ratingNegatives["PG"];
+    const negative_prompt = `${UNIVERSAL_NEGATIVE_PROMPT}, ${ratingNeg}`;
+
+    return {
+      name: `ideogram-narrative-${layoutKey}`,
+      description: `LLM-generated narrative prompt for ${layoutKey} layout`,
+      positive: generatedPrompt,
+      negative: negative_prompt,
+      sections: {
+        aspect: aspectLabel(p.image_dimensions),
+        layout: layoutKey,
+        mandatoryText: cleanText,
+        typography: `${layoutKey} narrative style`,
+        scene: visualSubject,
+        mood: tone,
+        tags: normTags(p.specific_visuals),
+        pretty: generatedPrompt
+      }
+    };
+  } catch (error) {
+    console.error("Error in generateNarrativePrompt:", error);
+    return null;
+  }
+}
+
 async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTemplate[]> {
   const cleanText = sanitizeTextForImage(p.completed_text);
   
@@ -720,6 +820,17 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
       console.log(`Auto-selected ${layoutKey} layout for ${tone} tone`);
     }
   }
+  
+  // 🚀 TRY LLM-POWERED NARRATIVE GENERATION FIRST
+  console.log("Attempting LLM narrative prompt generation...");
+  const narrativeResult = await generateNarrativePrompt(p, layoutKey);
+  if (narrativeResult) {
+    console.log("✅ Using LLM-generated narrative prompt");
+    return [narrativeResult];
+  }
+  
+  // 🔄 FALLBACK: Use template system
+  console.log("⚠️ Falling back to template-based prompt generation");
   
   // Build variables object for interpolation
   const vars = buildVariablesObject(p, layoutKey);
