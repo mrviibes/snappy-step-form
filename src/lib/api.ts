@@ -200,28 +200,39 @@ export async function generateVisualOptions(params: GenerateVisualsParams): Prom
 
 // Final prompt generation
 export async function generateFinalPrompt(params: {
+  completed_text?: string;
   tone?: string;
   rating?: string;
   style?: string;
+  image_style?: string;
   layout?: string;
+  text_layout?: string;
+  image_dimensions?: string;
+  composition_modes?: string[];
+  visual_subject?: string;
+  visual_setting?: string;
+  provider?: string;
+  // Legacy params for backwards compatibility
   textLine?: string;
   visualScene?: string;
   subjectScene?: string;
 }): Promise<{ templates: PromptTemplate[] }> {
   const payload: any = {
     // Required by edge function
-    completed_text: (params as any).completed_text ?? params.textLine ?? "",
-    image_dimensions: (params as any).image_dimensions ?? (params as any).aspectRatio ?? "square",
+    completed_text: params.completed_text ?? params.textLine ?? "",
+    image_dimensions: params.image_dimensions ?? (params as any).aspectRatio ?? "square",
 
     // Optional context
     tone: params.tone || "humorous",
     rating: params.rating || "PG",
-    image_style: ((params as any).image_style ?? params.style) || "Auto",
-    text_layout: ((params as any).text_layout ?? params.layout) || "Open Space",
-    composition_modes: (params as any).composition_modes,
+    image_style: (params.image_style ?? params.style) || "Auto",
+    text_layout: (params.text_layout ?? params.layout) || "Open Space",
+    composition_modes: params.composition_modes,
+    visual_subject: params.visual_subject,
+    visual_setting: params.visual_setting,
     visual_recommendation: (params as any).visual_recommendation ?? params.visualScene,
-    subjectScene: (params as any).subjectScene,
-    provider: (params as any).provider || "ideogram",
+    subjectScene: params.subjectScene,
+    provider: params.provider || "ideogram",
   };
 
   const res = await ctlFetch<any>("generate-final-prompt", payload);
