@@ -68,11 +68,6 @@ export default function TextStep({
   
   const { toast } = useToast();
 
-  // Helper function to truncate text for display
-  const truncateText = (text: string | undefined, maxLength: number) => {
-    if (!text) return 'No text selected';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-  };
 
   // Pick default comedy style based on tone
   const pickDefaultStyle = (tone?: string): ComedyStyleId => {
@@ -533,8 +528,8 @@ export default function TextStep({
             <div className="text-sm text-foreground">
               <span className="font-semibold">Your Text</span>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {truncateText(data.text?.generatedText || data.text?.customText, 80)}
+            <div className="text-sm text-muted-foreground max-w-md break-words whitespace-normal pr-4">
+              {data.text?.generatedText || data.text?.customText || 'No text selected'}
             </div>
           </div>
           <div className="flex gap-2">
