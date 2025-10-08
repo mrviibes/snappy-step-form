@@ -200,7 +200,7 @@ function userPrompt(b: {
 }
 
 // Keep apostrophes, strip noisy symbols, no semicolons or exclamations
-const ILLEGAL_CHARS = /[:;!?"""''(){}\[\]<>/_*#+=~^`|\\]/g;
+const ILLEGAL_CHARS = /[:;!?"""(){}\[\]<>/_*#+=~^`|\\]/g;
 const EM_DASH = /[\u2014\u2013]/g;
 
 function normalizeLine(s: string): string {
@@ -270,7 +270,8 @@ function deriveRequiredTokens(topics: string[]): string[] {
 function hasAllRequiredNames(s: string, topics: string[]): boolean {
   const required = deriveRequiredTokens(topics);
   if (required.length === 0) return true;
-  return required.every(w => new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(s));
+  // Match the name with optional 's, s, or s' at the end (possessive/plural forms)
+  return required.every(w => new RegExp(`\\b${escapeRegExp(w)}(?:'?s)?\\b`, "i").test(s));
 }
 
 function containsAnyThemeTopic(s: string, topics: string[]): boolean {
@@ -431,6 +432,20 @@ serve(async (req) => {
       const content = data?.choices?.[0]?.message?.content ?? "";
       
       console.log("[generate-text] raw:", content?.slice(0, 400));
+      
+      // Add detailed logging to see what's being filtered
+      const allLines = content.split(/\r?\n+/).map(normalizeLine).filter(Boolean);
+      console.log("[generate-text] normalized lines:", allLines);
+      console.log("[generate-text] required names:", deriveRequiredTokens(topics));
+      allLines.forEach((line, i) => {
+        console.log(`[generate-text] line ${i+1} checks:`, {
+          oneSentence: isOneSentence(line),
+          inRange: inCharRange(line),
+          hasNames: hasAllRequiredNames(line, topics),
+          length: line.length
+        });
+      });
+      
       console.log("[generate-text] pass1 count:", validateLinesOnce(content, topics, rating).length);
       
       let lines = validateWithFallback(content, topics, rating, 4);
