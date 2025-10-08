@@ -531,16 +531,28 @@ serve(async (req) => {
     
     outputs = uniqueByText(outputs);
     
-    // Enforce profanity requirement for R rating
-    outputs = outputs.filter(l => requiresProfanityForR(l, rating));
+    // Enforce profanity requirement for R rating - but allow some flexibility
+    const withProfanity = outputs.filter(l => requiresProfanityForR(l, rating));
+    const withoutProfanity = outputs.filter(l => !requiresProfanityForR(l, rating));
     
-    if (rating === "R" && outputs.length < 4) {
-      console.log(`⚠️ Only ${outputs.length} R-rated jokes with profanity, need more`);
+    // Prefer jokes with profanity, but include clean ones if needed to reach 4
+    if (rating === "R") {
+      if (withProfanity.length >= 4) {
+        outputs = withProfanity.slice(0, 4);
+      } else if (withProfanity.length >= 2) {
+        // Mix: prioritize profane jokes, fill remainder with clean ones
+        console.log(`⚠️ Only ${withProfanity.length} R-rated jokes with profanity, mixing in ${Math.min(withoutProfanity.length, 4 - withProfanity.length)} clean jokes`);
+        outputs = [...withProfanity, ...withoutProfanity].slice(0, 4);
+      } else {
+        // Too few with profanity, use all available
+        console.log(`⚠️ Only ${withProfanity.length} R-rated jokes with profanity, need more`);
+        outputs = outputs.slice(0, 4);
+      }
     }
 
-
+    // Final padding if still needed
     if (outputs.length < 4) {
-      const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating) && requiresProfanityForR(l, rating));
+      const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating));
       outputs = uniqueByText([...outputs, ...pad]).slice(0, 4);
       source = "synth-final";
     }
