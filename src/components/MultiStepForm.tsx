@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import StepIndicator from "./StepIndicator";
+import { cn } from "@/lib/utils";
 import CategoryStep from "./steps/CategoryStep";
 import TextStep from "./steps/TextStep";
 import VisualsStep from "./steps/VisualsStep";
 import SummaryStep from "./steps/SummaryStep";
+
+interface Step {
+  id: number;
+  title: string;
+  component: any;
+}
+
 interface FormData {
   tags: string[]; // Max 3 tags for topic guidance
   text: {
@@ -63,6 +70,74 @@ const steps = [{
   title: "Summary",
   component: SummaryStep
 }];
+
+// Inline StepIndicator component
+function StepIndicator({ 
+  steps, 
+  currentStep, 
+  isStepCompleted 
+}: { 
+  steps: Step[]; 
+  currentStep: number; 
+  isStepCompleted: (step: number) => boolean;
+}) {
+  return (
+    <div className="mb-8">
+      <div className="relative flex items-center justify-between">
+        {steps.map((step, index) => {
+          const isActive = step.id === currentStep;
+          const isCompleted = isStepCompleted(step.id);
+          const isPast = step.id < currentStep;
+
+          return (
+            <div key={step.id} className="flex flex-col items-center flex-1 relative">
+              {/* Step Circle */}
+              <div
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ease-smooth relative z-10 bg-background",
+                  {
+                    "border-step-active bg-step-active text-white": isActive,
+                    "border-step-completed bg-step-completed text-white": isPast && isCompleted,
+                    "border-step-inactive bg-background text-step-inactive": !isActive && !isPast,
+                  }
+                )}
+              >
+                <span className="text-sm font-semibold">{step.id}</span>
+              </div>
+
+              {/* Step Title */}
+              <div className="mt-2 text-center">
+                <span
+                  className={cn(
+                    "text-xs font-medium transition-colors duration-300",
+                    {
+                      "text-step-active": isActive,
+                      "text-step-completed": isPast && isCompleted,
+                      "text-step-inactive": !isActive && !isPast,
+                    }
+                  )}
+                >
+                  {step.title}
+                </span>
+              </div>
+
+              {/* Connection Line */}
+              {index < steps.length - 1 && (
+                <div
+                  className="absolute top-5 h-0.5 bg-step-inactive transition-colors duration-300 z-0"
+                  style={{
+                    left: "calc(50% + 25px)",
+                    width: "calc(100% - 50px)",
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
