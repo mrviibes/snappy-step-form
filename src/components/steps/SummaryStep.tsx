@@ -46,41 +46,6 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     // Prevent concurrent template generation
     if (templates.length > 0) return;
     
-    // Helper to build concrete scene descriptions from topics/tags
-    const buildSubjectScene = (topics: string[], caption: string): string => {
-      const t = (topics || []).map(x => String(x).toLowerCase());
-      
-      // Identity/lifestyle reframes to situational ad scenes
-      if (t.some(s => /advertisement/.test(s))) {
-        if (t.some(s => /\bgay|coming out|pride\b/.test(s))) {
-          const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s)) || "Someone";
-          return `${name} celebrating coming out with friends on a city street at sunset, pride flags and confetti around them`;
-        }
-        if (t.some(s => /\bdrag|performance\b/.test(s))) {
-          return "Drag performer backstage in a dressing room with mirror lights and makeup brushes";
-        }
-      }
-      
-      // Birthday/celebrations
-      if (t.some(s => /birthday|celebration/.test(s))) {
-        const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s)) || "Someone";
-        return `${name} laughing with friends at a birthday party with cake and balloons`;
-      }
-      
-      // Sports
-      if (t.some(s => /sport|football|basketball|soccer/.test(s))) {
-        return "Athlete in action on the field with teammates and stadium in background";
-      }
-      
-      // Generic fallback with concrete elements
-      const name = topics.find(s => /\b[A-Z][a-z]+\b/.test(s));
-      if (name) {
-        return `${name} in a real-world setting that matches the caption's energy`;
-      }
-      
-      return "A real person in a relatable environment that fits the caption";
-    };
-    
     const generateTemplates = async () => {
       const requestToken = Date.now().toString();
       currentRequestRef.current = requestToken;
@@ -88,22 +53,11 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       try {
         // Build the final prompt parameters from all collected data
         const completed_text = data.text?.generatedText || data.text?.customText || '';
-        const tags = data.tags || [];
-        
-        // Map tags to backend fields
-        const category = tags[0] || 'general';
-        const subcategory = tags[1] || tags[0] || 'general';
-        
-        // Build concrete subject scene from topics
-        const subjectScene = buildSubjectScene(tags, completed_text);
         
         const params = {
           completed_text,
-          category,
-          subcategory,
           tone: data.text?.tone || 'Humorous',
           rating: data.text?.rating || 'PG',
-          insertWords: data.text?.insertWords || [],
           image_style: data.visuals?.style || 'general',
           text_layout: data.text?.layout || 'lower-banner',
           image_dimensions: data.visuals?.dimension || 'square',
