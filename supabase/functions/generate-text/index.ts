@@ -345,26 +345,6 @@ function validateWithFallback(
   return lines.slice(0, want);
 }
 
-// Check if line lacks edgy language for R rating
-function lacksEdge(s: string): boolean {
-  return !/\b(hell|damn|shit|ass|asshole|bitch|crap|wtf)\b/i.test(s);
-}
-
-// Add edge to R-rated lines that are too tame
-function addEdgeIfR(line: string): string {
-  const boosters = [
-    "Seriously, show up on time, for once",
-    "Set a fucking alarm",
-    "Time isn't your bitch",
-    "Bring your ass five minutes early"
-  ];
-  if (lacksEdge(line)) {
-    const tag = boosters[Math.floor(Math.random() * boosters.length)];
-    // keep one sentence rule: graft with comma
-    return line.replace(/\.$/, `, ${tag}.`);
-  }
-  return line;
-}
 
 function synthFallback(topics: string[], tone: Tone): string[] {
   const subject = topics[0] || "you";
@@ -493,10 +473,6 @@ serve(async (req) => {
       .map(ensureSentenceFlow)
       .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, topics) && !violatesRating(l, rating));
 
-    // Add edge to R-rated lines if they're too tame
-    if (rating === "R") {
-      outputs = outputs.map(addEdgeIfR);
-    }
 
     if (outputs.length < 4) {
       const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating));
