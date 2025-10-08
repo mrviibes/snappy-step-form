@@ -112,8 +112,8 @@ function hasRealPlace(s: string): boolean {
 
 // Enforce concrete subjects (verbs or props)
 function hasConcreteSubject(s: string): boolean {
-  return /\b(holding|laughing|dancing|reading|walking|singing|hugging|high-five|posing|mixing|cooking|painting|typing|points|raises|smiles|celebrates|stares|yawns|runs|races|watches|sips|waits)\b/i.test(s)
-      || /\b(flag|cake|banner|sign|book|balloons|confetti|coffee|phone|bag|mic|camera|cup|scarf|poster|snail|clock|turtle|watch|calendar|garden|bus|traffic)\b/i.test(s);
+  return /\b(holding|laughing|dancing|reading|walking|singing|hugging|high-five|posing|mixing|cooking|painting|typing|points|raises|smiles|celebrates|stares|yawns|runs|races|watches|sips|waits|skiing|waterskiing|surfing|swimming|jumping|falling|balancing|riding|skating|climbing|swinging|loses|flips|tricks)\b/i.test(s)
+      || /\b(flag|cake|banner|sign|book|balloons|confetti|coffee|phone|bag|mic|camera|cup|scarf|poster|snail|clock|turtle|watch|calendar|garden|bus|traffic|skateboard|skis|surfboard|water|snow|ramp|rails|tricks|squirrel|balance|deck|wheels)\b/i.test(s);
 }
 
 // Check if two concepts are too similar (by setting OR subject)
@@ -190,25 +190,37 @@ serve(async req => {
       };
     });
 
+    console.log("[generate-visuals] Raw AI output:", JSON.stringify(visualsOutput, null, 2));
+    console.log("[generate-visuals] Topics:", topics, "Caption keywords:", captionKeywords);
+
     // Filter out duplicates and enforce concrete scenes with diversity
     const filtered = [];
     for (const v of visualsOutput) {
-      if (!filtered.some(f => conceptsAreTooSimilar(f, v))
-          && hasConcreteSubject(v.subject) 
-          && hasRealPlace(v.setting)) {
+      const isDistinct = !filtered.some(f => conceptsAreTooSimilar(f, v));
+      const isValid = hasConcreteSubject(v.subject) || hasRealPlace(v.setting); // Changed && to ||
+      
+      if (isDistinct && isValid) {
         filtered.push(v);
+      } else {
+        console.log("[generate-visuals] Filtered out:", v, "- concrete:", hasConcreteSubject(v.subject), "place:", hasRealPlace(v.setting));
       }
     }
+
+    console.log("[generate-visuals] Filtered concepts count:", filtered.length);
 
     // Soft pad with thematic concrete fallbacks if filtering shrinks the list
     while (filtered.length < 4) {
       const idx = filtered.length;
-      const keywords = captionKeywords[idx % Math.max(1, captionKeywords.length)] || "props";
+      const mainTopic = topics[0] || "Person";
+      const action = topics[1] || "performs action";
+      const modifier = topics[2] || "";
+      
       filtered.push({
-        design: `Concept ${idx + 1}`,
-        subject: `Person interacts with ${keywords} in a meaningful way.`,
-        setting: "Real-world location with natural lighting."
+        design: `${mainTopic} ${action} Scene ${idx + 1}`,
+        subject: `${mainTopic} ${action} ${modifier} in an exaggerated way`.trim(),
+        setting: `Outdoor location with props related to ${action}`
       });
+      console.log("[generate-visuals] Added fallback concept:", filtered[filtered.length - 1]);
     }
 
     const finalVisuals = filtered.slice(0, 4);
