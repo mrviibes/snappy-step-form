@@ -41,10 +41,8 @@ interface FinalPromptRequest {
   image_dimensions?: "square" | "portrait" | "landscape" | "custom";
   composition_modes?: string[]; // e.g., ["norman"]
   specific_visuals?: string[];  // tags from UI
-  visual_recommendation?: string;
-  visual_subject?: string;      // NEW: Photographic subject description
-  visual_setting?: string;      // NEW: Photographic setting description
-  subjectScene?: string;        // explicit concrete scene description (legacy)
+  visual_subject?: string;      // Photographic subject description
+  visual_setting?: string;      // Photographic setting description
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
@@ -616,13 +614,8 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const style = (p.image_style || "realistic").toLowerCase();
   
   // Use provided photographic descriptions directly
-  const visual_subject = p.visual_subject?.trim() || 
-                        cleanVisRec(p.visual_recommendation) || 
-                        (p.subjectScene?.trim()) ||
-                        "a subject in context";
-                        
-  const visual_setting = p.visual_setting?.trim() || 
-                        "an atmospheric setting";
+  const visual_subject = p.visual_subject?.trim() || "a subject in context";
+  const visual_setting = p.visual_setting?.trim() || "an atmospheric setting";
 
   const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
   const text_coverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;

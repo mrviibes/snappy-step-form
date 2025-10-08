@@ -108,14 +108,12 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           text_layout: data.text?.layout || 'lower-banner',
           image_dimensions: data.visuals?.dimension || 'square',
           composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
-          visual_recommendation: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation,
           visual_subject: data.visuals?.selectedVisualRecommendation?.subject_photo || 
                          data.visuals?.selectedVisualRecommendation?.subject || 
                          'A real person in a relatable environment',
           visual_setting: data.visuals?.selectedVisualRecommendation?.setting_photo || 
                          data.visuals?.selectedVisualRecommendation?.setting || 
                          'an atmospheric setting',
-          subjectScene,
           provider: 'ideogram' as const,
         };
 
