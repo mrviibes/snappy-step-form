@@ -510,7 +510,7 @@ export default function VisualsStep({
       {/* Optional Visuals Input */}
       {showGenerateButton && !showVisualOptions && !isComplete && <div className="space-y-4 pt-2">
           <div className="text-center">
-            <h3 className="text-base font-medium text-foreground mb-1">🖼️ Optional Visuals</h3>
+            <h3 className="text-base font-medium text-foreground mb-1">Optional Visuals</h3>
             
           </div>
           
