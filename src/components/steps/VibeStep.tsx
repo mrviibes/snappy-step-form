@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RefreshCw, Download, Star, Expand, Sparkles } from "lucide-react";

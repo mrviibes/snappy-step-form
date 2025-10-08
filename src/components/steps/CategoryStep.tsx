@@ -2,7 +2,6 @@ import { useState, KeyboardEvent, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 interface CategoryStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -13,9 +12,6 @@ export default function CategoryStep({
   updateData
 }: CategoryStepProps) {
   const [tagInput, setTagInput] = useState('');
-  const {
-    toast
-  } = useToast();
 
   // Sync local state with incoming data
   useEffect(() => {
@@ -30,43 +26,10 @@ export default function CategoryStep({
       const input = tagInput.trim();
       const currentTags = data.tags || [];
 
-      // Validate: Max 3 tags
-      if (currentTags.length >= 3) {
-        toast({
-          title: "Tag limit reached",
-          description: "You can only add 3 tags maximum",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Validate: Length (2-50 characters)
-      if (input.length < 2) {
-        toast({
-          title: "Tag too short",
-          description: "Each tag must be at least 2 characters",
-          variant: "destructive"
-        });
-        return;
-      }
-      if (input.length > 50) {
-        toast({
-          title: "Tag too long",
-          description: "Each tag must be 50 characters or less",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Validate: No duplicates (case-insensitive)
-      if (currentTags.some((tag: string) => tag.toLowerCase() === input.toLowerCase())) {
-        toast({
-          title: "Duplicate tag",
-          description: "This tag has already been added",
-          variant: "destructive"
-        });
-        return;
-      }
+      // Validate: Max 3 tags, length (2-50 characters), no duplicates
+      if (currentTags.length >= 3) return;
+      if (input.length < 2 || input.length > 50) return;
+      if (currentTags.some((tag: string) => tag.toLowerCase() === input.toLowerCase())) return;
 
       // All validations passed - add the tag
       updateData({

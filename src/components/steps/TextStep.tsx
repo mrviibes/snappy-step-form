@@ -6,15 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Loader2, AlertCircle } from 'lucide-react';
-import negativeSpaceImage from "@/assets/open-space-layout.jpg";
-import memeTextImage from "@/assets/meme-layout.jpg";
-import lowerBannerImage from "@/assets/lower-banner-snailed-it-peace.jpg";
-import sideBarImage from "@/assets/text-layout-hang-in-there.jpg";
-import badgeCalloutImage from "@/assets/badge-callout-birthday.jpg";
-import subtleCaptionImage from "@/assets/subtle-caption-layout.jpg";
-import textLayoutExample from "@/assets/text-layout-example.jpg";
 import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
 // Validation imports removed
 import DebugPanel from '@/components/DebugPanel';
 import { fitnessGoals } from '@/data/CategoryList';
@@ -68,8 +60,6 @@ export default function TextStep({
   const [debugExpanded, setDebugExpanded] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
   const [editedText, setEditedText] = useState('');
-  
-  const { toast } = useToast();
 
 
   // Pick default comedy style based on tone
@@ -304,10 +294,6 @@ export default function TextStep({
     });
     
     setIsEditingText(false);
-    toast({
-      title: "Text updated",
-      description: "Your text has been saved successfully",
-    });
   };
 
   // Layout options
