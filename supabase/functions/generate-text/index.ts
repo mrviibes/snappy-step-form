@@ -368,13 +368,30 @@ function synthFallback(topics: string[], tone: Tone): string[] {
   const subject = topics[0] || "you";
   const context = topics[1] || "life";
   
-  const base = [
+  // Pool of 15 diverse templates
+  const templates = [
     `${subject} tried ${context}, but gravity had other plans.`,
-    `${subject} said ${context} would be easy, and the universe laughed.`,
     `${subject}'s approach to ${context} is a masterclass in chaos.`,
-    `They told ${subject} about ${context}, but nobody mentioned the fine print.`
+    `They told ${subject} about ${context}, but nobody mentioned the fine print.`,
+    `${subject} walked into ${context} like it was a revolving door, confused and dizzy.`,
+    `${subject}'s ${context} strategy is aim low, miss anyway.`,
+    `If ${context} was a sport, ${subject} would be benched for creative rule-breaking.`,
+    `${subject} treats ${context} like a buffet, takes too much, regrets it later.`,
+    `${subject}'s ${context} game is strong, if strong means spectacularly wrong.`,
+    `Watching ${subject} handle ${context} is like watching a giraffe use chopsticks.`,
+    `${subject} discovered ${context}, and ${context} immediately filed a restraining order.`,
+    `${subject}'s relationship with ${context} is complicated, mostly by reality.`,
+    `${subject} approached ${context} with confidence, left with existential dread.`,
+    `If ${context} had a warning label, it would have ${subject}'s picture on it.`,
+    `${subject}'s ${context} philosophy is why do it right when wrong is more entertaining.`,
+    `${subject} and ${context} had a meeting, one showed up, the other ghosted.`
   ];
-  return base.map(normalizeLine).filter(l => inCharRange(l, 60, 120));
+  
+  // Shuffle and pick 4 random templates
+  const shuffled = templates.sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 4);
+  
+  return selected.map(normalizeLine).filter(l => inCharRange(l, 60, 120));
 }
 
 serve(async (req) => {
@@ -407,15 +424,15 @@ serve(async (req) => {
     const messages = [
       { role: "system", content: systemPrompt(full) },
       { role: "user", content: userPrompt(full) },
-      { role: "user", content: `Write jokes in different formats:\n1. A roast (direct insult)\n2. A witty analogy\n3. A pop-culture reference\n4. A surreal exaggeration\n\nEach should sound original and stand-alone.` }
+      { role: "user", content: `Write 4 COMPLETELY DIFFERENT jokes:\n1. A roast (direct insult)\n2. A witty analogy or comparison\n3. A pop-culture or everyday reference\n4. A surreal or absurd exaggeration\n\nCRITICAL VARIETY RULES:\n- Use completely different vocabulary, metaphors, and sentence structures for each joke\n- DO NOT repeat phrases, words, or patterns across jokes\n- Make each joke sound like it came from a different comedian\n- Avoid clichés or repetitive structures` }
     ];
 
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
 
-    // Adjust sampling for R rating
-    const temp = rating === "R" ? 0.95 : 0.85;
-    const top_p = rating === "R" ? 0.92 : 0.9;
+    // Adjust sampling for R rating (reduced for more consistency)
+    const temp = rating === "R" ? 0.88 : 0.82;
+    const top_p = rating === "R" ? 0.90 : 0.88;
 
     const r = await fetch(API, {
       method: "POST",
@@ -489,7 +506,21 @@ serve(async (req) => {
       .map(normalizeLine)
       .map(polishGrammar)
       .map(ensureSentenceFlow)
-      .filter(l => isOneSentence(l) && inCharRange(l) && hasAllRequiredNames(l, topics) && !violatesRating(l, rating));
+      .filter(l => isOneSentence(l) && inCharRange(l) && !violatesRating(l, rating));
+    
+    // Two-pass name validation
+    const strictOutputs = outputs.filter(l => hasAllRequiredNames(l, topics));
+    
+    // If we have enough strict matches, use them; otherwise allow some without strict name matching
+    if (strictOutputs.length >= 4) {
+      outputs = strictOutputs;
+    } else {
+      // Combine strict + relaxed, prioritizing strict matches
+      console.log(`⚠️ Only ${strictOutputs.length} strict matches, relaxing name requirement`);
+      outputs = uniqueByText([...strictOutputs, ...outputs]).slice(0, Math.max(4, strictOutputs.length + 2));
+    }
+    
+    outputs = uniqueByText(outputs);
 
 
     if (outputs.length < 4) {

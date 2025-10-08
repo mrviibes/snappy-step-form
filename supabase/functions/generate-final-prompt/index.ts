@@ -516,14 +516,64 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
 
 // ============== LAYOUT TEMPLATE SYSTEM ==============
 
-// Universal template for all layouts (58 words - proven structure)
-const UNIVERSAL_PROMPT_TEMPLATE = `Exact text "{completed_text}" in bold white sans-serif across the {text_position} of the image in a dark semi-transparent banner. A cinematic {image_style} photograph of {visual_subject} in {visual_setting} {vibrant_elements}. {specific_lighting} creates a {tone_atmosphere} atmosphere with rich color grading.`;
+type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "badge-callout" | "caption";
 
-// Universal negative prompt (10 words - tested)
-const UNIVERSAL_NEGATIVE_PROMPT = "misspelled text, warped text, text covering body, deformed body parts";
+// Layout-specific prompt templates following refined structure
+const LAYOUT_TEMPLATES: Record<LayoutKey, {
+  buildPositive: (vars: Record<string, any>) => string;
+  negative: string;
+}> = {
+  "meme-text": {
+    buildPositive: (v) => {
+      const [top, bottom] = v.completed_text.includes('|') 
+        ? v.completed_text.split('|').map((s: string) => s.replace(/^(TOP|BOTTOM) TEXT:\s*/i, '').trim())
+        : [v.completed_text, ''];
+      
+      return `A cinematic ${v.image_style} photograph of ${v.visual_subject} in ${v.visual_setting}. ${v.specific_lighting} creating a ${v.tone_atmosphere} atmosphere with vibrant saturated colors, high contrast, and vivid color grading. Aspect ratio ${v.aspect_ratio}.
 
-// Template object structure
-type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "badge-callout";
+The TOP text exactly reads "${top}"${bottom ? `\nThe BOTTOM text exactly reads "${bottom}"` : ''}
+
+Both lines appear in bold white sans-serif (Impact-style) with clean black outline, centered within dark semi-transparent banners at the top and bottom, even letter spacing, consistent stroke, medium size covering about 20–22% of the image in total, aligned to safe margins, no extra overlays.`;
+    },
+    negative: "misspelled words, missing letters, warped letters, distorted characters, uneven spacing, uneven stroke, misaligned text, oversized text, blurry text, low contrast, desaturated, muted colors"
+  },
+  
+  "badge-callout": {
+    buildPositive: (v) => `A cinematic ${v.image_style} photograph of ${v.visual_subject} in ${v.visual_setting}. ${v.specific_lighting} creating a ${v.tone_atmosphere} atmosphere with vibrant saturated colors, high contrast, and vivid color grading. Aspect ratio ${v.aspect_ratio}.
+
+The text exactly reads "${v.completed_text}"
+
+Text appears in bold white sans-serif with thin black outline, positioned in the corner as a compact floating badge, even letter spacing, consistent stroke, covering about 25% of the image, aligned to safe margins, no background fill.`,
+    negative: "misspelled words, missing letters, warped letters, distorted characters, uneven spacing, text covering face, oversized text, blurry text, low contrast, desaturated, muted colors"
+  },
+  
+  "negative-space": {
+    buildPositive: (v) => `A cinematic ${v.image_style} photograph of ${v.visual_subject} in ${v.visual_setting} with deliberate clean empty space. ${v.specific_lighting} creating a ${v.tone_atmosphere} atmosphere with vibrant saturated colors, high contrast, and vivid color grading. Aspect ratio ${v.aspect_ratio}.
+
+The text exactly reads "${v.completed_text}"
+
+Text appears in bold white sans-serif positioned in the clean open area avoiding busy details, even letter spacing, consistent stroke, medium size covering about 22% of the image, 10-15% whitespace buffer around text, aligned to safe margins.`,
+    negative: "misspelled words, missing letters, warped letters, distorted characters, uneven spacing, text in busy area, cramped text, oversized text, blurry text, low contrast, desaturated, muted colors"
+  },
+  
+  "integrated-in-scene": {
+    buildPositive: (v) => `A cinematic ${v.image_style} photograph of ${v.visual_subject} in ${v.visual_setting} featuring a visible poster/sign/wall/jersey. ${v.specific_lighting} creating a ${v.tone_atmosphere} atmosphere with vibrant saturated colors, high contrast, and vivid color grading. Aspect ratio ${v.aspect_ratio}.
+
+The text exactly reads "${v.completed_text}"
+
+Text appears naturally integrated into the environment on the poster/sign/wall/jersey, in bold legible font, even letter spacing, consistent stroke, covering about 22% of the image, natural and readable as part of the scene.`,
+    negative: "misspelled words, missing letters, warped letters, distorted characters, uneven spacing, illegible text, tiny text, text not in scene, oversized text, blurry text, low contrast, desaturated, muted colors"
+  },
+  
+  "caption": {
+    buildPositive: (v) => `A cinematic ${v.image_style} photograph of ${v.visual_subject} in ${v.visual_setting}. ${v.specific_lighting} creating a ${v.tone_atmosphere} atmosphere with vibrant saturated colors, high contrast, and vivid color grading. Aspect ratio ${v.aspect_ratio}.
+
+The text exactly reads "${v.completed_text}"
+
+Text appears in bold white sans-serif across the bottom of the image in a solid black caption bar with high contrast, even letter spacing, consistent stroke, medium size covering about 20% of the image, subtitle caption style, aligned to safe margins.`,
+    negative: "misspelled words, missing letters, warped letters, distorted characters, uneven spacing, uneven stroke, misaligned text, oversized text, blurry text, low contrast, semi-transparent bar, desaturated, muted colors"
+  }
+};
 
 // ============== TEMPLATE INTERPOLATION ==============
 
@@ -592,8 +642,9 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const textPositionMap: Record<LayoutKey, string> = {
     "negative-space": "bottom",
     "meme-text": "top and bottom",
-    "badge-callout": "bottom",
-    "integrated-in-scene": "bottom"
+    "badge-callout": "corner",
+    "integrated-in-scene": "in scene",
+    "caption": "bottom"
   };
 
   // Tone atmosphere descriptors
@@ -642,7 +693,8 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
     image_style: style,
     text_position: textPositionMap[layoutKey],
     composition_mode: p.composition_modes?.[0] || "cinematic",
-    image_dimensions: aspectLabel(p.image_dimensions)
+    image_dimensions: aspectLabel(p.image_dimensions),
+    aspect_ratio: aspectLabel(p.image_dimensions)
   };
 }
 
@@ -800,18 +852,17 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   // 🔄 FALLBACK: Use template system
   console.log("⚠️ Falling back to template-based prompt generation");
   
-  // Build variables object for interpolation
-  const vars = buildVariablesObject(p, layoutKey);
-  
-  // Use universal template
-  const positive_prompt = interpolateTemplate(UNIVERSAL_PROMPT_TEMPLATE, vars);
-  
-  // Apply rating-specific negative prompt modifiers
-  const rating = (p.rating || "PG").toUpperCase();
-  const ratingNeg = ratingNegatives[rating] || ratingNegatives["PG"];
-  const negative_prompt = `${UNIVERSAL_NEGATIVE_PROMPT}, ${ratingNeg}`;
+  // Use layout-specific template
+  const template = LAYOUT_TEMPLATES[layoutKey];
+  if (!template) {
+    throw new Error(`Unknown layout: ${layoutKey}`);
+  }
 
-  console.log(`Generated ${layoutKey} prompt: ${positive_prompt.length} chars`);
+  const vars = buildVariablesObject(p, layoutKey);
+  const positive_prompt = template.buildPositive(vars);
+  const negative_prompt = template.negative;
+
+  console.log(`✅ Generated ${layoutKey} prompt: ${positive_prompt.length} chars`);
 
   // Return template result
   const result: PromptTemplate = {

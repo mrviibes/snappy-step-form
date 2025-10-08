@@ -42,7 +42,8 @@ export const layoutMap: Record<string, string> = {
   "meme-text": "bold top/bottom meme placement; high-contrast; minimum 20% text coverage; 6–8% padding; line-break at first comma",
   "badge-callout": "compact floating callout; thin outline; minimum 25% text coverage; no background fill",
   "negative-space": "text in clean open area; avoid busy detail; minimum 22% text coverage; 10–15% whitespace buffer",
-  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and legible; minimum 22% coverage"
+  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and legible; minimum 22% coverage",
+  "caption": "bold white sans-serif text in solid black caption bar at the bottom; high-contrast subtitle style; minimum 20% text coverage"
 };
 
 // ===== SHORT LAYOUT TAGS (for minimal prompts/UI) =====
@@ -50,7 +51,8 @@ export const layoutTagShort: Record<string, string> = {
   "meme-text": "Meme Text",
   "badge-callout": "Badge Text",
   "negative-space": "Open Space",
-  "integrated-in-scene": "In Scene"
+  "integrated-in-scene": "In Scene",
+  "caption": "Caption"
 };
 
 // ===== DIMENSIONS =====
