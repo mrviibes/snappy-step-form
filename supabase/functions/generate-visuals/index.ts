@@ -54,12 +54,18 @@ Required visual elements: ${visualHints}
 Composition: ${args.composition}
 
 Strict rules:
-- Return EXACTLY 4 unique concepts.
+- Return EXACTLY 4 unique concepts with MAXIMUM VARIETY.
+- CRITICAL DIVERSITY RULE: The 4 concepts should explore DIFFERENT comedic angles and visual themes.
+  Do NOT make all 4 concepts variations on the same visual motif (e.g., avoid making all 4 about hearts/Valentine's if the caption mentions "love").
+- Each concept should take a DIFFERENT approach:
+  * Concept 1: Literal interpretation of a specific word/phrase from the caption
+  * Concept 2: Visual metaphor or exaggeration of the theme
+  * Concept 3: Unexpected/absurd scenario related to the topic
+  * Concept 4: Different setting/context exploring another angle
 - Each visual must either:
   (a) directly visualize something from the caption text (objects, props, actions mentioned)
   OR
   (b) use symbolic props to exaggerate the caption's theme
-- At least ONE concept must include a literal object or metaphor from the caption.
 - Each must have FIVE labeled lines:
 
 Design: (short title)
@@ -68,7 +74,10 @@ Subject Photo: (photographic description of who/what: physical appearance, expre
 Setting: (basic environment description, ≤10 words; pick a real place: ${scenePlaceHints})
 Setting Photo: (detailed environment: lighting, props, atmosphere, spatial details - suitable for photography direction, ≤20 words)
 
-- Do NOT repeat the same place, action, or props twice.
+- Do NOT repeat the same place, action, props, OR VISUAL THEME twice.
+- Avoid clustering all 4 concepts around one symbolic item (e.g., hearts, clocks, etc.).
+- Think beyond obvious symbols: if caption mentions "love," not all visuals need heart-shaped items.
+- Vary the comedic approach: mix literal, metaphorical, absurd, and relatable scenarios.
 - No abstract concepts; describe shots we can photograph.
 - No camera jargon, lens specs, or emoji.
 - Subject Photo should describe the PERSON/SUBJECT physically (what they look like, their expression, their pose).
