@@ -9,6 +9,7 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { generateTextOptions, type TextOptionsResponse } from '@/lib/api';
 // Validation imports removed
 import DebugPanel from '@/components/DebugPanel';
+import { fitnessGoals } from '@/data/CategoryList';
 import { STYLES_BY_TONE, type ComedyStyleId } from '@/lib/comedyStyles';
 
 interface TextStepProps {
@@ -70,7 +71,8 @@ export default function TextStep({
 
 
   const handleGenerate = async () => {
-    if (!data.text?.tone || !data.text?.rating) return;
+    const tags = data.tags || [];
+    if (tags.length === 0 || !data.text?.tone || !data.text?.rating) return;
 
     setIsGenerating(true);
     setGenerationError(null);
@@ -79,8 +81,22 @@ export default function TextStep({
     setSelectedTextOption(null); // Reset selection
     
     try {
-      // No topics - pass empty array
-      const topics: string[] = [];
+      // Parse tags into names (capitalized tokens) vs theme phrases
+      const tags = data.tags || [];
+      const nameTokens: string[] = [];
+      const themePhrase: string[] = [];
+
+      if (tags.length > 0) {
+        tags.forEach(t => {
+          const parts = String(t).trim().split(/\s+/);
+          parts.every(p => /^[A-Z][a-z]+$/.test(p))
+            ? nameTokens.push(...parts)
+            : themePhrase.push(t);
+        });
+      }
+
+      // Extract topics directly from tags (up to 3)
+      const topics = (data.tags || []).filter(Boolean).slice(0, 3);
 
       // Create debug info
       const requestPayload = {
@@ -301,9 +317,26 @@ export default function TextStep({
   const selectedTone = tones.find(tone => tone.id === data.text?.tone);
   const selectedWritingPreference = writingPreferences.find(pref => pref.id === data.text?.writingPreference);
 
+  // Helper function to render tags breadcrumb
+  const renderBreadcrumb = () => {
+    const tags = data.tags || [];
+    if (tags.length === 0) return null;
+    
+    return (
+      <div className="text-left mb-1">
+        <div className="text-sm text-muted-foreground">
+          <span className="font-semibold">Your topics:</span> {tags.join(' > ')}
+        </div>
+      </div>
+    );
+  };
+
   // Show tone selection if no tone is selected
   if (!data.text?.tone) {
     return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
         <div className="text-center">
           <h2 className="mb-2 text-xl font-semibold text-foreground">
             Choose Your Tone
@@ -324,6 +357,9 @@ export default function TextStep({
   // Show rating selection if tone is selected but no rating is selected
   if (data.text?.tone && !data.text?.rating) {
     return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
         {/* Selected Tone Display with Edit Option */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card p-4">
           <div className="flex items-center justify-between">
@@ -370,6 +406,9 @@ export default function TextStep({
   // Show writing preference selection if no preference is selected
   if (!data.text?.writingPreference) {
     return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
         {/* Selected Tone and Rating Display with Edit Options */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Selected Tone */}
@@ -411,6 +450,9 @@ export default function TextStep({
   // Special case: If "no-text" is selected, show simple confirmation
   if (data.text?.writingPreference === 'no-text') {
     return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
         {/* Selected Tone and Process in stacked format */}
         <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
           {/* Selected Tone */}
@@ -452,6 +494,9 @@ export default function TextStep({
 
   // Show selected preferences and specific words input
   return <div className="space-y-6">
+      {/* Category Breadcrumb - Left aligned */}
+      {renderBreadcrumb()}
+
       {/* Selected Tone and Process in stacked format */}
       <div className="rounded-lg border-2 border-cyan-400 bg-card overflow-hidden">
         {/* Selected Tone */}

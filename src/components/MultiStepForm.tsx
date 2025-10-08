@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import CategoryStep from "./steps/CategoryStep";
 import TextStep from "./steps/TextStep";
 import VisualsStep from "./steps/VisualsStep";
 import SummaryStep from "./steps/SummaryStep";
@@ -13,6 +14,7 @@ interface Step {
 }
 
 interface FormData {
+  tags: string[]; // Max 3 tags for topic guidance
   text: {
     tone: string;
     writingPreference: string;
@@ -53,14 +55,18 @@ interface FormData {
 }
 const steps = [{
   id: 1,
+  title: "Category",
+  component: CategoryStep
+}, {
+  id: 2,
   title: "Text",
   component: TextStep
 }, {
-  id: 2,
+  id: 3,
   title: "Visuals",
   component: VisualsStep
 }, {
-  id: 3,
+  id: 4,
   title: "Summary",
   component: SummaryStep
 }];
@@ -135,6 +141,7 @@ function StepIndicator({
 export default function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
+    tags: [],
     text: {
       tone: "",
       writingPreference: ""
@@ -162,6 +169,7 @@ export default function MultiStepForm() {
     // Reset form to initial state
     setCurrentStep(1);
     setFormData({
+      tags: [],
       text: {
         tone: "",
         writingPreference: ""
@@ -191,6 +199,9 @@ export default function MultiStepForm() {
   const isStepCompleted = (step: number) => {
     switch (step) {
       case 1:
+        // Require at least 1 tag
+        return formData.tags && formData.tags.length >= 1;
+      case 2:
         // Special case for "no-text" - only need tone and writing preference
         if (formData.text.writingPreference === 'no-text') {
           return !!formData.text.tone && !!formData.text.writingPreference;
@@ -201,11 +212,11 @@ export default function MultiStepForm() {
         }
         // For "ai-assist" - need tone, preference, generated text, and layout
         return !!formData.text.tone && !!formData.text.writingPreference && !!formData.text.generatedText && !!formData.text.layout;
-      case 2:
+      case 3:
         // Check if visuals step is marked as complete
         return !!formData.visuals?.isComplete;
-      case 3:
-        // Step 3 is summary - always complete once reached
+      case 4:
+        // Step 4 is summary - always complete once reached
         return true;
       default:
         return false;
