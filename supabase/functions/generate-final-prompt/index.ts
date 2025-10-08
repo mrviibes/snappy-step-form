@@ -42,8 +42,9 @@ interface FinalPromptRequest {
   composition_modes?: string[]; // e.g., ["norman"]
   specific_visuals?: string[];  // tags from UI
   visual_recommendation?: string;
-  subjectScene?: string;        // explicit concrete scene description
-  visual_setting?: string;      // NEW: setting description for universal template
+  visual_subject?: string;      // NEW: Photographic subject description
+  visual_setting?: string;      // NEW: Photographic setting description
+  subjectScene?: string;        // explicit concrete scene description (legacy)
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
@@ -614,18 +615,14 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const tone = (p.tone || "humorous").toLowerCase();
   const style = (p.image_style || "realistic").toLowerCase();
   
-  // Build visual_subject: detailed description from subjectScene
-  let visual_subject: string;
-  if (p.subjectScene && p.subjectScene.trim()) {
-    // Expand the subjectScene into a richer description
-    visual_subject = p.subjectScene.trim();
-  } else {
-    // Fallback
-    visual_subject = cleanVisRec(p.visual_recommendation) || "a subject in context";
-  }
-
-  // Build visual_setting: from visual_setting or fallback
-  const visual_setting = p.visual_setting?.trim() || "an atmospheric setting";
+  // Use provided photographic descriptions directly
+  const visual_subject = p.visual_subject?.trim() || 
+                        cleanVisRec(p.visual_recommendation) || 
+                        (p.subjectScene?.trim()) ||
+                        "a subject in context";
+                        
+  const visual_setting = p.visual_setting?.trim() || 
+                        "an atmospheric setting";
 
   const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
   const text_coverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;

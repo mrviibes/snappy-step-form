@@ -60,33 +60,45 @@ Strict rules:
   OR
   (b) use symbolic props to exaggerate the caption's theme
 - At least ONE concept must include a literal object or metaphor from the caption.
-- Each must have THREE labeled lines:
+- Each must have FIVE labeled lines:
 
 Design: (short title)
-Subject: (who/what is shown, ≤10 words; include one concrete prop or action from caption)
-Setting: (where it happens, ≤10 words; pick a real place: ${scenePlaceHints})
+Subject: (comedic action/concept, ≤10 words; include one concrete prop or action from caption)
+Subject Photo: (photographic description of who/what: physical appearance, expression, pose, action - suitable for photography direction, ≤15 words)
+Setting: (basic environment description, ≤10 words; pick a real place: ${scenePlaceHints})
+Setting Photo: (detailed environment: lighting, props, atmosphere, spatial details - suitable for photography direction, ≤20 words)
 
 - Do NOT repeat the same place, action, or props twice.
 - No abstract concepts; describe shots we can photograph.
 - No camera jargon, lens specs, or emoji.
+- Subject Photo should describe the PERSON/SUBJECT physically (what they look like, their expression, their pose).
+- Setting Photo should describe the ENVIRONMENT in detail (lighting quality, props visible, atmosphere).
 
 Output example:
 
 1. Design: Garden Crawl
    Subject: Jesse stares at a snail inching along a garden path.
+   Subject Photo: Jesse, a young man with a bemused curious expression, crouched down looking intently at ground
    Setting: Bright backyard garden with coffee mug on bench.
+   Setting Photo: Sunlit garden with vibrant green plants, wooden bench with coffee mug, warm afternoon light filtering through trees
 
 2. Design: Clocked Out
    Subject: Jesse yawns beside a park clock showing noon.
+   Subject Photo: Jesse, exhausted expression with wide yawn, hand covering mouth, standing next to old clock
    Setting: Sunny park bench surrounded by pigeons.
+   Setting Photo: Public park with green grass, vintage street clock, scattered pigeons, soft natural daylight creating gentle shadows
 
 3. Design: The Eternal Commute
    Subject: Jesse runs after a departing bus with spilled coffee.
+   Subject Photo: Jesse in mid-run, frustrated expression, arm outstretched toward bus, coffee cup tipping in other hand
    Setting: Busy downtown street with blurred motion.
+   Setting Photo: Urban street scene with moving vehicles, pedestrians in background, motion blur on traffic, harsh city lighting
 
 4. Design: Turtle Time
    Subject: Jesse races a turtle on the sidewalk.
+   Subject Photo: Jesse in playful racing stance, competitive grin, looking down at turtle beside feet
    Setting: City plaza in early morning light.
+   Setting Photo: Clean modern plaza with smooth concrete, minimal foot traffic, golden hour sunrise creating long shadows
 `.trim();
 }
 
@@ -178,15 +190,19 @@ serve(async req => {
       .filter(Boolean)
       .slice(0, 4);
 
-    // structure results cleanly
+    // structure results cleanly with 5 fields
     const visualsOutput = blocks.map(block => {
       const designMatch = block.match(/Design:\s*"?([^"\n]+)"?/i);
       const subjectMatch = block.match(/Subject:\s*([^\n]+)/i);
+      const subjectPhotoMatch = block.match(/Subject Photo:\s*([^\n]+)/i);
       const settingMatch = block.match(/Setting:\s*([^\n]+)/i);
+      const settingPhotoMatch = block.match(/Setting Photo:\s*([^\n]+)/i);
       return {
         design: designMatch ? clean(designMatch[1]) : "Untitled Concept",
         subject: subjectMatch ? clean(subjectMatch[1]) : "Unclear subject",
-        setting: settingMatch ? clean(settingMatch[1]) : "Generic setting"
+        subject_photo: subjectPhotoMatch ? clean(subjectPhotoMatch[1]) : "",
+        setting: settingMatch ? clean(settingMatch[1]) : "Generic setting",
+        setting_photo: settingPhotoMatch ? clean(settingPhotoMatch[1]) : ""
       };
     });
 
@@ -218,7 +234,9 @@ serve(async req => {
       filtered.push({
         design: `${mainTopic} ${action} Scene ${idx + 1}`,
         subject: `${mainTopic} ${action} ${modifier} in an exaggerated way`.trim(),
-        setting: `Outdoor location with props related to ${action}`
+        subject_photo: `A person with ${modifier} expression, performing ${action}`,
+        setting: `Outdoor location with props related to ${action}`,
+        setting_photo: `Well-lit outdoor space with natural daylight, props visible in background`
       });
       console.log("[generate-visuals] Added fallback concept:", filtered[filtered.length - 1]);
     }
@@ -236,10 +254,10 @@ serve(async req => {
   } catch (err) {
     console.error("[generate-visuals] error:", err);
     const fallback = [
-      { design: "Fallback 1", subject: "Subject missing", setting: "Generic background" },
-      { design: "Fallback 2", subject: "Subject missing", setting: "Generic background" },
-      { design: "Fallback 3", subject: "Subject missing", setting: "Generic background" },
-      { design: "Fallback 4", subject: "Subject missing", setting: "Generic background" }
+      { design: "Fallback 1", subject: "Subject missing", subject_photo: "A person in a neutral pose", setting: "Generic background", setting_photo: "Simple environment with basic lighting" },
+      { design: "Fallback 2", subject: "Subject missing", subject_photo: "A person in a neutral pose", setting: "Generic background", setting_photo: "Simple environment with basic lighting" },
+      { design: "Fallback 3", subject: "Subject missing", subject_photo: "A person in a neutral pose", setting: "Generic background", setting_photo: "Simple environment with basic lighting" },
+      { design: "Fallback 4", subject: "Subject missing", subject_photo: "A person in a neutral pose", setting: "Generic background", setting_photo: "Simple environment with basic lighting" }
     ];
     return new Response(JSON.stringify({ 
       success: true, 

@@ -109,6 +109,12 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
           image_dimensions: data.visuals?.dimension || 'square',
           composition_modes: data.visuals?.compositionMode ? [data.visuals.compositionMode] : [],
           visual_recommendation: data.visuals?.selectedVisualRecommendation?.description || data.visuals?.selectedVisualRecommendation?.interpretation,
+          visual_subject: data.visuals?.selectedVisualRecommendation?.subject_photo || 
+                         data.visuals?.selectedVisualRecommendation?.subject || 
+                         'A real person in a relatable environment',
+          visual_setting: data.visuals?.selectedVisualRecommendation?.setting_photo || 
+                         data.visuals?.selectedVisualRecommendation?.setting || 
+                         'an atmospheric setting',
           subjectScene,
           provider: 'ideogram' as const,
         };
@@ -389,7 +395,9 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
     { label: '9. composition_mode', value: data.visuals?.compositionMode || 'None' },
     { label: '10. visual_concept', value: data.visuals?.selectedVisualRecommendation?.design || 'None' },
     { label: '11. visual_subject', value: data.visuals?.selectedVisualRecommendation?.subject || 'None' },
+    { label: '11a. visual_subject_photo', value: data.visuals?.selectedVisualRecommendation?.subject_photo || 'None' },
     { label: '12. visual_setting', value: data.visuals?.selectedVisualRecommendation?.setting || 'None' },
+    { label: '12a. visual_setting_photo', value: data.visuals?.selectedVisualRecommendation?.setting_photo || 'None' },
   ];
 
   // Generate custom prompt using user's format

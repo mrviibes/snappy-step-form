@@ -29,6 +29,15 @@ interface FormData {
     isComplete?: boolean;
     insertedVisuals?: string[];
     compositionMode?: string;
+    selectedVisualRecommendation?: {
+      design: string;
+      subject: string;
+      subject_photo?: string;
+      setting: string;
+      setting_photo?: string;
+    };
+    selectedVisualOption?: number;
+    writingProcess?: 'ai' | 'manual' | 'random';
   };
   generation?: {
     prompts?: any;
