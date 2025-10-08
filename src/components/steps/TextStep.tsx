@@ -1,5 +1,6 @@
 import { useState, KeyboardEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -65,6 +66,8 @@ export default function TextStep({
   const [isCustomTextSaved, setIsCustomTextSaved] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [editedText, setEditedText] = useState('');
   
   const { toast } = useToast();
 
@@ -286,6 +289,24 @@ export default function TextStep({
         layout: layoutId,
         isComplete: true // Mark as complete when layout is selected
       }
+    });
+  };
+
+  const handleSaveEditedText = () => {
+    if (!editedText.trim()) return;
+    
+    updateData({
+      text: {
+        ...data.text,
+        customText: editedText,
+        generatedText: editedText, // Update both for consistency
+      }
+    });
+    
+    setIsEditingText(false);
+    toast({
+      title: "Text updated",
+      description: "Your text has been saved successfully",
     });
   };
 
@@ -522,47 +543,77 @@ export default function TextStep({
           </button>
         </div>
 
-        {/* Your Text - Show the actual selected text */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
-          <div className="space-y-1 flex-1">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Your Text</span>
+        {/* Your Text - Show the actual selected text or editing mode */}
+        {!isEditingText ? (
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="space-y-1 flex-1">
+              <div className="text-sm text-foreground">
+                <span className="font-semibold">Your Text</span>
+              </div>
+              <div className="text-sm text-muted-foreground max-w-md break-words whitespace-normal pr-4">
+                {data.text?.generatedText || data.text?.customText || 'No text selected'}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground max-w-md break-words whitespace-normal pr-4">
-              {data.text?.generatedText || data.text?.customText || 'No text selected'}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => {
-                updateData({
-                  text: {
-                    ...data.text,
-                    generatedText: '',
-                    customText: '',
-                    layout: ''
-                  }
-                });
-                setSelectedTextOption(null);
-                setShowTextOptions(false);
-                setIsCustomTextSaved(false);
-                setCustomText('');
-              }} 
-              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            >
-              Edit
-            </button>
-            {data.text?.writingPreference === 'ai-assist' && (
+            <div className="flex gap-2">
               <button 
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors disabled:opacity-50"
+                onClick={() => {
+                  setEditedText(data.text?.generatedText || data.text?.customText || '');
+                  setIsEditingText(true);
+                }} 
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
               >
-                Regenerate
+                Edit
               </button>
-            )}
+              {data.text?.writingPreference === 'ai-assist' && (
+                <button 
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-4 border-t border-border space-y-3">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Edit Your Text</span>
+            </div>
+            <Textarea 
+              value={editedText}
+              onChange={(e) => {
+                if (e.target.value.length <= 120) {
+                  setEditedText(e.target.value);
+                }
+              }}
+              maxLength={120}
+              className="w-full min-h-[80px]"
+              placeholder="Enter your text (up to 120 characters)"
+            />
+            <div className="text-right text-sm text-muted-foreground">
+              {editedText.length}/120 characters
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setIsEditingText(false);
+                  setEditedText('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveEditedText}
+                className="bg-cyan-400 hover:bg-cyan-500"
+                disabled={!editedText.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       
