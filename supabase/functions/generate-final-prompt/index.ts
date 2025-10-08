@@ -186,19 +186,15 @@ const TYPOGRAPHY_STYLES: Record<string, string> = {
   "meme-text": "bold impact-style font, high contrast, thick strokes",
   "badge-callout": "rounded geometric sans-serif, friendly weight, clean kerning",
   "negative-space": "modern clean sans-serif, balanced weight, professional",
-  "caption": "editorial sans-serif or clean serif, refined weight, subtle",
-  "integrated-in-scene": "text physically integrated into a real surface or object in the environment - not an overlay. Choose an appropriate surface that fits the scene context: fogged mirror, painted wall, paper note, fabric label, engraved sign, chalk board, steam on glass, etc. The text should appear as part of the physical world",
-  "dynamic-overlay": "bold geometric sans-serif, strong angles, editorial weight"
+  "integrated-in-scene": "text physically integrated into a real surface or object in the environment - not an overlay. Choose an appropriate surface that fits the scene context: fogged mirror, painted wall, paper note, fabric label, engraved sign, chalk board, steam on glass, etc. The text should appear as part of the physical world"
 };
 
-// ============== LAYOUT ORDER (six) ==============
-const SIX_LAYOUTS: Array<{ key: string; line: string }> = [
+// ============== LAYOUT ORDER (four) ==============
+const FOUR_LAYOUTS: Array<{ key: string; line: string }> = [
   { key: "meme-text",          line: "Layout: meme text top/bottom." },
   { key: "badge-callout",      line: "Layout: floating badge callout." },
   { key: "negative-space",     line: "Layout: text in open negative space." },
-  { key: "caption",            line: "Layout: strong bottom caption." },
-  { key: "integrated-in-scene",line: "Layout: typography integrated into scene." },
-  { key: "dynamic-overlay",    line: "Layout: diagonal overlay." }
+  { key: "integrated-in-scene",line: "Layout: typography integrated into scene." }
 ];
 
 // ============== HTTP ==============
@@ -337,10 +333,8 @@ function minCoverageForLayout(key: string): number {
   switch (key) {
     case "badge-callout": return 20;   // reduced from 25%
     case "meme-text":     return 18;   // reduced from 20%
-    case "caption":       return 15;   // already at minimum
     case "negative-space":return 20;   // reduced from 22%
     case "integrated-in-scene": return 20;  // reduced from 22%
-    case "dynamic-overlay":    return 18;   // keep at 18%
     default: return 20;
   }
 }
@@ -395,10 +389,10 @@ async function generatePromptTemplates(p: FinalPromptRequest): Promise<PromptTem
   const visPhrase = cleanVisRec(visual_recommendation);
   const tags = normTags(specific_visuals);
 
-  let layoutsToGenerate = SIX_LAYOUTS;
+  let layoutsToGenerate = FOUR_LAYOUTS;
   if (text_layout && text_layout !== "auto") {
-    const one = SIX_LAYOUTS.find(L => L.key === text_layout);
-    layoutsToGenerate = one ? [one] : SIX_LAYOUTS;
+    const one = FOUR_LAYOUTS.find(L => L.key === text_layout);
+    layoutsToGenerate = one ? [one] : FOUR_LAYOUTS;
   }
 
   console.log(`Generating AI-powered prompts for ${layoutsToGenerate.length} layout(s)`);
@@ -533,7 +527,7 @@ The text exactly reads "{completed_text}" rendered exactly as typed in bold cond
 const UNIVERSAL_NEGATIVE_PROMPT = "misspelled text, warped letters, distorted faces, cartoonish style, dark shadows, harsh contrast, oversaturated colors, fake lighting, black box behind text, text covering faces, cluttered composition";
 
 // Template object structure
-type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "caption" | "badge-callout" | "dynamic-overlay";
+type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "badge-callout";
 
 // ============== TEMPLATE INTERPOLATION ==============
 
@@ -610,10 +604,8 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const textPositionMap: Record<LayoutKey, string> = {
     "negative-space": "open negative space to the left",
     "meme-text": "classic meme format with TOP TEXT at the top edge and BOTTOM TEXT at the bottom edge, both in bold white all-caps sans-serif font",
-    "caption": "bottom caption area",
     "badge-callout": "floating badge in clear space",
-    "integrated-in-scene": "integrated naturally into a surface in the scene",
-    "dynamic-overlay": "diagonal overlay across the frame"
+    "integrated-in-scene": "integrated naturally into a surface in the scene"
   };
 
   // NEW: Tone atmosphere descriptors
@@ -644,18 +636,14 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
     "negative-space": [20, 28],
     "integrated-in-scene": [20, 28],
     "meme-text": [20, 30],
-    "caption": [12, 18],
-    "badge-callout": [12, 18],
-    "dynamic-overlay": [18, 24]
+    "badge-callout": [12, 18]
   };
 
   const overlayOpacityByLayout: Record<LayoutKey, number> = {
     "negative-space": 8,
     "integrated-in-scene": 8,
     "meme-text": 14,
-    "caption": 10,
-    "badge-callout": 12,
-    "dynamic-overlay": 12
+    "badge-callout": 12
   };
 
   const tone = (p.tone || "humorous").toLowerCase();
@@ -822,7 +810,7 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
     const layoutPreferences: Record<string, LayoutKey> = {
       "savage": "negative-space",      // Changed: negative-space works better with new template
       "humorous": "meme-text",         // Humorous works well with classic memes
-      "inspirational": "caption",      // Inspirational suits captions
+      "inspirational": "negative-space", // Inspirational needs clean space
       "sentimental": "negative-space"  // Sentimental needs breathing room
     };
     

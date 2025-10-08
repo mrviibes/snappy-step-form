@@ -8,12 +8,10 @@ GENERAL
 
 TYPOGRAPHY POLICY
 - Minimum text coverage by layout:
-  - Badge-Callout ≥ 25% of image area
-  - Meme (top/bottom) ≥ 20%
-  - Caption (bottom) ≥ 15%
-  - Negative-Space ≥ 22%
-  - Integrated-in-Scene ≥ 22%
-  - Dynamic-Overlay ≥ 18%
+  - Badge Text ≥ 25% of image area
+  - Meme Text (top/bottom) ≥ 20%
+  - Open Space ≥ 22%
+  - In Scene ≥ 22%
 - Use modern rounded/geometric sans-serif; clean kerning; even spacing.
 - Integrated on-scene; no filled panels/bars or speech bubbles.
 - Contrast via lighting/color or subtle background blur (not boxes).
@@ -39,24 +37,20 @@ export const final_prompt_rules_gemini = `FINAL PROMPT GENERATION RULES (GEMINI 
 - Bright key light, vivid saturation, crisp focus, cinematic contrast.
 - Typography policy: see minimum coverage by layout above; no panels/bubbles.`;
 
-// ===== LAYOUT MAP (updated six layouts) =====
+// ===== LAYOUT MAP (four layouts) =====
 export const layoutMap: Record<string, string> = {
   "meme-text": "bold top/bottom meme placement; high-contrast; minimum 20% text coverage; 6–8% padding; line-break at first comma",
   "badge-callout": "compact floating callout; thin outline; minimum 25% text coverage; no background fill",
   "negative-space": "text in clean open area; avoid busy detail; minimum 22% text coverage; 10–15% whitespace buffer",
-  "caption": "single strong bottom caption; centered; minimum 15% text coverage; restrained weight; 5–7% margin above edge",
-  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and legible; minimum 22% coverage",
-  "dynamic-overlay": "diagonal/angled overlay aligned to composition lines; crisp editorial vibe; minimum 18% coverage"
+  "integrated-in-scene": "text designed as part of the environment (poster/sign/wall/jersey), natural and legible; minimum 22% coverage"
 };
 
 // ===== SHORT LAYOUT TAGS (for minimal prompts/UI) =====
 export const layoutTagShort: Record<string, string> = {
   "meme-text": "Meme Text",
-  "badge-callout": "Badge Callout",
-  "negative-space": "Negative Space",
-  "caption": "Caption",
-  "integrated-in-scene": "Integrated In-Scene Text",
-  "dynamic-overlay": "Dynamic Overlay"
+  "badge-callout": "Badge Text",
+  "negative-space": "Open Space",
+  "integrated-in-scene": "In Scene"
 };
 
 // ===== DIMENSIONS =====
