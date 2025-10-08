@@ -68,6 +68,12 @@ export default function TextStep({
   
   const { toast } = useToast();
 
+  // Helper function to truncate text for display
+  const truncateText = (text: string | undefined, maxLength: number) => {
+    if (!text) return 'No text selected';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
   // Pick default comedy style based on tone
   const pickDefaultStyle = (tone?: string): ComedyStyleId => {
     const toneKey = tone || "Humorous";
@@ -521,24 +527,46 @@ export default function TextStep({
           </button>
         </div>
 
-        {/* Text Layout - Always show */}
+        {/* Your Text - Show the actual selected text */}
         <div className="flex items-center justify-between p-4 border-t border-border">
-          <div className="text-sm text-foreground">
-            <span className="font-semibold">Text Layout</span> - {data.text?.layout ? layoutOptions.find(l => l.id === data.text?.layout)?.title : 'Not selected'}
+          <div className="space-y-1 flex-1">
+            <div className="text-sm text-foreground">
+              <span className="font-semibold">Your Text</span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {truncateText(data.text?.generatedText || data.text?.customText, 80)}
+            </div>
           </div>
-          <button 
-            onClick={() => {
-              updateData({
-                text: {
-                  ...data.text,
-                  layout: ''
-                }
-              });
-            }} 
-            className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-          >
-            Edit
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                updateData({
+                  text: {
+                    ...data.text,
+                    generatedText: '',
+                    customText: '',
+                    layout: ''
+                  }
+                });
+                setSelectedTextOption(null);
+                setShowTextOptions(false);
+                setIsCustomTextSaved(false);
+                setCustomText('');
+              }} 
+              className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            >
+              Edit
+            </button>
+            {data.text?.writingPreference === 'ai-assist' && (
+              <button 
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                Regenerate
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
