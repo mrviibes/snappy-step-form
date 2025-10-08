@@ -15,8 +15,6 @@ import realisticImage from "@/assets/visual-style-realistic-new.jpg";
 import designImage from "@/assets/visual-style-design-new.jpg";
 import renderImage from "@/assets/visual-style-3d-new.jpg";
 import animeImage from "@/assets/visual-style-anime-new.jpg";
-import portrait45Image from "@/assets/dimension-portrait-4-5.jpg";
-import widescreen169Image from "@/assets/dimension-widescreen-16-9.jpg";
 interface VisualsStepProps {
   data: any;
   updateData: (data: any) => void;
@@ -52,7 +50,14 @@ const visualStyles = [{
   description: "Japanese cartoon",
   preview: animeImage
 }];
-const dimensionOptions = [{
+interface DimensionOption {
+  id: string;
+  title: string;
+  description: string;
+  preview?: string;
+}
+
+const dimensionOptions: DimensionOption[] = [{
   id: "square",
   title: "Square",
   description: "1:1 aspect ratio"
@@ -63,8 +68,7 @@ const dimensionOptions = [{
 }, {
   id: "portrait-4-5",
   title: "Portrait 4:5",
-  description: "4:5 aspect ratio (Instagram)",
-  preview: portrait45Image
+  description: "4:5 aspect ratio (Instagram)"
 }, {
   id: "landscape-3-2",
   title: "Landscape 3:2",
@@ -72,8 +76,7 @@ const dimensionOptions = [{
 }, {
   id: "landscape-16-9",
   title: "Widescreen",
-  description: "16:9 aspect ratio",
-  preview: widescreen169Image
+  description: "16:9 aspect ratio"
 }];
 const compositionModes = [{
   id: "cinematic",
