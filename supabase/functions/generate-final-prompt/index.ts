@@ -516,15 +516,11 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
 
 // ============== LAYOUT TEMPLATE SYSTEM ==============
 
-// Universal template for all layouts
-const UNIVERSAL_PROMPT_TEMPLATE = `A {composition_mode} {image_style} photograph of {visual_subject} in {visual_setting}. 
-{lighting_description} create a {tone_atmosphere} atmosphere with {color_grading}.
-A very light transparent black overlay (~{overlay_opacity}% opacity) is applied evenly across the entire image to improve contrast, while maintaining brightness and clarity.
-The text exactly reads "{completed_text}" rendered exactly as typed in bold condensed sans-serif font, matte pure white, cleanly spaced, with crisp edges and a slight daylight glow, covering about {text_coverage}% of the image and positioned naturally in the {text_position}.
-{subject_quality_notes}`;
+// Universal template for all layouts (58 words - proven structure)
+const UNIVERSAL_PROMPT_TEMPLATE = `Exact text "{completed_text}" in bold white sans-serif across the {text_position} of the image in a dark semi-transparent banner. A cinematic {image_style} photograph of {visual_subject} in {visual_setting} {vibrant_elements}. {specific_lighting} creates a {tone_atmosphere} atmosphere with rich color grading.`;
 
-// Universal negative prompt
-const UNIVERSAL_NEGATIVE_PROMPT = "misspelled text, warped letters, distorted faces, cartoonish style, dark shadows, harsh contrast, oversaturated colors, fake lighting, black box behind text, text covering faces, cluttered composition";
+// Universal negative prompt (10 words - tested)
+const UNIVERSAL_NEGATIVE_PROMPT = "misspelled text, warped text, text covering body, deformed body parts";
 
 // Template object structure
 type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "badge-callout";
@@ -592,58 +588,36 @@ function splitMemeText(text: string): string {
 
 // Build complete variables object for template interpolation
 function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Record<string, any> {
-  // NEW: Color grading by tone
-  const colorGradingMap: Record<string, string> = {
-    humorous: "rich vibrant color grading",
-    savage: "subtle depth and clean highlights",
-    sentimental: "warm golden color grading with soft bloom",
-    inspirational: "balanced natural color grading with cinematic depth"
-  };
-
-  // NEW: Text positioning by layout
+  // Text positioning by layout
   const textPositionMap: Record<LayoutKey, string> = {
-    "negative-space": "open negative space to the left",
-    "meme-text": "classic meme format with TOP TEXT at the top edge and BOTTOM TEXT at the bottom edge, both in bold white all-caps sans-serif font",
-    "badge-callout": "floating badge in clear space",
-    "integrated-in-scene": "integrated naturally into a surface in the scene"
+    "negative-space": "bottom",
+    "meme-text": "top and bottom",
+    "badge-callout": "bottom",
+    "integrated-in-scene": "bottom"
   };
 
-  // NEW: Tone atmosphere descriptors
+  // Tone atmosphere descriptors
   const toneAtmosphereMap: Record<string, string> = {
-    humorous: "lighthearted and playful",
+    humorous: "playful",
     savage: "golden-hour",
     sentimental: "warm and intimate",
     inspirational: "uplifting and cinematic"
   };
 
-  // EXPANDED: Lighting descriptions (more natural language)
-  const lightingMap: Record<string, string> = {
-    humorous: "Warm natural light streaming through windows",
-    savage: "Warm natural light streaming through large windows",
+  // Vibrant scene elements by tone
+  const vibrantElementsMap: Record<string, string> = {
+    humorous: "filled with vibrant neon signs and a dancing crowd",
+    savage: "with dramatic lighting and dynamic energy",
+    sentimental: "bathed in warm golden light",
+    inspirational: "with cinematic depth and natural beauty"
+  };
+
+  // Specific lighting by tone
+  const specificLightingMap: Record<string, string> = {
+    humorous: "Warm light streaming through large windows",
+    savage: "Dramatic directional light",
     sentimental: "Soft golden light with gentle warmth",
     inspirational: "Bright balanced daylight with natural bloom"
-  };
-
-  // NEW: Subject quality notes by style
-  const subjectQualityMap: Record<string, string> = {
-    realistic: "The subject's face is clear and natural, realistic proportions, smooth skin, and accurate expression.",
-    "3d-render": "The subject has clean 3D modeling with natural proportions and smooth surfaces.",
-    anime: "The subject has clean anime styling with accurate proportions and expressive features.",
-    general: "The subject is clearly rendered with natural proportions and accurate details."
-  };
-
-  const textCoverageByLayout: Record<string, [number, number]> = {
-    "negative-space": [20, 28],
-    "integrated-in-scene": [20, 28],
-    "meme-text": [20, 30],
-    "badge-callout": [12, 18]
-  };
-
-  const overlayOpacityByLayout: Record<LayoutKey, number> = {
-    "negative-space": 8,
-    "integrated-in-scene": 8,
-    "meme-text": 14,
-    "badge-callout": 12
   };
 
   const tone = (p.tone || "humorous").toLowerCase();
@@ -652,9 +626,6 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   // Use provided photographic descriptions directly
   const visual_subject = p.visual_subject?.trim() || "a subject in context";
   const visual_setting = p.visual_setting?.trim() || "an atmospheric setting";
-
-  const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
-  const text_coverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
 
   // Auto-split text for meme-text layout
   const processedText = layoutKey === "meme-text" 
@@ -665,15 +636,12 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
     completed_text: processedText,
     visual_subject,
     visual_setting,
-    lighting_description: lightingMap[tone] || lightingMap.humorous,
-    tone_atmosphere: toneAtmosphereMap[tone] || "atmospheric",
-    color_grading: colorGradingMap[tone] || "rich vibrant color grading",
+    vibrant_elements: vibrantElementsMap[tone] || vibrantElementsMap.humorous,
+    specific_lighting: specificLightingMap[tone] || specificLightingMap.humorous,
+    tone_atmosphere: toneAtmosphereMap[tone] || "playful",
     image_style: style,
-    text_coverage,
     text_position: textPositionMap[layoutKey],
     composition_mode: p.composition_modes?.[0] || "cinematic",
-    overlay_opacity: overlayOpacityByLayout[layoutKey] || 12,
-    subject_quality_notes: subjectQualityMap[style] || subjectQualityMap.general,
     image_dimensions: aspectLabel(p.image_dimensions)
   };
 }
