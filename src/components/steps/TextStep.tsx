@@ -520,47 +520,29 @@ export default function TextStep({
             Edit
           </button>
         </div>
-        
 
-        {/* Selected Text Summary - only show after text selection or saved custom text */}
-        {(selectedTextOption !== null || data.text?.writingPreference === 'write-myself' && isCustomTextSaved) && <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Text</span> - {data.text?.writingPreference === 'write-myself' ? data.text.customText ? data.text.customText.substring(0, 20) + (data.text.customText.length > 20 ? '...' : '') : '' : textOptions[selectedTextOption]?.line?.substring(0, 20) + '...'}
-            </div>
-            <button onClick={() => {
-          if (data.text?.writingPreference === 'write-myself') {
-            setCustomText('');
-            setIsCustomTextSaved(false);
-            updateData({
-              text: {
-                ...data.text,
-                customText: '',
-                generatedText: ''
+        {/* Text Layout - Always show */}
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          <div className="text-sm text-foreground">
+            <span className="font-semibold">Text Layout</span> - {data.text?.layout ? layoutOptions.find(l => l.id === data.text?.layout)?.title : 'Not selected'}
+          </div>
+          <button 
+            onClick={() => {
+              if (data.text?.layout) {
+                updateData({
+                  text: {
+                    ...data.text,
+                    layout: ''
+                  }
+                });
               }
-            });
-          } else {
-            setSelectedTextOption(null);
-            setShowLayoutOptions(false);
-          }
-        }} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>}
-
-        {/* Selected Layout Summary - only show after layout selection */}
-        {data.text?.layout && <div className="flex items-center justify-between p-4">
-            <div className="text-sm text-foreground">
-              <span className="font-semibold">Layout</span> - {layoutOptions.find(l => l.id === data.text?.layout)?.title}
-            </div>
-            <button onClick={() => updateData({
-          text: {
-            ...data.text,
-            layout: ''
-          }
-        })} className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors">
-              Edit
-            </button>
-          </div>}
+            }} 
+            className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
+            disabled={!data.text?.layout}
+          >
+            Edit
+          </button>
+        </div>
       </div>
 
       
