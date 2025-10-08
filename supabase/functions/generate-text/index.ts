@@ -248,7 +248,8 @@ function polishGrammar(s: string): string {
   t = t.replace(/\bJesses\b/gi, "Jesse's");
 
   // 7. Cleanup stray punctuation spacing (keep existing)
-  t = t.replace(/\s([,.:;!?])/g, "$1");
+  t = t.replace(/\s([,.:;!?])/g, "$1");  // Remove space before punctuation
+  t = t.replace(/([,.:;])([^\s])/g, "$1 $2");  // Ensure space after punctuation
   t = t.replace(/\s+/g, " ").trim();
 
   return t;
