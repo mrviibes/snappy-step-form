@@ -549,6 +549,53 @@ function interpolateTemplate(template: string, vars: Record<string, any>): strin
   });
 }
 
+// Split text for meme-text layout into TOP TEXT and BOTTOM TEXT
+function splitMemeText(text: string): string {
+  // Find natural split point (comma, period, conjunction)
+  const splitPoints = [
+    { char: ',', priority: 1 },
+    { char: '.', priority: 2 },
+    { char: ' and ', priority: 3 },
+    { char: ' but ', priority: 3 },
+    { char: ' or ', priority: 3 }
+  ];
+
+  let bestSplitIndex = -1;
+  let bestPriority = 999;
+
+  // Find the best split point closest to the middle
+  const midpoint = text.length / 2;
+  
+  for (const sp of splitPoints) {
+    let index = text.indexOf(sp.char);
+    while (index !== -1) {
+      // Prefer splits closer to the middle with higher priority
+      const distance = Math.abs(index - midpoint);
+      if (sp.priority < bestPriority || (sp.priority === bestPriority && distance < Math.abs(bestSplitIndex - midpoint))) {
+        bestSplitIndex = index;
+        bestPriority = sp.priority;
+      }
+      index = text.indexOf(sp.char, index + 1);
+    }
+  }
+
+  // If we found a good split point, split the text
+  if (bestSplitIndex !== -1) {
+    const splitChar = splitPoints.find(sp => text.indexOf(sp.char, bestSplitIndex) === bestSplitIndex)?.char || ',';
+    let top = text.slice(0, bestSplitIndex).trim();
+    let bottom = text.slice(bestSplitIndex + splitChar.length).trim();
+    
+    // Clean up any trailing punctuation from top
+    top = top.replace(/[,.]$/, '');
+    
+    // Format as meme text with pipe separator
+    return `TOP TEXT: ${top} | BOTTOM TEXT: ${bottom}`;
+  }
+
+  // No good split point - use as single line
+  return text;
+}
+
 // Build complete variables object for template interpolation
 function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Record<string, any> {
   // NEW: Color grading by tone
@@ -562,7 +609,7 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   // NEW: Text positioning by layout
   const textPositionMap: Record<LayoutKey, string> = {
     "negative-space": "open negative space to the left",
-    "meme-text": "top and bottom",
+    "meme-text": "classic meme format with TOP TEXT at the top edge and BOTTOM TEXT at the bottom edge, both in bold white all-caps sans-serif font",
     "caption": "bottom caption area",
     "badge-callout": "floating badge in clear space",
     "integrated-in-scene": "integrated naturally into a surface in the scene",
@@ -621,8 +668,13 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
   const text_coverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
 
+  // Auto-split text for meme-text layout
+  const processedText = layoutKey === "meme-text" 
+    ? splitMemeText(sanitizeTextForImage(p.completed_text))
+    : sanitizeTextForImage(p.completed_text);
+
   return {
-    completed_text: sanitizeTextForImage(p.completed_text),
+    completed_text: processedText,
     visual_subject,
     visual_setting,
     lighting_description: lightingMap[tone] || lightingMap.humorous,
