@@ -10,6 +10,7 @@ import {
   ratingMap,
   textQualityNegatives,
   textFailureNegatives,
+  ratingNegatives,
 } from "../_shared/final-prompt-rules.ts";
 
 // ============== OPENAI DIRECT ==============
@@ -673,7 +674,11 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   
   // Use universal template
   const positive_prompt = interpolateTemplate(UNIVERSAL_PROMPT_TEMPLATE, vars);
-  const negative_prompt = UNIVERSAL_NEGATIVE_PROMPT;
+  
+  // Apply rating-specific negative prompt modifiers
+  const rating = (p.rating || "PG").toUpperCase();
+  const ratingNeg = ratingNegatives[rating] || ratingNegatives["PG"];
+  const negative_prompt = `${UNIVERSAL_NEGATIVE_PROMPT}, ${ratingNeg}`;
 
   console.log(`Generated ${layoutKey} prompt: ${positive_prompt.length} chars`);
 
