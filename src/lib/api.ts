@@ -155,11 +155,7 @@ export async function generateTextOptions(params: GenerateTextParams): Promise<G
     nonce
   };
   
-  const targetFn = import.meta.env.VITE_USE_TEXT_DEBUG === "true" 
-    ? "generate-text-debug" 
-    : "generate-text";
-  
-  const res = await ctlFetch<any>(targetFn, payload);
+  const res = await ctlFetch<any>("generate-text", payload);
   if (!res?.success || !Array.isArray(res.options) || res.options.length < 1) {
     throw new Error(res?.error || "Generation failed");
   }

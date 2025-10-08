@@ -1,10 +1,12 @@
-// Import category data from separate files
-import { celebrationsCategory } from "./categories/celebrations";
-import { dailyLifeCategory } from "./categories/daily-life";
-import { sportsCategory } from "./categories/sports";
-import { popCultureCategory } from "./categories/pop-culture";
-import { jokesCategory } from "./categories/jokes";
-import { miscellaneousCategory } from "./categories/miscellaneous";
+// Import category data from consolidated file
+import { 
+  celebrationsCategory,
+  dailyLifeCategory, 
+  sportsCategory,
+  popCultureCategory,
+  jokesCategory,
+  miscellaneousCategory
+} from "./categories-all";
 
 export interface ThemeItem {
   id: string;
