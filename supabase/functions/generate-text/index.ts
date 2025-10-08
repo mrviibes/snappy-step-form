@@ -131,11 +131,11 @@ function systemPrompt(b: {
 
   const topics = b.topics || [];
   const contextLine = topics.length
-    ? `Topics: ${topics.join(", ")}. Weave them naturally into the humor, don't copy verbatim.`
+    ? `Topics: ${topics.join(", ")}. Reference them creatively, not always directly together.`
     : `No specific topics given.`;
 
   const nameRule = topics.length && topics[0]
-    ? `Include "${topics[0]}" as the main subject or target.`
+    ? `Feature "${topics[0]}" but vary the structure. Some jokes can start with the name, others can reference it indirectly or place it mid-sentence.`
     : `Write general jokes.`;
 
   // Comedian style reference based on tone
@@ -150,6 +150,9 @@ function systemPrompt(b: {
 
   // Force imagery
   const imageryRule = `Include one specific visual element or prop (e.g., cake, candles, balloons, fire, smoke alarm, decorations, etc.) to paint a mental picture.`;
+
+  // Variety enforcement
+  const varietyRule = `Vary your approach: use metaphors, comparisons, indirect references, or scenarios. Don't just say the topics literally in every joke.`;
 
   // Grammar enforcement
   const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses).`;
@@ -172,6 +175,7 @@ function systemPrompt(b: {
     `Style: ${styleId} — ${styleRule}`,
     nameRule,
     imageryRule,
+    varietyRule,
     grammarRule,
     `Rules:`,
     `- Each line must sound like a comedian speaking.`,
