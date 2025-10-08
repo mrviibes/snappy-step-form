@@ -209,34 +209,32 @@ serve(async req => {
     console.log("[generate-visuals] Raw AI output:", JSON.stringify(visualsOutput, null, 2));
     console.log("[generate-visuals] Topics:", topics, "Caption keywords:", captionKeywords);
 
-    // Filter out duplicates and enforce concrete scenes with diversity
+// Filter out only duplicates - trust the AI to generate good concepts
     const filtered = [];
     for (const v of visualsOutput) {
       const isDistinct = !filtered.some(f => conceptsAreTooSimilar(f, v));
-      const isValid = hasConcreteSubject(v.subject) || hasRealPlace(v.setting); // Changed && to ||
       
-      if (isDistinct && isValid) {
+      if (isDistinct) {
         filtered.push(v);
       } else {
-        console.log("[generate-visuals] Filtered out:", v, "- concrete:", hasConcreteSubject(v.subject), "place:", hasRealPlace(v.setting));
+        console.log("[generate-visuals] Filtered out duplicate:", v);
       }
     }
 
     console.log("[generate-visuals] Filtered concepts count:", filtered.length);
 
-    // Soft pad with thematic concrete fallbacks if filtering shrinks the list
+    // Soft pad with improved fallbacks if AI doesn't generate enough
     while (filtered.length < 4) {
       const idx = filtered.length;
-      const mainTopic = topics[0] || "Person";
-      const action = topics[1] || "performs action";
-      const modifier = topics[2] || "";
+      const mainTopic = topics[0] || "person";
+      const captionWords = text.split(/\s+/).slice(0, 3).join(" ") || "situation";
       
       filtered.push({
-        design: `${mainTopic} ${action} Scene ${idx + 1}`,
-        subject: `${mainTopic} ${action} ${modifier} in an exaggerated way`.trim(),
-        subject_photo: `A person with ${modifier} expression, performing ${action}`,
-        setting: `Outdoor location with props related to ${action}`,
-        setting_photo: `Well-lit outdoor space with natural daylight, props visible in background`
+        design: `${mainTopic} Scene ${idx + 1}`,
+        subject: `Person reacting to ${captionWords} with exaggerated expression`,
+        subject_photo: `A person with surprised expression, animated body language, casual attire`,
+        setting: `Simple indoor space with natural props`,
+        setting_photo: `Clean well-lit room with soft natural lighting, minimal background clutter, neutral walls`
       });
       console.log("[generate-visuals] Added fallback concept:", filtered[filtered.length - 1]);
     }
