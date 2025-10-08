@@ -116,7 +116,7 @@ const ratingModifiers: Record<Rating, string> = {
   G: "family friendly, no edge or adult content.",
   PG: "light sarcasm, mild tone, still safe for everyone.",
   "PG-13": "modern language allowed, light edge or innuendo is fine.",
-  R: "MANDATORY: Every joke MUST contain profanity from this list: shit, fuck, ass, damn, hell, asshole, bastard, bullshit, goddamn. Write raw, unfiltered late-night comedy. Heavy insults with adult edge. No slurs. No targeting identity traits."
+  R: "Should typically contain profanity (shit, fuck, ass, damn, hell, asshole, bastard, bullshit, goddamn). Write raw, unfiltered late-night comedy. Heavy insults with adult edge, profanity integrated naturally. No slurs. No targeting identity traits."
 };
 
 function systemPrompt(b: {
@@ -155,13 +155,13 @@ function systemPrompt(b: {
   const varietyRule = `Vary your approach: use metaphors, comparisons, indirect references, or scenarios. Don't just say the topics literally in every joke.`;
 
   // Grammar enforcement
-  const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses).`;
+  const grammarRule = `Use contractions naturally (it's, that's, didn't, can't). Add possessive apostrophes correctly (Jesse's, not Jesses). Use gerunds (-ing form) after prepositions (into loving, about going, for being). Maintain consistent verb tense throughout each joke.`;
 
   // Extra rules for R rating
   const extraRules: string[] = [];
   if (b.rating === "R") {
     extraRules.push(
-      "- EVERY output MUST contain at least one profanity word: shit, fuck, ass, damn, hell, asshole, bastard, bullshit, or goddamn.",
+      "- Should typically contain profanity (shit, fuck, ass, damn, hell, asshole, bastard, bullshit, goddamn) but integrate it naturally.",
       "- Insult strength must be HEAVY, not mild.",
       "- Keep jokes about situations/decisions, never about identity traits."
     );
@@ -228,7 +228,27 @@ function polishGrammar(s: string): string {
   // 2. Fix vocative names: "Mikes," → "Mike," (when addressing someone directly)
   t = t.replace(/\b([A-Z][a-z]+)s,/g, "$1,");
   
-  // 3. Fix "said [verb]" → "said [verb+ing]"
+  // 3. Fix gerunds after prepositions: "into loves" → "into loving"
+  t = t.replace(/\b(into|about|for|at|by|from|with|without|after|before|of)\s+(loves|hates|enjoys|wants|needs|likes|prefers|avoids)\b/gi, (match, prep, verb) => {
+    const gerundMap: Record<string, string> = {
+      loves: 'loving', hates: 'hating', enjoys: 'enjoying',
+      wants: 'wanting', needs: 'needing', likes: 'liking',
+      prefers: 'preferring', avoids: 'avoiding'
+    };
+    return `${prep} ${gerundMap[verb.toLowerCase()] || verb + 'ing'}`;
+  });
+  
+  // 4. Fix conditional gerunds: "If loves farts" → "If loving farts"
+  t = t.replace(/\b(If|When|While|After|Before)\s+(loves|hates|enjoys|wants|needs|likes|prefers|avoids)\b/gi, (match, cond, verb) => {
+    const gerundMap: Record<string, string> = {
+      loves: 'loving', hates: 'hating', enjoys: 'enjoying',
+      wants: 'wanting', needs: 'needing', likes: 'liking',
+      prefers: 'preferring', avoids: 'avoiding'
+    };
+    return `${cond} ${gerundMap[verb.toLowerCase()] || verb + 'ing'}`;
+  });
+  
+  // 5. Fix "said [verb]" → "said [verb+ing]"
   t = t.replace(/\bsaid (eats|runs|plays|thinks|goes|watches)\b/gi, (match, verb) => {
     const gerunds: Record<string, string> = {
       eats: 'eating', runs: 'running', plays: 'playing',
@@ -237,18 +257,22 @@ function polishGrammar(s: string): string {
     return `said ${gerunds[verb.toLowerCase()] || verb + 'ing'}`;
   });
 
-  // 4. Remove quotes around movie/show titles
+  // 6. Remove quotes around movie/show titles
   t = t.replace(/'([A-Z][^']+)'/g, "$1");
   t = t.replace(/[""]([A-Z][^"""]+)[""]​/g, "$1");
 
-  // 5. Contract fixes (keep existing good logic)
+  // 7. Contract fixes (keep existing good logic)
   t = t.replace(/\bi am\b/gi, "I'm");
   
-  // 6. Possessive fixes (keep existing good logic but make it safer)
-  t = t.replace(/\b([A-Za-z]+)s ([A-Z])/g, "$1's $2");
+  // 8. Possessive fixes - more conservative to avoid false positives
+  // Only fix obvious cases like "Jesses" → "Jesse's" for proper names
+  t = t.replace(/\b([A-Z][a-z]+)s\s+([A-Z])/g, (match, name, nextCap) => {
+    // Only apply if next word is capitalized (likely proper noun following possessive)
+    return `${name}'s ${nextCap}`;
+  });
   t = t.replace(/\bJesses\b/gi, "Jesse's");
 
-  // 7. Cleanup stray punctuation spacing (keep existing)
+  // 9. Cleanup stray punctuation spacing (keep existing)
   t = t.replace(/\s([,.:;!?])/g, "$1");  // Remove space before punctuation
   t = t.replace(/([,.:;])([^\s])/g, "$1 $2");  // Ensure space after punctuation
   t = t.replace(/\s+/g, " ").trim();
@@ -316,10 +340,11 @@ function violatesRating(s: string, rating: Rating): boolean {
   return false;
 }
 
-// R rating must contain profanity from whitelist
+// R rating prefers profanity but doesn't strictly require it
 function requiresProfanityForR(s: string, rating: Rating): boolean {
-  if (rating !== "R") return true; // Only enforce for R rating
+  if (rating !== "R") return true; // Only check for R rating
   
+  // Prefer profanity but don't block jokes without it
   const profanityWhitelist = /\b(fuck|shit|bastard|ass|bullshit|goddamn|asshole|hell|damn)\b/i;
   return profanityWhitelist.test(s);
 }
