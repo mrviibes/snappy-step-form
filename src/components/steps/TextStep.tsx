@@ -528,17 +528,14 @@ export default function TextStep({
           </div>
           <button 
             onClick={() => {
-              if (data.text?.layout) {
-                updateData({
-                  text: {
-                    ...data.text,
-                    layout: ''
-                  }
-                });
-              }
+              updateData({
+                text: {
+                  ...data.text,
+                  layout: ''
+                }
+              });
             }} 
             className="text-cyan-400 hover:text-cyan-500 text-sm font-medium transition-colors"
-            disabled={!data.text?.layout}
           >
             Edit
           </button>
