@@ -19,7 +19,7 @@ function err(status: number, message: string, details?: unknown) {
 interface GenerateImageRequest {
   prompt: string;
   negativePrompt?: string;
-  image_dimensions?: "square" | "portrait" | "landscape";
+  image_dimensions?: "square" | "portrait-2-3" | "portrait-4-5" | "landscape-3-2" | "landscape-16-9";
   quality?: "high" | "medium" | "low";
   provider?: "ideogram" | "gemini";
   image_style?: string;
@@ -80,8 +80,20 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 10
 }
 
 // ---------- mappings ----------
-const aspectRatioMap: Record<string, string> = { square: "1x1", portrait: "9x16", landscape: "16x9" };
-const resolutionMap: Record<string, string> = { square: "1024x1024", landscape: "1536x1024", portrait: "1024x1536" };
+const aspectRatioMap: Record<string, string> = { 
+  square: "1x1", 
+  "portrait-2-3": "2x3", 
+  "portrait-4-5": "4x5", 
+  "landscape-3-2": "3x2", 
+  "landscape-16-9": "16x9" 
+};
+const resolutionMap: Record<string, string> = { 
+  square: "800x800", 
+  "portrait-2-3": "600x900", 
+  "portrait-4-5": "800x1000", 
+  "landscape-3-2": "900x600", 
+  "landscape-16-9": "960x540" 
+};
 const modelMap: Record<string, string> = { high: "V_3", medium: "V_3", low: "V_3_TURBO" };
 const legacyModelMap: Record<string, string> = { high: "V_2", medium: "V_2", low: "V_2_TURBO" };
 const speedMap: Record<string, string> = { high: "QUALITY", medium: "DEFAULT", low: "TURBO" };
@@ -220,8 +232,8 @@ serve(async (req) => {
     if (!prompt) return err(400, "prompt is required");
     if (prompt.length < 10) return err(400, "prompt must be at least 10 characters");
 
-    if (!["square", "portrait", "landscape"].includes(image_dimensions))
-      return err(400, "image_dimensions must be square | portrait | landscape");
+    if (!["square", "portrait-2-3", "portrait-4-5", "landscape-3-2", "landscape-16-9"].includes(image_dimensions))
+      return err(400, "image_dimensions must be square | portrait-2-3 | portrait-4-5 | landscape-3-2 | landscape-16-9");
 
     if (!["high", "medium", "low"].includes(quality))
       return err(400, "quality must be high | medium | low");

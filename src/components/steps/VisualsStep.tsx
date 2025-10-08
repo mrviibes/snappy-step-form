@@ -55,17 +55,21 @@ const dimensionOptions = [{
   title: "Square",
   description: "1:1 aspect ratio"
 }, {
-  id: "landscape",
-  title: "Landscape",
+  id: "portrait-2-3",
+  title: "Portrait 2:3",
+  description: "2:3 aspect ratio"
+}, {
+  id: "portrait-4-5",
+  title: "Portrait 4:5",
+  description: "4:5 aspect ratio (Instagram)"
+}, {
+  id: "landscape-3-2",
+  title: "Landscape 3:2",
+  description: "3:2 aspect ratio"
+}, {
+  id: "landscape-16-9",
+  title: "Widescreen",
   description: "16:9 aspect ratio"
-}, {
-  id: "portrait",
-  title: "Portrait",
-  description: "9:16 aspect ratio"
-}, {
-  id: "custom",
-  title: "Custom",
-  description: "Define your own dimensions"
 }];
 const compositionModes = [{
   id: "cinematic",
@@ -457,13 +461,14 @@ export default function VisualsStep({
             <h2 className="text-xl font-semibold text-foreground">Choose your dimensions</h2>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {dimensionOptions.map(dimension => <Card key={dimension.id} className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center h-32", data.visuals?.dimension === dimension.id ? "border-primary bg-accent" : "border-border hover:border-primary/50", dimension.id === "custom" && "border-dashed")} onClick={() => handleDimensionSelect(dimension.id)}>
+            {dimensionOptions.map(dimension => <Card key={dimension.id} className={cn("cursor-pointer text-center transition-all duration-200 border-2 p-4 flex flex-col justify-center h-32", data.visuals?.dimension === dimension.id ? "border-primary bg-accent" : "border-border hover:border-primary/50")} onClick={() => handleDimensionSelect(dimension.id)}>
                 <div className="flex justify-center mb-2">
                   <div className={cn("border-2 border-muted-foreground/30 bg-muted/20", {
-              "w-6 h-10": dimension.id === "portrait",
               "w-8 h-8": dimension.id === "square",
-              "w-12 h-6": dimension.id === "landscape",
-              "w-8 h-6 border-dashed": dimension.id === "custom"
+              "w-6 h-9": dimension.id === "portrait-2-3",
+              "w-6 h-7.5": dimension.id === "portrait-4-5",
+              "w-9 h-6": dimension.id === "landscape-3-2",
+              "w-12 h-6.75": dimension.id === "landscape-16-9"
             })} />
                 </div>
                 <h4 className="mb-1 text-sm font-medium text-foreground">{dimension.title}</h4>

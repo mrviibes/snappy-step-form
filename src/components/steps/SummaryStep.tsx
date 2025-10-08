@@ -144,7 +144,7 @@ export default function SummaryStep({ data, updateData }: SummaryStepProps) {
       const imageParams = {
         prompt: template.positive,
         negativePrompt: template.negative,
-        image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait' | 'landscape' || 'square',
+        image_dimensions: data.visuals?.dimension?.toLowerCase() as 'square' | 'portrait-2-3' | 'portrait-4-5' | 'landscape-3-2' | 'landscape-16-9' || 'square',
         quality: 'high' as const,
         provider: 'ideogram' as const
       };
