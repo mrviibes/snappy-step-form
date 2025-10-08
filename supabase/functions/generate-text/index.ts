@@ -221,16 +221,33 @@ function normalizeLine(s: string): string {
 function polishGrammar(s: string): string {
   let t = s;
 
-  // Article correction: "like escape room" -> "like an escape room"
-  t = t.replace(/\blike ([aeiou])/gi, "like an $1");
-  t = t.replace(/\blike ([^aeiou\s])/gi, "like a $1");
+  // 1. Fix double articles (these cause "like an a damn", "a the sequel", etc.)
+  t = t.replace(/\b(a|an) (a|an|the)\b/gi, "$2");  // "an a" → "a", "a the" → "the"
+  
+  // 2. Fix vocative names: "Mikes," → "Mike," (when addressing someone directly)
+  t = t.replace(/\b([A-Z][a-z]+)s,/g, "$1,");
+  
+  // 3. Fix "said [verb]" → "said [verb+ing]"
+  t = t.replace(/\bsaid (eats|runs|plays|thinks|goes|watches)\b/gi, (match, verb) => {
+    const gerunds: Record<string, string> = {
+      eats: 'eating', runs: 'running', plays: 'playing',
+      thinks: 'thinking', goes: 'going', watches: 'watching'
+    };
+    return `said ${gerunds[verb.toLowerCase()] || verb + 'ing'}`;
+  });
 
-  // Contract fixes and possessive smoothing
+  // 4. Remove quotes around movie/show titles
+  t = t.replace(/'([A-Z][^']+)'/g, "$1");
+  t = t.replace(/[""]([A-Z][^"""]+)[""]​/g, "$1");
+
+  // 5. Contract fixes (keep existing good logic)
   t = t.replace(/\bi am\b/gi, "I'm");
-  t = t.replace(/\b([A-Za-z]+)s ([A-Z])/g, "$1's $2"); // Jesse s Approach -> Jesse's Approach
+  
+  // 6. Possessive fixes (keep existing good logic but make it safer)
+  t = t.replace(/\b([A-Za-z]+)s ([A-Z])/g, "$1's $2");
   t = t.replace(/\bJesses\b/gi, "Jesse's");
 
-  // Cleanup stray punctuation spacing
+  // 7. Cleanup stray punctuation spacing (keep existing)
   t = t.replace(/\s([,.:;!?])/g, "$1");
   t = t.replace(/\s+/g, " ").trim();
 
