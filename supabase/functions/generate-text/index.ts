@@ -116,7 +116,7 @@ const ratingModifiers: Record<Rating, string> = {
   G: "family friendly, no edge or adult content.",
   PG: "light sarcasm, mild tone, still safe for everyone.",
   "PG-13": "modern language allowed, light edge or innuendo is fine.",
-  R: "Write like a late-night set. Use unfiltered adult language when it helps the punchline (e.g., hell, damn, shit, asshole). Keep it witty, not gross or hateful. No slurs. No targeting protected traits."
+  R: "MANDATORY: Every joke MUST contain profanity from this list: shit, fuck, ass, damn, hell, asshole, bastard, bullshit, goddamn. Write raw, unfiltered late-night comedy. Heavy insults with adult edge. No slurs. No targeting identity traits."
 };
 
 function systemPrompt(b: {
@@ -161,7 +161,8 @@ function systemPrompt(b: {
   const extraRules: string[] = [];
   if (b.rating === "R") {
     extraRules.push(
-      "- At least two outputs must contain clear adult language.",
+      "- EVERY output MUST contain at least one profanity word: shit, fuck, ass, damn, hell, asshole, bastard, bullshit, or goddamn.",
+      "- Insult strength must be HEAVY, not mild.",
       "- Keep jokes about situations/decisions, never about identity traits."
     );
   }
@@ -313,6 +314,14 @@ function violatesRating(s: string, rating: Rating): boolean {
   if (rating === "PG") return heavy.test(s);
   // PG-13 and R: no restriction (except slurs above)
   return false;
+}
+
+// R rating must contain profanity from whitelist
+function requiresProfanityForR(s: string, rating: Rating): boolean {
+  if (rating !== "R") return true; // Only enforce for R rating
+  
+  const profanityWhitelist = /\b(fuck|shit|bastard|ass|bullshit|goddamn|asshole|hell|damn)\b/i;
+  return profanityWhitelist.test(s);
 }
 
 function uniqueByText(lines: string[]) {
@@ -521,10 +530,17 @@ serve(async (req) => {
     }
     
     outputs = uniqueByText(outputs);
+    
+    // Enforce profanity requirement for R rating
+    outputs = outputs.filter(l => requiresProfanityForR(l, rating));
+    
+    if (rating === "R" && outputs.length < 4) {
+      console.log(`⚠️ Only ${outputs.length} R-rated jokes with profanity, need more`);
+    }
 
 
     if (outputs.length < 4) {
-      const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating));
+      const pad = synthFallback(topics, tone).filter(l => !violatesRating(l, rating) && requiresProfanityForR(l, rating));
       outputs = uniqueByText([...outputs, ...pad]).slice(0, 4);
       source = "synth-final";
     }
