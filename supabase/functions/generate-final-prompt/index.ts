@@ -43,6 +43,7 @@ interface FinalPromptRequest {
   specific_visuals?: string[];  // tags from UI
   visual_recommendation?: string;
   subjectScene?: string;        // explicit concrete scene description
+  visual_setting?: string;      // NEW: setting description for universal template
   provider?: "gemini" | "ideogram"; // defaults to gemini
 }
 
@@ -521,43 +522,18 @@ SCENE: ${styleStr} ${visPhrase}, cinematic lighting, ${aspect}`;
 
 // ============== LAYOUT TEMPLATE SYSTEM ==============
 
-// Template constants with {variable} placeholders
-const MEME_TEXT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in all-caps impact font at the top and bottom, classic meme layout with clean spacing and balanced stroke, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing for strong readability. A transparent black overlay (~{overlayOpacity}% opacity) adds contrast. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
+// Universal template for all layouts
+const UNIVERSAL_PROMPT_TEMPLATE = `A {composition_mode} {image_style} photograph of {visual_subject} in {visual_setting}. 
+{lighting_description} create a {tone_atmosphere} atmosphere with {color_grading}.
+A very light transparent black overlay (~{overlay_opacity}% opacity) is applied evenly across the entire image to improve contrast, while maintaining brightness and clarity.
+The text exactly reads "{completed_text}" rendered exactly as typed in bold condensed sans-serif font, matte pure white, cleanly spaced, with crisp edges and a slight daylight glow, covering about {text_coverage}% of the image and positioned naturally in the {text_position}.
+{subject_quality_notes}`;
 
-const BADGE_CALLOUT_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" inside a small floating badge using rounded sans-serif font, matte white, cleanly spaced, occupying roughly {textCoverage}% of the frame. Composition follows {composition_mode} framing, badge placed in open space without blocking faces or props. A soft overlay (~{overlayOpacity}% opacity) adds depth. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
-
-const NEGATIVE_SPACE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" shown in modern clean sans-serif font, positioned in open negative space, covering about {textCoverage}% of the image. Composition follows {composition_mode} framing with breathable margins and soft balance between subject and text. A subtle transparent overlay (~{overlayOpacity}% opacity) boosts readability. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
-
-const CAPTION_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" displayed as a bottom caption in condensed sans-serif, centered and evenly spaced, occupying around {textCoverage}% of the width. Composition follows {composition_mode} framing with natural hierarchy and clear separation from the subject. A soft black overlay (~{overlayOpacity}% opacity) keeps tone consistent. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
-
-const INTEGRATED_IN_SCENE_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" appearing naturally as part of the environment, printed or engraved on a visible surface such as a wall, sign, shirt, or object, matching perspective and light. Font style adapts to the surface texture, occupying about {textCoverage}% of the frame. Composition follows {composition_mode} framing with realistic lighting and depth cues. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
-
-const DYNAMIC_OVERLAY_TEMPLATE = `A {image_style} cinematic photograph of {subjectScene}, lit by {lightingDescriptor}. The text exactly reads "{completed_text}" in bold geometric sans-serif lettering, angled dynamically or along a leading line, occupying about {textCoverage}% of the image. Composition follows {composition_mode} framing with energetic diagonal flow and balanced legibility. A uniform transparent black overlay (~{overlayOpacity}% opacity) adds natural contrast. The overall tone is {tone}. Aspect ratio {image_dimensions}.`;
-
-// Negative prompt constants (short, layout-specific)
-const MEME_TEXT_NEGATIVE = "misspelled text, warped letters, weak stroke, oversized text, cluttered frame, sticker look, low contrast, text box, poor balance";
-
-const BADGE_CALLOUT_NEGATIVE = "warped text, thick border, cluttered badge, harsh outline, text box, off-center, low contrast, poor spacing";
-
-const NEGATIVE_SPACE_NEGATIVE = "misspelled text, low contrast, poor spacing, cluttered background, oversized text, text box, distorted letters, bad alignment";
-
-const CAPTION_NEGATIVE = "misspelled text, warped letters, weak contrast, oversized caption, uneven spacing, text box, cluttered bottom edge";
-
-const INTEGRATED_IN_SCENE_NEGATIVE = "flat text, wrong perspective, lighting mismatch, warped letters, text glow, low realism, text box, bad shadow";
-
-const DYNAMIC_OVERLAY_NEGATIVE = "misspelled text, warped letters, weak contrast, crooked angle, cluttered design, text box, bad flow, distorted faces";
+// Universal negative prompt
+const UNIVERSAL_NEGATIVE_PROMPT = "misspelled text, warped letters, distorted faces, cartoonish style, dark shadows, harsh contrast, oversaturated colors, fake lighting, black box behind text, text covering faces, cluttered composition";
 
 // Template object structure
 type LayoutKey = "negative-space" | "integrated-in-scene" | "meme-text" | "caption" | "badge-callout" | "dynamic-overlay";
-
-const LAYOUT_TEMPLATES: Record<LayoutKey, { positive: string; negative: string }> = {
-  "meme-text": { positive: MEME_TEXT_TEMPLATE, negative: MEME_TEXT_NEGATIVE },
-  "badge-callout": { positive: BADGE_CALLOUT_TEMPLATE, negative: BADGE_CALLOUT_NEGATIVE },
-  "negative-space": { positive: NEGATIVE_SPACE_TEMPLATE, negative: NEGATIVE_SPACE_NEGATIVE },
-  "caption": { positive: CAPTION_TEMPLATE, negative: CAPTION_NEGATIVE },
-  "integrated-in-scene": { positive: INTEGRATED_IN_SCENE_TEMPLATE, negative: INTEGRATED_IN_SCENE_NEGATIVE },
-  "dynamic-overlay": { positive: DYNAMIC_OVERLAY_TEMPLATE, negative: DYNAMIC_OVERLAY_NEGATIVE }
-};
 
 // ============== TEMPLATE INTERPOLATION ==============
 
@@ -575,32 +551,50 @@ function interpolateTemplate(template: string, vars: Record<string, any>): strin
 
 // Build complete variables object for template interpolation
 function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Record<string, any> {
-  // Simplified lighting descriptors (no repetition)
-  const lightingMap: Record<string, string> = {
-    humorous: "cinematic natural light with soft shadows",
-    savage: "cinematic directional light with sharp highlights and shadows",
-    sentimental: "gentle warm bokeh with candlelike glow",
-    inspirational: "balanced cinematic daylight with natural bloom"
+  // NEW: Color grading by tone
+  const colorGradingMap: Record<string, string> = {
+    humorous: "rich vibrant color grading",
+    savage: "subtle depth and clean highlights",
+    sentimental: "warm golden color grading with soft bloom",
+    inspirational: "balanced natural color grading with cinematic depth"
   };
 
-  // Expression descriptors by tone
-  const expressionMap: Record<string, string> = {
-    humorous: "with a light laugh or playful expression",
-    savage: "smirking confidently",
-    sentimental: "with a genuine warm smile",
-    inspirational: "with an uplifting hopeful gaze"
+  // NEW: Text positioning by layout
+  const textPositionMap: Record<LayoutKey, string> = {
+    "negative-space": "open negative space to the left",
+    "meme-text": "top and bottom",
+    "caption": "bottom caption area",
+    "badge-callout": "floating badge in clear space",
+    "integrated-in-scene": "integrated naturally into a surface in the scene",
+    "dynamic-overlay": "diagonal overlay across the frame"
   };
 
-  // Visual tone descriptors (replaces generic "bold and edgy")
-  const visualToneMap: Record<string, string> = {
-    humorous: "lighthearted and energetic",
-    savage: "visually striking and confident",
-    sentimental: "warm and genuine",
+  // NEW: Tone atmosphere descriptors
+  const toneAtmosphereMap: Record<string, string> = {
+    humorous: "lighthearted and playful",
+    savage: "golden-hour",
+    sentimental: "warm and intimate",
     inspirational: "uplifting and cinematic"
   };
 
+  // EXPANDED: Lighting descriptions (more natural language)
+  const lightingMap: Record<string, string> = {
+    humorous: "Warm natural light streaming through windows",
+    savage: "Warm natural light streaming through large windows",
+    sentimental: "Soft golden light with gentle warmth",
+    inspirational: "Bright balanced daylight with natural bloom"
+  };
+
+  // NEW: Subject quality notes by style
+  const subjectQualityMap: Record<string, string> = {
+    realistic: "The subject's face is clear and natural, realistic proportions, smooth skin, and accurate expression.",
+    "3d-render": "The subject has clean 3D modeling with natural proportions and smooth surfaces.",
+    anime: "The subject has clean anime styling with accurate proportions and expressive features.",
+    general: "The subject is clearly rendered with natural proportions and accurate details."
+  };
+
   const textCoverageByLayout: Record<string, [number, number]> = {
-    "negative-space": [10, 18],
+    "negative-space": [20, 28],
     "integrated-in-scene": [20, 28],
     "meme-text": [20, 30],
     "caption": [12, 18],
@@ -609,7 +603,7 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   };
 
   const overlayOpacityByLayout: Record<LayoutKey, number> = {
-    "negative-space": 12,
+    "negative-space": 8,
     "integrated-in-scene": 8,
     "meme-text": 14,
     "caption": 10,
@@ -618,29 +612,37 @@ function buildVariablesObject(p: FinalPromptRequest, layoutKey: LayoutKey): Reco
   };
 
   const tone = (p.tone || "humorous").toLowerCase();
-  const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
-  const textCoverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
-
-  // Build subject scene: prioritize explicit subjectScene, then visual_recommendation, then fallback
-  let subjectScene: string;
+  const style = (p.image_style || "realistic").toLowerCase();
+  
+  // Build visual_subject: detailed description from subjectScene
+  let visual_subject: string;
   if (p.subjectScene && p.subjectScene.trim()) {
-    // Use explicit scene description with expression added
-    subjectScene = `${p.subjectScene.trim()} ${expressionMap[tone] || ""}`.trim();
+    // Expand the subjectScene into a richer description
+    visual_subject = p.subjectScene.trim();
   } else {
-    // Fallback to visual_recommendation or generic
-    const baseScene = cleanVisRec(p.visual_recommendation) || "a well-lit subject in context";
-    subjectScene = `${baseScene} ${expressionMap[tone] || ""}`.trim();
+    // Fallback
+    visual_subject = cleanVisRec(p.visual_recommendation) || "a subject in context";
   }
+
+  // Build visual_setting: from visual_setting or fallback
+  const visual_setting = p.visual_setting?.trim() || "an atmospheric setting";
+
+  const [minCov, maxCov] = textCoverageByLayout[layoutKey] || [15, 25];
+  const text_coverage = Math.floor(Math.random() * (maxCov - minCov + 1)) + minCov;
 
   return {
     completed_text: sanitizeTextForImage(p.completed_text),
-    subjectScene,
-    lightingDescriptor: lightingMap[tone] || lightingMap.humorous,
-    image_style: (p.image_style || "realistic").toLowerCase(),
-    textCoverage,
+    visual_subject,
+    visual_setting,
+    lighting_description: lightingMap[tone] || lightingMap.humorous,
+    tone_atmosphere: toneAtmosphereMap[tone] || "atmospheric",
+    color_grading: colorGradingMap[tone] || "rich vibrant color grading",
+    image_style: style,
+    text_coverage,
+    text_position: textPositionMap[layoutKey],
     composition_mode: p.composition_modes?.[0] || "cinematic",
-    overlayOpacity: overlayOpacityByLayout[layoutKey] || 12,
-    tone: visualToneMap[tone] || tone,
+    overlay_opacity: overlayOpacityByLayout[layoutKey] || 12,
+    subject_quality_notes: subjectQualityMap[style] || subjectQualityMap.general,
     image_dimensions: aspectLabel(p.image_dimensions)
   };
 }
@@ -660,11 +662,10 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   // Auto-select better layout for certain tone/rating combinations
   if (!p.text_layout || p.text_layout === "auto") {
     const tone = (p.tone || "humorous").toLowerCase();
-    const rating = (p.rating || "PG").toUpperCase();
     
     // Tone-specific layout preferences
     const layoutPreferences: Record<string, LayoutKey> = {
-      "savage": "dynamic-overlay",     // Savage needs energy
+      "savage": "negative-space",      // Changed: negative-space works better with new template
       "humorous": "meme-text",         // Humorous works well with classic memes
       "inspirational": "caption",      // Inspirational suits captions
       "sentimental": "negative-space"  // Sentimental needs breathing room
@@ -680,27 +681,24 @@ async function generateIdeogramPrompts(p: FinalPromptRequest): Promise<PromptTem
   // Build variables object for interpolation
   const vars = buildVariablesObject(p, layoutKey);
   
-  // Get template for this layout (with fallback to negative-space)
-  const template = LAYOUT_TEMPLATES[layoutKey] || LAYOUT_TEMPLATES["negative-space"];
-  
-  // Interpolate template with variables
-  const positive_prompt = interpolateTemplate(template.positive, vars);
-  const negative_prompt = template.negative;
+  // Use universal template
+  const positive_prompt = interpolateTemplate(UNIVERSAL_PROMPT_TEMPLATE, vars);
+  const negative_prompt = UNIVERSAL_NEGATIVE_PROMPT;
 
   console.log(`Generated ${layoutKey} prompt: ${positive_prompt.length} chars`);
 
   // Return template result
   const result: PromptTemplate = {
     name: `ideogram-${layoutKey}`,
-    description: `Template-based Ideogram prompt for ${layoutKey} layout`,
+    description: `Universal Ideogram prompt for ${layoutKey} layout`,
     positive: positive_prompt,
     negative: negative_prompt,
     sections: {
       aspect: vars.image_dimensions,
       layout: layoutKey,
       mandatoryText: cleanText,
-      typography: `${layoutKey} style; target ${vars.textCoverage}%`,
-      scene: vars.subjectScene,
+      typography: `${layoutKey} style; target ${vars.text_coverage}%`,
+      scene: vars.visual_subject,
       mood: p.tone || "humorous",
       tags: normTags(p.specific_visuals),
       pretty: positive_prompt
